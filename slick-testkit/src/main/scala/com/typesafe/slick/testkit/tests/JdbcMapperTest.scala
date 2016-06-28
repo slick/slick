@@ -93,21 +93,35 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     }
     val ts2 = TableQuery[T2]
 
-    val updateQ1 = ts1.filter(_.a === 1)
-    val updateQ2 = ts2.filter(_.c === 2)
-    val updateQ3 = ts1.filter(_.a === 3).map(_.b)
-    val updateQ4 = ts2.filter(_.c === 4).map(_.d + 1)
+    val updateQ1 = ts1.filter(_.a === 11)
+    val updateQ2 = ts1.filter(_.a === 13).map(identity)
+    val updateQ3 = ts1.filter(_.a === 15)
+    val updateQ4 = ts2.filter(_.c === 22)
+    val updateQ5 = ts1.filter(_.a === 17).map(t => (t.a, t.b))
+//    val updateQ6 = ts2.filter(_.c === 24).map(_.d + 1)
+    val updateQ6 = ts2.filter(_.c === 24).map(_.d)
 
-//    println(updateQ1.updateStatement)
+    val updateQ7 = updateQ5.createUpdateNode{ case (a, b) => (a + 50, b + 100) }
+    val updateQ8 = updateQ6.createUpdateNode(d => d + 200)
+
 //    println(updateQ3.updateStatement)
+//    println(updateQ5.updateStatement)
+
+    ts1.map(t => (t.a, t.b)).map(_._2 + 5).result
 
     seq(
       ts1.schema.create,
       ts2.schema.create,
-      ts1 ++= Seq(Data(1, 2), Data(3, 4), Data(5, 6)),
-      ts2 ++= Seq(Data(2, 3), Data(4, 5), Data(6, 7)),
-      updateQ1.update(updateQ2),
-      updateQ3.update(updateQ4),
+      ts1 ++= Seq(Data(11, 12), Data(13, 14), Data(15, 16), Data(17, 18)),
+      ts2 ++= Seq(Data(22, 23), Data(24, 25), Data(26, 27), Data(28, 29)),
+      updateQ1.update(Data(7, 8)),
+      updateQ2.update(Data(9, 10)),
+      updateQ5.update(57, 58),
+      updateQ6.update(69),
+      updateQ3.update2(updateQ4),
+//      updateQ5.update2(updateQ6),
+      updateQ5.update2(updateQ7),
+      updateQ6.update2(updateQ8),
       ts1.to[Set].result.map(_ shouldBe Set(Data(2, 3), Data(3, 6), Data(5, 6)))
     )
   }

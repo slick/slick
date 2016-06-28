@@ -306,21 +306,29 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   //////////////////////////////////////////////////////////// Update Actions
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
-  type UpdateActionExtensionMethods[T] = UpdateActionExtensionMethodsImpl[T]
+  type UpdateActionExtensionMethods[E, U] = UpdateActionExtensionMethodsImpl[E, U]
 
-  def createUpdateActionExtensionMethods[T](rawTree: Node, param: Any): UpdateActionExtensionMethods[T] =
-    new UpdateActionExtensionMethodsImpl[T](rawTree, param)
+  def createUpdateActionExtensionMethods[E, U](rawNode: Node, param: Any): UpdateActionExtensionMethods[E, U] =
+    new UpdateActionExtensionMethodsImpl[E, U](rawNode, param)
 
-  class UpdateActionExtensionMethodsImpl[T](rawTree: Node, param: Any) {
-    private def compile(qc: QueryCompiler): (SQLBuilder.Result, ResultConverter[JdbcResultConverterDomain, T]) = {
+  class UpdateActionExtensionMethodsImpl[E, U](rawNode: Node, param: Any) {
+    private def compile(qc: QueryCompiler): (SQLBuilder.Result, ResultConverter[JdbcResultConverterDomain, U]) = {
       val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), CompiledMapping(_converter, _)) =
-        qc.run(rawTree).tree
-      val conv = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+        qc.run(rawNode).tree
+      val conv = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, U]]
+      (sres, conv)
+    }
+
+    private def compile(node: Node): (SQLBuilder.Result, ResultConverter[JdbcResultConverterDomain, U]) = {
+      val compiler = self.update2Compiler
+      val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), CompiledMapping(_converter, _)) =
+        compiler.run(node).tree
+      val conv = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, U]]
       (sres, conv)
     }
 
     /** An Action that updates the data selected by this query. */
-    def update(value: T): ProfileAction[Int, NoStream, Effect.Write] = {
+    def update(value: U): ProfileAction[Int, NoStream, Effect.Write] = {
       val (sres, converter) = compile(self.updateCompiler)
       new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
@@ -333,8 +341,44 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
 
     /** An Action that updates the data selected by this query. */
-    def update[TT, C[_]](query: Query[TT, T, C]): ProfileAction[Int, NoStream, Effect.Write] = {
+    def update[E2, C[_]](query: Query[E2, U, C]): ProfileAction[Int, NoStream, Effect.Write] = {
       val (sres, _) = compile(self.mutatingUpdateCompiler(query.toNode))
+      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+          st.clearParameters
+          sres.setter(st, 1, param)
+          st.executeUpdate
+        }
+      }
+    }
+
+    def update2[E2, C[_]](query: Query[E2, U, C]): ProfileAction[Int, NoStream, Effect.Write] = {
+      val (sres, _) = compile(Update(new AnonSymbol, rawNode, query.toNode, true))
+      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+          st.clearParameters
+          sres.setter(st, 1, param)
+          st.executeUpdate
+        }
+      }
+    }
+
+    /** An Action that updates the data by using the same underlying query */
+    def update2[F, G, T](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, G]): ProfileAction[Int, NoStream, Effect.Write] = {
+//      val gen = new AnonSymbol
+//      val (sres, _) = compile(Update(gen, rawNode, ))
+//      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
+//        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+//          st.clearParameters
+//          sres.setter(st, 1, param)
+//          st.executeUpdate
+//        }
+//      }
+      ???
+    }
+
+    def update2(node: Update): ProfileAction[Int, NoStream, Effect.Write] = {
+      val (sres, _) = compile(node)
       new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters

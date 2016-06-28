@@ -29,6 +29,9 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
+  lazy val update2Compiler = compiler.addAfter(Phase.flattenProjections)(
+    Phase.resolveUpdate, Phase.expandRecords, Phase.flattenProjections
+  ) + new JdbcUpdateCodeGen(_.buildUpdate, _.buildSelect)
   lazy val mutatingUpdateCompiler = (n: Node) => compiler + new JdbcCodeGen(_.buildMutatingUpdate(n))
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
   lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.NonAutoInc), new JdbcInsertCodeGen(createInsertBuilder))
@@ -43,7 +46,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
   trait LowPriorityAPI {
-    implicit def queryUpdateActionExtensionMethods[U, C[_]](q: Query[_, U, C]): UpdateActionExtensionMethodsImpl[U] =
+    implicit def queryUpdateActionExtensionMethods[E, U, C[_]](q: Query[E, U, C]): UpdateActionExtensionMethodsImpl[E, U] =
       createUpdateActionExtensionMethods(q.toNode, ())
   }
 
@@ -56,7 +59,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
     implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(c.compiledDelete, c.param)
 
-    implicit def runnableCompiledUpdateActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): UpdateActionExtensionMethods[RU] =
+    implicit def runnableCompiledUpdateActionExtensionMethods[E, _, RU, C[_]](c: RunnableCompiled[_ <: Query[E, _, C], C[RU]]): UpdateActionExtensionMethods[E, RU] =
       createUpdateActionExtensionMethods(c.compiledUpdate, c.param)
 
     implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: DBIOAction[R, S, E]): JdbcActionExtensionMethods[E, R, S] =

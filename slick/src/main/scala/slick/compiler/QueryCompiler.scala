@@ -24,12 +24,24 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
     else phases.patch(i+1, Seq(p), 0)
   })
 
+  def addAfter(after: Phase)(p: Phase*) = new QueryCompiler({
+    val i = phases.lastIndexWhere(_.name == after.name)
+    if(i == -1) throw new SlickException("Previous phase "+after.name+" not found")
+    else phases.patch(i+1, p, 0)
+  })
+
   /** Return a new compiler with the new phase added directly before another
     * phase (or a different implementation of the same phase name). */
   def addBefore(p: Phase, before: Phase) = new QueryCompiler({
     val i = phases.indexWhere(_.name == before.name)
     if(i == -1) throw new SlickException("Following phase "+before.name+" not found")
     else phases.patch(i, Seq(p), 0)
+  })
+
+  def addBefore(before: Phase)(p: Phase*) = new QueryCompiler({
+    val i = phases.indexWhere(_.name == before.name)
+    if(i == -1) throw new SlickException("Following phase "+before.name+" not found")
+    else phases.patch(i, p, 0)
   })
 
   /** Return a new compiler without the given phase (or a different
@@ -193,6 +205,7 @@ object Phase {
   val pruneProjections = new PruneProjections
   val rewriteDistinct = new RewriteDistinct
   val removeFieldNames = new RemoveFieldNames
+  val resolveUpdate = new ResolveUpdate
 
   /* Extra phases that are not enabled by default */
   val removeTakeDrop = new RemoveTakeDrop

@@ -1,6 +1,7 @@
 package slick.compiler
 
 import slick.ast._
+import slick.ast.TypeUtil._
 import slick.util.ConstArray
 
 /** Ensure that all collection operations are wrapped in a Bind so that we
@@ -14,9 +15,11 @@ class ForceOuterBinds extends Phase {
 
   def apply(n: Node): Node = {
     val t = n.nodeType.structuralRec
-    val n2 =
-      if(!t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))
-      else wrap(n)
+    val n2 = n match {
+      case node: Update => node.copy(set = maybewrap(node.set))
+      case node if !node.nodeType.structuralRec.isInstanceOf[CollectionType] => First(wrap(Pure(n)))
+      case other => wrap(other)
+    }
     n2.infer()
   }
 

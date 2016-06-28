@@ -24,6 +24,13 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def shaped: ShapedValue[_ <: E, U]
   final lazy val packed = shaped.toNode
 
+  def createUpdateNode[F, G, T](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, G]) = {
+    val generator = new AnonSymbol
+    val aliased = shaped.encodeRef(Ref(generator)).value
+    val fv = Query(f(aliased))
+    Update(generator, toNode, fv.toNode, false)
+  }
+
   /** Build a new query by applying a function to all elements of this query
     * and using the elements of the resulting queries. This corresponds to an
     * implicit inner join in SQL. */
