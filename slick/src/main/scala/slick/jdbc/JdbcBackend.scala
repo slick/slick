@@ -269,7 +269,9 @@ trait JdbcBackend extends RelationalBackend {
                   classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Database = {
       val usedConfig = if(path.isEmpty) config else config.getConfig(path)
       val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
-      val executor = AsyncExecutor(path, usedConfig.getIntOr("numThreads", 20), usedConfig.getIntOr("queueSize", 1000))
+      val numThreads = usedConfig.getIntOr("numThreads", 20)
+      val maxConnections = source.maxConnections.fold(numThreads*5)(identity)
+      val executor = AsyncExecutor(path, numThreads, numThreads, usedConfig.getIntOr("queueSize", 1000), maxConnections)
       forSource(source, executor)
     }
   }
@@ -410,17 +412,11 @@ trait JdbcBackend extends RelationalBackend {
   }
 
   class BaseSession(val database: Database) extends SessionDef {
-    protected var open = false
     protected var inTransactionally = 0
 
-    def isOpen = open
     def isInTransaction = inTransactionally > 0
 
-    lazy val conn = {
-      val c = database.source.createConnection
-      open = true
-      c
-    }
+    val conn = database.source.createConnection
 
     lazy val metaData = conn.getMetaData()
 
@@ -434,9 +430,7 @@ trait JdbcBackend extends RelationalBackend {
       }
     }
 
-    def close() {
-      if(open) conn.close()
-    }
+    def close() { conn.close() }
 
     private[slick] def startInTransaction: Unit = {
       if(!isInTransaction) conn.setAutoCommit(false)

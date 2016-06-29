@@ -1,16 +1,25 @@
 package slick.jdbc.hikaricp
 
-import java.sql.{Driver, Connection}
+import java.sql.{Connection, Driver}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
+
 import com.typesafe.config.Config
 import slick.SlickException
-import slick.jdbc.{JdbcDataSourceFactory, JdbcDataSource}
+import slick.jdbc.{JdbcDataSource, JdbcDataSourceFactory}
 import slick.util.ConfigExtensionMethods._
+import slick.util.Logging
 
 /** A JdbcDataSource for a HikariCP connection pool.
   * See `slick.jdbc.JdbcBackend#Database.forConfig` for documentation on the config parameters. */
-class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig) extends JdbcDataSource {
+class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig)
+  extends JdbcDataSource {
+
   def createConnection(): Connection = ds.getConnection()
+
   def close(): Unit = ds.close()
+
+  override val maxConnections: Option[Int] = Some(ds.getMaximumPoolSize)
 }
 
 object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
