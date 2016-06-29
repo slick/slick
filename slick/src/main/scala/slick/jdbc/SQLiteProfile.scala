@@ -177,6 +177,17 @@ trait SQLiteProfile extends JdbcProfile {
       case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
       // https://github.com/jOOQ/jOOQ/issues/1595
       case Library.Repeat(n, times) => b"replace(substr(quote(zeroblob(($times + 1) / 2)), 3, $times), '0', $n)"
+      case Union(left, right, all) =>
+        b"\{ select * from "
+        b"\["
+        buildFrom(left, None, true)
+        b"\]"
+        if(all) b"\nunion all " else b"\nunion "
+        b"select * from "
+        b"\["
+        buildFrom(right, None, true)
+        b"\]"
+        b"\}"
       case _ => super.expr(c, skipParens)
     }
   }

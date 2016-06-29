@@ -425,9 +425,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         b"\}"
       case Union(left, right, all) =>
         b"\{"
+        b"\["
         buildFrom(left, None, true)
+        b"\]"
         if(all) b"\nunion all " else b"\nunion "
+        b"\["
         buildFrom(right, None, true)
+        b"\]"
         b"\}"
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)

@@ -169,6 +169,14 @@ trait DerbyProfile extends JdbcProfile {
         } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None, true)
+        if(all) b"\nunion all " else b"\nunion "
+        b"\["
+        buildFrom(right, None, true)
+        b"\]"
+        b"\}"
       case _ => super.expr(c, skipParens)
     }
   }
