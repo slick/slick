@@ -38,7 +38,7 @@ object SlickBuild extends Build {
     val testDBs = Seq(
       h2,
       "org.xerial" % "sqlite-jdbc" % "3.8.7",
-      "org.apache.derby" % "derby" % "10.10.1.1",
+      "org.apache.derby" % "derby" % "10.11.1.1",
       "org.hsqldb" % "hsqldb" % "2.2.8",
       "postgresql" % "postgresql" % "9.1-901.jdbc4",
       "mysql" % "mysql-connector-java" % "5.1.38",
