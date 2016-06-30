@@ -56,3 +56,33 @@ The following loggers are particularly interesting:
 
 ``slick.jdbc.StatementInvoker.result``
    Shows the first rows of the result set when a query is executed. Does not apply to streaming results.
+
+.. index:: monitoring
+
+Monitoring
+==========
+
+When a :doc:`Database <database>` object has the ``registerMbeans`` option enabled (see
+:api:`Database.forConfig <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver,ClassLoader):Database>`),
+Slick registers a JMX_ management bean of type :api:`slick.util.AsyncExecutorMXBean` that provides information about the
+current workload of the database I/O thread pool and the task queue.
+
+Connection pool implementations may also honor this option and register additional management beans. In particular,
+the default HikariCP_ pool implementation does this. See `HikariCP Monitoring`_ in the HikariCP documentation for
+details.
+
+The management bean names are qualified with the ``poolName`` from the database configuration, or the config path
+if the ``poolName`` has not been set explicitly.
+
+Example: Including the following configuration options in the database configuration
+
+.. parsed-literal::
+  connectionPool = "HikariCP"
+  registerMbeans = true
+  poolName = "myDb"
+
+results in these three management beans being registered:
+
+- ``slick:type=AsyncExecutor,name=myDb``
+- ``com.zaxxer.hikari:type=PoolConfig (myDb)``
+- ``com.zaxxer.hikari:type=Pool (myDb)``

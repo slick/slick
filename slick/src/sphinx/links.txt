@@ -2,17 +2,16 @@
 .. _SLF4J: http://www.slf4j.org/
 .. _Logback: http://logback.qos.ch/
 .. _JDBC: http://en.wikipedia.org/wiki/Java_Database_Connectivity
-.. _Typesafe Subscription Agreement: http://typesafe.com/public/legal/TypesafeSubscriptionAgreement.pdf
-.. _Typesafe Subscription: http://typesafe.com/subscription
 .. _ScalaQuery: http://scalaquery.org
 .. _Activator: https://typesafe.com/activator
 .. _HikariCP: http://brettwooldridge.github.io/HikariCP/
+.. _HikariCP Monitoring: https://github.com/brettwooldridge/HikariCP/wiki/MBean-(JMX)-Monitoring-and-Management
+.. _About Pool Sizing: https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
 .. _Typesafe Config: https://github.com/typesafehub/config
 .. _Play: https://playframework.com/
 .. _Akka: http://akka.io/
 .. _Akka Streams: http://akka.io/docs/
 .. _Akka Sphinx: http://doc.akka.io/docs/akka/2.4.0/dev/documentation.html
-.. _About Pool Sizing: https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
 .. _Reactive Streams: http://www.reactive-streams.org/
 .. _JPA: http://en.wikipedia.org/wiki/Java_Persistence_API
 .. _Reactive Manifesto: http://www.reactivemanifesto.org/
@@ -28,3 +27,4 @@
 .. _SQLite: https://www.sqlite.org/
 .. _Oracle: https://www.oracle.com/database/
 .. _SQL Server: http://www.microsoft.com/en-us/server-cloud/products/sql-server/
+.. _JMX: https://en.wikipedia.org/wiki/Java_Management_Extensions
