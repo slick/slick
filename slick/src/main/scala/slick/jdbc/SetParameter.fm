@@ -72,4 +72,8 @@ object SetParameter {
   def apply[T](implicit f: (T, PositionedParameters) => Unit) = new SetParameter[T] {
     def apply(v: T, pp: PositionedParameters) = f(v, pp)
   }
+
+  def compose[T](sps: SetParameter[T]*): SetParameter[T] = SetParameter { (t, pp) =>
+    sps.foreach(_.apply(t, pp))
+  }
 }

@@ -4,20 +4,16 @@ import java.net.URI
 import java.sql.PreparedStatement
 
 import com.typesafe.config.ConfigException
+import slick.SlickException
+import slick.basic.{DatabaseConfig, StaticDatabaseConfigMacros}
+import slick.dbio.{Effect, NoStream}
+import slick.sql.{SqlAction, SqlStreamingAction}
+import slick.util.ClassLoaderUtil
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
-import scala.language.implicitConversions
-import scala.reflect.ClassTag
 import scala.reflect.macros.{blackbox, whitebox}
-import scala.collection.mutable.ArrayBuffer
-
-import slick.SlickException
-import slick.basic.{DatabaseConfig, StaticDatabaseConfigMacros, StaticDatabaseConfig}
-import slick.dbio.{NoStream, Effect}
-import slick.sql.{SqlAction, SqlStreamingAction}
-import slick.util.ClassLoaderUtil
 
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   import ActionBasedSQLInterpolation._
@@ -91,6 +87,14 @@ object ActionBasedSQLInterpolation {
 }
 
 case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit]) {
+  def ++(that: SQLActionBuilder): SQLActionBuilder =
+    SQLActionBuilder(this.queryParts ++ that.queryParts, SetParameter.compose(this.unitPConv, that.unitPConv))
+
+  def ++(other: Option[SQLActionBuilder]): SQLActionBuilder = other match {
+    case Some(that) => this ++ that
+    case None => this
+  }
+
   def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
     val query =
       if(queryParts.length == 1 && queryParts(0).isInstanceOf[String]) queryParts(0).asInstanceOf[String]

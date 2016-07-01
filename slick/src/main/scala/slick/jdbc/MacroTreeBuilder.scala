@@ -16,9 +16,22 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
   lazy val rawQueryParts: List[String] = {
     //Deconstruct macro application to determine the passed string and the actual parameters
     val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = c.macroApplication
-    strArg map {
-      case Literal(Constant(x: String)) => x
-      case _ => abort("The interpolation contained something other than constants...")
+    strArg map { str =>
+      evalString(str).getOrElse(abort("The interpolation contained something other than constants..."))
+    }
+  }
+
+  /**
+    * Tries to evaluate the given tree to a String literal known at compile-time
+    */
+  private def evalString(tree: Tree): Option[String] = tree match {
+    case Literal(Constant(x: String)) => Some(x)
+    case Literal(Constant(x)) => Some(String.valueOf(x))
+    case other => try {
+      val x1 = c.untypecheck(q"String.valueOf(${other.duplicate})")
+      Some(c.eval(c.Expr[String](x1)))
+    } catch {
+      case _ : Throwable => None
     }
   }
 
@@ -38,25 +51,10 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
     })
   }
 
-  /**
-   * Creates a tree equivalent to an implicity resolution of a given type
-   * eg for type GetResult[Int], this function gives the tree equivalent of
-   * scala.Predef.implicitly[GetResult[Int]]
-   */
-  def implicitTree(reqType: Tree, baseType: Tree) = TypeApply(
-    ImplicitlyTree, List(AppliedTypeTree(baseType, List(reqType)))
-  )
-
   //Some commonly used trees that are created on demand
   lazy val GetResultTypeTree = createClassTreeFromString("slick.jdbc.GetResult", TypeName(_))
-  lazy val SetParameterTypeTree = createClassTreeFromString("slick.jdbc.SetParameter", TypeName(_))
-  lazy val TypedStaticQueryTypeTree = createClassTreeFromString("slick.jdbc.TypedStaticQuery", TypeName(_))
   lazy val GetResultTree = createClassTreeFromString("slick.jdbc.GetResult", TermName(_))
-  lazy val SetParameterTree = createClassTreeFromString("slick.jdbc.SetParameter", TermName(_))
-  lazy val ImplicitlyTree = createClassTreeFromString("scala.Predef.implicitly", TermName(_))
   lazy val HeterogenousTree = createClassTreeFromString("slick.collection.heterogeneous", TermName(_))
-  lazy val VectorTree = createClassTreeFromString("scala.collection.immutable.Vector", TermName(_))
-  lazy val GetNoResultTree = createClassTreeFromString("slick.jdbc.TypedStaticQuery.GetNoResult", TermName(_))
 
   /**
    * Creates the tree for GetResult[] of the tsql macro
@@ -74,13 +72,9 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
     })
 
     resultTypes.size match {
-      case 0 => implicitTree(TypeTree(typeOf[Int]) , GetResultTypeTree)
-      case 1 => implicitTree(resultTypeTrees(0), GetResultTypeTree)
-      case n if (n <= 22) =>
-        implicitTree(AppliedTypeTree(
-          Select(Select(Ident(termNames.ROOTPKG), TermName("scala")), TypeName("Tuple" + resultTypes.size)),
-          resultTypeTrees.toList
-        ), GetResultTypeTree)
+      case 0 => q"scala.Predef.implicitly[slick.jdbc.GetResult[Int]]"
+      case 1 => q"scala.Predef.implicitly[slick.jdbc.GetResult[${resultTypeTrees(0)}]]"
+      case n if (n <= 22) => q"scala.Predef.implicitly[slick.jdbc.GetResult[(..$resultTypeTrees)]]"
       case n =>
         val rtypeTree = {
           val zero = TypeTree(typeOf[slick.collection.heterogeneous.syntax.HNil])
@@ -101,9 +95,9 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
             Function(
               List(ValDef(Modifiers(Flag.PARAM), TermName("p"), TypeTree(), EmptyTree)),
               Block(
-                zipped.map { tup =>
-                  val (i: Int, typ: Tree) = tup
-                  ValDef(Modifiers(), TermName("gr" + i), TypeTree(), implicitTree(typ, GetResultTypeTree))
+                zipped.map { case (i: Int, typ: Tree) =>
+                  val termName = TermName("gr" + i)
+                  q"val $termName = scala.Predef.implicitly[slick.jdbc.GetResult[$typ]]"
                 }.toList,
                 zipped.foldRight[Tree](zero) { (tup, prev) =>
                   val (i: Int, typ: Tree) = tup
@@ -137,13 +131,17 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
 
     /** Fuse adjacent string literals */
     def fuse(l: List[Tree]): List[Tree] = l match {
-      case Literal(Constant(s1: String)) :: Literal(Constant(s2: String)) :: ss => fuse(Literal(Constant(s1 + s2)) :: ss)
+      case s1 :: s2 :: ss => (evalString(s1), evalString(s2)) match {
+        case (Some(str1), Some(str2)) => fuse(Literal(Constant(str1 + str2)) :: ss)
+        case (None, Some(str2))       => s1 :: fuse(s2 :: ss)
+        case (_, None)                => s1 :: s2 :: fuse(ss)
+      }
       case s :: ss => s :: fuse(ss)
       case Nil => Nil
     }
 
     if(rawQueryParts.length == 1)
-      (List(Literal(Constant(rawQueryParts.head))), Select(SetParameterTree, TermName("SetUnit")))
+      (List(Literal(Constant(rawQueryParts.head))), q"slick.jdbc.SetParameter.SetUnit")
     else {
       val queryString = new ListBuffer[Tree]
       val remaining = new ListBuffer[c.Expr[SetParameter[Unit]]]
@@ -153,45 +151,21 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
         if(append) queryString.append(param.tree)
         else {
           queryString.append(Literal(Constant("?")))
+          val tpe = TypeTree(param.actualType)
           remaining += c.Expr[SetParameter[Unit]] {
-            Apply(
-              Select(
-                implicitTree(TypeTree(param.actualType), SetParameterTypeTree),
-                TermName("applied")
-              ),
-              List(param.tree)
-            )
+            q"scala.Predef.implicitly[slick.jdbc.SetParameter[$tpe]].applied($param)"
           }
         }
       }
       queryString.append(Literal(Constant(rawQueryParts.last)))
       val pconv =
-        if(remaining.isEmpty) Select(SetParameterTree, TermName("SetUnit"))
-        else Apply(
-          Select(SetParameterTree, TermName("apply")),
-          List(
-            Function(
-              List(
-                ValDef(Modifiers(Flag.PARAM), TermName("u"), TypeTree(), EmptyTree),
-                ValDef(Modifiers(Flag.PARAM), TermName("pp"), TypeTree(), EmptyTree)
-              ),
-              Block(
-                remaining.toList map ( sp =>
-                  Apply(
-                    Select(sp.tree, TermName("apply")),
-                    List(Ident(TermName("u")), Ident(TermName("pp")))
-                  )
-                ), Literal(Constant(()))
-              )
-            )
-          )
-        )
+        if(remaining.isEmpty) q"slick.jdbc.SetParameter.SetUnit"
+        else q"slick.jdbc.SetParameter.compose(..$remaining)"
       (fuse(queryString.result()), pconv)
     }
   }
 
-  lazy val queryParts: Tree =
-    Apply(Select(VectorTree, TermName("apply")), interpolationResultParams._1)
+  lazy val queryParts: Tree = q"scala.collection.immutable.Vector(..${interpolationResultParams._1})"
 
   def staticQueryString: String = interpolationResultParams._1 match {
     case Literal(Constant(s: String)) :: Nil => s

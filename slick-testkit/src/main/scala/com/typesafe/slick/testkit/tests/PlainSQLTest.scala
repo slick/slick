@@ -124,4 +124,17 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
       userForIdAndName(2, "foo").headOption shouldYield None //TODO Support `head` and `headOption` in Plain SQL Actions
     )
   }
+
+  def testComposableQueries = ifCap(tcap.plainSql) {
+    val create: DBIO[Int] = sqlu"create table USERS(ID int not null primary key, NAME varchar(255))"
+
+    def findUser(name: Option[String], id: Option[Long]) = {
+      val nameQ = name.map{ n => sql"NAME = $n" }
+      val idQ = id.map{ i => sql"ID = $i"}
+      sql"SELECT * FROM USERS " ++ nameQ ++ idQ
+    }.as[User]
+
+
+    DBIO.successful(())
+  }
 }
