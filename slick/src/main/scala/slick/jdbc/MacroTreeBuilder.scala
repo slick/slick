@@ -72,9 +72,9 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
     })
 
     resultTypes.size match {
-      case 0 => q"scala.Predef.implicitly[slick.jdbc.GetResult[Int]]"
-      case 1 => q"scala.Predef.implicitly[slick.jdbc.GetResult[${resultTypeTrees(0)}]]"
-      case n if (n <= 22) => q"scala.Predef.implicitly[slick.jdbc.GetResult[(..$resultTypeTrees)]]"
+      case 0 => q"_root_.scala.Predef.implicitly[_root_.slick.jdbc.GetResult[Int]]"
+      case 1 => q"_root_.scala.Predef.implicitly[_root_.slick.jdbc.GetResult[${resultTypeTrees(0)}]]"
+      case n if (n <= 22) => q"_root_.scala.Predef.implicitly[_root_.slick.jdbc.GetResult[(..$resultTypeTrees)]]"
       case n =>
         val rtypeTree = {
           val zero = TypeTree(typeOf[slick.collection.heterogeneous.syntax.HNil])
@@ -97,7 +97,7 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
               Block(
                 zipped.map { case (i: Int, typ: Tree) =>
                   val termName = TermName("gr" + i)
-                  q"val $termName = scala.Predef.implicitly[slick.jdbc.GetResult[$typ]]"
+                  q"val $termName = _root_.scala.Predef.implicitly[_root_.slick.jdbc.GetResult[$typ]]"
                 }.toList,
                 zipped.foldRight[Tree](zero) { (tup, prev) =>
                   val (i: Int, typ: Tree) = tup
@@ -141,7 +141,7 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
     }
 
     if(rawQueryParts.length == 1)
-      (List(Literal(Constant(rawQueryParts.head))), q"slick.jdbc.SetParameter.SetUnit")
+      (List(Literal(Constant(rawQueryParts.head))), q"_root_.slick.jdbc.SetParameter.SetUnit")
     else {
       val queryString = new ListBuffer[Tree]
       val remaining = new ListBuffer[c.Expr[SetParameter[Unit]]]
@@ -153,14 +153,14 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
           queryString.append(Literal(Constant("?")))
           val tpe = TypeTree(param.actualType)
           remaining += c.Expr[SetParameter[Unit]] {
-            q"scala.Predef.implicitly[slick.jdbc.SetParameter[$tpe]].applied($param)"
+            q"_root_.scala.Predef.implicitly[_root_.slick.jdbc.SetParameter[$tpe]].applied($param)"
           }
         }
       }
       queryString.append(Literal(Constant(rawQueryParts.last)))
       val pconv =
-        if(remaining.isEmpty) q"slick.jdbc.SetParameter.SetUnit"
-        else q"slick.jdbc.SetParameter.compose(..$remaining)"
+        if(remaining.isEmpty) q"_root_.slick.jdbc.SetParameter.SetUnit"
+        else q"_root_.slick.jdbc.SetParameter.compose(..$remaining)"
       (fuse(queryString.result()), pconv)
     }
   }
