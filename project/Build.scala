@@ -14,7 +14,7 @@ object SlickBuild extends Build {
 
   val slickVersion = "3.2.0-SNAPSHOT"
   val binaryCompatSlickVersion = "3.2.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.11.7", "2.12.0-M2")
+  val scalaVersions = Seq("2.11.8", "2.12.0-M5")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
@@ -23,7 +23,7 @@ object SlickBuild extends Build {
       "com.novocode" % "junit-interface" % "0.11"
     )
     def scalaTestFor(scalaVersion: String) = {
-      val v = if(scalaVersion == "2.12.0-M2") "2.2.5-M2" else "2.2.4"
+      val v = "3.0.0-RC4"
       "org.scalatest" %% "scalatest" % v
     }
     val slf4j = "org.slf4j" % "slf4j-api" % "1.7.18"
@@ -161,17 +161,23 @@ object SlickBuild extends Build {
   }
 
   /* A command that runs all tests sequentially */
-  def testAll = Command.command("testAll")(runTasksSequentially(List(
-    test in (slickTestkitProject, Test),
-    test in (slickTestkitProject, DocTest),
-    test in (osgiTestProject, Test),
-    test in (reactiveStreamsTestProject, Test),
-    packageDoc in Compile in slickProject,
-    packageDoc in Compile in slickCodegenProject,
-    packageDoc in Compile in slickHikariCPProject,
-    packageDoc in Compile in slickTestkitProject,
-    sdlc in aRootProject
-  )))
+  def testAll = Command.command("testAll") { state =>
+    val extracted = Project.extract(state)
+    val tasks = List(
+      test in (slickTestkitProject, Test),
+      test in (slickTestkitProject, DocTest),
+      test in (osgiTestProject, Test),
+      test in (reactiveStreamsTestProject, Test),
+      packageDoc in Compile in slickProject,
+      packageDoc in Compile in slickCodegenProject,
+      packageDoc in Compile in slickHikariCPProject,
+      packageDoc in Compile in slickTestkitProject
+    )
+    val withSdlc =
+      if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
+      else tasks
+    runTasksSequentially(withSdlc)(state)
+  }
 
   /* Project Definitions */
   lazy val aRootProject: Project = Project(id = "root", base = file("."),
