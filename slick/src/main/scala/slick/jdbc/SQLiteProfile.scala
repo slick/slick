@@ -97,9 +97,10 @@ trait SQLiteProfile extends JdbcProfile {
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       /** Regex matcher to extract name and length out of a db type name with length ascription */
-      final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
-      private val (_dbType,_size) = meta.typeName match {
-        case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
+      final val TypePattern = """^([A-Z]+)(?:\(([0-9]+)(?:,([0-9]+))?\))?$""".r
+      private val (_dbType,_size) = meta.typeName match{
+        case TypePattern(d,s,null) => (d, Option(s).map(_.toInt))  
+        case TypePattern(d,_,_)    => (d , None) //Ignore 2nd ascription since its ignored by sqlite type affinity to REAL or NUMERIC 
       }
       override def dbType = Some(_dbType)
       override def length = _size
