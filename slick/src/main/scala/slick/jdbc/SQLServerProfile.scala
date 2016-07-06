@@ -214,6 +214,7 @@ trait SQLServerProfile extends JdbcProfile {
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
       if(autoIncrement) sb append " IDENTITY"
+      if( unique ) sb append " UNIQUE"
     }
   }
 

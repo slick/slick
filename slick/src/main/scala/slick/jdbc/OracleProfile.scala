@@ -215,6 +215,7 @@ trait OracleProfile extends JdbcProfile {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
+      if( unique ) sb append " UNIQUE"
     }
 
     override protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {

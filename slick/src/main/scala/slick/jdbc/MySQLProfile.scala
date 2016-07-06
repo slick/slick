@@ -208,6 +208,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
       else if(sqlType.toUpperCase == "TIMESTAMP") sb append " NULL"
       if(autoIncrement) sb append " AUTO_INCREMENT"
       if(primaryKey) sb append " PRIMARY KEY"
+      if( unique ) sb append " UNIQUE"
     }
   }
 
