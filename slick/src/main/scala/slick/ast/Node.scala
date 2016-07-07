@@ -486,9 +486,8 @@ final case class Bind(generator: TermSymbol, from: Node, select: Node) extends B
   * @param set The underlying query on which update must be based
   * @param value An `Apply` node that updates the columns selected by `set` node or a separate query that fetched
   *              values for the columns to be updated
-  * @param hasSubSelects must be marked true if there are sub queries that must be compiled separately
   */
-final case class Update(gen: TermSymbol, set: Node, value: Node, hasSubSelects: Boolean) extends BinaryNode with DefNode {
+final case class Update(gen: TermSymbol, set: Node, value: Node) extends BinaryNode with DefNode {
   type Self = Update
   def left = set
   def right = value
@@ -497,40 +496,42 @@ final case class Update(gen: TermSymbol, set: Node, value: Node, hasSubSelects: 
   override protected[this] def rebuild(left: Node, right: Node): Update = copy(set = left, value = right)
   protected[this] def rebuildWithSymbols(genArr: ConstArray[TermSymbol]) = copy(gen = genArr(0))
   override protected[this] def withInferredType(scope: Scope, typeChildren: Boolean): Update = {
-    val withCh = if (!hasSubSelects) {
       val set2 = set.infer(scope, typeChildren)
       val set2Type = set2.nodeType match {
         case c: CollectionType => c.elementType
         case t => t
       }
       val value2 = value.infer(scope + (gen -> set2Type), typeChildren)
-      if ((set2 eq set) && (value2 eq value)) this else rebuild(set2, value2)
-    } else {
-      set.infer(scope, typeChildren)
-      value.infer(scope, typeChildren)
-      this
-    }
-    withCh :@ ScalaBaseType.intType
+      val withCh = if ((set2 eq set) && (value2 eq value)) this else rebuild(set2, value2)
+      withCh :@ set2.nodeType
   }
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = if (hasSubSelects) "hasSubSelects" else "hasNoSubSelects")
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }
 
-final case class UpdateBind(generator: TermSymbol, from: Node, select: Node) extends BinaryNode with DefNode {
+/**
+  * Represents an UpdateBind that has been generated after the ResolveUpdates phase.
+  * @param from The base table on which the UPDATE query is operating
+  * @param select A StructNode containing a ConstArray of Update nodes; one for each column
+  * @param hasSubSelects whether the values are SELECT operations on a table. Forces values to be converted into a
+  *                      subquery in the MergeToComprehensions phase
+  */
+final case class UpdateBind(generator: TermSymbol, from: Node, select: Node, hasSubSelects: Boolean) extends BinaryNode with DefNode {
   type Self = UpdateBind
   def left = from
   def right = select
+  def allUpdates = select.asInstanceOf[StructNode].elements.map(_._2)
   override def childNames = Seq("from "+generator, "select")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, select = right)
   def generators = ConstArray((generator, from))
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val from2ElementType = from2.nodeType.asCollectionType.elementType
     val select2 = select.infer(scope + (generator -> from2ElementType), typeChildren)
     val withCh = if((from2 eq from) && (select2 eq select)) this else rebuild(from2, select2)
-    withCh :@ (if(!hasType) CollectionType(TypedCollectionTypeConstructor.seq, select2.nodeType) else nodeType)
+    withCh :@ (if(!hasType) from2.nodeType else nodeType)
   }
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = if (hasSubSelects) "hasSubSelects" else "hasNoSubSelects")
 }
 
 /** An aggregation function application which is similar to a Bind(_, _, Pure(_)) where the

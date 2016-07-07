@@ -34,7 +34,7 @@ class VerifySymbols extends Phase {
         verifyScoping(f1, syms)
         verifyScoping(f2, syms)
         verifyScoping(on, syms + s1 + s2)
-      case UpdateBind(s, from, sel) =>
+      case UpdateBind(s, from, sel, _) =>
         verifyScoping(from, syms)
         verifyScoping(sel, syms + s)
       case n =>

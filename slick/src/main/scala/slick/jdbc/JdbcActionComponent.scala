@@ -340,20 +340,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       }
     }
 
-    /** An Action that updates the data selected by this query. */
-    def update[E2, C[_]](query: Query[E2, U, C]): ProfileAction[Int, NoStream, Effect.Write] = {
-      val (sres, _) = compile(self.mutatingUpdateCompiler(query.toNode))
-      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
-          st.clearParameters
-          sres.setter(st, 1, param)
-          st.executeUpdate
-        }
-      }
-    }
-
     def update2[E2, C[_]](query: Query[E2, U, C]): ProfileAction[Int, NoStream, Effect.Write] = {
-      val (sres, _) = compile(Update(new AnonSymbol, rawNode, query.toNode, true))
+      val (sres, _) = compile(Update(new AnonSymbol, rawNode, query.toNode))
       new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters
@@ -361,20 +349,6 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           st.executeUpdate
         }
       }
-    }
-
-    /** An Action that updates the data by using the same underlying query */
-    def update2[F, G, T](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, G]): ProfileAction[Int, NoStream, Effect.Write] = {
-//      val gen = new AnonSymbol
-//      val (sres, _) = compile(Update(gen, rawNode, ))
-//      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
-//        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
-//          st.clearParameters
-//          sres.setter(st, 1, param)
-//          st.executeUpdate
-//        }
-//      }
-      ???
     }
 
     def update2(node: Update): ProfileAction[Int, NoStream, Effect.Write] = {

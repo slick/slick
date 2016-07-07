@@ -6,6 +6,7 @@ import slick.util.ConstArray
 
 /** A SQL comprehension */
 final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where: Option[Node] = None,
+                               updateValues: ConstArray[Node] = ConstArray.empty,
                                groupBy: Option[Node] = None, orderBy: ConstArray[(Node, Ordering)] = ConstArray.empty,
                                having: Option[Node] = None,
                                distinct: Option[Node] = None,
@@ -13,10 +14,11 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
                                offset: Option[Node] = None,
                                forUpdate: Boolean = false) extends DefNode {
   type Self = Comprehension
-  lazy val children = (ConstArray.newBuilder() + from + select ++ where ++ groupBy ++ orderBy.map(_._1) ++ having ++ distinct ++ fetch ++ offset).result
+  lazy val children = (ConstArray.newBuilder() + from + select ++ where ++ updateValues ++ groupBy ++ orderBy.map(_._1) ++ having ++ distinct ++ fetch ++ offset).result
   override def childNames =
     Seq("from "+sym, "select") ++
     where.map(_ => "where") ++
+    updateValues.zipWithIndex.map{ case (_, i) => "updateValue " + i }.toSeq ++
     groupBy.map(_ => "groupBy") ++
     orderBy.map("orderBy " + _._2).toSeq ++
     having.map(_ => "having") ++
@@ -28,7 +30,9 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
     val newSelect = ch(1)
     val whereOffset = 2
     val newWhere = ch.slice(whereOffset, whereOffset + where.productArity)
-    val groupByOffset = whereOffset + newWhere.length
+    val updateValuesOffset = whereOffset + newWhere.length
+    val newUpdateValues = ch.slice(updateValuesOffset, updateValuesOffset + updateValues.length)
+    val groupByOffset = updateValuesOffset + newUpdateValues.length
     val newGroupBy = ch.slice(groupByOffset, groupByOffset + groupBy.productArity)
     val orderByOffset = groupByOffset + newGroupBy.length
     val newOrderBy = ch.slice(orderByOffset, orderByOffset + orderBy.length)
@@ -44,6 +48,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
       from = newFrom,
       select = newSelect,
       where = newWhere.headOption,
+      updateValues = newUpdateValues,
       groupBy = newGroupBy.headOption,
       orderBy = orderBy.zip(newOrderBy).map { case ((_, o), n) => (n, o) },
       having = newHaving.headOption,
@@ -61,6 +66,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
     // Assign types to "select", "where", "groupBy", "orderBy", "having", "distinct", "fetch" and "offset" Nodes
     val s2 = select.infer(genScope, typeChildren)
     val w2 = mapOrNone(where)(_.infer(genScope, typeChildren))
+    val u2 = updateValues.endoMap(_.infer(genScope, typeChildren))
     val g2 = mapOrNone(groupBy)(_.infer(genScope, typeChildren))
     val o = orderBy.map(_._1)
     val o2 = o.endoMap(_.infer(genScope, typeChildren))
@@ -69,7 +75,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
     val fetch2 = mapOrNone(fetch)(_.infer(genScope, typeChildren))
     val offset2 = mapOrNone(offset)(_.infer(genScope, typeChildren))
     // Check if the nodes changed
-    val same = (f2 eq from) && (s2 eq select) && w2.isEmpty && g2.isEmpty && (o2 eq o) && h2.isEmpty &&
+    val same = (f2 eq from) && (s2 eq select) && w2.isEmpty && (u2 eq updateValues) && g2.isEmpty && (o2 eq o) && h2.isEmpty &&
       distinct2.isEmpty && fetch2.isEmpty && offset2.isEmpty
     val newType =
       if(!hasType) CollectionType(f2.nodeType.asCollectionType.cons, s2.nodeType.asCollectionType.elementType)
@@ -79,6 +85,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
         from = f2,
         select = s2,
         where = w2.orElse(where),
+        updateValues = if (u2 eq updateValues) updateValues else u2,
         groupBy = g2.orElse(groupBy),
         orderBy = if(o2 eq o) orderBy else orderBy.zip(o2).map { case ((_, o), n) => (n, o) },
         having = h2.orElse(having),

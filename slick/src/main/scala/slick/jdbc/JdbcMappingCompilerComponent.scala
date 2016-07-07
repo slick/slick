@@ -4,7 +4,7 @@ import java.sql.{PreparedStatement, ResultSet}
 
 import slick.ast._
 import slick.ast.TypeUtil.:@
-import slick.compiler.{CompilerState, CodeGen}
+import slick.compiler.{CodeGen, CompilerState, QueryCompiler}
 import slick.lifted.MappedProjection
 import slick.relational._
 import slick.util.SQLBuilder
@@ -67,16 +67,6 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
       val ib = f(serverSide.asInstanceOf[Insert])
       val ibr = ib.buildInsert
       (CompiledStatement(ibr.sql, ibr, serverSide.nodeType).infer(), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
-    }
-  }
-
-  class JdbcUpdateCodeGen(buildUpdateRes: QueryBuilder => SQLBuilder.Result,
-                          buildSelectRes: QueryBuilder => SQLBuilder.Result) extends CodeGen {
-    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
-      val (tree, tpe) = treeAndType(serverSide)
-      // do some switching here based on the type of Comprehension; select query and update query
-      val sbr = buildUpdateRes(self.createQueryBuilder(tree, state))
-      (CompiledStatement(sbr.sql, sbr, tpe).infer(), mapping.map(mappingCompiler.compileMapping))
     }
   }
 }

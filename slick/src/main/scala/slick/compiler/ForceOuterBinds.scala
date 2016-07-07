@@ -1,7 +1,6 @@
 package slick.compiler
 
 import slick.ast._
-import slick.ast.TypeUtil._
 import slick.util.ConstArray
 
 /** Ensure that all collection operations are wrapped in a Bind so that we
@@ -15,11 +14,9 @@ class ForceOuterBinds extends Phase {
 
   def apply(n: Node): Node = {
     val t = n.nodeType.structuralRec
-    val n2 = n match {
-      case node: Update => node.copy(set = maybewrap(node.set))
-      case node if !node.nodeType.structuralRec.isInstanceOf[CollectionType] => First(wrap(Pure(n)))
-      case other => wrap(other)
-    }
+    val n2 =
+      if(!t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))
+      else wrap(n)
     n2.infer()
   }
 
@@ -48,6 +45,7 @@ class ForceOuterBinds extends Phase {
       if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)
       else maybewrap(ch)
     }
+    case u: Update => u.copy(set = maybewrap(u.set))
     case Path(path) => Path(path) // recreate untyped copy
     case n => n.mapChildren(maybewrap)
   }

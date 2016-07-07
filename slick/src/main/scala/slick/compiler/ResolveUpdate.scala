@@ -1,7 +1,6 @@
 package slick.compiler
 
 import slick.ast._
-import slick.ast.Type._
 import slick.ast.TypeUtil._
 import slick.ast.Util._
 import slick.SlickException
@@ -17,9 +16,9 @@ class ResolveUpdate extends Phase {
   private val treePrinter =
     new TreePrinter(prefix = DumpInfo.highlight(if(GlobalConfig.unicodeDump) "\u2503 " else "| "))
 
-  /** Run the phase */
+  /** Run the phase on an outer-bound Update Node */
   override def apply(state: CompilerState): CompilerState = state.map {
-    case u: Update => resolveUpdate(u).infer()
+    case Bind(_, u: Update, _) => resolveUpdate(u).infer()
     case otherNode => otherNode
   }
 
@@ -27,7 +26,12 @@ class ResolveUpdate extends Phase {
     val setType = u.set.nodeType.asCollectionType.elementType
     val valueType = u.value.nodeType.asCollectionType.elementType
 
-    if (!matchRecursive(setType, valueType)) throw new SlickException("Update set and value types do not match!")
+//    if (!matchRecursive(setType, valueType)) throw new SlickException("Update set and value types do not match!")
+
+    val hasSubSelects = u.value.findNode {
+      case Select(_ :@ NominalType(t: TableIdentitySymbol, _), f) => true
+      case _ => false
+    }.isDefined
 
     val gen = new AnonSymbol
     val setSyms = u.set.nodeType.structural match {
@@ -37,7 +41,7 @@ class ResolveUpdate extends Phase {
     }
 
     val createBind: TermSymbol => Bind = createSubqueryBind(u.value)
-    val values = if (!u.hasSubSelects) u.value match {
+    val values = if (!hasSubSelects) u.value match {
       case n: LiteralNode => ConstArray(n)
       case Pure(StructNode(elems), _) => elems.map(_._2)
       case n :@ t => throw new SlickException("Unexpected node found in Update.value: " + n + ": " + t)
@@ -55,13 +59,11 @@ class ResolveUpdate extends Phase {
     val updates = setSyms.zip(values) map {
       case (sym, node) => {
         val g = new AnonSymbol
-        Update(g, Path(sym :: gen :: Nil), appendToPath(node, g), u.hasSubSelects)
+        Update(g, Path(sym :: gen :: Nil), appendToPath(node, g))
       }
     }
 
-    val u2 = UpdateBind(gen, u.set, StructNode(updates map {(new AnonSymbol, _)}))
-//    println(treePrinter.get(u2))
-    u2
+    UpdateBind(gen, u.set, StructNode(updates map {(new AnonSymbol, _)}), hasSubSelects)
   }
 
   def createSubqueryBind(n: Node)(sym: TermSymbol): Bind = {
@@ -76,6 +78,6 @@ class ResolveUpdate extends Phase {
     case (at1: AtomicType, at2: AtomicType) => at1 == at2
     case (at1: AtomicType, _) => false
     case (_, at2: AtomicType) => false
-    case (ct1, ct2) => (ct1.children zip ct2.children).force forall (matchRecursive _).tupled
+    case (ct1, ct2) => (ct1.children zip ct2.children).force.forall { case (t1, t2) => matchRecursive(t1, t2) }
   }
 }

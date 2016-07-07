@@ -444,7 +444,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None, None, false) => select match {
+        case Comprehension(sym, from: TableNode, Pure(select, _), where, _, None, _, None, None, None, None, false) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -468,55 +468,37 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b"delete from $tableName"
     }
 
-    def buildMutatingUpdate(n: Node): SQLBuilder.Result = {
-      val (gen, from, where, select) = tree match {
-        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None, None, false) => select match {
-          case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field))
+    def buildUpdate2(f: QueryBuilder => SQLBuilder.Result): SQLBuilder.Result = {
+      val (gen, from, where, select, values) = tree match {
+        case Comprehension(sym, from: TableNode, Pure(select, _), where, values, None, _, None, None, None, None, false) => select match {
+          case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field), values)
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
-            (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
+            (sym, from, where, ch.map{ case Select(Ref(_), field) => field }, values)
           case _ => throw new SlickException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
         }
         case o => throw new SlickException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
 
+      if (values.length != select.length) {
+        throw new SlickException("The number of updateValues in Comprehension do not match the number of selected fields. This is most probably a BUG!")
+      }
+
+      def compileSubSelect(n: Node) = {
+        val sbr = f(self.createQueryBuilder(n, state))
+        sbr.sql
+      }
+
       val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because UPDATE does not support aliases
       b"update $qtn set "
-
-      val values = CodeGen.findResult(self.queryCompiler.run(n).tree)._1
-      b += "("
-      b.sep(select, ", ")(field => b += symbolName(field))
-      b += ") = (" += values += ")"
-
-      if(!where.isEmpty) {
-        b" where "
-        expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
-      }
-      b.build
-    }
-
-    protected def buildMutatingUpdate2(n: Node): SQLBuilder.Result = {
-      val (gen, from, where, select) = tree match {
-        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None, None, false) => select match {
-          case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field))
-          case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
-            (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
-          case _ => throw new SlickException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
+      b.sep(select.zip(values).force, ", "){ case (field, value) =>
+        b += symbolName(field) += " = ("
+        value match {
+          case c: Comprehension => b += compileSubSelect(c)
+          case otherNode => expr(otherNode, true)
         }
-        case o => throw new SlickException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
+        b += ")"
       }
-
-      val qtn = quoteTableName(from)
-      symbolName(gen) = qtn // Alias table to itself because UPDATE does not support aliases
-      b"update $qtn set "
-
-      val queries = ConstArray.tabulate(select.length)(i => n.select(ElementSymbol(i + 1)))
-      val values = queries.map { node =>
-        val compiled = self.queryCompiler.run(node).tree
-        CodeGen.findResult(compiled)._1
-      }
-      b.sep(select.zip(values).force, ", "){ case (field, value) => b += symbolName(field) += " = (" += value += ")" }
-
       if(!where.isEmpty) {
         b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
@@ -528,7 +510,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(sym, from, Pure(select, _), where, _, _, None, distinct, fetch, offset, forUpdate) =>
+        case Comprehension(sym, from, Pure(select, _), where, ConstArray.empty, _, _, None, distinct, fetch, offset, forUpdate) =>
           if(fetch.isDefined || offset.isDefined || distinct.isDefined || forUpdate)
             fail(".take, .drop .forUpdate and .distinct are not supported for deleting")
           from match {

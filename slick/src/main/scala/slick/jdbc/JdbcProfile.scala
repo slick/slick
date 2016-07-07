@@ -31,8 +31,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
   lazy val update2Compiler = compiler.addAfter(Phase.flattenProjections)(
     Phase.resolveUpdate, Phase.expandRecords, Phase.flattenProjections
-  ) + new JdbcUpdateCodeGen(_.buildUpdate, _.buildSelect)
-  lazy val mutatingUpdateCompiler = (n: Node) => compiler + new JdbcCodeGen(_.buildMutatingUpdate(n))
+  ) + new JdbcCodeGen(_.buildUpdate2(_.buildSelect))
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
   lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.NonAutoInc), new JdbcInsertCodeGen(createInsertBuilder))
   lazy val forceInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createInsertBuilder))

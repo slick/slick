@@ -270,6 +270,34 @@ class MergeToComprehensions extends Phase {
     }
 
     def convert1(n: Node): Node = n match {
+      case ub: UpdateBind =>
+        logger.debug("Converting UpdateBind into Comprehension: ", ub)
+        logger.debug("Converting UpdateBind.from: ", Ellipsis(ub, List(1)))
+        val (s1, m1) = createTopLevel(ub.from)
+        val s1c = s1.asInstanceOf[Comprehension]
+        logger.debug("Converted UpdateBind.from as: ", s1c)
+        logger.debug("Converting UpdateBind.allUpdates: ", Ellipsis(ub, List(0)))
+        val uvals = ub.allUpdates.map{ n =>
+          val u = n.asInstanceOf[Update]
+          if (ub.hasSubSelects) {
+            createTopLevel(u.value)._1
+          } else {
+            val Pure(StructNode(cols), _) = s1c.select
+            val rep1 = m1.map{ case ((_, termK), lv) => (termK, lv.head) }.toMap + (ub.generator -> s1c.sym)
+            val rep2 = cols.map{ case(s, v) => Path(s :: s1c.sym :: Nil) -> v }.toMap
+            logger.debug("Using symbol replacements: " + rep1)
+            logger.debug("Using path   replacements: " + rep2)
+            u.value.replace {
+              case Path(syms) => Path(syms map { s => rep1.getOrElse(s, s) })
+            } replace {
+              case p: PathElement => rep2.getOrElse(p, p)
+            }
+          }
+        }
+        logger.debug("Converted UpdateBind.allUpdates: ", StructNode(uvals.map(n => (new AnonSymbol, n))))
+        val res = s1c.copy(updateValues = uvals)
+        logger.debug("Converted UpdateBind into Comprehension as:", res)
+        res
       case CollectionCast(_, _) =>
         n.mapChildren(convert1, keepType = true)
       case n :@ Type.Structural(CollectionType(cons, el)) =>
@@ -293,10 +321,15 @@ class MergeToComprehensions extends Phase {
       case n => convert1(n)
     }
 
-    val tree2 :@ CollectionType(cons2, _) = convert1(tree)
-    val cons1 = tree.nodeType.asCollectionType.cons
-    if(cons2 != cons1) CollectionCast(tree2, cons1).infer()
-    else tree2
+    tree match {
+      case u: UpdateBind =>
+        convert1(u)
+      case _ =>
+        val tree2 :@ CollectionType(cons2, _) = convert1(tree)
+        val cons1 = tree.nodeType.asCollectionType.cons
+        if(cons2 != cons1) CollectionCast(tree2, cons1).infer()
+        else tree2
+    }
   }
 
   /** Lift a valid top-level or source Node into a subquery */

@@ -77,52 +77,79 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testMutatingUpdate = {
-    case class Data(a: Int, b: Int)
+    case class Data(a: Int, b: String)
 
     class T1(tag: Tag) extends Table[Data](tag, "T_mutating1") {
       def a = column[Int]("A")
-      def b = column[Int]("B")
+      def b = column[String]("B")
       def * = (a, b).mapTo[Data]
     }
     val ts1 = TableQuery[T1]
 
     class T2(tag: Tag) extends Table[Data](tag, "T_mutating2") {
       def c = column[Int]("C")
-      def d = column[Int]("D")
+      def d = column[String]("D")
       def * = (c, d).mapTo[Data]
     }
     val ts2 = TableQuery[T2]
 
-    val updateQ1 = ts1.filter(_.a === 11)
-    val updateQ2 = ts1.filter(_.a === 13).map(identity)
-    val updateQ3 = ts1.filter(_.a === 15)
-    val updateQ4 = ts2.filter(_.c === 22)
-    val updateQ5 = ts1.filter(_.a === 17).map(t => (t.a, t.b))
-//    val updateQ6 = ts2.filter(_.c === 24).map(_.d + 1)
-    val updateQ6 = ts2.filter(_.c === 24).map(_.d)
+    val updateQ11 = ts1.filter(_.a === 11)
+    val updateQ12 = ts1.filter(_.a === 12).map(_.b)
+    val updateQ13 = ts1.filter(_.a === 13).map(t => (t.a, t.b))
+    val updateQ14 = ts1.filter(_.a === 14)
+    val updateQ15 = ts1.filter(_.a === 15).map(_.b)
+    val updateQ16 = ts1.filter(_.a === 16).map(t => (t.b, t.a))
+    val updateQ21 = ts2.filter(_.c === 22)
+    val updateQ22 = ts2.filter(_.c === 25).map(_.d ++ "T2")
+    val updateQ23 = ts2.filter(_.c === 26).map(t => (t.c + 100, t.d ++ "T2"))
 
-    val updateQ7 = updateQ5.createUpdateNode{ case (a, b) => (a + 50, b + 100) }
-    val updateQ8 = updateQ6.createUpdateNode(d => d + 200)
+//    val updateQ31 = updateQ14.createUpdateNode(d => (d.a + 200, "tuple"))
+    val updateQ32 = updateQ15.createUpdateNode(d => d ++ "T1")
+    val updateQ33 = updateQ16.createUpdateNode{ case (b, a) => (b ++ "T1", a + 100) }
 
-//    println(updateQ3.updateStatement)
-//    println(updateQ5.updateStatement)
+    val q1 = updateQ11.update2(updateQ21)
+    val q2 = updateQ12.update2(updateQ22)
+    val q3 = updateQ13.update2(updateQ23)
+//    val q4 = updateQ14.update2(updateQ31)
+    val q5 = updateQ15.update2(updateQ32)
+    val q6 = updateQ16.update2(updateQ33)
 
-    ts1.map(t => (t.a, t.b)).map(_._2 + 5).result
+//    q1.statements.head shouldBe """update "T_mutating1" set "A" = (select "C"
+//                                  |from "T_mutating2"
+//                                  |where "C" = 22), "B" = (select "D"
+//                                  |from "T_mutating2"
+//                                  |where "C" = 22) where "T_mutating1"."A" = 11""".stripMargin
+//    q2.statements.head shouldBe """update "T_mutating1" set "B" = (select "D"||'T2'
+//                                  |from "T_mutating2"
+//                                  |where "C" = 25) where "T_mutating1"."A" = 12""".stripMargin
+//    q3.statements.head shouldBe """update "T_mutating1" set "A" = (select "C" + 100
+//                                  |from "T_mutating2"
+//                                  |where "C" = 26), "B" = (select "D"||'T2'
+//                                  |from "T_mutating2"
+//                                  |where "C" = 26) where "T_mutating1"."A" = 13""".stripMargin
+////    q4.statements.head shouldBe ""
+//    q5.statements.head shouldBe """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1') where "T_mutating1"."A" = 15"""
+//    q6.statements.head shouldBe """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1'), "A" = ("T_mutating1"."A" + 100) where "T_mutating1"."A" = 16"""
 
     seq(
       ts1.schema.create,
       ts2.schema.create,
-      ts1 ++= Seq(Data(11, 12), Data(13, 14), Data(15, 16), Data(17, 18)),
-      ts2 ++= Seq(Data(22, 23), Data(24, 25), Data(26, 27), Data(28, 29)),
-      updateQ1.update(Data(7, 8)),
-      updateQ2.update(Data(9, 10)),
-      updateQ5.update(57, 58),
-      updateQ6.update(69),
-      updateQ3.update2(updateQ4),
-//      updateQ5.update2(updateQ6),
-      updateQ5.update2(updateQ7),
-      updateQ6.update2(updateQ8),
-      ts1.to[Set].result.map(_ shouldBe Set(Data(2, 3), Data(3, 6), Data(5, 6)))
+      ts1 ++= Seq(Data(11, "11"), Data(12, "12"), Data(13, "13"), Data(14, "14"), Data(15, "15"), Data(16, "16")),
+      ts2 ++= Seq(Data(21, "21"), Data(22, "22"), Data(23, "23"), Data(24, "24"), Data(25, "25"), Data(26, "26")),
+
+      updateQ14.update(Data(1, "1")),
+      updateQ15.update("T0"),
+      updateQ16.update("T0", 57),
+
+      updateQ11.update2(updateQ21),
+      updateQ12.update2(updateQ22),
+      updateQ13.update2(updateQ23),
+
+//      updateQ14.update2(updateQ31),
+      updateQ15.update2(updateQ32),
+      updateQ16.update2(updateQ33),
+
+      ts1.to[Set].result.map(_ shouldBe Set(Data(22, "22"), Data(12, "25T2"), Data(126, "26T2"), Data(1, "1"), Data(15, "T0T1"), Data(57, "T0")))
     )
   }
 

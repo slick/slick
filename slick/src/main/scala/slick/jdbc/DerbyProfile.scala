@@ -171,8 +171,6 @@ trait DerbyProfile extends JdbcProfile {
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
       case _ => super.expr(c, skipParens)
     }
-
-    override def buildMutatingUpdate(n: Node) = buildMutatingUpdate2(n)
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
