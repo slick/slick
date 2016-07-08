@@ -16,9 +16,10 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
   lazy val rawQueryParts: List[String] = {
     //Deconstruct macro application to determine the passed string and the actual parameters
     val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = c.macroApplication
-    strArg map { str =>
+    val list = strArg map { str =>
       evalString(str).getOrElse(abort("The interpolation contained something other than constants..."))
     }
+    list.init :+ (list.last + " ")
   }
 
   /**
@@ -165,7 +166,7 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
     }
   }
 
-  lazy val queryParts: Tree = q"scala.collection.immutable.Vector(..${interpolationResultParams._1})"
+  lazy val queryParts: Tree = q"_root_.scala.collection.immutable.Vector(..${interpolationResultParams._1})"
 
   def staticQueryString: String = interpolationResultParams._1 match {
     case Literal(Constant(s: String)) :: Nil => s
