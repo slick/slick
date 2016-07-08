@@ -366,4 +366,14 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
       if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
     }
   }
+
+  implicit class DBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[T, S, E]) {
+    @inline def shouldYield(t: T) = action.map(_.shouldBe(t))
+  }
+
+  implicit class CollectionDBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[Vector[T], S, E]) {
+    @inline def shouldYield(t: Set[T]) = action.map(_.toSet.shouldBe(t))
+    @inline def shouldYield(t: Seq[T]) = action.map(_.toSeq.shouldBe(t))
+    @inline def shouldYield(t: List[T]) = action.map(_.toList.shouldBe(t))
+  }
 }
