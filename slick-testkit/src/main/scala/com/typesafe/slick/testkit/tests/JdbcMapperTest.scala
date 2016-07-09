@@ -92,6 +92,14 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     val headQ2 = ts.filter(_.b === 3).map(_.a + 1).headOption
     val headQ3 = ts.filter(_.a === 2).map(_.b).headOption
     val headQ4 = ts.filter(_.a === 1).map(_.c).headOption
+    val headQ5 = ts.filter(_.a === 1).map(t => (t.a, t.c)).headOption
+
+    // Test types of all queries
+    val headQ1t: Rep[Option[T]] = headQ1
+    val headQ2t: Rep[Option[Int]] = headQ2
+    val headQ3t: Rep[Option[Int]] = headQ3
+    val headQ4t: Rep[Option[Option[String]]] = headQ4
+    val headQ5t: Rep[Option[(Rep[Int], Rep[Option[String]])]] = headQ5
 
     seq(
       ts.schema.create,
@@ -114,8 +122,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
 //      headQ4.isEmpty.result.map(_ shouldBe false),
       headQ4.isEmpty.result.map(_ shouldBe true),
-      headQ4.result.map(_ shouldBe Some(None))
-//      headQ4.getOrElse("").result.map(_ shouldBe Some(None))
+      headQ4.result.map(_ shouldBe Some(None)),
+      headQ4.flatten.getOrElse("Not found!").result.map(_ shouldBe "Not found!")
     )
   }
 

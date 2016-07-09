@@ -384,23 +384,6 @@ final case class ForUpdate(generator: TermSymbol, from: Node) extends ComplexFil
   protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
 }
 
-/** A .headOption call. */
-final case class HeadOption(from: Node) extends SimplyTypedNode with UnaryNode {
-  type Self = HeadOption
-  val child = from
-  override val childNames = Seq("from")
-  lazy val childType = child.nodeType.asCollectionType.elementType
-  override def buildType = OptionType(childType)
-  protected[this] def rebuild(left: Node) = copy(from = left)
-}
-
-object HeadOption {
-  def wrap(n: Node)(f: Node => Node): Node = n match {
-    case HeadOption(node) => HeadOption(f(node))
-    case other => f(other)
-  }
-}
-
 /** A .take call. */
 final case class Take(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
   type Self = Take

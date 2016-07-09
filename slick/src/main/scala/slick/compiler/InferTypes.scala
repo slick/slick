@@ -4,5 +4,9 @@ package slick.compiler
 class InferTypes extends Phase {
   val name = "inferTypes"
 
-  def apply(state: CompilerState) = state.map(_.infer(typeChildren = true))
+  def apply(state: CompilerState) = state.map{n =>
+    val n2 = n.infer(typeChildren = true)
+    logger.debug("After inferring types", n2)
+    n2
+  }
 }

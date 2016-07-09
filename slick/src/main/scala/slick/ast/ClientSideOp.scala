@@ -39,7 +39,21 @@ final case class FirstOption(val child: Node) extends UnaryNode with SimplyTyped
   protected[this] def rebuild(ch: Node) = copy(child = ch)
   lazy val innerType = child.nodeType.asCollectionType.elementType
   protected def buildType = OptionType(innerType)
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = {
+    val this2 = mapChildren(r, keepType)
+    // This is to get around the UnassignedType of the child after inferTypes
+    // TableExpansion nodes have UnassignedType after InferTypes phase
+    // and ExpandTables.mapServerSide preserves type.
+    // This leads to a type mismatch after ExpandTables
+    if (this.child.nodeType eq this2.child.nodeType) this2 else this2.untyped.infer()
+  }
+}
+
+object FirstOption {
+  def wrap(n: Node)(f: Node => Node): Node = n match {
+    case FirstOption(node) => FirstOption(f(node))
+    case other => f(other)
+  }
 }
 
 /** A client-side projection of type

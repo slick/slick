@@ -182,7 +182,6 @@ class ErasedCollectionTypeConstructor[C[_]](canBuildFrom: CanBuild[Any, C[Any]],
 
 object TypedCollectionTypeConstructor {
   private[this] val arrayClassTag = mkClassTag[Array[_]]
-  private[this] val optionClassTag = mkClassTag[Option[_]]
   /** The standard TypedCollectionTypeConstructor for Seq */
   def seq = forColl[Vector]
   /** The standard TypedCollectionTypeConstructor for Set */

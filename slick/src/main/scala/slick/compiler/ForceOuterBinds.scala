@@ -13,7 +13,7 @@ class ForceOuterBinds extends Phase {
   def apply(state: CompilerState): CompilerState = state.map(apply)
 
   def apply(n: Node): Node = n match {
-    case h @ HeadOption(from) =>
+    case h @ FirstOption(from) =>
       val inner = Take(from, LiteralNode(1)).infer()
       (new FirstOption(wrapExternal(inner))).infer()
     case n => wrapExternal(n)
@@ -70,7 +70,7 @@ class ResolveHeadOption extends Phase {
   def transformTree(node: Node): Node = mapNode(node.mapChildren(transformTree)).infer()
 
   def mapNode(node: Node) = node match {
-    case n @ HeadOption(ch) =>
+    case n @ FirstOption(ch) =>
       Library.SilentCast.typed(n.nodeType, Take(ch, LiteralNode(1)).infer())
     case other => other
   }

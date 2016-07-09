@@ -40,16 +40,16 @@ class ExpandSums extends Phase {
         case OptionFold(from, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType), oa @ OptionApply(Ref(s)), gen) if s == gen =>
           silentCast(oa.nodeType, from)
 
-        case OptionFold(ho @ HeadOption(n), ifEmpty, map, gen) =>
-          val head = Take(n, LiteralNode(1))
-          val pred = Library.==.typed[Boolean](head, LiteralNode(null))
+        case OptionFold(fo @ FirstOption(n), ifEmpty, map, gen) =>
+          val first = Take(n, LiteralNode(1))
+          val pred = Library.==.typed[Boolean](first, LiteralNode(null))
           val n2 = (ifEmpty, map) match {
             case (LiteralNode(true), LiteralNode(false)) => pred
             case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](pred)
-            case (LiteralNode(v), Ref(s)) if s == gen => GetOrElse(silentCast(ho.nodeType, head), () => v)
+            case (LiteralNode(v), Ref(s)) if s == gen => GetOrElse(silentCast(OptionType(fo.innerType), first), () => v)
             case _ =>
               val ifDefined = map.replace({
-                case r @ Ref(s) if s == gen => silentCast(r.nodeType, head)
+                case r @ Ref(s) if s == gen => silentCast(r.nodeType, first)
               }, keepType = true)
               val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
               IfThenElse(ConstArray(pred, ifEmpty2, ifDefined))
