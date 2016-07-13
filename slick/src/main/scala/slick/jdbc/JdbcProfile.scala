@@ -6,6 +6,7 @@ import scala.language.{implicitConversions, higherKinds}
 import slick.ast._
 import slick.ast.TypeUtil.:@
 import slick.compiler.{Phase, QueryCompiler, InsertCompiler}
+import slick.dbio.{Effect, NoStream}
 import slick.lifted._
 import slick.relational.{RelationalProfile, CompiledMapping, SimpleFastPathResultConverter}
 import slick.sql.SqlProfile
@@ -47,6 +48,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   trait LowPriorityAPI {
     implicit def queryUpdateActionExtensionMethods[E, U, C[_]](q: Query[E, U, C]): UpdateActionExtensionMethodsImpl[E, U] =
       createUpdateActionExtensionMethods(q.toNode, ())
+    implicit def queryUpdateActionExtensionMethods2[E, U](uq: UpdateQuery[E, U]): ProfileAction[Int, NoStream, Effect.Write] = createUpdateActionExtensionMethods(uq.toNode, ()).execUpdate()
   }
 
   trait API extends LowPriorityAPI with super.API with ImplicitColumnTypes {

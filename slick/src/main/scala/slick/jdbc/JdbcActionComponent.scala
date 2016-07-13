@@ -319,14 +319,6 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       (sres, conv)
     }
 
-    private def compile(node: Node): (SQLBuilder.Result, ResultConverter[JdbcResultConverterDomain, U]) = {
-      val compiler = self.update2Compiler
-      val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), CompiledMapping(_converter, _)) =
-        compiler.run(node).tree
-      val conv = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, U]]
-      (sres, conv)
-    }
-
     /** An Action that updates the data selected by this query. */
     def update(value: U): ProfileAction[Int, NoStream, Effect.Write] = {
       val (sres, converter) = compile(self.updateCompiler)
@@ -340,19 +332,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       }
     }
 
-    def update2[E2, C[_]](query: Query[E2, U, C]): ProfileAction[Int, NoStream, Effect.Write] = {
-      val (sres, _) = compile(Update(new AnonSymbol, rawNode, query.toNode))
-      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
-          st.clearParameters
-          sres.setter(st, 1, param)
-          st.executeUpdate
-        }
-      }
-    }
-
-    def update2(node: Update): ProfileAction[Int, NoStream, Effect.Write] = {
-      val (sres, _) = compile(node)
+    def execUpdate(): ProfileAction[Int, NoStream, Effect.Write] = {
+      val (sres, _) = compile(self.update2Compiler)
       new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters

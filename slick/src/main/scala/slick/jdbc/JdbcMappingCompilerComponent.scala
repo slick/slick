@@ -4,7 +4,7 @@ import java.sql.{PreparedStatement, ResultSet}
 
 import slick.ast._
 import slick.ast.TypeUtil.:@
-import slick.compiler.{CodeGen, CompilerState, QueryCompiler}
+import slick.compiler.{CompilerState, CodeGen}
 import slick.lifted.MappedProjection
 import slick.relational._
 import slick.util.SQLBuilder

@@ -48,6 +48,7 @@ trait Aliases {
   type DBIO[+R] = dbio.DBIO[R]
   type StreamingDBIO[+R, +T] = dbio.StreamingDBIO[R, T]
   type DBIOAction[+R, +S <: dbio.NoStream, -E <: dbio.Effect] = dbio.DBIOAction[R, S, E]
+  type SqlDBIO[+R] = slick.sql.SqlAction[R, NoStream, Effect.All]
   val DBIO = dbio.DBIO
   type Effect = dbio.Effect
   val Effect = dbio.Effect

@@ -7,7 +7,6 @@ import slick.SlickException
 import slick.util.{Logging, Dumpable, DumpInfo, GlobalConfig, ConstArray}
 import Util._
 import TypeUtil._
-import slick.ast.Type.Scope
 
 /** A node in the Slick AST.
   * Every Node has a number of child nodes and an optional type annotation. */
@@ -495,7 +494,7 @@ final case class Update(gen: TermSymbol, set: Node, value: Node) extends BinaryN
   def generators = ConstArray(gen -> set)
   override protected[this] def rebuild(left: Node, right: Node): Update = copy(set = left, value = right)
   protected[this] def rebuildWithSymbols(genArr: ConstArray[TermSymbol]) = copy(gen = genArr(0))
-  override protected[this] def withInferredType(scope: Scope, typeChildren: Boolean): Update = {
+  override protected[this] def withInferredType(scope: Type.Scope, typeChildren: Boolean): Update = {
       val set2 = set.infer(scope, typeChildren)
       val set2Type = set2.nodeType match {
         case c: CollectionType => c.elementType
@@ -622,6 +621,7 @@ final case class Ref(sym: TermSymbol) extends PathElement with NullaryNode {
 /** A constructor/extractor for nested Selects starting at a Ref so that, for example,
   * `c :: b :: a :: Nil` corresponds to path `a.b.c`. */
 object Path {
+  def apply(l: TermSymbol*): PathElement = apply(l.toList)
   def apply(l: List[TermSymbol]): PathElement = l match {
     case s :: Nil => Ref(s)
     case s :: l => Select(apply(l), s)
@@ -652,6 +652,7 @@ object Path {
 /** A constructor/extractor for nested Selects starting at a Ref so that, for example,
   * `a :: b :: c :: Nil` corresponds to path `a.b.c`. */
 object FwdPath {
+  def apply(ch: TermSymbol*): PathElement = apply(ch.toList)
   def apply(ch: List[TermSymbol]): PathElement = {
     var p: PathElement = Ref(ch.head)
     ch.tail.foreach { sym => p = Select(p, sym) }

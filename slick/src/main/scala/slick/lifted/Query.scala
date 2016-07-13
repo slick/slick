@@ -31,6 +31,21 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     Update(generator, toNode, fv.toNode)
   }
 
+  def update3[F >: E](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, U, F]) = {
+    val generator = new AnonSymbol
+    val aliased = shaped.encodeRef(Ref(generator)).value
+    val fv = Query(f(aliased))
+    new UpdateQuery[F, U](Update(generator, toNode, fv.toNode), fv.shaped)
+  }
+
+  def update3[E2, C2[_]](select: Query[E2, U, C2]) = {
+    new UpdateQuery[E2, U](Update(new AnonSymbol, toNode, select.toNode), select.shaped)
+  }
+
+  def update3(value: U)(implicit shape: Shape[_ <:FlatShapeLevel, U, U, _]) = {
+    new UpdateQuery[E, U](Update(new AnonSymbol, toNode, Pure(shape.toNode(value))), shaped)
+  }
+
   /** Build a new query by applying a function to all elements of this query
     * and using the elements of the resulting queries. This corresponds to an
     * implicit inner join in SQL. */
@@ -291,6 +306,8 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: TermSymbol,
   def on[T <: Rep[_]](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
     new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(b1, b2)).toNode), base)
 }
+
+final class UpdateQuery[+E, U](val toNode: Update, val shaped: ShapedValue[_ <: E, U])
 
 /** Represents a database table. Profiles add extension methods to TableQuery
   * for operations that can be performed on tables but not on arbitrary

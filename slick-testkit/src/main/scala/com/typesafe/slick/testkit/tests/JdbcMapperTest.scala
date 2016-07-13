@@ -103,33 +103,40 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     val updateQ22 = ts2.filter(_.c === 25).map(_.d ++ "T2")
     val updateQ23 = ts2.filter(_.c === 26).map(t => (t.c + 100, t.d ++ "T2"))
 
-//    val updateQ31 = updateQ14.createUpdateNode(d => (d.a + 200, "tuple"))
-    val updateQ32 = updateQ15.createUpdateNode(d => d ++ "T1")
-    val updateQ33 = updateQ16.createUpdateNode{ case (b, a) => (b ++ "T1", a + 100) }
+    val q1: SqlDBIO[Int] = updateQ11.update3(updateQ21)
+    val q2: SqlDBIO[Int] = updateQ12.update3(updateQ22)
+    val q3: SqlDBIO[Int] = updateQ13.update3(updateQ23)
+//    val q4: SqlDBIO[Int] = updateQ14.update3(d => (d.a + 200, "tuple"))
+    val q5: SqlDBIO[Int] = updateQ15.update3(d => d ++ "T1")
+    val q6: SqlDBIO[Int] = updateQ16.update3[(Rep[String], Rep[Int])]{ case (b, a) => (b ++ "T1", a + 100) }
+    val q7: SqlDBIO[Int] = updateQ14.update(Data(1, "1"))
+    val q8: SqlDBIO[Int] = updateQ15.update3("T0")
+    val q9: SqlDBIO[Int] = updateQ16.update3("T0", 57)
 
-    val q1 = updateQ11.update2(updateQ21)
-    val q2 = updateQ12.update2(updateQ22)
-    val q3 = updateQ13.update2(updateQ23)
-//    val q4 = updateQ14.update2(updateQ31)
-    val q5 = updateQ15.update2(updateQ32)
-    val q6 = updateQ16.update2(updateQ33)
-
-//    q1.statements.head shouldBe """update "T_mutating1" set "A" = (select "C"
-//                                  |from "T_mutating2"
-//                                  |where "C" = 22), "B" = (select "D"
-//                                  |from "T_mutating2"
-//                                  |where "C" = 22) where "T_mutating1"."A" = 11""".stripMargin
-//    q2.statements.head shouldBe """update "T_mutating1" set "B" = (select "D"||'T2'
-//                                  |from "T_mutating2"
-//                                  |where "C" = 25) where "T_mutating1"."A" = 12""".stripMargin
-//    q3.statements.head shouldBe """update "T_mutating1" set "A" = (select "C" + 100
-//                                  |from "T_mutating2"
-//                                  |where "C" = 26), "B" = (select "D"||'T2'
-//                                  |from "T_mutating2"
-//                                  |where "C" = 26) where "T_mutating1"."A" = 13""".stripMargin
-////    q4.statements.head shouldBe ""
-//    q5.statements.head shouldBe """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1') where "T_mutating1"."A" = 15"""
-//    q6.statements.head shouldBe """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1'), "A" = ("T_mutating1"."A" + 100) where "T_mutating1"."A" = 16"""
+    // Exclude this so that string casting(eg in hsqldb) may not affect the test against constant sql strings
+    ifCapU(scap.stringIsVarchar) {
+      q1.statements.head shouldBe
+        """update "T_mutating1" set "A" = (select "C"
+                                  |from "T_mutating2"
+                                  |where "C" = 22), "B" = (select "D"
+                                  |from "T_mutating2"
+                                  |where "C" = 22) where "T_mutating1"."A" = 11""".stripMargin
+      q2.statements.head shouldBe
+        """update "T_mutating1" set "B" = (select "D"||'T2'
+                                    |from "T_mutating2"
+                                    |where "C" = 25) where "T_mutating1"."A" = 12""".stripMargin
+      q3.
+        statements.head shouldBe
+        """update "T_mutating1" set "A" = (select "C" + 100
+                                    |from "T_mutating2"
+                                    |where "C" = 26), "B" = (select "D"||'T2'
+                                    |from "T_mutating2"
+                                    |where "C" = 26) where "T_mutating1"."A" = 13""".stripMargin
+//      q4.statements.head shouldBe ""
+      q5.statements.head shouldBe
+        """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1') where "T_mutating1"."A" = 15"""
+      q6.statements.head shouldBe """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1'), "A" = ("T_mutating1"."A" + 100) where "T_mutating1"."A" = 16"""
+    }
 
     seq(
       ts1.schema.create,
@@ -137,17 +144,10 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       ts1 ++= Seq(Data(11, "11"), Data(12, "12"), Data(13, "13"), Data(14, "14"), Data(15, "15"), Data(16, "16")),
       ts2 ++= Seq(Data(21, "21"), Data(22, "22"), Data(23, "23"), Data(24, "24"), Data(25, "25"), Data(26, "26")),
 
-      updateQ14.update(Data(1, "1")),
-      updateQ15.update("T0"),
-      updateQ16.update("T0", 57),
-
-      updateQ11.update2(updateQ21),
-      updateQ12.update2(updateQ22),
-      updateQ13.update2(updateQ23),
-
-//      updateQ14.update2(updateQ31),
-      updateQ15.update2(updateQ32),
-      updateQ16.update2(updateQ33),
+      q7, q8, q9,
+      q1, q2, q3,
+//      q4,
+      q5, q6,
 
       ts1.to[Set].result.map(_ shouldBe Set(Data(22, "22"), Data(12, "25T2"), Data(126, "26T2"), Data(1, "1"), Data(15, "T0T1"), Data(57, "T0")))
     )

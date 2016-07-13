@@ -13,9 +13,6 @@ import slick.util.{ConstArray, DumpInfo, GlobalConfig, TreePrinter}
 class ResolveUpdate extends Phase {
   override val name = "resolveUpdate"
 
-  private val treePrinter =
-    new TreePrinter(prefix = DumpInfo.highlight(if(GlobalConfig.unicodeDump) "\u2503 " else "| "))
-
   /** Run the phase on an outer-bound Update Node */
   override def apply(state: CompilerState): CompilerState = state.map {
     case Bind(_, u: Update, _) => resolveUpdate(u).infer()
@@ -26,7 +23,7 @@ class ResolveUpdate extends Phase {
     val setType = u.set.nodeType.asCollectionType.elementType
     val valueType = u.value.nodeType.asCollectionType.elementType
 
-//    if (!matchRecursive(setType, valueType)) throw new SlickException("Update set and value types do not match!")
+    if (!matchRecursive(setType, valueType)) throw new SlickException("Update set and value types do not match!")
 
     val hasSubSelects = u.value.findNode {
       case Select(_ :@ NominalType(t: TableIdentitySymbol, _), f) => true
@@ -51,15 +48,15 @@ class ResolveUpdate extends Phase {
       case t => throw new SlickException("Unexpected nodetype found in Update.value: " + t)
     }
 
-    val appendToPath: (Node, TermSymbol) => Node = (n, s) => n.replace{
-      case Path(syms) => Path(syms map { s =>
-        Some(s).filter(_ == u.gen).map(_ => gen).getOrElse(s)
-      })
-    }
     val updates = setSyms.zip(values) map {
       case (sym, node) => {
         val g = new AnonSymbol
-        Update(g, Path(sym :: gen :: Nil), appendToPath(node, g))
+        val value = node.replace{
+          case Path(syms) => Path(syms map { s =>
+            Some(s).filter(_ == u.gen).map(_ => gen).getOrElse(s)
+          })
+        }
+        Update(g, Path(sym :: gen :: Nil), value)
       }
     }
 
@@ -75,7 +72,7 @@ class ResolveUpdate extends Phase {
   }
 
   def matchRecursive(t1: Type, t2: Type): Boolean = (t1, t2) match {
-    case (at1: AtomicType, at2: AtomicType) => at1 == at2
+    case (at1: AtomicType, at2: AtomicType) => at1.classTag == at2.classTag
     case (at1: AtomicType, _) => false
     case (_, at2: AtomicType) => false
     case (ct1, ct2) => (ct1.children zip ct2.children).force.forall { case (t1, t2) => matchRecursive(t1, t2) }
