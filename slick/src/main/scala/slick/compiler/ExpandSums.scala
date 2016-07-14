@@ -40,6 +40,7 @@ class ExpandSums extends Phase {
         case OptionFold(from, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType), oa @ OptionApply(Ref(s)), gen) if s == gen =>
           silentCast(oa.nodeType, from)
 
+        // Translate a Nested FirstOption appearing in the query
         case OptionFold(fo @ FirstOption(n), ifEmpty, map, gen) =>
           val first = Take(n, LiteralNode(1))
           val pred = Library.==.typed[Boolean](first, LiteralNode(null))

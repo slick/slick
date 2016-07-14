@@ -92,14 +92,14 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     val headQ2 = ts.filter(_.b === 3).map(_.a + 1).headOption
     val headQ3 = ts.filter(_.a === 2).map(_.b).headOption
     val headQ4 = ts.filter(_.a === 1).map(_.c).headOption
-    val headQ5 = ts.filter(_.a === 1).map(t => (t.a, t.c)).headOption
+    val headQ5 = ts.filter(_.a === 1).map(t => (t.b, t.c)).headOption
 
     // Test types of all queries
-    val headQ1t: Rep[Option[T]] = headQ1
-    val headQ2t: Rep[Option[Int]] = headQ2
-    val headQ3t: Rep[Option[Int]] = headQ3
-    val headQ4t: Rep[Option[Option[String]]] = headQ4
-    val headQ5t: Rep[Option[(Rep[Int], Rep[Option[String]])]] = headQ5
+    headQ1.shouldBeA[Rep[Option[T]]]
+    headQ2.shouldBeA[Rep[Option[Int]]]
+    headQ3.shouldBeA[Rep[Option[Int]]]
+    headQ4.shouldBeA[Rep[Option[Option[String]]]]
+    headQ5.shouldBeA[Rep[Option[(Rep[Int], Rep[Option[String]])]]]
 
     seq(
       ts.schema.create,
@@ -123,7 +123,15 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 //      headQ4.isEmpty.result.map(_ shouldBe false),
       headQ4.isEmpty.result.map(_ shouldBe true),
       headQ4.result.map(_ shouldBe Some(None)),
-      headQ4.flatten.getOrElse("Not found!").result.map(_ shouldBe "Not found!")
+      headQ4.flatten.getOrElse("Not found!").result.map(_ shouldBe "Not found!"),
+
+//      headQ5.isDefined.result.map(_ shouldBe false),
+      headQ5.isEmpty.result.map(_ shouldBe true),
+      headQ5.result.map(_ shouldBe (2, Some(None))),
+      // There is a bug in the ExpandSums code; instead of expanding complete paths, it expands only Refs
+//      headQ5.map{ case (b: Rep[Int], s: Rep[Option[String]]) => s.getOrElse(b.asColumnOf[String]) }.result.map(_ shouldBe "2")
+
+      Query(42).headOption.result.map(_ shouldBe 42)
     )
   }
 
