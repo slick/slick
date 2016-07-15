@@ -2,7 +2,7 @@ package slick.jdbc
 
 import scala.language.experimental.macros
 
-private[jdbc] class GetResultReadsMacroImpl(val c: scala.reflect.macros.blackbox.Context) {
+private[jdbc] class GetResultGenMacroImpl(val c: scala.reflect.macros.blackbox.Context) {
 
   import c.universe._
 
@@ -18,7 +18,7 @@ private[jdbc] class GetResultReadsMacroImpl(val c: scala.reflect.macros.blackbox
     if (entityConstructorSize > 1)
       c.warning(
         c.enclosingPosition,
-        s"GetResult.reads only support primary constructor ,but ${show(entity)} has ${entityConstructorSize} constructor")
+        s"GetResult.gen only support primary constructor ,but ${show(entity)} has ${entityConstructorSize} constructor")
 
     val entityPrimaryConstructor = entity.typeSymbol.typeSignature.members
       .filter(_.isConstructor)

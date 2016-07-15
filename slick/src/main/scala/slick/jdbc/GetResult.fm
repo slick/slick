@@ -56,13 +56,13 @@ object GetResult {
   def apply[T](implicit f: (PositionedResult => T)) = new GetResult[T] { def apply(rs: PositionedResult) = f(rs) }
 
   /**
-    *only support primary constructor
+    * only support primary constructor
     *
-    * {{{
+    * @example {{{
     *    case class Address(street: String, city: String, code: Option[Int])
-    *    implicit val implicitGetResultAddress = GetResult.reads[Address]
+    *    implicit val implicitGetResultAddress = GetResult.gen[Address]
     * }}}
     */
-  def reads[T]: slick.jdbc.GetResult[T] = macro GetResultReadsMacroImpl.apply[T]
+  def gen[T]: slick.jdbc.GetResult[T] = macro GetResultGenMacroImpl.apply[T]
 
 }
