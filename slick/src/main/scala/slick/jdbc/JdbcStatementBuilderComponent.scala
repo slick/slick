@@ -65,7 +65,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           ibr.table.baseIdentity+" != "+standardInsert.table.baseIdentity+")")
       val returnOther = ibr.fields.length > 1 || !ibr.fields.head.options.contains(ColumnOption.AutoInc)
       if(!capabilities.contains(JdbcCapabilities.returnInsertOther) && returnOther)
-        throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
+        throw new SlickException("This DBMS allows only a single column to be returned from an INSERT, and that column must be an AutoInc column.")
       (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]], returnOther)
     }
   }
