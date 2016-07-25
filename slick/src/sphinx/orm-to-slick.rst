@@ -196,7 +196,7 @@ The problem is that this hard-codes that a Person requires an Address. It cannot
 
 .. includecode:: code/OrmToSlick.scala#associationTuple
 
-An alternative approach is giving your classes Option-typed members referring to related objects, where None means that the related objects have not been loaded yet. However this is less type-safe then using a tuple or case class, because it cannot be statically checked, if the related object is loaded.
+An alternative approach is giving your classes Option-typed members referring to related objects, where None means that the related objects have not been loaded yet. However this is less type-safe than using a tuple or case class, because it cannot be statically checked, if the related object is loaded.
 
 Modifying relationships
 ________________________
