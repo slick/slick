@@ -32,7 +32,7 @@ private[jdbc] class MacroTreeBuilder[C <: Context](val c: C)(paramsList: List[C#
       val x1 = c.untypecheck(q"String.valueOf(${other.duplicate})")
       Some(c.eval(c.Expr[String](x1)))
     } catch {
-      case _ : Throwable => None
+      case scala.util.control.NonFatal(_) => None
     }
   }
 
