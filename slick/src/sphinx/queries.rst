@@ -332,8 +332,7 @@ query functions:
 
 .. includecode:: code/LiftedEmbedding.scala#compiled1
 
-This works for all functions that take parameters consisting only of individual columns or
-or :ref:`records <record-types>` of columns and return a ``Query`` object or a
+This works for all functions that take parameters consisting only of individual columns or :ref:`records <record-types>` of columns and return a ``Query`` object or a
 scalar query. See the API documentation for :api:`slick.lifted.Compiled`
 and its subclasses for details on composing compiled queries.
 
