@@ -464,6 +464,10 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b.build
     }
 
+    protected def buildDeleteFrom(tableName: String): Unit = {
+      b"delete from $tableName"
+    }
+
     def buildDelete: SQLBuilder.Result = {
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
@@ -479,7 +483,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       }
       val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
-      b"delete from $qtn"
+      buildDeleteFrom(qtn)
       if(!where.isEmpty) {
         b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)

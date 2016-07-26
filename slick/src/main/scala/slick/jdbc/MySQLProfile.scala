@@ -18,6 +18,7 @@ import slick.sql.SqlCapabilities
 import slick.util.{SlickLogger, GlobalConfig, ConstArray}
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.util.ConfigExtensionMethods.configExtensionMethods
+import slick.util.SQLBuilder.Result
 
 /** Slick profile for MySQL.
   *
@@ -181,6 +182,24 @@ trait MySQLProfile extends JdbcProfile { profile =>
         b"isnull($n) desc,"
       expr(n)
       if(o.direction.desc) b" desc"
+    }
+
+    // Override default DELETE FROM syntax in order to produce a more efficient
+    // DELETE query for MySQL.
+    //
+    // Slick cannot directly handle multi-table DELETEs, i.e., using JOIN or
+    // USING, but it can handle subqueries in the WHERE clause of a DELETE.
+    // This is good except for the fact that MySQL doesn't know how to
+    // optimize such semi-join subqueries to joins in single-table DELETE
+    // queries. However, if the DELETE query is a multi-table DELETE, even if
+    // on a single table, then something in MySQL kicks in and optimizes the
+    // subquery to a more efficient JOIN. Further reading:
+    //
+    // - http://mysqlserverteam.com/multi-table-trick
+    // - https://mariadb.com/kb/en/mariadb/semi-join-subquery-optimizations
+    //
+    override protected def buildDeleteFrom(tableName: String): Unit = {
+      b"delete $tableName from $tableName"
     }
   }
 
