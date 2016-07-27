@@ -89,8 +89,10 @@ object ActionBasedSQLInterpolation {
 
 case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit]) {
 
-  def ++(that: SQLActionBuilder): SQLActionBuilder =
-    SQLActionBuilder(this.queryParts ++ that.queryParts, SetParameter.compose(this.unitPConv, that.unitPConv))
+  def ++(that: SQLActionBuilder): SQLActionBuilder = {
+    val that2 = if (that.queryParts.headOption.exists(_.toString.startsWith(" "))) that else that.copy(queryParts = " " +: that.queryParts)
+    SQLActionBuilder(this.queryParts ++ that2.queryParts, SetParameter.compose(this.unitPConv, that2.unitPConv))
+  }
 
   def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
     val query =

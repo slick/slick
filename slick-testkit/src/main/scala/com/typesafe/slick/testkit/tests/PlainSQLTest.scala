@@ -21,10 +21,10 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
     val s2 = sql"select id from USERS where name = '#${"guest"}'".as[Int]
     val s3 = sql"select id from USERS where name = $foo".as[Int]
     val s4 = sql"select id from USERS where name = '#$foo'".as[Int]
-    s1.statements.head shouldBe "select id from USERS where name = ? "
-    s2.statements.head shouldBe "select id from USERS where name = 'guest' "
-    s3.statements.head shouldBe "select id from USERS where name = ? "
-    s4.statements.head shouldBe "select id from USERS where name = 'foo' "
+    s1.statements.head shouldBe "select id from USERS where name = ?"
+    s2.statements.head shouldBe "select id from USERS where name = 'guest'"
+    s3.statements.head shouldBe "select id from USERS where name = ?"
+    s4.statements.head shouldBe "select id from USERS where name = 'foo'"
 
     val create: DBIO[Int] = sqlu"create table USERS(ID int not null primary key, NAME varchar(255))"
 
@@ -76,13 +76,13 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
     val q6 = findUser(id = Some(2), name = Some("foo"))
     val q7 = unsafeSQL(queryString).as[User]
 
-    q1.statements.head shouldBe "SELECT id, name FROM USERS2 "
-    q2.statements.head shouldBe "SELECT id, name FROM USERS2 WHERE NAME LIKE (?) "
-    q3.statements.head shouldBe "SELECT id, name FROM USERS2 WHERE NAME LIKE (?) "
-    q4.statements.head shouldBe "SELECT * FROM USERS2 WHERE ID = ? "
-    q5.statements.head shouldBe "SELECT * FROM USERS2 WHERE NAME = ? AND ID = ? "
-    q6.statements.head shouldBe "SELECT * FROM USERS2 WHERE NAME = ? AND ID = ? "
-    q7.statements.head shouldBe "SELECT id, name FROM USERS2 WHERE id = 77 "
+    q1.statements.head shouldBe "SELECT id, name FROM USERS2"
+    q2.statements.head shouldBe "SELECT id, name FROM USERS2 WHERE NAME LIKE (?)"
+    q3.statements.head shouldBe "SELECT id, name FROM USERS2 WHERE NAME LIKE (?)"
+    q4.statements.head shouldBe "SELECT * FROM USERS2 WHERE ID = ?"
+    q5.statements.head shouldBe "SELECT * FROM USERS2 WHERE NAME = ? AND ID = ?"
+    q6.statements.head shouldBe "SELECT * FROM USERS2 WHERE NAME = ? AND ID = ?"
+    q7.statements.head shouldBe "SELECT id, name FROM USERS2 WHERE id = 77"
 
     seq(
       createTable,

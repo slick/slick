@@ -63,7 +63,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
     implicit def actionBasedSQLInterpolation(s: StringContext): ActionBasedSQLInterpolation = new ActionBasedSQLInterpolation(s)
 
-    def unsafeSQL(sql: String): SQLActionBuilder = new SQLActionBuilder(Seq(sql + " "), SetParameter.SetUnit)
+    def unsafeSQL(sql: String): SQLActionBuilder = new SQLActionBuilder(Seq(sql), SetParameter.SetUnit)
   }
 
   val api: API = new API {}
