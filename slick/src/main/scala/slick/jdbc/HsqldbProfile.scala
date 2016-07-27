@@ -1,6 +1,9 @@
 package slick.jdbc
 
-import java.sql.Types
+import java.sql.{PreparedStatement, ResultSet, Types}
+import java.time._
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.temporal.ChronoField
 
 import scala.concurrent.ExecutionContext
 import slick.SlickException
@@ -118,7 +121,186 @@ trait HsqldbProfile extends JdbcProfile {
     }
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
+
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
+    }
+    override val localTimeType = new LocalTimeJdbcType {
+      override def sqlType = java.sql.Types.TIME
+
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(3)"
+
+      override def getValue(r: ResultSet, idx: Int): LocalTime = {
+        // Fixes an issue caused because Hsqldb outputs the time in a non-standard format
+        // not adding trailing zeros to the hours. For example: '2:14:41.421' instead of '02:14:41.421'
+        r.getString(idx) match {
+          case null => null
+          case isoTime if isoTime.indexOf(':') == 2 => LocalTime.parse(isoTime)
+          case isoTime if isoTime.indexOf(':') == 1 => LocalTime.parse(s"0$isoTime")
+          case isoTime => throw new RuntimeException(s"$isoTime is not a valid Hsqldb String")
+        }
+      }
+    }
+
+    override val offsetTimeType = new OffsetTimeJdbcType
+    override val offsetDateTimeType = new OffsetDateTimeJdbcType
+
+    trait HsqldbTimeJdbcTypeWithOffset {
+
+      /**
+        * Finds the position of the problematic character during serialization / deserialization.
+        */
+      @inline
+      private[this] def offsetTypeCharPosition(isoString : String): Int = {
+        isoString.lastIndexWhere(x => x == '+' || x == '-' || x == 'Z')
+      }
+
+      /**
+        * Finds the offset char from a ISO-8601 [[String]]
+        */
+      @inline
+      private[this] def offsetTypeChar(isoString : String) : Char = {
+        isoString.charAt(offsetTypeCharPosition(isoString))
+      }
+
+      /**
+        * Fix issue caused because Hsqldb works with the offset and the hour in a non
+        * standard format. For example: '2:14:41.421+1:00' instead of '02:14:41.421+01:00'
+        */
+      def serializeIsoTime(isoString: String): String = {
+        if (isoString == null) {
+          "NULL"
+        } else {
+          offsetTypeChar(isoString) match {
+            case 'Z' =>
+              isoString.dropRight(1).concat("+0:00")
+            case _ =>
+              val problematicCharacterIndex: Int = offsetTypeCharPosition(isoString) + 1
+              problematicCharacterIndex match {
+                case index if isoString.charAt(index) == '0' =>
+                  // We need to take out this character from the ISO-8601 [[String]
+                  @inline val timestamp: String = isoString.substring(0, index)
+                  @inline val offset: String = isoString.substring(index + 1)
+                  s"$timestamp$offset"
+                case _ =>
+                  isoString
+              }
+          }
+        }
+      }
+
+      /**
+        * Fix issue caused because Hsqldb outputs the offset and the hours in a non standard
+        * format. For example: '2:14:41.421+1:00' instead of '02:14:41.421+01:00' (The hours and
+        * the offset do not have a trailing zero)
+        */
+      def parseHsqldbTime (hsqldbString: String) : String = {
+        hsqldbString match {
+          case null => null
+          case _ =>
+            @inline val normalizedTimeFormatString : String = normalizeTimeFormat(hsqldbString)
+            normalizeOffset(normalizedTimeFormatString)
+        }
+      }
+
+      @inline
+      private[this] def normalizeTimeFormat (hsqldbString : String) : String = {
+        hsqldbString.indexOf(':') match {
+          case 2 =>
+            hsqldbString
+          case 1 =>
+            s"0$hsqldbString"
+          case index if hsqldbString.charAt(index - 2) == ' ' =>
+            s"${hsqldbString.substring(0, index - 1)}0${hsqldbString.substring(index)}"
+          case index if hsqldbString.charAt(index - 2).asDigit >= 0 && hsqldbString.charAt(index - 2).asDigit <= 9 =>
+            hsqldbString
+          case _ =>
+            throw new RuntimeException(s"$hsqldbString do not have a valid Hsqldb format")
+        }
+      }
+
+      @inline
+      private[this] def normalizeOffset(isoString: String): String = {
+        isoString match {
+          case _ if isoString.endsWith("+0:00") =>
+            isoString.dropRight(5).concat("Z")
+          case _ =>
+            offsetTypeCharPosition(isoString) match {
+              case index if isoString.length - index - 1 == 5 => // ends with format -> +HH:MM
+                isoString
+              case index =>
+                // We add a missing '0' character in order to accomplish the ISO-8601 time format.
+                @inline val timestamp: String = isoString.substring(0, index + 1)
+                @inline val offset: String = isoString.substring(index + 1)
+                s"${timestamp}0$offset"
+            }
+        }
+      }
+    }
+
+    class OffsetTimeJdbcType extends super.OffsetTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
+
+      override def sqlType = java.sql.Types.OTHER
+
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(3) WITH TIME ZONE"
+
+      override val hasLiteralForm: Boolean = false
+
+      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
+        @inline val fixedOffsetTime: String = serializeIsoTime(v.toString)
+        p.setString(idx, fixedOffsetTime)
+      }
+
+      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) = {
+        @inline val fixedOffsetTime: String = serializeIsoTime(v.toString)
+        r.updateString(idx, fixedOffsetTime)
+      }
+
+      override def getValue(r: ResultSet, idx: Int): OffsetTime = {
+        r.getString(idx) match {
+          case null => null
+          case hsqldbString =>
+            @inline val normalizedIsoString : String = parseHsqldbTime(hsqldbString)
+            OffsetTime.parse(normalizedIsoString)
+        }
+      }
+    }
+
+    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
+
+      private[this] val formatter: DateTimeFormatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 3, true)
+          .optionalEnd()
+          .appendOffset("+HH:MM", "Z")
+          .toFormatter()
+      }
+
+      override def sqlType = java.sql.Types.OTHER
+
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(3) WITH TIME ZONE"
+
+      override val hasLiteralForm: Boolean = false
+
+      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) = {
+        @inline val fixedOffsetTime: String = serializeIsoTime(v.format(formatter))
+        p.setString(idx, fixedOffsetTime)
+      }
+
+      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) = {
+        @inline val fixedOffsetTime: String = serializeIsoTime(v.format(formatter))
+        r.updateString(idx, fixedOffsetTime)
+      }
+
+      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
+        r.getString(idx) match {
+          case null => null
+          case hsqldbString =>
+            @inline val normalizedIsoString: String = parseHsqldbTime(hsqldbString)
+            OffsetDateTime.parse(normalizedIsoString, formatter)
+        }
+      }
     }
   }
 

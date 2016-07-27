@@ -1,6 +1,7 @@
 package slick.jdbc
 
 import java.sql.{Timestamp, Time, Date}
+import java.time.{LocalDate, LocalDateTime, Instant}
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 
@@ -233,6 +234,9 @@ trait SQLiteProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val dateJdbcType = new DateJdbcType
+    override val localDateType = new LocalDateJdbcType
+    override val localDateTimeType = new LocalDateTimeJdbcType
+    override val instantType = new InstantJdbcType
     override val timeJdbcType = new TimeJdbcType
     override val timestampJdbcType = new TimestampJdbcType
     override val uuidJdbcType = new UUIDJdbcType
@@ -247,7 +251,24 @@ trait SQLiteProfile extends JdbcProfile {
      * date/time/timestamp literals. SQLite expects these values as milliseconds
      * since epoch. */
     class DateJdbcType extends super.DateJdbcType {
-      override def valueToSQLLiteral(value: Date) = value.getTime.toString
+      override def valueToSQLLiteral(value: Date) = {
+        value.getTime.toString
+      }
+    }
+    class LocalDateJdbcType extends super.LocalDateJdbcType {
+      override def valueToSQLLiteral(value: LocalDate) = {
+        Date.valueOf(value).getTime.toString
+      }
+    }
+    class InstantJdbcType extends super.InstantJdbcType {
+      override def valueToSQLLiteral(value: Instant) = {
+        value.toEpochMilli.toString
+      }
+    }
+    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+      override def valueToSQLLiteral(value: LocalDateTime) = {
+        Timestamp.valueOf(value).getTime.toString
+      }
     }
     class TimeJdbcType extends super.TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = value.getTime.toString

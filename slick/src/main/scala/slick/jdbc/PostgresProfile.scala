@@ -1,5 +1,8 @@
 package slick.jdbc
 
+import java.time.format.{DateTimeFormatterBuilder, DateTimeFormatter}
+import java.time.temporal.ChronoField
+import java.time._
 import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
 
@@ -225,10 +228,174 @@ trait PostgresProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val byteArrayJdbcType = new ByteArrayJdbcType
     override val uuidJdbcType = new UUIDJdbcType
+    override val localDateType = new LocalDateJdbcType
+    override val localTimeType = new LocalTimeJdbcType
+    override val offsetTimeType = new OffsetTimeJdbcType
+    override val instantType = new InstantJdbcType
+    override val localDateTimeType = new LocalDateTimeJdbcType
 
     class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BYTEA"
+    }
+
+    trait PostgreTimeJdbcType [T] {
+
+      implicit val min : T
+      implicit val max : T
+      implicit val serializeFiniteTime : (T => String)
+      implicit val parseFiniteTime : (String => T)
+
+      @inline
+      private[this] val negativeInfinite = "-infinity"
+      @inline
+      private[this] val positiveInfinite = "infinity"
+
+      protected def serializeTime(time : T): String = {
+        time match {
+          case null => null
+          case `min` => negativeInfinite
+          case `max` => positiveInfinite
+          case _ => serializeFiniteTime(time)
+        }
+      }
+      protected def parseTime(time : String): T = {
+        time match {
+          case null => null.asInstanceOf[T]
+          case `negativeInfinite` => max
+          case `positiveInfinite` => min
+          case _ => parseFiniteTime(time)
+        }
+      }
+    }
+
+    class LocalDateJdbcType extends super.LocalDateJdbcType with PostgreTimeJdbcType[LocalDate] {
+
+      private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+
+      implicit val min : LocalDate = LocalDate.MIN
+      implicit val max : LocalDate = LocalDate.MAX
+      implicit val serializeFiniteTime : (LocalDate => String) =  _.format(formatter)
+      implicit val parseFiniteTime : (String => LocalDate) = LocalDate.parse(_, formatter)
+
+      override val sqlType = java.sql.Types.OTHER
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATE"
+      override def getValue(r: ResultSet, idx: Int): LocalDate = parseTime(r.getString(idx))
+      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, serializeTime(v), sqlType)
+      }
+      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, serializeTime(v), sqlType)
+      }
+      override val hasLiteralForm : Boolean = false
+    }
+
+    class LocalTimeJdbcType extends super.LocalTimeJdbcType with PostgreTimeJdbcType[LocalTime] {
+
+      private[this] val formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
+
+      implicit val min : LocalTime = LocalTime.MIN
+      implicit val max : LocalTime = LocalTime.MAX
+      implicit val serializeFiniteTime : (LocalTime => String) =  _.format(formatter)
+      implicit val parseFiniteTime : (String => LocalTime) = LocalTime.parse(_, formatter)
+
+      override val sqlType = java.sql.Types.OTHER
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME"
+      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, serializeTime(v), sqlType)
+      }
+      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, serializeTime(v), sqlType)
+      }
+      override def getValue(r: ResultSet, idx: Int): LocalTime = parseTime(r.getString(idx))
+      override val hasLiteralForm : Boolean = false
+    }
+
+    class OffsetTimeJdbcType extends super.OffsetTimeJdbcType with PostgreTimeJdbcType[OffsetTime] {
+
+      private[this] val formatter : DateTimeFormatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("HH:mm:ss"))
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+          .optionalEnd()
+          .appendOffset("+HH:mm", "+00")
+          .toFormatter()
+      }
+
+      implicit val min : OffsetTime = OffsetTime.MIN
+      implicit val max : OffsetTime = OffsetTime.MAX
+      implicit val serializeFiniteTime : (OffsetTime => String) =  _.format(formatter)
+      implicit val parseFiniteTime : (String => OffsetTime) = OffsetTime.parse(_, formatter)
+
+      override val sqlType = java.sql.Types.OTHER
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMETZ"
+      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, serializeTime(v), sqlType)
+      }
+      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, serializeTime(v), sqlType)
+      }
+      override def getValue(r: ResultSet, idx: Int): OffsetTime = parseTime(r.getString(idx))
+      override val hasLiteralForm : Boolean = false
+    }
+
+    class InstantJdbcType extends super.InstantJdbcType with PostgreTimeJdbcType[Instant] {
+
+      private[this] val formatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND,0,6,true)
+          .optionalEnd()
+          .toFormatter()
+      }
+
+      implicit val min : Instant = Instant.MIN
+      implicit val max : Instant = Instant.MAX
+      implicit val serializeFiniteTime : (Instant => String) =  _.toString
+      implicit val parseFiniteTime : (String => Instant) = {
+        LocalDateTime.parse(_, formatter).toInstant(ZoneOffset.UTC)
+      }
+
+      override val sqlType = java.sql.Types.OTHER
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP"
+      override def getValue(r: ResultSet, idx: Int): Instant = parseTime(r.getString(idx))
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, serializeTime(v), sqlType)
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, serializeTime(v), sqlType)
+      }
+      override val hasLiteralForm : Boolean = false
+    }
+
+    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType with PostgreTimeJdbcType[LocalDateTime] {
+
+      private[this] val formatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND,0,6,true)
+          .optionalEnd()
+          .toFormatter()
+      }
+
+      implicit val min : LocalDateTime = LocalDateTime.MIN
+      implicit val max : LocalDateTime = LocalDateTime.MAX
+      implicit val serializeFiniteTime : (LocalDateTime => String) =  _.format(formatter)
+      implicit val parseFiniteTime : (String => LocalDateTime) = LocalDateTime.parse(_, formatter)
+
+      override val sqlType = java.sql.Types.OTHER
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP"
+      override def getValue(r: ResultSet, idx: Int): LocalDateTime = parseTime(r.getString(idx))
+      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, serializeTime(v), sqlType)
+      }
+      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, serializeTime(v), sqlType)
+      }
+      override val hasLiteralForm : Boolean = false
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
