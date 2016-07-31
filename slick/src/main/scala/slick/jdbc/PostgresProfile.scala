@@ -63,7 +63,7 @@ trait PostgresProfile extends JdbcProfile {
       override def schema = super.schema.filter(_ != "public") // remove default schema
     }
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
-      val NumericPattern = "^'(-?[0-9]+.?[0-9]*)'::(?:numeric|bigint|integer)".r
+      val NumericPattern = "^['(]?(-?[0-9]+\\.?[0-9]*)[')]?(?:::(?:numeric|bigint|integer))?".r
       val TextPattern = "^'(.*)'::(?:bpchar|character varying|text)".r
       val UUIDPattern = "^'(.*)'::uuid".r
       override def default = meta.columnDef.map((_,tpe)).collect{

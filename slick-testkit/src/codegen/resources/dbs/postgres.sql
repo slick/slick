@@ -49,5 +49,8 @@ CREATE TABLE "test" ("smallint_auto_inc" SMALLSERIAL,
                        "numeric_default_neg" NUMERIC DEFAULT -1.1,
                        "char_dafault" CHAR(5) DEFAULT 'abcde',
                        "varchar_default" VARCHAR DEFAULT 'abcde',
-                       "text_default" TEXT DEFAULT 'abcde'
+                       "text_default" TEXT DEFAULT 'abcde',
+                       "char_default_empty" char(1) NOT NULL DEFAULT '',
+                       "char_default_valid" char(1) NOT NULL DEFAULT 'a',
+                       "char_default_invalid" char(1) NOT NULL DEFAULT 'ab'
                       );
