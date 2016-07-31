@@ -63,25 +63,27 @@ trait PostgresProfile extends JdbcProfile {
       override def schema = super.schema.filter(_ != "public") // remove default schema
     }
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
-      val VarCharPattern = "^'(.*)'::character varying$".r
-      val TextPattern = "^'(.*)'::text".r
-      val IntPattern = "^\\((-?[0-9]*)\\)$".r
+      val NumericPattern = "^'(-?[0-9]+.?[0-9]*)'::(?:numeric|bigint|integer)".r
+      val TextPattern = "^'(.*)'::(?:bpchar|character varying|text)".r
+      val UUIDPattern = "^'(.*)'::uuid".r
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("true","Boolean")  => Some(Some(true))
         case ("false","Boolean") => Some(Some(false))
-        case (VarCharPattern(str),"String") => Some(Some(str))
         case (TextPattern(str),"String") => Some(Some(str))
-        case (IntPattern(v),"Int") => Some(Some(v.toInt))
-        case (IntPattern(v),"Long") => Some(Some(v.toLong))
-        case ("NULL::character varying","String") => Some(None)
-        case (v,"java.util.UUID") => {
-          if (v.matches("^['\"].*['\"](::uuid)?$")) {
-            val uuid = v.replaceAll("[\'\"]", "") //strip quotes
-                        .stripSuffix("::uuid") //strip suffix
-            Some(Some(java.util.UUID.fromString(uuid)))
-          } else
-            None // The UUID is generated through a function - treat it as if there was no default.
+        case (TextPattern(str),"Char") => str.length match {
+          case 0 => Some(Some(' ')) // Default to one space, as the char will be space padded anyway
+          case 1 => Some(Some(str.head))
+          case _ => None // This is invalid, so let's not supply any default
         }
+        case (NumericPattern(v),"Short") => Some(Some(v.toShort))
+        case (NumericPattern(v),"Int") => Some(Some(v.toInt))
+        case (NumericPattern(v),"Long") => Some(Some(v.toLong))
+        case (NumericPattern(v),"Float") => Some(Some(v.toFloat))
+        case (NumericPattern(v),"Double") => Some(Some(v.toDouble))
+        case (NumericPattern(v), "scala.math.BigDecimal") => Some(Some(v))
+        case (v, "scala.math.BigDecimal") => Some(Some(v))
+        case (UUIDPattern(v),"java.util.UUID") => Some(Some(java.util.UUID.fromString(v)))
+        case (_,"java.util.UUID") => None // The UUID is generated through a function - treat it as if there was no default.
       }.getOrElse{
         val d = super.default
         if(meta.nullable == Some(true) && d == None){

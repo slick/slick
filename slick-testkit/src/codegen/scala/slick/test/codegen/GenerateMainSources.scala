@@ -104,6 +104,7 @@ val  SimpleA = CustomTyping.SimpleA
         """.stripMargin
     },
     new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),
+    new Config("Postgres3", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/postgres.sql")),
     new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
     new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
       override def useSingleLineStatements = true

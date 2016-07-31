@@ -170,6 +170,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       }
       def defaultCode = {
         case Some(v) => s"Some(${defaultCode(v)})"
+        case v:String if model.tpe == "scala.math.BigDecimal"  => s"""new scala.math.BigDecimal(new java.math.BigDecimal("$v"))"""
         case s:String  => "\""+s+"\""
         case None      => s"None"
         case v:Byte    => s"$v"
@@ -180,7 +181,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
         case v:Boolean => s"$v"
         case v:Short   => s"$v"
         case v:Char   => s"'$v'"
-        case v:BigDecimal => s"new scala.math.BigDecimal(new java.math.BigDecimal($v))"
+        case v:BigDecimal => s"""new scala.math.BigDecimal(new java.math.BigDecimal("$v"))"""
         case v => throw new SlickException( s"Dont' know how to generate code for default value $v of ${v.getClass}. Override def defaultCode to render the value." )
       }
       // Explicit type to allow overloading existing Slick method names.
