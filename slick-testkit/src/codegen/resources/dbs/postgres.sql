@@ -47,10 +47,16 @@ CREATE TABLE "test" ("smallint_auto_inc" SMALLSERIAL,
                        "numeric_default_zero" NUMERIC DEFAULT 0.0,
                        "numeric_default_pos" NUMERIC DEFAULT 1.1,
                        "numeric_default_neg" NUMERIC DEFAULT -1.1,
-                       "char_dafault" CHAR(5) DEFAULT 'abcde',
                        "varchar_default" VARCHAR DEFAULT 'abcde',
+                       "varchar_default_null" VARCHAR DEFAULT NULL,
                        "text_default" TEXT DEFAULT 'abcde',
-                       "char_default_empty" char(1) NOT NULL DEFAULT '',
-                       "char_default_valid" char(1) NOT NULL DEFAULT 'a',
-                       "char_default_invalid" char(1) NOT NULL DEFAULT 'ab'
+                       "text_default_null" TEXT DEFAULT NULL,
+                       -- for String
+                       "char_default_empty" CHAR(2) DEFAULT 'ab',
+                       "char_default_null" CHAR(2) DEFAULT NULL,
+                       -- for Char
+                       "char1_default_empty" CHAR(1) DEFAULT '',
+                       "char1_default_valid" CHAR(1) DEFAULT 'a',
+                       "char1_default_invalid" CHAR(1) DEFAULT 'ab',
+                       "char1_default_null" CHAR(1) DEFAULT NULL
                       );
