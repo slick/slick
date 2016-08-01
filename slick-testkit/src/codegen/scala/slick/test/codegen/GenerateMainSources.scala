@@ -80,6 +80,17 @@ val  SimpleA = CustomTyping.SimpleA
       })
     },
     new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
+    new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql")){
+      override def testCode = 
+      """
+        | val entry = DefaultNumericRow(d0 = scala.math.BigDecimal(123.45), d1 = scala.math.BigDecimal(90), d3 = 0)
+        | DBIO.seq(
+        |   schema.create,
+        |   DefaultNumeric += entry,
+        |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }
+        | )
+      """.stripMargin
+    },
     new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
       import tdb.profile.api._
       class A(tag: Tag) extends Table[(Int, Array[Byte], Blob)](tag, "a") {
