@@ -1,6 +1,12 @@
-sudo: false
 language: scala
-script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll
+sudo: required
+before_install:
+# TZ needed for Oracle driver!
+- export TZ=Asia/Kamchatka
+- sh -v ./travis/extractNonPublicDeps
+- docker version
+- sh -v travis/runcontainer.sh oracle db2
+- docker ps
 jdk:
   - oraclejdk8
 notifications:
@@ -9,11 +15,15 @@ notifications:
 services:
   - mysql
   - postgresql
+  - docker
 addons:
   apt:
     packages:
     - graphviz
     - python-sphinx
+    - mysql-server
+script:
+- sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf clean +testAll
 cache:
   directories:
     - $HOME/.sbt

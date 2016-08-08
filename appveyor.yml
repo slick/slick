@@ -1,0 +1,60 @@
+install:
+  - git submodule update --init --recursive
+  - ps: |
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      if (!(Test-Path -Path "C:\sbt" )) {
+        (new-object System.Net.WebClient).DownloadFile(
+          'https://dl.bintray.com/sbt/native-packages/sbt/0.13.9/sbt-0.13.9.zip',
+          'C:\sbt-bin.zip'
+        )
+        [System.IO.Compression.ZipFile]::ExtractToDirectory("C:\sbt-bin.zip", "C:\sbt")
+      }
+  - cmd: SET JDK_HOME=C:\Program Files\Java\jdk1.8.0
+  - cmd: SET JAVA_HOME=C:\Program Files\Java\jdk1.8.0
+  - cmd: SET PATH=C:\sbt\sbt\bin;%JDK_HOME%\bin;%PATH%
+  - cmd: SET SBT_OPTS=-Xmx4g -Xss2m -Dslick.testkit-config=test-dbs/testkit-appveyor.conf
+# Start up sqlservers: 2008 on port 1433, 2012 on 1533, 2014 on 1633. Enable tcp connections
+  - ps: |
+      [reflection.assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") | Out-Null;
+      [reflection.assembly]::LoadWithPartialName("Microsoft.SqlServer.SqlWmiManagement") | Out-Null;
+      $port = 1433
+      foreach($instancename in @('SQL2008R2SP2', 'SQL2012SP1', 'SQL2014'))
+      {
+          $wmi = New-Object('Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer');
+          $tcp = $wmi.GetSmoObject("ManagedComputer[@Name='${env:computername}']/ServerInstance[@Name='${instancename}']/ServerProtocol[@Name='Tcp']");
+          $tcp.IsEnabled = $true;
+          foreach ($ipAddress in $tcp.IPAddresses)
+          {
+            $ipAddress.IPAddressProperties["TcpDynamicPorts"].Value = ""
+            $ipAddress.IPAddressProperties["TcpPort"].Value = "${port}"
+          }
+          $tcp.Alter();
+          Start-Service -Name "MSSQL`$$instancename";
+          $wmi = New-Object('Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer');
+          $ipall = $wmi.GetSmoObject("ManagedComputer[@Name='${env:computername}']/ServerInstance[@Name='${instancename}']/ServerProtocol[@Name='Tcp']/IPAddress[@Name='IPAll']");
+          $config = @{
+            instanceName = $instancename;
+            config = @{
+              server = "localhost";
+              userName = "sa";
+              password = "Password12!";
+              options = @{
+                port = ${port};
+                database = "master";
+                  cryptoCredentialsDetails = @{
+                ciphers = "RC4-MD5"
+                }
+              }
+            }
+          } | ConvertTo-Json -Depth 3;
+          Write-Host "${config}"
+          $port += 100
+      }
+  - bash -v ./travis/extractNonPublicDeps
+build_script:
+  - sbt clean compile test:compile
+test_script:
+  - sbt testkit/test:test
+cache:
+  - C:\sbt\
+  - C:\Users\appveyor\.ivy2

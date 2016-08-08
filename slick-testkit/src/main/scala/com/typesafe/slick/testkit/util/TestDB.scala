@@ -1,5 +1,7 @@
 package com.typesafe.slick.testkit.util
 
+import java.lang.reflect.Method
+
 import com.typesafe.config.Config
 
 import org.junit.Assert
@@ -265,7 +267,21 @@ object ExternalTestDB {
   // A cache for custom drivers to avoid excessive reloading and memory leaks
   private[this] val driverCache = new mutable.HashMap[(String, String), Driver]()
 
-  def getCustomDriver(url: String, driverClass: String): Driver = synchronized {
+  def getCustomDriver(url: String, driverClass: String) = synchronized {
+    val sysloader = java.lang.ClassLoader.getSystemClassLoader
+    val sysclass = classOf[URLClassLoader]
+
+    // Add the supplied jar onto the system classpath
+    // Doing this allows Hikari to initialise the driver, if needed
+    try {
+        val method = sysclass.getDeclaredMethod("addURL", classOf[URL])
+        method.setAccessible(true)
+        method.invoke(sysloader, new URL(url))
+    } catch {
+      case t: Throwable =>
+        t.printStackTrace()
+        throw new IOException(s"Error, could not add URL $url to system classloader");
+    }
     driverCache.getOrElseUpdate((url, driverClass),
       new URLClassLoader(Array(new URL(url)), getClass.getClassLoader).loadClass(driverClass).newInstance.asInstanceOf[Driver]
     )

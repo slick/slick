@@ -96,8 +96,7 @@ trait OracleProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     for {
       user <- SimpleJdbcAction(_.session.metaData.getUserName)
-      tables <- SQLActionBuilder(Seq("select TABLE_NAME from all_tables where OWNER = ?"), implicitly[SetParameter[String]].applied(user)).as[String]
-      mtables <- MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(t => tables contains t.name.name)) // FIXME: this should check schema and maybe more
+      mtables <- MTable.getTables(None, Some(user), None, Some(Seq("TABLE")))
     } yield mtables
   }
 
