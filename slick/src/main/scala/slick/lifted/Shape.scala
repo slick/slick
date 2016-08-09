@@ -23,7 +23,7 @@ import scala.reflect.ClassTag
  * - Packed: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
  * - Linearized: (Int, Int, String, Int, Option[Double])
  */
-@implicitNotFound(msg = "No matching Shape found.\nSlick does not know how to map the given types.\nPossible causes: T in Table[T] does not match your * projection. Or you use an unsupported type in a Query (e.g. scala List).\n  Required level: ${Level}\n     Source type: ${Mixed_}\n   Unpacked type: ${Unpacked_}\n     Packed type: ${Packed_}\n")
+@implicitNotFound(msg = "No matching Shape found.\nSlick does not know how to map the given types.\nPossible causes: T in Table[T] does not match your * projection,\n you use an unsupported type in a Query (e.g. scala List),\n or you forgot to import a driver api into scope.\n  Required level: ${Level}\n     Source type: ${Mixed_}\n   Unpacked type: ${Unpacked_}\n     Packed type: ${Packed_}\n")
 abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
   type Mixed = Mixed_ @uncheckedVariance
   type Unpacked = Unpacked_
