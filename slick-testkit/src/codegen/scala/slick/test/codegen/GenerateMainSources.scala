@@ -103,6 +103,17 @@ val  SimpleA = CustomTyping.SimpleA
           |  ).transactionally
         """.stripMargin
     },
+    new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql")){
+      override def testCode = 
+        """
+          | val createStmt = schema.create.statements.mkString
+          | assertTrue(createStmt contains "`entry1` LONGTEXT ")
+          | assertTrue(createStmt contains "`entry2` MEDIUMTEXT")
+          | assertTrue(createStmt contains "`entry3` TEXT"      )
+          | assertTrue(createStmt contains "`entry4` VARCHAR(255)")
+          | DBIO.seq( schema.create )
+        """.stripMargin
+    },
     new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),
     new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
     new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
