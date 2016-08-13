@@ -290,6 +290,11 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
 
+    def truncate: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.truncate" , schema.truncateStatements.toVector ){
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+    }
+
     def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)

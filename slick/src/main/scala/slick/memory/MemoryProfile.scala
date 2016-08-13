@@ -168,6 +168,10 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     def drop = dbAction { session =>
       tables.foreach(t => session.database.dropTable(t.tableName))
     }
+
+    def truncate = dbAction{ session =>
+      tables.foreach(t => session.database.truncateTable(t.tableName) )
+    }
   }
 
   class InsertActionExtensionMethodsImpl[T](compiled: CompiledInsert) extends super.InsertActionExtensionMethodsImpl[T] {
