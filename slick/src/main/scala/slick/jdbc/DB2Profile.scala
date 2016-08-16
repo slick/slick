@@ -131,6 +131,8 @@ trait DB2Profile extends JdbcProfile {
         sb.toString
       } else super.createIndex(idx)
     }
+
+    override def truncateTable = s"TRUNCATE TABLE ${quoteTableName(tableNode)} IMMEDIATE"
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
