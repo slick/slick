@@ -247,5 +247,8 @@ trait RelationalActionComponent extends BasicActionComponent { self: RelationalP
 
     /** Create an Action that drops the entities described by this schema description. */
     def drop: ProfileAction[Unit, NoStream, Effect.Schema]
+
+    /** Create an Action that truncates entries described by this schema description */
+    def truncate: ProfileAction[Unit, NoStream, Effect.Schema]
   }
 }

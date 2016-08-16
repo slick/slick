@@ -172,4 +172,24 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       }
     } yield ()
   }
+
+  def testTruncate = {
+    class T(_tag: Tag) extends Table[Int](_tag , "truncate_test"){
+      def a = column[Int]("a")
+      def * = a
+    }
+
+    val ts = TableQuery[T]
+    for{
+      _ <- ts.schema.create
+      initial <- ts.result
+      _ = assert(initial.toSet == Set())
+      res <- (ts ++= Seq(2, 3, 1, 5, 4)) >>
+             ts.result
+      _ = assert(res.toSet == Set(2, 3, 1, 5, 4))
+      newRes <- ts.schema.truncate >>
+                ts.result
+      _ = assert(newRes.toSet == Set())
+    } yield ()
+  }
 }
