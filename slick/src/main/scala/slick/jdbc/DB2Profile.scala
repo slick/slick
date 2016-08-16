@@ -132,7 +132,9 @@ trait DB2Profile extends JdbcProfile {
       } else super.createIndex(idx)
     }
 
-    override def truncateTable = s"TRUNCATE TABLE ${quoteTableName(tableNode)} IMMEDIATE"
+    //For compatibility with all versions of DB2 
+    //http://stackoverflow.com/questions/3006999/sql-query-to-truncate-table-in-ibm-db2
+    override def truncateTable = s"DELETE FROM ${quoteTableName(tableNode)}"
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
