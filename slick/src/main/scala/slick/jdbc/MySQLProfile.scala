@@ -95,6 +95,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
         else l
       }
     }
+
+    //Reference: https://github.com/slick/slick/issues/1419
+    override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta){
+      override def schema = meta.name.catalog
+      override def catalog = meta.name.schema 
+    }
   }
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
@@ -113,7 +119,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length]) match {
-        case Some(l) => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})"
+        case Some(l) => if(l.varying){
+            //http://dev.mysql.com/doc/refman/5.7/en/string-type-overview.html
+            if(l.length <= 65535 ) s"VARCHAR(${l.length})" 
+            else if(l.length <= 16777215 ) "MEDIUMTEXT"
+            else "LONGTEXT"
+          } else s"CHAR(${l.length})"
         case None => defaultStringType match {
           case Some(s) => s
           case None =>
