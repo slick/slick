@@ -204,6 +204,8 @@ trait SQLiteProfile extends JdbcProfile {
         addForeignKey(fk, b)
       }
     }
+
+    override def truncateTable = "delete from " + quoteTableName(tableNode)
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {

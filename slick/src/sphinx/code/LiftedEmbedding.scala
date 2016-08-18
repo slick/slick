@@ -167,6 +167,7 @@ object LiftedEmbedding extends App {
 
   //#ddl2
     schema.create.statements.foreach(println)
+    schema.truncate.statements.foreach(println)
     schema.drop.statements.foreach(println)
   //#ddl2
     TableQuery[A].schema.create.statements.foreach(println)
