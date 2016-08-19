@@ -16,7 +16,7 @@ These are the databases and driver versions that have explicit automated tests.
 
 |Database|JDBC Driver|Build status|
 |--------|-----------|-----------:|
-|SQLServer 2008, 2012, 2014|[jtds:1.2.8](http://sourceforge.net/projects/jtds/files/jtds/) and [msjdbc:4.2](https://www.microsoft.com/en-gb/download/details.aspx?id=11774)|[![Build status](https://ci.appveyor.com/api/projects/status/mdrfd7o7067c5vcm?svg=true&branch=master)](https://ci.appveyor.com/project/slick/slick)|
+|SQLServer 2008, 2012, 2014|[jtds:1.2.8](http://sourceforge.net/projects/jtds/files/jtds/) and [msjdbc:4.2](https://www.microsoft.com/en-gb/download/details.aspx?id=11774)|[![Build status](https://ci.appveyor.com/api/projects/status/hcy6w0cp2qgw6ltt/branch/master?svg=true)](https://ci.appveyor.com/project/slick/slick)|
 |Oracle 11g|[ojdbc7:12.1.0.2](http://www.oracle.com/technetwork/database/features/jdbc/index-091264.html)|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
 |DB2 10.5|[db2jcc4:4.19.20](http://www-01.ibm.com/support/docview.wss?uid=swg21363866)|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
 |MySQL|mysql-connector-java:5.1.23|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
