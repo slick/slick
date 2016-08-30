@@ -91,7 +91,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Indicates whether auto increment columns should be put last and made an Option with a None default.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
-    @deprecated("Use autoIncLast and ColumnDef.asOption instead.", "3.2.0")
+    @deprecated("Use autoIncLast = true and ColumnDef.asOption = autoInc instead.", "3.2.0")
     def autoIncLastAsOption = false
     /** Indicates whether auto increment columns should be put last.
         Please set to !hlistEnabled for switching this on.
