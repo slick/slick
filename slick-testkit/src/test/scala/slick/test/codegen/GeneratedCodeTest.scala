@@ -134,6 +134,23 @@ object GeneratedCodeTest {
     )
   }
 
+  def testCG11 = {
+    import CG11._
+    import profile.api._
+    def assertAll(all: Seq[SimpleA]) = {
+      assertEquals( 1, all.size )
+      assertEquals(List(SimpleA(Some(1), Some("foo"))), all)
+    }
+    DBIO.seq(
+      schema.create,
+      SimpleAs.length.result.map(assertEquals(0, _)),
+      SimpleAs += SimpleA(Some(1), Some("foo")),
+      SimpleAs.length.result.map(assertEquals(1, _)),
+      SimpleAs.result.map(assertEquals(List(SimpleA(Some(1), Some("foo"))), _)),
+      sql"select a1, a2 from SIMPLE_AS".as[SimpleA].map(assertAll)
+    )
+  }
+
   def testEmptyDB = slick.dbio.DBIO.successful(())
 
   def tableName( node:Node ) : String = {

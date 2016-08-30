@@ -50,7 +50,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Database column positions in the desired user-facing order. Currently just moves the positions of AutoInc columns to the end if autoIncLastAsOption is enabled. */
     lazy val desiredColumnOrder: Seq[Int] = {
       val withIndex = columnsPositional.zipWithIndex
-      if(autoIncLastAsOption)
+      if(autoIncLast)
         // put auto inc column last
         (withIndex.filterNot( _._1.autoInc ) ++ withIndex.filter( _._1.autoInc )).map(_._2)
       else
@@ -88,10 +88,13 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** If HList should be used as a compound type instead of tuples. Default to true for > 22 columns.
         @group Basic customization overrides */
     def hlistEnabled = columns.size > 22
-    /** Indicates whether auto increment columns should be put last and made an Option with a None default.
+    /** Indicates whether auto increment columns should be put last.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
-    def autoIncLastAsOption = false
+    def autoIncLast = false
+    /** Indicates whether auto increment columns should be made an Option with a None default.
+        @group Basic customization overrides */
+    def autoIncAsOption = false
     /** Indicates if this table should be mapped using factory and extractor or not, in which case tuples are used. (Consider overriding EntityType.enabled instead, which affects this, too.) Disabled by default when using hlists.
         @group Basic customization overrides */
     def mappingEnabled = !hlistEnabled
@@ -211,16 +214,20 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /**
        * Underlying Scala type of this column.
        * Override this to just affect the data type but preserve potential Option-wrapping.
-       * Override GeneratorHelpers#mapJdbcTypeString for generic adjustments.
        * @group Basic customization overrides
        */
       def rawType: Code = parseType(model.tpe)
+      /**
+       * Indicates whether the exposed type of this column should be wrapped in an Option. Useful for automatically created columns.
+       * @group Basic customization overrides
+       */
+      def exposeOption = false
       /** Possibly Option-wrapped Scala type of this column. @see rawType and @see exposedType */
       final def actualType: Code      = if(model.nullable) optionType(rawType) else rawType
-      /** Option of actualType if fakeNullable else actualType. Useful to expose autoInc columns as nullable. */
+      /** Option of actualType if fakeNullable else actualType. */
       final def exposedType: Code  = if(fakeNullable) optionType(actualType) else actualType
-      /** Indicates whether this column should be user facing as a nullable column with default None even though it is not. Useful for autoInc columns. */
-      final def fakeNullable = autoIncLastAsOption && autoInc
+      /** Indicates whether this column should be user facing as a nullable column with default None even though it is not. Useful for autoInc and automatically created columns. */
+      final def fakeNullable = exposeOption || (autoIncAsOption && autoInc)
 
       assert(!(model.nullable && fakeNullable),s"Cannot enable 'fakeNullable' for a 'nullable' column. $model")
 

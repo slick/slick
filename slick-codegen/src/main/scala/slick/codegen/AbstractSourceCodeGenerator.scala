@@ -98,7 +98,7 @@ def $name($args): $name = {
         val rearranged = compoundValue(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
         def result(args: String) = if(mappingEnabled) s"$factory($args)" else args
         val body =
-          if(autoIncLastAsOption && columns.size > 1){
+          if(autoIncLast && columns.size > 1){
             s"""
 val r = $positional
 import r._
