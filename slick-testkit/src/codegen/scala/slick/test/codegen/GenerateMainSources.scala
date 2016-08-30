@@ -76,7 +76,9 @@ val  SimpleA = CustomTyping.SimpleA
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def autoIncLast = true
-          override def autoIncAsOption = true
+          override def Column = new Column(_){
+            override def asOption = autoInc
+          }
         }
       })
     },
@@ -85,7 +87,7 @@ val  SimpleA = CustomTyping.SimpleA
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def Column = new Column(_){
-            override def exposeOption = true
+            override def asOption = true
           }
         }
       })

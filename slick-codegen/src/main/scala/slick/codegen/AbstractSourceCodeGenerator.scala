@@ -93,7 +93,7 @@ def $name($args): $name = {
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
-        val positional = compoundValue(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
+        val positional = compoundValue(columnsPositional.map(c => (if(c.asOption || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
         val rearranged = compoundValue(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
         def result(args: String) = if(mappingEnabled) s"$factory($args)" else args
@@ -117,7 +117,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
 
     trait TableClassDef extends super.TableClassDef{
       def star = {
-        val struct = compoundValue(columns.map(c=>if(c.fakeNullable)s"Rep.Some(${c.name})" else s"${c.name}"))
+        val struct = compoundValue(columns.map(c=>if(c.asOption)s"Rep.Some(${c.name})" else s"${c.name}"))
         val rhs = if(mappingEnabled) s"$struct <> ($factory, $extractor)" else struct
         s"def * = $rhs"
       }
@@ -129,7 +129,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
       def optionFactory = {
         val accessors = columns.zipWithIndex.map{ case(c,i) =>
           val accessor = if(columns.size > 1) tuple(i) else "r"
-          if(c.fakeNullable || c.model.nullable) accessor else s"$accessor.get"
+          if(c.asOption || c.model.nullable) accessor else s"$accessor.get"
         }
         val fac = s"$factory(${compoundValue(accessors)})"
         val discriminator = columns.zipWithIndex.collect{ case (c,i) if !c.model.nullable => if(columns.size > 1) tuple(i) else "r" }.headOption
