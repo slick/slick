@@ -21,6 +21,7 @@ class SetTupleParameter[-T <: Product](val children: SetParameter[_]*) extends S
 object SetParameter {
   implicit object SetBigDecimal extends SetParameter[BigDecimal] { def apply(v: BigDecimal, pp: PositionedParameters) { pp.setBigDecimal(v) } }
   implicit object SetBoolean extends SetParameter[Boolean] { def apply(v: Boolean, pp: PositionedParameters) { pp.setBoolean(v) } }
+  implicit object SetChar extends SetParameter[Char] { def apply(v: Char, pp: PositionedParameters) { pp.setString(v.toString) } }
   implicit object SetByte extends SetParameter[Byte] { def apply(v: Byte, pp: PositionedParameters) { pp.setByte(v) } }
   implicit object SetDate extends SetParameter[Date] { def apply(v: Date, pp: PositionedParameters) { pp.setDate(v) } }
   implicit object SetDouble extends SetParameter[Double] { def apply(v: Double, pp: PositionedParameters) { pp.setDouble(v) } }
@@ -31,9 +32,11 @@ object SetParameter {
   implicit object SetString extends SetParameter[String] { def apply(v: String, pp: PositionedParameters) { pp.setString(v) } }
   implicit object SetTime extends SetParameter[Time] { def apply(v: Time, pp: PositionedParameters) { pp.setTime(v) } }
   implicit object SetTimestamp extends SetParameter[Timestamp] { def apply(v: Timestamp, pp: PositionedParameters) { pp.setTimestamp(v) } }
+  implicit object SetClob extends SetParameter[java.sql.Clob] { def apply(v: java.sql.Clob, pp: PositionedParameters) { pp.setClob(v) } }
 
   implicit object SetBigDecimalOption extends SetParameter[Option[BigDecimal]] { def apply(v: Option[BigDecimal], pp: PositionedParameters) { pp.setBigDecimalOption(v) } }
   implicit object SetBooleanOption extends SetParameter[Option[Boolean]] { def apply(v: Option[Boolean], pp: PositionedParameters) { pp.setBooleanOption(v) } }
+  implicit object SetCharOption extends SetParameter[Option[Char]] { def apply(v: Option[Char], pp: PositionedParameters) { pp.setStringOption(v.map(_.toString)) } }
   implicit object SetByteOption extends SetParameter[Option[Byte]] { def apply(v: Option[Byte], pp: PositionedParameters) { pp.setByteOption(v) } }
   implicit object SetDateOption extends SetParameter[Option[Date]] { def apply(v: Option[Date], pp: PositionedParameters) { pp.setDateOption(v) } }
   implicit object SetDoubleOption extends SetParameter[Option[Double]] { def apply(v: Option[Double], pp: PositionedParameters) { pp.setDoubleOption(v) } }
@@ -44,6 +47,7 @@ object SetParameter {
   implicit object SetStringOption extends SetParameter[Option[String]] { def apply(v: Option[String], pp: PositionedParameters) { pp.setStringOption(v) } }
   implicit object SetTimeOption extends SetParameter[Option[Time]] { def apply(v: Option[Time], pp: PositionedParameters) { pp.setTimeOption(v) } }
   implicit object SetTimestampOption extends SetParameter[Option[Timestamp]] { def apply(v: Option[Timestamp], pp: PositionedParameters) { pp.setTimestampOption(v) } }
+  implicit object SetClobOption extends SetParameter[Option[java.sql.Clob]] { def apply(v: Option[java.sql.Clob], pp: PositionedParameters) { pp.setClobOption(v) } }
 
 <#list 2..22 as i>
   @inline implicit def createSetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: SetParameter[T${j}]<#if i != j>, </#if></#list>): SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
@@ -61,6 +65,7 @@ object SetParameter {
         case v: Long => pp.setLong(v)
         case v: Short => pp.setShort(v)
         case v: String => pp.setString(v)
+        case v: Char => pp.setString(v.toString)
         case v: Time => pp.setTime(v)
         case v: Timestamp => pp.setTimestamp(v)
         case v => throw new SQLException("SetProduct doesn't know how to handle parameter "+i+" ("+v+")")

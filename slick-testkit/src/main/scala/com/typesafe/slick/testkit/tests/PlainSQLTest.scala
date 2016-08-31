@@ -8,9 +8,9 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 class PlainSQLTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
-  implicit val getUserResult = GetResult(r => new User(r.<<, r.<<))
+  implicit val getUserResult = GetResult(r => new User(r.<<, r.<<, r.<<?))
 
-  case class User(id:Int, name:String)
+  case class User(id: Int, name: String, middle: Option[Char])
 
   //TODO convert to new API:
   /*
@@ -96,32 +96,40 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
   */
 
   def testInterpolation = ifCap(tcap.plainSql) {
-    def userForID(id: Int) = sql"select id, name from USERS where id = $id".as[User]
-    def userForIdAndName(id: Int, name: String) = sql"select id, name from USERS where id = $id and name = $name".as[User]
+    def userForID(id: Int) = sql"select id, name, middle from USERS where id = $id".as[User]
+    def userForIdAndName(id: Int, name: String) = sql"select id, name, middle from USERS where id = $id and name = $name".as[User]
+    def userForIdAndInitial(id: Int, middle: Char) = sql"select id, name, middle from USERS where id = $id and middle = $middle".as[User]
 
     val foo = "foo"
+    val middle = 'f'
     val s1 = sql"select id from USERS where name = ${"szeiger"}".as[Int]
     val s2 = sql"select id from USERS where name = '#${"guest"}'".as[Int]
     val s3 = sql"select id from USERS where name = $foo".as[Int]
     val s4 = sql"select id from USERS where name = '#$foo'".as[Int]
+    val s5 = sql"select middle from USERS where middle = $middle".as[Char]
+    val s6 = sql"select middle from USERS where middle = '#$middle'".as[Char]
     s1.statements.head shouldBe "select id from USERS where name = ?"
     s2.statements.head shouldBe "select id from USERS where name = 'guest'"
     s3.statements.head shouldBe "select id from USERS where name = ?"
     s4.statements.head shouldBe "select id from USERS where name = 'foo'"
+    s5.statements.head shouldBe "select middle from USERS where middle = ?"
+    s6.statements.head shouldBe "select middle from USERS where middle = 'f'"
 
-    val create: DBIO[Int] = sqlu"create table USERS(ID int not null primary key, NAME varchar(255))"
+    val create: DBIO[Int] = sqlu"create table USERS(ID int not null primary key, NAME varchar(255), MIDDLE varchar(1))"
 
     seq(
       create.map(_ shouldBe 0),
-      DBIO.fold((for {
-        (id, name) <- List((1, "szeiger"), (0, "admin"), (2, "guest"), (3, "foo"))
-      } yield sqlu"insert into USERS values ($id, $name)"), 0)(_ + _) shouldYield(4),
+      DBIO.fold(for {
+        (id, name, middle: Option[Char]) <- List((1, "szeiger", None), (0, "admin", None), (2, "guest", Some('g')), (3, "foo", Some('f')))
+      } yield sqlu"insert into USERS values ($id, $name, $middle)", 0)(_ + _) shouldYield(4),
       sql"select id from USERS".as[Int] shouldYield Set(0,1,2,3), //TODO Support `to` in Plain SQL Actions
-      userForID(2).head shouldYield User(2,"guest"), //TODO Support `head` and `headOption` in Plain SQL Actions
+      userForID(2).head shouldYield User(2,"guest", Some('g')), //TODO Support `head` and `headOption` in Plain SQL Actions
+      userForID(1).head shouldYield User(1, "szeiger", None),
       s1 shouldYield List(1),
       s2 shouldYield List(2),
-      userForIdAndName(2, "guest").head shouldYield User(2,"guest"), //TODO Support `head` and `headOption` in Plain SQL Actions
-      userForIdAndName(2, "foo").headOption shouldYield None //TODO Support `head` and `headOption` in Plain SQL Actions
+      userForIdAndName(2, "guest").head shouldYield User(2,"guest", Some('g')), //TODO Support `head` and `headOption` in Plain SQL Actions
+      userForIdAndName(2, "").headOption shouldYield None, //TODO Support `head` and `headOption` in Plain SQL Action
+      userForIdAndInitial(3, 'f').head shouldYield User(3, "foo", Some('f'))
     )
   }
 }

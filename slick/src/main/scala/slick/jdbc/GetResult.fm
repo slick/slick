@@ -19,6 +19,7 @@ class GetTupleResult[+T <: Product](val children: GetResult[_]*) extends GetResu
 object GetResult {
   implicit object GetBigDecimal extends GetResult[BigDecimal] { def apply(rs: PositionedResult) = rs.nextBigDecimal() }
   implicit object GetBoolean extends GetResult[Boolean] { def apply(rs: PositionedResult) = rs.nextBoolean() }
+  implicit object GetChar extends GetResult[Char] { def apply(rs: PositionedResult) = rs.nextString().head }
   implicit object GetByte extends GetResult[Byte] { def apply(rs: PositionedResult) = rs.nextByte() }
   implicit object GetDate extends GetResult[Date] { def apply(rs: PositionedResult) = rs.nextDate() }
   implicit object GetDouble extends GetResult[Double] { def apply(rs: PositionedResult) = rs.nextDouble() }
@@ -29,9 +30,11 @@ object GetResult {
   implicit object GetString extends GetResult[String] { def apply(rs: PositionedResult) = rs.nextString() }
   implicit object GetTime extends GetResult[Time] { def apply(rs: PositionedResult) = rs.nextTime() }
   implicit object GetTimestamp extends GetResult[Timestamp] { def apply(rs: PositionedResult) = rs.nextTimestamp() }
+  implicit object GetClob extends GetResult[java.sql.Clob] { def apply(rs: PositionedResult) = rs.nextClob() }
 
   implicit object GetBigDecimalOption extends GetResult[Option[BigDecimal]] { def apply(rs: PositionedResult) = rs.nextBigDecimalOption() }
   implicit object GetBooleanOption extends GetResult[Option[Boolean]] { def apply(rs: PositionedResult) = rs.nextBooleanOption() }
+  implicit object GetCharOption extends GetResult[Option[Char]] { def apply(rs: PositionedResult) = rs.nextStringOption().map(_.head) }
   implicit object GetByteOption extends GetResult[Option[Byte]] { def apply(rs: PositionedResult) = rs.nextByteOption() }
   implicit object GetDateOption extends GetResult[Option[Date]] { def apply(rs: PositionedResult) = rs.nextDateOption() }
   implicit object GetDoubleOption extends GetResult[Option[Double]] { def apply(rs: PositionedResult) = rs.nextDoubleOption() }
@@ -42,6 +45,7 @@ object GetResult {
   implicit object GetStringOption extends GetResult[Option[String]] { def apply(rs: PositionedResult) = rs.nextStringOption() }
   implicit object GetTimeOption extends GetResult[Option[Time]] { def apply(rs: PositionedResult) = rs.nextTimeOption() }
   implicit object GetTimestampOption extends GetResult[Option[Timestamp]] { def apply(rs: PositionedResult) = rs.nextTimestampOption() }
+  implicit object GetClobOption extends GetResult[Option[java.sql.Clob]] { def apply(rs: PositionedResult) = rs.nextClobOption() }
 
 <#list 2..22 as i>
   @inline implicit def createGetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: GetResult[T${j}]<#if i != j>, </#if></#list>): GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
