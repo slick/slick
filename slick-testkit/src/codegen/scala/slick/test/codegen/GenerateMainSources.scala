@@ -75,11 +75,23 @@ val  SimpleA = CustomTyping.SimpleA
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
-          override def autoIncLastAsOption = true
+          override def autoIncLast = true
+          override def Column = new Column(_){
+            override def asOption = autoInc
+          }
         }
       })
     },
     new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
+    new Config("CG11", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+        override def Table = new Table(_){
+          override def Column = new Column(_){
+            override def asOption = true
+          }
+        }
+      })
+    },
     new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
       import tdb.profile.api._
       class A(tag: Tag) extends Table[(Int, Array[Byte], Blob)](tag, "a") {

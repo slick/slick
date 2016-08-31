@@ -29,7 +29,10 @@ object GenerateRoundtripSources {
     })
     val a2 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def Table = new Table(_){
-        override def autoIncLastAsOption = true
+        override def autoIncLast = true
+        override def Column = new Column(_){
+          override def asOption = autoInc
+        }
       }
     })
     val db = Database.forURL(url=url, driver=jdbcDriver, keepAliveConnection=true)
