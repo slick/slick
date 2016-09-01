@@ -209,7 +209,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
       }
     }
 
-    def remove(): Unit = throw new UnsupportedOperationException
+    override def remove(): Unit = throw new UnsupportedOperationException
   }
 
   @inline private[this] def locked[T](f: => T) = {

@@ -173,7 +173,7 @@ private[util] final class InternalArrayQueue[E >: Null <: AnyRef](capacity: Int)
       x
     }
 
-    def remove(): Unit = throw new UnsupportedOperationException
+    override def remove(): Unit = throw new UnsupportedOperationException
   }
 
 }
