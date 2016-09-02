@@ -127,16 +127,11 @@ val  SimpleA = CustomTyping.SimpleA
           | assertTrue(createStmt contains "`entry2` MEDIUMTEXT")
           | assertTrue(createStmt contains "`entry3` TEXT"      )
           | assertTrue(createStmt contains "`entry4` VARCHAR(255)")
-        """.stripMargin + ( 
-          if( tables.size > 0 ){
-            """
-            |  DBIO.seq( schema.create , 
-            |    TableName += TableNameRow(0),
-            |    TableName.result.map{ case Seq(TableNameRow(id) ) => assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.get eq "slick_test" ) }
-            |  )
-              """.stripMargin 
-          } else "DBIO.successful( () )" )
-        
+          |  DBIO.seq( schema.create , 
+          |    TableName += TableNameRow(0),
+          |    TableName.result.map{ case Seq(TableNameRow(id) ) => assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.get eq "slick_test" ) }
+          |  )
+          """.stripMargin
           s"""
              |lazy val tdb = $fullTdbName
              |def test = {
