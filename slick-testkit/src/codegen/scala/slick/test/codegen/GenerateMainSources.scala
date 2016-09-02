@@ -127,6 +127,34 @@ val  SimpleA = CustomTyping.SimpleA
         """.stripMargin
     },
     new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),
+    new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql") ){
+      override def generator: DBIO[SourceCodeGenerator] =
+        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new SourceCodeGenerator(_){
+          override def parentType = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
+          override def code = {
+          val testcode = 
+          """
+          | val createStmt = schema.create.statements.mkString
+          | assertTrue(createStmt contains "`entry1` LONGTEXT ")
+          | assertTrue(createStmt contains "`entry2` MEDIUMTEXT")
+          | assertTrue(createStmt contains "`entry3` TEXT"      )
+          | assertTrue(createStmt contains "`entry4` VARCHAR(255)")
+          |  DBIO.seq( schema.create , 
+          |    TableName += TableNameRow(0),
+          |    TableName.result.map{ case Seq(TableNameRow(id) ) => assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.get eq "slick_test" ) }
+          |  )
+          """.stripMargin
+          s"""
+             |lazy val tdb = $fullTdbName
+             |def test = {
+             |  import org.junit.Assert._
+             |  import scala.concurrent.ExecutionContext.Implicits.global
+             |  $testcode
+             |}
+           """.stripMargin + super.code
+          }
+        })
+    },
     new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
     new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
       override def useSingleLineStatements = true

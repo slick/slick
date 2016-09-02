@@ -95,6 +95,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
         else l
       }
     }
+
+    //Reference: https://github.com/slick/slick/issues/1419
+    override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta){
+      override def schema = meta.name.catalog
+      override def catalog = meta.name.schema 
+    }
   }
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
