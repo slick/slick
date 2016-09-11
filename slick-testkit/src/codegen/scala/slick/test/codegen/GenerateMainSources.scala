@@ -102,7 +102,7 @@ val  SimpleA = CustomTyping.SimpleA
       }
       override def generator =
         TableQuery[A].schema.create >>
-          tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
       override def testCode =
         """
           |  import java.sql.Blob
@@ -115,7 +115,33 @@ val  SimpleA = CustomTyping.SimpleA
           |  ).transactionally
         """.stripMargin
     },
-    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),
+    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),    
+    new Config("Postgres3", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/postgres.sql")) {
+      override def testCode: String =
+      """import slick.ast.{FieldSymbol, Select}
+        |import slick.jdbc.meta.MTable
+        |import slick.relational.RelationalProfile
+        |DBIO.seq(
+        |  schema.create,
+        |  MTable.getTables(Some(""), Some("public"), None, None).map { tables =>
+        |    def optionsOfColumn(c: slick.lifted.Rep[_]) =
+        |      c.toNode.asInstanceOf[Select].field.asInstanceOf[FieldSymbol].options.toList
+        |    val smallserialOptions = optionsOfColumn(TestDefault.baseTableRow.smallintAutoInc)
+        |    val serialOptions = optionsOfColumn(TestDefault.baseTableRow.intAutoInc)
+        |    val bigserialOptions = optionsOfColumn(TestDefault.baseTableRow.bigintAutoInc)
+        |    val char1EmptyOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultEmpty)
+        |    val char1ValidOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultValid)
+        |    val char1InvalidOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultInvalid)
+        |    assertTrue("smallint_auto_inc should be AutoInc", smallserialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
+        |    assertTrue("int_auto_inc should be AutoInc", serialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
+        |    assertTrue("bigint_auto_inc should be AutoInc", bigserialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
+        |    assertTrue("default value of char1_default_empty should be ' '", char1EmptyOptions.exists(option => (option equals TestDefault.baseTableRow.O.Default(Some(' ')))))
+        |    assertTrue("default value of char1_default_valid should be 'a'", char1ValidOptions.exists(option => (option equals TestDefault.baseTableRow.O.Default(Some('a')))))
+        |    assertTrue("default value of char1_default_invalid should not exist", char1InvalidOptions.forall(option => (option.isInstanceOf[RelationalProfile.ColumnOption.Default[_]])))
+        |  }
+        |)
+      """.stripMargin
+    },
     new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql") ){
       override def generator: DBIO[SourceCodeGenerator] =
         tdb.profile.createModel(ignoreInvalidDefaults=false).map(new SourceCodeGenerator(_){
