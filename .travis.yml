@@ -17,6 +17,7 @@ services:
   - postgresql
   - docker
 addons:
+  postgresql: "9.4"
   apt:
     packages:
     - graphviz

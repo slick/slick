@@ -97,7 +97,7 @@ trait TestCodeGenerator {
            |  import scala.concurrent.ExecutionContext.Implicits.global
            |  $testCode
            |}
-         """.stripMargin + super.code
+           |""".stripMargin + super.code
       }
     }
   }
