@@ -106,8 +106,7 @@ trait PostgresProfile extends JdbcProfile {
         case (NumericPattern(v),"Long") => Some(Some(v.toLong))
         case (NumericPattern(v),"Float") => Some(Some(v.toFloat))
         case (NumericPattern(v),"Double") => Some(Some(v.toDouble))
-        case (NumericPattern(v), "scala.math.BigDecimal") => Some(Some(v))
-        case (v, "scala.math.BigDecimal") => Some(Some(v))
+        case (NumericPattern(v), "scala.math.BigDecimal") => Some(Some(BigDecimal(s"$v")))
         case (UUIDPattern(v),"java.util.UUID") => Some(Some(java.util.UUID.fromString(v)))
         case (_,"java.util.UUID") => None // The UUID is generated through a function - treat it as if there was no default.
       }.getOrElse{
