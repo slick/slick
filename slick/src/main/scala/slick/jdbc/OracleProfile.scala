@@ -83,6 +83,14 @@ trait OracleProfile extends JdbcProfile {
         case 101 => "Double"
         case _ => super.tpe
       }
+      override def default = meta.columnDef.map((_,tpe)).collect{
+        case (v, "scala.math.BigDecimal") => Some(Some(scala.math.BigDecimal(v.stripSuffix(" "))))
+      }.getOrElse{
+        val d = super.default
+        if(meta.nullable == Some(true) && d == None){
+          Some(None)
+        } else d
+      }
       override def rawDefault = super.rawDefault.map(_.stripSuffix(" ")).map{
         case "null" => "NULL"
         case v => v
