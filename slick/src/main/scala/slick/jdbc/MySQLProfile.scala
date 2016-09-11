@@ -83,6 +83,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
         case (v,"String")    => Some(Some(v))
         case ("1","Boolean") => Some(Some(true))
         case ("0","Boolean") => Some(Some(false))
+        case ( v , "scala.math.BigDecimal") => Some( Some( scala.math.BigDecimal(v) ) )
       }.getOrElse{
         val d = super.default
         if(meta.nullable == Some(true) && d == None){

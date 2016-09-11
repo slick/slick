@@ -75,7 +75,7 @@ val  SimpleA = CustomTyping.SimpleA
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
-          override def autoIncLast = true
+          override def autoIncLastAsOption = true
           override def Column = new Column(_){
             override def asOption = autoInc
           }
@@ -83,14 +83,25 @@ val  SimpleA = CustomTyping.SimpleA
       })
     },
     new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
-    new Config("CG11", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def Column = new Column(_){
-            override def asOption = true
-          }
-        }
-      })
+        | DBIO.seq(
+        |   schema.create,
+        |   DefaultNumeric += entry,
+        |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }
+      """.stripMargin
+    },
+    new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql")){
+      override def testCode = 
+      """
+        | val entry = DefaultNumericRow(d0 = scala.math.BigDecimal(123.45), d1 = scala.math.BigDecimal(90), d3 = 0)
+        | DBIO.seq(
+        |   schema.create,
+        |   DefaultNumeric += entry,
+        |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }
+        | )
+      """.stripMargin
     },
     new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
       import tdb.profile.api._
