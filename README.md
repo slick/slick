@@ -1,6 +1,19 @@
 Slick
 =====
 
+
+LifeOnAir
+
+We've merged the pending PR #966 by @tminglei from //github.com/tminglei/slick.git, in order to fix an SQL code generation error in insertOrUpdate().
+
+Version name changed from 3.2.0-M1 to 3.2.0-M1-lifeonair. Also, added artifactory publihing capability.
+
+
+Original README:
+
+
+
+
 [![Build Status](https://travis-ci.org/slick/slick.png?branch=3.1)](https://travis-ci.org/slick/slick) [![Stories in Ready](https://badge.waffle.io/slick/slick.png?label=1%20-%20Ready)](https://waffle.io/slick/slick) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 Slick is a modern database query and access library for Scala. It allows you

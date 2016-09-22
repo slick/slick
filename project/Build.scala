@@ -12,7 +12,7 @@ import com.typesafe.sbt.sdlc.Plugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.2.0-M1"
+  val slickVersion = "3.2.0-M1-lifeonair"
   val binaryCompatSlickVersion = "3.2.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.11.8", "2.12.0-M5")
 
@@ -113,8 +113,8 @@ object SlickBuild extends Build {
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     publishTo <<= (repoKind){
-      case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
-      case "releases" =>  Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
+      case "snapshots" => Some("Artifactory Realm" at "https://lifeonair.jfrog.io/lifeonair/ext-release-local;build.timestamp=" + new java.util.Date().getTime)
+      case "releases" =>  Some("Artifactory Realm" at "https://lifeonair.jfrog.io/lifeonair/ext-release-local")
     },
     publishMavenStyle := true,
     publishArtifact in Test := false,
