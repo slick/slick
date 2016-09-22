@@ -533,7 +533,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   /** Builder for upsert statements, builds standard SQL MERGE statements by default. */
   class UpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
-    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition(_.options.contains(ColumnOption.PrimaryKey))
+    /* NOTE: pk defined by using method `primaryKey` and pk defined with `PrimaryKey` can only have one,
+             here we let table ddl to help us ensure this. */
+    private lazy val funcDefinedPKs = table.profileTable.asInstanceOf[Table[_]].primaryKeys
+    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition { sym =>
+      sym.options.contains(ColumnOption.PrimaryKey) || funcDefinedPKs.exists(pk => pk.columns.collect {
+        case Select(_, f: FieldSymbol) => f
+      }.exists(_.name == sym.name)) }
     protected lazy val pkNames = pkSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val softNames = softSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val nonAutoIncSyms = syms.filter(s => !(s.options contains ColumnOption.AutoInc))
