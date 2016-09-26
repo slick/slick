@@ -29,7 +29,7 @@ These are the databases and driver versions that have explicit automated tests.
 
 Accessing other database systems is possible, with a reduced feature set.
 
-The [manual and scaladocs](http://slick.typesafe.com/docs/) for Slick can be
-found on the [Slick web site](http://slick.typesafe.com/).
+The [manual and scaladocs](http://slick.lightbend.com/docs/) for Slick can be
+found on the [Slick web site](http://slick.lightbend.com/).
 
 Licensing conditions (BSD-style) can be found in LICENSE.txt.
