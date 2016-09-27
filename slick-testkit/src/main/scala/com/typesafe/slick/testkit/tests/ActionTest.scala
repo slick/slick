@@ -122,8 +122,8 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     val aSetup = ts.schema.create
 
     val a1 = LiteralColumn(Option(1)).result
-    val a2 = DBIO.sequence(Option(LiteralColumn(1).result))
-    val a3 = DBIO.sequence(Option.empty[DBIO[Int]])
+    val a2 = DBIO.sequenceOption(Option(LiteralColumn(1).result))
+    val a3 = DBIO.sequenceOption(Option.empty[DBIO[Int]])
 
     for {
       _ <- aSetup
