@@ -182,6 +182,7 @@ trait HsqldbProfile extends JdbcProfile {
       def offsetConvertISOToHsqldb(isoString : String) : String = isoString.takeRight(6).toArray match {
         case Array(_,_,_,_,_,'Z') => isoString.dropRight(1) + "+0:00"
         case Array('+'|'-','0',_,':',_,_) => isoString.dropRight(5) + isoString.takeRight(4)
+        case _ => isoString
       }
     }
 
