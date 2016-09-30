@@ -190,7 +190,7 @@ trait HsqldbProfile extends JdbcProfile {
 
       override def sqlType = java.sql.Types.TIME_WITH_TIMEZONE
 
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME WITH TIME ZONE"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(9) WITH TIME ZONE"
 
       override val hasLiteralForm: Boolean = false
 
@@ -218,7 +218,7 @@ trait HsqldbProfile extends JdbcProfile {
 
       override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
 
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP WITH TIME ZONE"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
 
       override val hasLiteralForm: Boolean = false
 
