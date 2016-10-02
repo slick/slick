@@ -182,6 +182,7 @@ trait HsqldbProfile extends JdbcProfile {
       def offsetConvertISOToHsqldb(isoString : String) : String = isoString.takeRight(6).toArray match {
         case Array(_,_,_,_,_,'Z') => isoString.dropRight(1) + "+0:00"
         case Array('+'|'-','0',_,':',_,_) => isoString.dropRight(5) + isoString.takeRight(4)
+        case _ => isoString
       }
     }
 
@@ -189,7 +190,7 @@ trait HsqldbProfile extends JdbcProfile {
 
       override def sqlType = java.sql.Types.TIME_WITH_TIMEZONE
 
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME WITH TIME ZONE"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(9) WITH TIME ZONE"
 
       override val hasLiteralForm: Boolean = false
 
@@ -217,7 +218,7 @@ trait HsqldbProfile extends JdbcProfile {
 
       override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
 
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP WITH TIME ZONE"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
 
       override val hasLiteralForm: Boolean = false
 
