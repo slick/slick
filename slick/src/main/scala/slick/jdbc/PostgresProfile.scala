@@ -173,15 +173,13 @@ trait PostgresProfile extends JdbcProfile {
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
     override def buildInsert: InsertBuilderResult = {
-      val update = "update " + tableName + " set " + softNames.map(n => s"$n=?").mkString(",") + " where " + pkNames.map(n => s"$n=?").mkString(" and ")
-      val nonAutoIncNames = nonAutoIncSyms.map(fs => quoteIdentifier(fs.name)).mkString(",")
-      val nonAutoIncVars = nonAutoIncSyms.map(_ => "?").mkString(",")
-      val cond = pkNames.map(n => s"$n=?").mkString(" and ")
-      val insert = s"insert into $tableName ($nonAutoIncNames) select $nonAutoIncVars where not exists (select 1 from $tableName where $cond)"
-      new InsertBuilderResult(table, s"$update; $insert", ConstArray.from(softSyms ++ pkSyms))
+      val insert = s"""insert into $tableName (${allNames.mkString(",")}) values $allVars"""
+      val update = s"""update set ${softNames.map(n => s"$n=EXCLUDED.$n").mkString(",")}"""
+      val upsert = s"""$insert on conflict (${pkNames.mkString(",")}) do $update"""
+      new InsertBuilderResult(table, upsert, syms)
     }
 
-    override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
+    override def transformMapping(n: Node) = reorderColumns(n, syms.toSeq)
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
