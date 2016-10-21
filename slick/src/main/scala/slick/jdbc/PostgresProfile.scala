@@ -198,7 +198,7 @@ trait PostgresProfile extends JdbcProfile {
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override def appendColumn(sb: StringBuilder) {
+    override def appendColumn(sb: StringBuilder): Unit = {
       sb append quoteIdentifier(column.name) append ' '
       if(autoIncrement && !customSqlType) {
         sb append (if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL")
