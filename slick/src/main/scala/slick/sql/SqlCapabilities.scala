@@ -16,8 +16,6 @@ object SqlCapabilities {
   val sequenceMax = Capability("sql.sequenceMax")
   /** Supports min value for sequences */
   val sequenceMin = Capability("sql.sequenceMin")
-  /** supports interpreting strings as VARCHAR. Some databases eg. HSQL do not do this. */
-  val stringIsVarchar = Capability("sql.stringIsVarchar")
 
   /** Supports all SqlProfile features which do not have separate capability values */
   val other = Capability("sql.other")

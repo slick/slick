@@ -86,6 +86,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     }
     val ts1 = TableQuery[T1]
 
+//    fail(ts1.shaped.toString)
+
     class T2(tag: Tag) extends Table[Data](tag, "T_mutating2") {
       def c = column[Int]("C")
       def d = column[String]("D")
@@ -106,7 +108,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     val q1: SqlDBIO[Int] = updateQ11.update3(updateQ21)
     val q2: SqlDBIO[Int] = updateQ12.update3(updateQ22)
     val q3: SqlDBIO[Int] = updateQ13.update3(updateQ23)
-//    val q4: SqlDBIO[Int] = updateQ14.update3(d => (d.a + 200, "tuple"))
+//    val q4: SqlDBIO[Int] = updateQ14.update3[(Rep[Int], Rep[String])](d => (d.a + 200, "tuple"))
     val q5: SqlDBIO[Int] = updateQ15.update3(d => d ++ "T1")
     val q6: SqlDBIO[Int] = updateQ16.update3[(Rep[String], Rep[Int])]{ case (b, a) => (b ++ "T1", a + 100) }
     val q7: SqlDBIO[Int] = updateQ14.update(Data(1, "1"))
@@ -114,19 +116,18 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     val q9: SqlDBIO[Int] = updateQ16.update3("T0", 57)
 
     // Exclude this so that string casting(eg in hsqldb) may not affect the test against constant sql strings
-    ifCapU(scap.stringIsVarchar) {
+    ifCapU(tcap.stringIsVarchar) {
       q1.statements.head shouldBe
         """update "T_mutating1" set "A" = (select "C"
-                                  |from "T_mutating2"
-                                  |where "C" = 22), "B" = (select "D"
-                                  |from "T_mutating2"
-                                  |where "C" = 22) where "T_mutating1"."A" = 11""".stripMargin
+                                    |from "T_mutating2"
+                                    |where "C" = 22), "B" = (select "D"
+                                    |from "T_mutating2"
+                                    |where "C" = 22) where "T_mutating1"."A" = 11""".stripMargin
       q2.statements.head shouldBe
         """update "T_mutating1" set "B" = (select "D"||'T2'
                                     |from "T_mutating2"
                                     |where "C" = 25) where "T_mutating1"."A" = 12""".stripMargin
-      q3.
-        statements.head shouldBe
+      q3.statements.head shouldBe
         """update "T_mutating1" set "A" = (select "C" + 100
                                     |from "T_mutating2"
                                     |where "C" = 26), "B" = (select "D"||'T2'
@@ -135,7 +136,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 //      q4.statements.head shouldBe ""
       q5.statements.head shouldBe
         """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1') where "T_mutating1"."A" = 15"""
-      q6.statements.head shouldBe """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1'), "A" = ("T_mutating1"."A" + 100) where "T_mutating1"."A" = 16"""
+      q6.statements.head shouldBe
+        """update "T_mutating1" set "B" = ("T_mutating1"."B"||'T1'), "A" = ("T_mutating1"."A" + 100) where "T_mutating1"."A" = 16"""
     }
 
     seq(

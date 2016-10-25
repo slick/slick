@@ -85,7 +85,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
         from = f2,
         select = s2,
         where = w2.orElse(where),
-        updateValues = if (u2 eq updateValues) updateValues else u2,
+        updateValues = u2,
         groupBy = g2.orElse(groupBy),
         orderBy = if(o2 eq o) orderBy else orderBy.zip(o2).map { case ((_, o), n) => (n, o) },
         having = h2.orElse(having),

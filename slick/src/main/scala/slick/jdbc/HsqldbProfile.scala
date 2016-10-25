@@ -37,7 +37,6 @@ trait HsqldbProfile extends JdbcProfile {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlCapabilities.sequenceCurr
-    - SqlCapabilities.stringIsVarchar
     - JdbcCapabilities.insertOrUpdate
   )
 
