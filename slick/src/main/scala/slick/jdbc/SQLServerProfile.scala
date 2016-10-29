@@ -284,7 +284,7 @@ trait SQLServerProfile extends JdbcProfile {
               Time.valueOf(serializedTime).toLocalTime
             } else {
               val t: Time = Time.valueOf(serializedTime.substring(0, sep))
-              val millis = (("0." + serializedTime.substring(sep + 1)).toDouble * 1000.0).toInt
+              val millis = (s"0.${serializedTime.substring(sep + 1)}".toDouble * 1000.0).toInt
               t.setTime(t.getTime + millis)
               t.toLocalTime
             }
@@ -308,13 +308,13 @@ trait SQLServerProfile extends JdbcProfile {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
           .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND, 3, 3, true)
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
           .optionalEnd()
           .toFormatter()
       }
       /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
        * want here is DATETIME. */
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(3)"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
         r.getTimestamp(idx) match {
           case null =>
@@ -328,7 +328,7 @@ trait SQLServerProfile extends JdbcProfile {
           case null =>
             "NULL"
           case _ =>
-            s"(convert(datetime2(3), {ts '${formatter.format(value)}'}))"
+            s"(convert(datetime2(6), {ts '${formatter.format(value)}'}))"
         }
       }
     }
@@ -337,7 +337,7 @@ trait SQLServerProfile extends JdbcProfile {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
           .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND, 3, 3, true)
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
           .optionalEnd()
           .toFormatter()
       }
@@ -348,7 +348,7 @@ trait SQLServerProfile extends JdbcProfile {
       }
       /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
        * want here is DATETIME. */
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(3)"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def getValue(r: ResultSet, idx: Int): Instant = {
         r.getTimestamp(idx) match {
           case null =>
@@ -362,20 +362,20 @@ trait SQLServerProfile extends JdbcProfile {
           case null =>
             "NULL"
           case _ =>
-            s"(convert(datetime2(3), {ts '${serializeInstantValue(value)}'}))"
+            s"(convert(datetime2(6), {ts '${serializeInstantValue(value)}'}))"
         }
       }
     }
     class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
       override def sqlType = java.sql.Types.OTHER
       override val hasLiteralForm: Boolean = false
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(3)"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
 
       private[this] val formatter: DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
           .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 3, true)
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
           .optionalEnd()
           .appendLiteral(' ')
           .appendOffsetId()
@@ -394,7 +394,7 @@ trait SQLServerProfile extends JdbcProfile {
           case null =>
             "NULL"
           case _ =>
-            s"(convert(DATETIMEOFFSET(3), {ts '${formatter.format(value)}'}))"
+            s"(convert(DATETIMEOFFSET(6), {ts '${formatter.format(value)}'}))"
         }
       }
     }

@@ -1,12 +1,13 @@
 package slick.jdbc
 
-import java.time.format.DateTimeFormatter
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time._
-import java.util.{IllegalFormatException, UUID}
+import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 import java.sql.{Array => _, _}
+import java.time.temporal.ChronoField
 
 import slick.SlickException
 import slick.ast._
@@ -334,9 +335,6 @@ trait OracleProfile extends JdbcProfile {
       override def valueToSQLLiteral(value: Time) = "{ts '"+(new Timestamp(value.getTime).toString)+"'}"
     }
 
-    class InstantJdbcType extends super.InstantJdbcType {
-      override def valueToSQLLiteral(value: Instant) = s"{ts '${Timestamp.from(value)}'}"
-    }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "RAW(32)"
@@ -362,76 +360,63 @@ trait OracleProfile extends JdbcProfile {
         Timestamp.valueOf(LocalDateTime.of(LocalDate.MIN, localTime))
       }
       override def sqlType = java.sql.Types.TIMESTAMP
-      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) = {
-        p.setTimestamp(idx, timestampFromLocalTime(v))
-      }
+
       override def getValue(r: ResultSet, idx: Int) : LocalTime = {
         r.getTimestamp(idx) match {
           case null => null
           case timestamp => timestamp.toLocalDateTime.toLocalTime
         }
       }
-      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = {
-        r.updateTimestamp(idx, timestampFromLocalTime(v))
-      }
+
       override def valueToSQLLiteral(value: LocalTime) : String = {
         s"{ts '${timestampFromLocalTime(value).toString}'}"
       }
     }
 
-    /**
-      * TODO: This class is not implemented natively, it should be implemented as an Oracle 'TIMESTAMP'
-      */
     class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
-      override def sqlType : Int = java.sql.Types.VARCHAR
-
-      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, if (v == null) null else v.toString)
+      private[this] val formatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ISO_LOCAL_DATE)
+          .appendLiteral(' ')
+          .append(DateTimeFormatter.ISO_LOCAL_TIME)
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+          .optionalEnd()
+          .toFormatter()
       }
-      override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
+
+      private[this] def deserializeTimeString(oracleVarchar: String): LocalDateTime = {
+        LocalDateTime.parse(oracleVarchar, formatter)
+      }
+
+      override def sqlType = java.sql.Types.OTHER
+
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
+
+      override def valueToSQLLiteral(value: LocalDateTime): String = {
+        s"{ts '${Timestamp.from(value.toInstant(ZoneOffset.UTC))}'}"
+      }
+
+      override def hasLiteralForm: Boolean = true
+
+      /*
+      override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
         r.getString(idx) match {
           case null => null
-          case iso8601String => LocalDateTime.parse(iso8601String)
+          case oracleString => deserializeTimeString(oracleString)
         }
       }
-      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) = {
-        r.updateString(idx, if (v == null) null else v.toString)
-      }
-      override def valueToSQLLiteral(value: LocalDateTime) : String = {
-        s"'${value.toString}'"
-      }
+      */
+    }
+
+    class InstantJdbcType extends super.InstantJdbcType {
+      override def valueToSQLLiteral(value: Instant) = s"{ts '${Timestamp.from(value)}'}"
     }
 
     // The following JDBC types native implementation do not work as expected yet,
     // they still have some pending bugs when running the application in non-UTC Oracle
     // machines.
     /*
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")
-      @tailrec
-      private[this] def deserializeTimeString(oracleVarchar : String) : LocalDateTime = {
-        oracleVarchar match {
-          case time if time.length == 26 =>
-            LocalDateTime.parse(time, formatter)
-          case time if time.length == 19 =>
-            LocalDateTime.parse(s"$time.000000", formatter)
-          case time if time.length > 19 && time.length < 26 =>
-            deserializeTimeString(s"${time}0")
-          case _ =>
-            throw new IllegalArgumentException(s"$oracleVarchar does not correspond to a valid LocalDateTime String.")
-        }
-      }
-      override def sqlType = java.sql.Types.OTHER
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
-      override def valueToSQLLiteral(value: LocalDateTime) : String = {
-        s"TO_TIMESTAMP('${formatter.format(value)}','SYYYY-MM-DD HH24:MI:SS.FMFF6')"
-      }
-      override def hasLiteralForm: Boolean = true
-      override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
-        deserializeTimeString(r.getString(idx))
-      }
-    }
-
     // No Oracle time type without date component. Add LocalDate.ofEpochDay(0), but ignore it.
     class OffsetTimeJdbcType extends super.OffsetTimeJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
