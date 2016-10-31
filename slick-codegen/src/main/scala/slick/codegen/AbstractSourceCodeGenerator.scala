@@ -170,7 +170,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       }
       def defaultCode = {
         case Some(v) => s"Some(${defaultCode(v)})"
-        case s:String  => "\""+s+"\""
+        case s:String  => "\""+s.replaceAll("\"", """\\"""")+"\""
         case None      => s"None"
         case v:Byte    => s"$v"
         case v:Int     => s"$v"

@@ -170,6 +170,12 @@ object DBIOAction {
     total.result()
   }
 
+  /** Transform a `Option[ DBIO[R] ]` into a `DBIO[ Option[R] ]`. */
+  def sequenceOption[R, E <: Effect](in: Option[DBIOAction[R, NoStream, E]]): DBIOAction[Option[R], NoStream, E] = {
+    implicit val ec = DBIO.sameThreadExecutionContext
+    sequence(in.toList).map(_.headOption)
+  }
+
   /** Transform a `TraversableOnce[ DBIO[R] ]` into a `DBIO[ TraversableOnce[R] ]`. */
   def sequence[R, M[+_] <: TraversableOnce[_], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: CanBuildFrom[M[DBIOAction[R, NoStream, E]], R, M[R]]): DBIOAction[M[R], NoStream, E] = {
     implicit val ec = DBIO.sameThreadExecutionContext

@@ -142,6 +142,25 @@ val  SimpleA = CustomTyping.SimpleA
         |)
       """.stripMargin
     },
+    new Config("MySQL1", StandardTestDBs.MySQL, "MySQL", Nil) {
+      import tdb.profile.api._
+      class A(tag: Tag) extends Table[(String)](tag, "a") {
+        def quote = column[String]("x", O.Default("\"\"")) // column name with double quote
+        def * = quote
+      }
+      override def generator =
+        TableQuery[A].schema.create >>
+        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+      override def testCode =
+        """
+          |  val a1 = ARow("e")
+          |  DBIO.seq(
+          |    schema.create,
+          |    A += a1,
+          |    A.result.map { case Seq(ARow(quote)) => assertEquals("e", quote) }
+          |  ).transactionally
+        """.stripMargin
+    },
     new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql") ){
       override def generator: DBIO[SourceCodeGenerator] =
         tdb.profile.createModel(ignoreInvalidDefaults=false).map(new SourceCodeGenerator(_){

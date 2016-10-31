@@ -338,7 +338,7 @@ and its subclasses for details on composing compiled queries.
 
 .. index:: take, drop
 
-Be aware that ``take`` and ``drop`` take ``ConstColumn[Long]`` parameters. Unlike ``Rep[Long]]``,
+Be aware that ``take`` and ``drop`` take ``ConstColumn[Long]`` parameters. Unlike ``Rep[Long]``,
 which could be substituted by another value computed by a query, a ConstColumn can only be literal
 value or a parameter of a compiled query. This is necessary because the actual value has to be
 known by the time the query is prepared for execution by Slick.

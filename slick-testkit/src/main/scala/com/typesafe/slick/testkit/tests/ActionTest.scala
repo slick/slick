@@ -1,6 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{StandardTestDBs, RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB, StandardTestDBs}
+import slick.dbio.DBIOAction
+import slick.dbio.Effect.Read
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
@@ -109,6 +111,30 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       a5.map(_ shouldBe "a5")
     )
   } else DBIO.successful(())
+
+  def testOptionSequence = {
+    class T(tag: Tag) extends Table[Option[Int]](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a.?
+    }
+    val ts = TableQuery[T]
+
+    val aSetup = ts.schema.create
+
+    val a1 = LiteralColumn(Option(1)).result
+    val a2 = DBIO.sequenceOption(Option(LiteralColumn(1).result))
+    val a3 = DBIO.sequenceOption(Option.empty[DBIO[Int]])
+
+    for {
+      _ <- aSetup
+      b1 <- a1
+      b2 <- a2
+      b3 <- a3
+    } yield {
+      b1 shouldBe b2
+      b2 shouldNotBe b3
+    }
+  }
 
   def testFlatten = {
     class T(tag: Tag) extends Table[Int](tag, u"t") {
