@@ -120,6 +120,11 @@ trait SQLiteProfile extends JdbcProfile {
       // in 3.7.15-M1:
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
+    override def readIndices(t: MTable) = super.readIndices(t).map(
+      _.filterNot(
+        _.exists( _.indexName.exists(_.startsWith("sqlite_autoindex_")) )
+      )
+    )
   }
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
