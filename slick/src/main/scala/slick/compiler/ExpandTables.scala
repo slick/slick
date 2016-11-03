@@ -34,19 +34,20 @@ class ExpandTables extends Phase {
     }
 
     val s2 = state.map { n => ClientSideOp.mapServerSide(n) { tree =>
-      // Find table fields
+      // Find table fields grouped by baseIdentity, so that all tables with the same baseIdentity end up with the same
+      // structural type under a different identity.
+      val baseIdentity = tree.collect[(TypeSymbol, TypeSymbol)] { case TableNode(_, _, i, b) => (i, b) }.toMap
       val structs = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
-        case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => n.sourceNominalType.sym -> (sym -> s.nodeType)
-      }.toSeq.groupBy(_._1).map { case (ts, v) => (ts, NominalType(ts, StructType(ConstArray.from(v.map(_._2).toMap)))) }
+        case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => baseIdentity(n.sourceNominalType.sym) -> (sym -> s.nodeType)
+      }.toSeq.groupBy(_._1).mapValues(_.map(_._2).toMap)
       logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
 
       val tables = new mutable.HashMap[TableIdentitySymbol, (TermSymbol, Node)]
       var expandDistinct = false
       def tr(tree: Node): Node = tree.replace {
-        case t: TableExpansion =>
-          val ts = t.table.asInstanceOf[TableNode].identity
-          tables += ((ts, (t.generator, t.columns)))
-          t.table :@ CollectionType(t.nodeType.asCollectionType.cons, structs(ts))
+        case TableExpansion(gen, t @ TableNode(_, _, i, b), columns) :@ CollectionType(cons, _) =>
+          tables += ((i, (gen, columns)))
+          t :@ CollectionType(cons, NominalType(i, StructType(ConstArray.from(structs(b)))))
         case r: Ref => r.untyped
         case d: Distinct =>
           if(d.nodeType.existsType { case NominalType(_: TableIdentitySymbol, _) => true; case _ => false })
