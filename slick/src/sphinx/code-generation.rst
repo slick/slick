@@ -3,7 +3,7 @@ Schema Code Generation
 
 The Slick code generator is a convenient tool for working
 with an existing or evolving database schema. It can be run
-stand-alone or integrated into you sbt build for creating all
+stand-alone or integrated into your sbt build for creating all
 code Slick needs to work.
 
 Overview
