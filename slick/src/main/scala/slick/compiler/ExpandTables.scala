@@ -34,12 +34,13 @@ class ExpandTables extends Phase {
     }
 
     val s2 = state.map { n => ClientSideOp.mapServerSide(n) { tree =>
-      // Find table fields grouped by baseIdentity, so that all tables with the same baseIdentity end up with the same
-      // structural type under a different identity.
-      val baseIdentity = tree.collect[(TypeSymbol, TypeSymbol)] { case TableNode(_, _, i, b) => (i, b) }.toMap
-      val structs = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
+      // Create the map of table identities to their base identities.
+     val baseIdentity: Map[TypeSymbol, TypeSymbol] = tree.collect[(TypeSymbol, TypeSymbol)] { case TableNode(_, _, i, b) => (i, b) }.toMap
+      // Find table fields(StructType) grouped by baseIdentity, so that all tables with the same baseIdentity end up with the same
+      // structural type under a different identity when we are traversing the tree to modify it.
+      val structs: Map[TypeSymbol, Type] = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
         case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => baseIdentity(n.sourceNominalType.sym) -> (sym -> s.nodeType)
-      }.toSeq.groupBy(_._1).mapValues(_.map(_._2).toMap)
+      }.toSeq.groupBy(_._1).mapValues(v => StructType(ConstArray.from(v.map(_._2).toMap)))
       logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
 
       val tables = new mutable.HashMap[TableIdentitySymbol, (TermSymbol, Node)]
@@ -47,7 +48,7 @@ class ExpandTables extends Phase {
       def tr(tree: Node): Node = tree.replace {
         case TableExpansion(gen, t @ TableNode(_, _, i, b), columns) :@ CollectionType(cons, _) =>
           tables += ((i, (gen, columns)))
-          t :@ CollectionType(cons, NominalType(i, StructType(ConstArray.from(structs(b)))))
+          t :@ CollectionType(cons, NominalType(i, structs(b)))
         case r: Ref => r.untyped
         case d: Distinct =>
           if(d.nodeType.existsType { case NominalType(_: TableIdentitySymbol, _) => true; case _ => false })
