@@ -227,7 +227,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
               case 3 => v(1) // quoted character
             }
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
-          case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
+          case (v,"scala.math.BigDecimal") => BigDecimal(s"${v.trim}") // need the trim for Oracle trailing space
           case (StringPattern(str),"String") => str
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false

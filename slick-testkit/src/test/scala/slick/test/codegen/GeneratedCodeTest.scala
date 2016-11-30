@@ -1,7 +1,7 @@
 package slick.test.codegen
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import slick.ast.{Node, Select}
+import slick.ast.{FieldSymbol, Node, Select}
 import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
 import slick.test.codegen.generated._
@@ -50,7 +50,7 @@ object GeneratedCodeTest {
         assertTrue("Indices should refer to correct field", dIdxFieldsName sameElements List("f1", "f2"))
 
         def optionsOfColumn(c: slick.lifted.Rep[_]) =
-          c.toNode.asInstanceOf[Select].field.asInstanceOf[slick.ast.FieldSymbol].options.toList
+          c.toNode.asInstanceOf[Select].field.asInstanceOf[FieldSymbol].options.toList
         val k1Options = optionsOfColumn(E.baseTableRow.k1)
         val k2Options = optionsOfColumn(E.baseTableRow.k2)
         val sOptions = optionsOfColumn(E.baseTableRow.s)
