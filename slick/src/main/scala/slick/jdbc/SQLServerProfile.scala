@@ -1,7 +1,7 @@
 package slick.jdbc
 
 import scala.concurrent.ExecutionContext
-
+import scala.reflect.{ClassTag,classTag}
 import java.sql.{Timestamp, Date, Time, ResultSet}
 
 import com.typesafe.config.Config
@@ -101,6 +101,13 @@ trait SQLServerProfile extends JdbcProfile {
         case ("0","Boolean")  => Some(false)
         case ("1","Boolean")  => Some(true)
       }.map(d => Some(d)).getOrElse{super.default}
+    }
+    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
+      //SQL Server's TINYINT type is unsigned while Scala's Byte is signed
+      if( jdbcType == java.sql.Types.TINYINT )
+        classTag[Short]
+      else
+        super.jdbcTypeToScala( jdbcType , typeName )
     }
   }
 
