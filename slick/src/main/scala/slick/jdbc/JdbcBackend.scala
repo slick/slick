@@ -139,6 +139,13 @@ trait JdbcBackend extends RelationalBackend {
       *     actions which cannot be executed immediately when all threads are busy. Beyond this
       *     limit new actions fail immediately. Set to 0 for no queue (direct hand-off) or to -1
       *     for an unlimited queue size (not recommended).</li>
+      *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
+      *     Beans ("MBeans") are registered. Slick supports an MBean of its own for monitoring the
+      *     `AsyncExecutor` with the thread pool and queue, but connection pool implementations
+      *     may register additional MBeans. In particular, HikariCP does this.</li>
+      *   <li>`poolName` (String, optional): A user-defined name for the connection pool in logging
+      *     and JMX management consoles to identify pools and pool configurations. This defaults to
+      *     the config path.</li>
       * </ul>
       *
       * The pool is tuned for asynchronous execution by default. Apart from the connection
@@ -190,9 +197,6 @@ trait JdbcBackend extends RelationalBackend {
       *     pool will "fail fast" if the pool cannot be seeded with initial connections
       *     successfully. If connections cannot be created at pool startup time, a RuntimeException
       *     will be thrown. This property has no effect if `minConnections` is 0.</li>
-      *   <li>`poolName` (String, optional): A user-defined name for the connection pool in logging
-      *     and JMX management consoles to identify pools and pool configurations. This defaults to
-      *     the config path.</li>
       *   <li>`leakDetectionThreshold` (Duration, optional, default: 0): The amount of time that a
       *     connection can be out of the pool before a message is logged indicating a possible
       *     connection leak. A value of 0 means leak detection is disabled. Lowest acceptable value
@@ -202,8 +206,6 @@ trait JdbcBackend extends RelationalBackend {
       *     database is still alive. It is database dependent and should be a query that takes very
       *     little processing by the database (e.g. "VALUES 1"). When not set, the JDBC4
       *     `Connection.isValid()` method is used instead (which is usually preferable).</li>
-      *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
-      *     Beans ("MBeans") are registered.</li>
       * </ul>
       *
       * Direct connections are based on a `java.sql.DataSource` or a `java.sql.Driver`. This is
@@ -269,9 +271,12 @@ trait JdbcBackend extends RelationalBackend {
                   classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Database = {
       val usedConfig = if(path.isEmpty) config else config.getConfig(path)
       val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
+      val poolName = usedConfig.getStringOr("poolName", path)
       val numThreads = usedConfig.getIntOr("numThreads", 20)
       val maxConnections = source.maxConnections.fold(numThreads*5)(identity)
-      val executor = AsyncExecutor(path, numThreads, numThreads, usedConfig.getIntOr("queueSize", 1000), maxConnections)
+      val registerMbeans = usedConfig.getBooleanOr("registerMbeans", false)
+      val executor = AsyncExecutor(poolName, numThreads, numThreads, usedConfig.getIntOr("queueSize", 1000),
+        maxConnections, registerMbeans = registerMbeans)
       forSource(source, executor)
     }
   }
