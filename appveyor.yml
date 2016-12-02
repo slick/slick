@@ -56,5 +56,4 @@ build_script:
 test_script:
   - sbt testkit/test:test
 cache:
-  - C:\sbt\ -> appveyor.yml
   - C:\Users\appveyor\.ivy2
