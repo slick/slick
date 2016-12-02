@@ -3,7 +3,7 @@ package slick.compiler
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.util.{ConstArray, Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis}
 
 /** Reorder certain stream operations for more efficient merging in `mergeToComprehensions`. */
 class ReorderOperations extends Phase {
@@ -46,10 +46,16 @@ class ReorderOperations extends Phase {
     // Remove Subquery boundary on top of TableNode and Join
     case Subquery(n @ (_: TableNode | _: Join), _) => n
 
-    // Push distincness-preserving aliasing / literal projection into Subquery.AboveDistinct
+    // Push distinctness-preserving aliasing / literal projection into Subquery.AboveDistinct
     case n @ Bind(s, Subquery(from :@ CollectionType(_, tpe), Subquery.AboveDistinct), Pure(StructNode(defs), ts1))
         if isAliasingOrLiteral(s, defs) && isDistinctnessPreserving(s, defs, tpe) =>
       Subquery(n.copy(from = from), Subquery.AboveDistinct).infer()
+
+    // Push Take and Drop (always distinctness-preserving) into Subquery.AboveDistinct
+    case Take(Subquery(from, Subquery.AboveDistinct), count) =>
+      Subquery(Take(from, count), Subquery.AboveDistinct).infer()
+    case Drop(Subquery(from, Subquery.AboveDistinct), count) =>
+      Subquery(Drop(from, count), Subquery.AboveDistinct).infer()
 
     // Push any aliasing / literal projection into other Subquery
     case n @ Bind(s, Subquery(from, cond), Pure(StructNode(defs), ts1)) if cond != Subquery.AboveDistinct && isAliasingOrLiteral(s, defs) =>
