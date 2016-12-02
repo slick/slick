@@ -62,9 +62,9 @@ object. The following ones are defined for ``JdbcProfile``:
 
 .. index:: type
 
-``DBType(dbType: String)``
+``SqlType(dbType: String)``
    Use a non-standard database-specific type for the DDL statements (e.g.
-   ``DBType("VARCHAR(20)")`` for a ``String`` column).
+   ``SqlType("VARCHAR(20)")`` for a ``String`` column).
 
 .. index:: AutoInc, generated, identity
 
@@ -75,14 +75,6 @@ object. The following ones are defined for ``JdbcProfile``:
    be returned when inserting data (often silently ignoring other columns), so
    Slick will check if the return column is properly marked as AutoInc where
    needed.
-
-.. index:: null, nullable, NotNull
-
-``NotNull``, ``Nullable``
-   Explicitly mark the column as nullable or non-nullable when creating the
-   DDL statements for the table. Nullability is otherwise determined from the
-   type (Option or non-Option). There is usually no reason to specify these
-   options.
 
 .. index:: *, star projection
 
