@@ -78,11 +78,8 @@ object. The following ones are defined for ``JdbcProfile``:
 
 .. index:: null, nullable, NotNull
 
-``NotNull``, ``Nullable``
-   Explicitly mark the column as nullable or non-nullable when creating the
-   DDL statements for the table. Nullability is otherwise determined from the
-   type (Option or non-Option). There is usually no reason to specify these
-   options.
+   Nullable columns are represented by Option[T]
+    
 
 .. index:: *, star projection
 
