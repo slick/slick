@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS "test_default";
-CREATE TABLE "test_default" ("smallint_auto_inc" SMALLSERIAL,
+CREATE TABLE "test_default" (
+                       -- "smallint_auto_inc" SMALLSERIAL,
                        "smallint_no_default" SMALLINT,
                        "smallint_default_zero" SMALLINT DEFAULT 0,
                        "smallint_default_pos" SMALLINT DEFAULT 1,

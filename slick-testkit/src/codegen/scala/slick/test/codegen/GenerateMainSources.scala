@@ -126,13 +126,13 @@ val  SimpleA = CustomTyping.SimpleA
         |  MTable.getTables(Some(""), Some("public"), None, None).map { tables =>
         |    def optionsOfColumn(c: slick.lifted.Rep[_]) =
         |      c.toNode.asInstanceOf[Select].field.asInstanceOf[FieldSymbol].options.toList
-        |    val smallserialOptions = optionsOfColumn(TestDefault.baseTableRow.smallintAutoInc)
+        |    //val smallserialOptions = optionsOfColumn(TestDefault.baseTableRow.smallintAutoInc)
         |    val serialOptions = optionsOfColumn(TestDefault.baseTableRow.intAutoInc)
         |    val bigserialOptions = optionsOfColumn(TestDefault.baseTableRow.bigintAutoInc)
         |    val char1EmptyOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultEmpty)
         |    val char1ValidOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultValid)
         |    val char1InvalidOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultInvalid)
-        |    assertTrue("smallint_auto_inc should be AutoInc", smallserialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
+        |    //assertTrue("smallint_auto_inc should be AutoInc", smallserialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
         |    assertTrue("int_auto_inc should be AutoInc", serialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
         |    assertTrue("bigint_auto_inc should be AutoInc", bigserialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
         |    assertTrue("default value of char1_default_empty should be ' '", char1EmptyOptions.exists(option => (option equals TestDefault.baseTableRow.O.Default(Some(' ')))))
