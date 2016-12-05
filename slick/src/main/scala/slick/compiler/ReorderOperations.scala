@@ -58,7 +58,7 @@ class ReorderOperations extends Phase {
       Subquery(Drop(from, count), Subquery.AboveDistinct).infer()
 
     // Push any aliasing / literal projection into other Subquery
-    case n @ Bind(s, Subquery(from, cond), Pure(StructNode(defs), ts1)) if cond != Subquery.AboveDistinct && isAliasingOrLiteral(s, defs) =>
+    case n @ Bind(s, Subquery(from, cond), Pure(StructNode(defs), ts1)) if cond != Subquery.AboveDistinct && cond != Subquery.BelowRowNumber && isAliasingOrLiteral(s, defs) =>
       Subquery(n.copy(from = from), cond).infer()
 
     // If a Filter checks an upper bound of a ROWNUM, push it into the AboveRownum boundary
@@ -78,6 +78,10 @@ class ReorderOperations extends Phase {
     // Push a BelowRowNumber boundary into Filter
     case sq @ Subquery(n: Filter, Subquery.BelowRowNumber) =>
       n.copy(from = convert1(sq.copy(child = n.from))).infer()
+
+    // Push a BelowRowNumber boundary into aliasing / literal projection
+    case sq @ Subquery(n @ Bind(s, from, Pure(StructNode(defs), ts1)), Subquery.BelowRowNumber) if isAliasingOrLiteral(s, defs) =>
+      n.copy(from = convert1(sq.copy(child = from))).infer()
 
     case n => n
   }
