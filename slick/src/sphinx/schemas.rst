@@ -76,14 +76,6 @@ object. The following ones are defined for ``JdbcProfile``:
    Slick will check if the return column is properly marked as AutoInc where
    needed.
 
-.. index:: null, nullable, NotNull
-
-``NotNull``, ``Nullable``
-   Explicitly mark the column as nullable or non-nullable when creating the
-   DDL statements for the table. Nullability is otherwise determined from the
-   type (Option or non-Option). There is usually no reason to specify these
-   options.
-
 .. index:: *, star projection
 
 Every table requires a ``*`` method containing a default projection.

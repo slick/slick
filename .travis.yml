@@ -1,5 +1,6 @@
-language: scala
+dist: trusty
 sudo: required
+language: scala
 before_install:
 # TZ needed for Oracle driver!
 - export TZ=Asia/Kamchatka
@@ -22,7 +23,9 @@ addons:
     packages:
     - graphviz
     - python-sphinx
-    - mysql-server
+    - mysql-server-5.6
+    - mysql-client-core-5.6
+    - mysql-client-5.6
 script:
 - sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf clean +testAll
 cache:
