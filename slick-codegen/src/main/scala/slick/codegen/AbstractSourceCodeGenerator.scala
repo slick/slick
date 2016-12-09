@@ -78,6 +78,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         ).mkString(", ")
         if(classEnabled){
           val prns = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
+          (if(caseClassFinal) "final " else "") +
           s"""case class $name($args)$prns"""
         } else {
           s"""
