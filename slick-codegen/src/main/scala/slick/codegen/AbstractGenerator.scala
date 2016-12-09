@@ -117,8 +117,10 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     trait EntityTypeDef extends TypeDef{
       /** Column types */
       def types: Code = compoundType(columns.map(_.exposedType))
-      /** Indicated whether a case class should be generated. Otherwise a type alias. */
+      /** Indicates whether a case class should be generated. Otherwise a type alias. */
       def classEnabled = mappingEnabled
+      /** Indicates whether a generated case class should be final. */
+      def caseClassFinal = true
       def doc =
         if(classEnabled){
           s"Entity class storing rows of table ${TableValue.name}\n" +
