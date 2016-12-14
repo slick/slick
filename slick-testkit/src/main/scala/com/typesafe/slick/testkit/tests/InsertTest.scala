@@ -1,6 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import slick.jdbc.DerbyProfile
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
@@ -149,6 +150,28 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def name = column[String]("name")
       def * = (id, name)
       def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    for {
+      _ <- ts.schema.create
+      _ <- ts ++= Seq((1, "a"), (2, "b"))
+      _ <- ts.insertOrUpdate((3, "c")).map(_ shouldBe 1)
+      _ <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
+      _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
+    } yield ()
+  }
+
+  def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, _, _] = {
+    //FIXME remove this after fixed checkInsert issue
+    if (tdb.profile.isInstanceOf[DerbyProfile]) return DBIO.successful(())
+
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge3") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+      def pk = primaryKey("t_merge_pk_a", id)
     }
     val ts = TableQuery[T]
 
