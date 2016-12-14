@@ -1,8 +1,8 @@
 package slick.compiler
 
-import slick.util.{ConstArrayOp, ConstArray}
-import slick.{SlickTreeException, SlickException}
-import slick.ast._
+import slick.util.{ConstArray, ConstArrayOp}
+import slick.{SlickException, SlickTreeException}
+import slick.ast.{CollectionType, _}
 import Util._
 import TypeUtil._
 
@@ -42,8 +42,12 @@ class ExpandSums extends Phase {
 
         // Translate a Nested FirstOption appearing in the query
         case OptionFold(fo @ FirstOption(n), ifEmpty, map, gen) =>
-          val first = Take(n, LiteralNode(1))
-          val pred = Library.==.typed[Boolean](first, LiteralNode(null))
+          val first = Take(n, LiteralNode(1)).infer()
+          val extendGen = new AnonSymbol
+          val selectDisc = new AnonSymbol
+          val discExtended = Bind(extendGen, first, Pure(ProductNode(ConstArray(Disc1, Ref(extendGen))))).infer()
+          logger.warn("discExtended := ", discExtended)
+          val pred = Library.==.typed[Boolean](Bind(selectDisc, discExtended, FwdPath(List(selectDisc, ElementSymbol(1)))).infer(), LiteralNode(null))
           val n2 = (ifEmpty, map) match {
             case (LiteralNode(true), LiteralNode(false)) => pred
             case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](pred)
@@ -132,64 +136,24 @@ class ExpandSums extends Phase {
     val rComplex = !rightElemType.structural.isInstanceOf[AtomicType]
     logger.debug(s"Translating join ($jt, complex: $lComplex, $rComplex):", bind)
 
-    // Find an existing column that can serve as a discriminator
-    def findDisc(t: Type): Option[List[TermSymbol]] = {
-      val global: Set[List[TermSymbol]] = t match {
-        case NominalType(ts, exp) =>
-          val c = discCandidates.filter { case (t, ss) => t == ts && ss.nonEmpty }.map(_._2)
-          logger.debug("Discriminator candidates from surrounding Filter and Join predicates: "+
-            c.map(Path.toString).mkString(", "))
-          c
-        case _ => Set.empty
-      }
-      def find(t: Type, path: List[TermSymbol]): Vector[List[TermSymbol]] = t.structural match {
-        case StructType(defs) => defs.toSeq.flatMap { case (s, t) => find(t, s :: path) }(collection.breakOut)
-        case p: ProductType => p.elements.iterator.zipWithIndex.flatMap { case (t, i) => find(t, ElementSymbol(i+1) :: path) }.toVector
-        case _: AtomicType => Vector(path)
-        case _ => Vector.empty
-      }
-      val local = find(t, Nil).sortBy { ss =>
-        (if(global contains ss) 3 else 1) * (ss.head match {
-          case f: FieldSymbol =>
-            if(f.options contains ColumnOption.PrimaryKey) -2 else -1
-          case _ => 0
-        })
-      }
-      logger.debug("Local candidates: "+local.map(Path.toString).mkString(", "))
-      local.headOption
-    }
-
     // Option-extend one side of the join with a discriminator column
-    def extend(side: Node, sym: TermSymbol, on: Node): (Node, Node, Boolean) = {
-      val extendGen = new AnonSymbol
-      val elemType = side.nodeType.asCollectionType.elementType
-      val (disc, createDisc) = findDisc(elemType) match {
-        case Some(path) =>
-          logger.debug("Using existing column "+Path(path)+" as discriminator in "+elemType)
-          (FwdPath(extendGen :: path.reverse), true)
-        case None =>
-          logger.debug("No suitable discriminator column found in "+elemType)
-          (Disc1, false)
-      }
-      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(ConstArray(disc, Ref(extendGen))))).infer()
-      val sideInCondition = Select(Ref(sym) :@ extendedElementType, ElementSymbol(2)).infer()
-      val on2 = on.replace({
-        case Ref(s) if s == sym => sideInCondition
-      }, bottomUp = true).infer()
-      (extend, on2, createDisc)
+    def extendJoin(side: Node, sym: TermSymbol, on: Node): (Node, Node, Boolean) = {
+      val (extend, createdDisc) = discExtend(side, discCandidates)
+      val on2 = on.replace(discExtendedRefReplacement(extend, sym), bottomUp = true).infer()
+      (extend, on2, createdDisc)
     }
 
     // Translate the join depending on JoinType and Option type
     val (left2, right2, on2, jt2, ldisc, rdisc) = jt match {
       case JoinType.LeftOption =>
-        val (right2, on2, rdisc) = if(rComplex) extend(right, rsym, on) else (right, on, false)
+        val (right2, on2, rdisc) = if(rComplex) extendJoin(right, rsym, on) else (right, on, false)
         (left, right2, on2, JoinType.Left, false, rdisc)
       case JoinType.RightOption =>
-        val (left2, on2, ldisc) = if(lComplex) extend(left, lsym, on) else (left, on, false)
+        val (left2, on2, ldisc) = if(lComplex) extendJoin(left, lsym, on) else (left, on, false)
         (left2, right, on2, JoinType.Right, ldisc, false)
       case JoinType.OuterOption =>
-        val (left2, on2, ldisc) = if(lComplex) extend(left, lsym, on) else (left, on, false)
-        val (right2, on3, rdisc) = if(rComplex) extend(right, rsym, on2) else (right, on2, false)
+        val (left2, on2, ldisc) = if(lComplex) extendJoin(left, lsym, on) else (left, on, false)
+        val (right2, on3, rdisc) = if(rComplex) extendJoin(right, rsym, on2) else (right, on2, false)
         (left2, right2, on3, JoinType.Outer, ldisc, rdisc)
     }
 
@@ -261,6 +225,58 @@ class ExpandSums extends Phase {
     case IfThenElse(ConstArray(Library.Not(Library.==(disc, LiteralNode(null))), ProductNode(ConstArray(Disc1, map)), ProductNode(ConstArray(DiscNone, _)))) =>
       ProductNode(ConstArray(disc, map)).infer()
     case n => n
+  }
+
+  /** Extend the given node with a discriminator by possibly selecting a discriminator column from the give set. */
+  def discExtend(node: Node, discCandidates: Set[(TypeSymbol, List[TermSymbol])]): (Node, Boolean) = {
+    val extendGen = new AnonSymbol
+    val elemType = node.nodeType.asCollectionType.elementType
+    val (disc, createdDisc) = findDisc(elemType, discCandidates) match {
+      case Some(path) =>
+        logger.debug("Using existing column "+Path(path)+" as discriminator in "+elemType)
+        (FwdPath(extendGen :: path.reverse), true)
+      case None =>
+        logger.debug("No suitable discriminator column found in "+elemType)
+        (Disc1, false)
+    }
+    val extend = Bind(extendGen, node, Pure(ProductNode(ConstArray(disc, Ref(extendGen))))).infer()
+    (extend, createdDisc)
+  }
+
+  /** Generate a PartialFunction to replace all Refs to a node with an updated Path after the node has been extended.
+    * Makes use of the existing symbol for the node. */
+  def discExtendedRefReplacement(extendedNode: Node, sym: TermSymbol): PartialFunction[Node, Node] = {
+    val CollectionType(_, extendedElementType) = extendedNode.nodeType
+    val sideInCondition = Select(Ref(sym) :@ extendedElementType, ElementSymbol(2)).infer()
+    return {
+      case Ref(s) if s == sym => sideInCondition
+    }
+  }
+
+  /** Find an existing column that can serve as a discriminator for the given nodeType. */
+  def findDisc(t: Type, discCandidates: Set[(TypeSymbol, List[TermSymbol])]): Option[List[TermSymbol]] = {
+    val global: Set[List[TermSymbol]] = t match {
+      case NominalType(ts, exp) =>
+        val c = discCandidates.filter { case (t, ss) => t == ts && ss.nonEmpty }.map(_._2)
+        logger.debug("Discriminator candidates from surrounding Filter and Join predicates: " + c.map(Path.toString).mkString(", "))
+        c
+      case _ => Set.empty
+    }
+    def find(t: Type, path: List[TermSymbol]): Vector[List[TermSymbol]] = t.structural match {
+      case StructType(defs) => defs.toSeq.flatMap { case (s, t) => find(t, s :: path) }(collection.breakOut)
+      case p: ProductType => p.elements.iterator.zipWithIndex.flatMap { case (t, i) => find(t, ElementSymbol(i+1) :: path) }.toVector
+      case _: AtomicType => Vector(path)
+      case _ => Vector.empty
+    }
+    val local = find(t, Nil).sortBy { ss =>
+      (if(global contains ss) 3 else 1) * (ss.head match {
+        case f: FieldSymbol =>
+          if(f.options contains ColumnOption.PrimaryKey) -2 else -1
+        case _ => 0
+      })
+    }
+    logger.debug("Local candidates: "+local.map(Path.toString).mkString(", "))
+    local.headOption
   }
 
   /** Collect discriminator candidate fields in a predicate. These are all paths below an
