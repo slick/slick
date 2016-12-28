@@ -38,12 +38,23 @@ class ThreeWayJoinTest extends AsyncTest[RelationalTestDB] {
     }
     lazy val ds = TableQuery[D]
 
+    def q1 = for {
+      a <- as
+      b <- a.bs
+      d <- b.d
+    } yield (a, b.id, d)
 
-     def q1 = for {
-       a <- as
-       b <- a.bs
-       d <- b.d
-     } yield (a, b.id, d)
+    def q2 = for {
+      a <- as
+      b <- a.bs.map(b => b)
+      d <- b.d
+    } yield (a, b.id, d)
+
+    def q3 = for {
+      a <- as
+      b <- a.bs.map(b => b).map(b => b)
+      d <- b.d
+    } yield (a, b.id, d)
 
     DBIO.seq(
       (as.schema ++ bs.schema ++ cs.schema ++ ds.schema).create,
@@ -51,12 +62,16 @@ class ThreeWayJoinTest extends AsyncTest[RelationalTestDB] {
       ds ++= Seq(3),
       bs ++= Seq((2,3)),
       cs ++= Seq((1,2)),
-      q1.result.named("q1").map(_.toSet shouldBe Set((1, 2, 3)))
+      q1.result.named("q1").map(_.toSet shouldBe Set((1, 2, 3))),
+      q2.result.named("q2").map(_.toSet shouldBe Set((1, 2, 3))),
+      q3.result.named("q3").map(_.toSet shouldBe Set((1, 2, 3)))
     )
   }
 
 
-   // ******************** Many to many join across two tables **********************
+
+
+  // ******************** Many to many join across two tables **********************
   def testManyToManyJoinTwice = {
     class A(tag: Tag) extends Table[Int](tag, "a_manytomanyjoin2") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -112,6 +127,5 @@ class ThreeWayJoinTest extends AsyncTest[RelationalTestDB] {
       q1.result.named("q1").map(_.toSet shouldBe Set((1, 2, 3)))
     )
   }
-
 
 }
