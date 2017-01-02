@@ -242,14 +242,26 @@ trait RelationalMappingCompilerComponent {
 
   final class ProductResultConverter(children: IndexedSeq[ResultConverter]) extends ResultConverter {
     def read(pr: RowReader) = TupleSupport.buildTuple(children.map(_.read(pr)))
-    def update(value: Any, pr: RowUpdater) =
-      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
+    def update(value: Any, pr: RowUpdater) = {
+      val values =
+        if(value.isInstanceOf[Product])
+          value.asInstanceOf[Product].productIterator
+        else
+          Seq(value).iterator
+      children.iterator.zip(values).foreach { case (ch, v) =>
         ch.update(v, pr)
       }
-    def set(value: Any, pp: RowWriter, forced: Boolean) =
-      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
+    }
+    def set(value: Any, pp: RowWriter, forced: Boolean) = {
+      val values =
+        if(value.isInstanceOf[Product])
+          value.asInstanceOf[Product].productIterator
+        else
+          Seq(value).iterator
+      children.iterator.zip(values).foreach { case (ch, v) =>
         ch.set(v, pp, forced)
       }
+    }
   }
 
   final class GetOrElseResultConverter(child: ResultConverter, default: () => Any) extends ResultConverter {
