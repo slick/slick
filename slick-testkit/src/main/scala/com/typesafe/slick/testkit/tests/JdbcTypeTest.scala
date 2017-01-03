@@ -148,4 +148,32 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     t1.schema.createStatements.mkString.should(_ contains "_FOO_BAR_")
     Future.successful(())
   }
+
+  def testOptionNotInDefaultProjection = {
+    case class User(id: Long, name: String)
+
+    class Users(tag: Tag) extends Table[User](tag, "users") {
+      val id = column[Long]("user_id")
+      val name = column[String]("user_name")
+      val password = column[Option[String]]("password")  /* Passes if we use String instead of Option[String] */
+
+      def * = (id, name).shaped <> (
+        {case (id, name) => User(id, name)},
+        {user: User => Some((user.id, user.name))}
+        )
+    }
+
+    val query = TableQuery[Users].map {
+      user => (user, user.password)
+    }
+
+    val allUsers = TableQuery[Users]
+
+    DBIO.seq(
+      allUsers.schema.create,
+      sqlu"""ALTER TABLE "users" ADD "password" VARCHAR(80) NULL""",
+      mark("q", query.result).map(_.length shouldBe 0)
+    )
+  }
+
 }
