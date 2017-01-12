@@ -65,6 +65,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 trait AccessDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - RelationalProfile.capabilities.arbitraryCasts
     - RelationalProfile.capabilities.columnDefaults
     - RelationalProfile.capabilities.foreignKeyActions
     - RelationalProfile.capabilities.functionDatabase

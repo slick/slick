@@ -51,6 +51,8 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
 object RelationalProfile {
   object capabilities {
+    /** Supports casts for all supported types (not only integer, long, varchar) */
+    val arbitraryCasts = Capability("relational.arbitraryCasts")
     /** Supports default values in column definitions */
     val columnDefaults = Capability("relational.columnDefaults")
     /** Supports foreignKeyActions */
@@ -90,7 +92,7 @@ object RelationalProfile {
     val other = Capability("relational.other")
 
     /** All relational capabilities */
-    val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
+    val all = Set(other, arbitraryCasts, columnDefaults, foreignKeyActions, functionDatabase,
       functionUser, joinFull, joinRight, likeEscape, pagingDrop, pagingNested,
       pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
       zip)
