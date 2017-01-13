@@ -7,6 +7,35 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def testJoin = {
+    class Roles(tag: Tag) extends Table[(Int, String)](tag, "roles_j") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val roles = TableQuery[Roles]
+
+    class Forums(tag: Tag) extends Table[(Int, String)](tag, "forum_j") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val forums = TableQuery[Forums]
+
+    class ForumUsers(tag: Tag) extends Table[(Int, Int, Int)](tag, "form_users_j") {
+      def forum = column[Int]("forum")
+      def user = column[Int]("user")
+      def role = column[Int]("role")
+      def * = (forum, user, role)
+    }
+    val forumUsers = TableQuery[ForumUsers]
+
+    class Users(tag: Tag) extends Table[(Int, String)](tag, "users_j") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val users = TableQuery[Users]
+
     class Categories(tag: Tag) extends Table[(Int, String)](tag, "cat_j") {
       def id = column[Int]("id")
       def name = column[String]("name")
@@ -14,29 +43,58 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     }
     val categories = TableQuery[Categories]
 
-    class Posts(tag: Tag) extends Table[(Int, String, Int)](tag, "posts_j") {
+    class Posts(tag: Tag) extends Table[(Int, String, Int, Int, Int)](tag, "posts_j") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")
+      def user = column[Int]("user")
+      def forum = column[Int]("forum")
       def withCategory = Query(this) join categories
-      def * = (id, title, category)
+      def withUser = Query(this) join users
+      def * = (id, title, category, user, forum)
     }
     val posts = TableQuery[Posts]
 
     for {
-      _ <- (categories.schema ++ posts.schema).create
+      _ <- (roles.schema ++ forums.schema ++ forumUsers.schema ++ users.schema ++ categories.schema ++ posts.schema).create
+      _ <- roles ++= Seq(
+        (1, "Moderator"),
+        (2, "User")
+      )
+      _ <- forums ++= Seq(
+        (1, "Programming"),
+        (2, "Operating Systems"),
+        (3, "Misc")
+      )
+      _ <- users ++= Seq(
+        (1, "Bob"),
+        (2, "John"),
+        (3, "Mike"),
+        (4, "Anne"),
+        (5, "Judy")
+      )
+      _ <- forumUsers ++= Seq(
+        (1, 1, 1),
+        (2, 1, 2),
+        (3, 1, 2),
+        (2, 3, 2),
+        (1, 4, 2),
+        (1, 5, 1),
+        (2, 5, 1),
+        (3, 5, 1)
+      )
       _ <- categories ++= Seq(
         (1, "Scala"),
         (2, "ScalaQuery"),
         (3, "Windows"),
         (4, "Software")
       )
-      _ <- posts.map(p => (p.title, p.category)) ++= Seq(
-        ("Test Post", -1),
-        ("Formal Language Processing in Scala, Part 5", 1),
-        ("Efficient Parameterized Queries in ScalaQuery", 2),
-        ("Removing Libraries and HomeGroup icons from the Windows 7 desktop", 3),
-        ("A ScalaQuery Update", 2)
+      _ <- posts.map(p => (p.title, p.category, p.user, p.forum)) ++= Seq(
+        ("Test Post", -1, 5, 3),
+        ("Formal Language Processing in Scala, Part 5", 1, 5, 1),
+        ("Efficient Parameterized Queries in ScalaQuery", 2, 1, 1),
+        ("Removing Libraries and HomeGroup icons from the Windows 7 desktop", 3, 3, 2),
+        ("A ScalaQuery Update", 2, 4, 1)
       )
       // Implicit join
       q1 = (for {
@@ -44,6 +102,16 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
         p <- posts if c.id === p.category
       } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
       _ <- mark("q1", q1.map(p => (p._1, p._2)).result).map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
+      // More involved implicit join
+      q1a = (for {
+        c <- categories
+        p <- posts if c.id === p.category
+        u <- users if u.id === p.user
+        f <- forums if f.id === p.forum
+        fu <- forumUsers if fu.forum === f.id && fu.user === u.id
+        r <- roles if r.id === fu.role
+      } yield (p.id, c.id, u.id, r.id)).sortBy(_._1)
+      _ <- mark("q1a", q1a.map(p => (p._1, p._2, p._3)).result).map(_ shouldBe List((2,1,5,1), (3,2,1,1), (4,3,3,2), (5,2,4,2)))
       // Explicit inner join
       q2 = (for {
         (c,p) <- categories join posts on (_.id === _.category)
