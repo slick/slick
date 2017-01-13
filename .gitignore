@@ -19,3 +19,4 @@ lib
 *.autosave
 src/sphinx/capabilities.csv
 slick/src/sphinx/capabilities.csv
+*~
