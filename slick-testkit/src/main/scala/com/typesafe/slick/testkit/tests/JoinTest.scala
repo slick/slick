@@ -20,6 +20,7 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")
+      def withCategory = Query(this) join categories
       def * = (id, title, category)
     }
     val posts = TableQuery[Posts]
@@ -82,6 +83,8 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       q4.run.foreach(x => println("  "+x))
       assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => (p._1, p._2)).run)
     }
+
+    posts.flatMap(_.withCategory).run
   }
 
   def testZip = ifCap(rcap.zip) {
