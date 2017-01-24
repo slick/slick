@@ -132,7 +132,7 @@ trait JdbcBackend extends RelationalBackend {
       *   <li>`numThreads` (Int, optional, default: 20): The number of concurrent threads in the
       *     thread pool for asynchronous execution of database actions. See the
       *     [[https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing HikariCP wiki]]
-      *     for more imformation about sizing the thread pool correctly. Note that for asynchronous
+      *     for more information about sizing the thread pool correctly. Note that for asynchronous
       *     execution in Slick you should tune the thread pool size (this parameter) accordingly
       *     instead of the maximum connection pool size.</li>
       *   <li>`queueSize` (Int, optional, default: 1000): The size of the queue for database
