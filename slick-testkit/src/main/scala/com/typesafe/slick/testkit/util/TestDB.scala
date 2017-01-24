@@ -188,6 +188,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     profile.backend.Database.forSource(new JdbcDataSource {
       def createConnection(): Connection = wrappedConn
       def close(): Unit = ()
+      val maxConnections: Option[Int] = Some(1)
     }, executor)
   }
   final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])(implicit session: profile.Backend#Session): R = {
