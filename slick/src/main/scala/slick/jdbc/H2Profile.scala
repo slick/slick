@@ -114,6 +114,7 @@ trait H2Profile extends JdbcProfile {
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
       if(autoIncrement) sb append " AUTO_INCREMENT"
+      if(unique) sb append " UNIQUE"
     }
   }
 
