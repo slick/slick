@@ -41,8 +41,6 @@ object TestDB {
     val transactionIsolation = new Capability("test.transactionIsolation")
     /** Supports select for update row locking */
     val selectForUpdateRowLocking = new Capability("test.selectForUpdateRowLocking")
-    /** supports interpreting strings as VARCHAR. Some databases eg. HSQL do not do this. */
-    val stringIsVarchar = Capability("sql.stringIsVarchar")
 
     val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo,
       transactionIsolation, selectForUpdateRowLocking)

@@ -24,16 +24,21 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def shaped: ShapedValue[_ <: E, U]
   final lazy val packed = shaped.toNode
 
-  def update3[F >: E](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, U, F]) = {
+  def update[F >: E](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, U, F]) = {
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator)).value
     val fv = Query(f(aliased))
     new UpdateQuery[F, U](Update(generator, toNode, fv.toNode), fv.shaped)
   }
 
-  def update3[E2, C2[_]](select: Query[E2, U, C2]) = {
+  def update[E2, C2[_]](select: Query[E2, U, C2]) = {
     new UpdateQuery[E2, U](Update(new AnonSymbol, toNode, select.toNode), select.shaped)
   }
+
+//  def update(value: U) = {
+//    val shape = shaped.shape.asInstanceOf[Shape[FlatShapeLevel, U, U, _]]
+//    new UpdateQuery[E, U](Update(new AnonSymbol, toNode, Pure(shape.toNode(value))), shaped)
+//  }
 
   def update3(value: U)(implicit shape: Shape[_ <:FlatShapeLevel, U, U, _]) = {
     new UpdateQuery[E, U](Update(new AnonSymbol, toNode, Pure(shape.toNode(value))), shaped)

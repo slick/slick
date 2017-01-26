@@ -51,14 +51,12 @@ object StandardTestDBs {
   lazy val HsqldbMem = new HsqlDB("hsqldbmem") {
     val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
-    override def capabilities = super.capabilities - TestDB.capabilities.stringIsVarchar
     override def isPersistent = false
   }
 
   lazy val HsqldbDisk = new HsqlDB("hsqldbdisk") {
     val dbName = "hsqldb-"+confName
     val url = "jdbc:hsqldb:file:"+TestkitConfig.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
-    override def capabilities = super.capabilities - TestDB.capabilities.stringIsVarchar
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = {

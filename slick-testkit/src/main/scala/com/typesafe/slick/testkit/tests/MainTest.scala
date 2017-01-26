@@ -176,7 +176,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
       val q10 = users.filter(_.last inSetBind Seq()).map(u => (u.first, u.last))
 
       db.run(for {
-        updated2 <- q8.update("n/a", Some("n/a"))
+        updated2 <- q8.update(("n/a", Some("n/a")))
         _ = updated2 shouldBe 1
         _ <- q9.result.map(_ shouldBe 4)
         _ <- q10.result.map(_ shouldBe Nil)
