@@ -121,7 +121,7 @@ object RepShape extends Shape[FlatShapeLevel, Rep[_], Any, Rep[_]] {
   */
 abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] extends Shape[Level, M, U, P] {
   /** The Shapes for the product elements. */
-  val shapes: Seq[Shape[_, _, _, _]]
+  val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]
 
   /** Build a record value represented by this Shape from its element values. */
   def buildValue(elems: IndexedSeq[Any]): Any
@@ -143,7 +143,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
     buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
   def packedShape: Shape[Level, Packed, Unpacked, Packed] =
-    copy(shapes.map(_.packedShape.asInstanceOf[Shape[_ <: ShapeLevel, _, _, _]])).asInstanceOf[Shape[Level, Packed, Unpacked, Packed]]
+    copy(shapes.map(_.packedShape)).asInstanceOf[Shape[Level, Packed, Unpacked, Packed]]
   def buildParams(extract: Any => Unpacked): Packed = {
     val elems = shapes.iterator.zipWithIndex.map { case (p, idx) =>
       def chExtract(u: C): p.Unpacked = getElement(u, idx).asInstanceOf[p.Unpacked]
@@ -177,7 +177,7 @@ abstract class MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C
 }
 
 /** Shape for Scala tuples of all arities */
-final class TupleShape[Level <: ShapeLevel, M <: Product, U <: Product, P <: Product](val shapes: Shape[_, _, _, _]*) extends ProductNodeShape[Level, Product, M, U, P] {
+final class TupleShape[Level <: ShapeLevel, M <: Product, U <: Product, P <: Product](val shapes: Shape[_ <: ShapeLevel, _, _, _]*) extends ProductNodeShape[Level, Product, M, U, P] {
   override def getIterator(value: Product) = value.productIterator
   def getElement(value: Product, idx: Int) = value.productElement(idx)
   def buildValue(elems: IndexedSeq[Any]) = TupleSupport.buildTuple(elems)
@@ -237,7 +237,7 @@ extends MappedScalaProductShape[FlatShapeLevel, P, LiftedCaseClass, PlainCaseCla
   * }}}
   */
 class ProductClassShape[E <: Product,C <: Product](
-  val shapes: Seq[Shape[_, _, _, _]],
+  val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]],
   mapLifted: Seq[Any] => C,
   mapPlain:Seq[Any] => E
 )(implicit classTag: ClassTag[E]) extends MappedScalaProductShape[
@@ -356,7 +356,7 @@ object ProvenShape {
   implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[_ <: FlatShapeLevel, T, U, _]): ProvenShape[U] =
     new ProvenShape[U] {
       def value = v
-      val shape: Shape[_ <: FlatShapeLevel, _, U, _] = sh.asInstanceOf[Shape[FlatShapeLevel, _, U, _]]
+      val shape: Shape[_ <: FlatShapeLevel, _, U, _] = sh
       def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, _, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
     }
 
