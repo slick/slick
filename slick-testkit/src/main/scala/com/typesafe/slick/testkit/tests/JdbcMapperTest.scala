@@ -107,31 +107,31 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
       ts.headOption.result.map(_ shouldBe Some(Data(1, 2, None))),
 
-//      headQ1.isEmpty.result.map(_ shouldBe true)
+      headQ1.isDefined.result.map(_ shouldBe false),
+      headQ1.isEmpty.result.map(_ shouldBe true),
       headQ1.result.map(_ shouldBe None),
 
-      headQ5.isEmpty.result.map(_ shouldBe false),
+      headQ2.isDefined.result.map(_ shouldBe true),
+      headQ2.isEmpty.result.map(_ shouldBe false),
       headQ2.result.map(_ shouldBe Some(3)),
       headQ2.map(_ * 2).result.map(_ shouldBe Some(6)),
-//      headQ2.getOrElse(0).result.map(_ shouldBe 3),
-//
-//      headQ3.isEmpty.result.map(_ shouldBe false),
-//      headQ3.result.map(_ shouldBe Some(3)),
-//      headQ3.filter(_ > 5).result.map(_ shouldBe None),
-//      headQ3.filter(_ > 5).getOrElse(0).result.map(_ shouldBe 0),
-//
-////      headQ4.isEmpty.result.map(_ shouldBe false),
-//      headQ4.isEmpty.result.map(_ shouldBe true),
-//      headQ4.result.map(_ shouldBe Some(None)),
-//      headQ4.flatten.getOrElse("Not found!").result.map(_ shouldBe "Not found!"),
-//
-////      headQ5.isDefined.result.map(_ shouldBe false),
-//      headQ5.isEmpty.result.map(_ shouldBe false),
-//      headQ5.result.map(_ shouldBe Some((2, None))),
-//      // There is a bug in the ExpandSums code; instead of expanding complete paths, it expands only Refs
-////      headQ5.map{ case (b: Rep[Int], s: Rep[Option[String]]) => s.getOrElse(b.asColumnOf[String]) }.result.map(_ shouldBe "2")
+      headQ2.getOrElse(0).result.map(_ shouldBe 3),
 
-      Query(42).headOption.result.map(_ shouldBe Some(42))
+      headQ3.isDefined.result.map(_ shouldBe true),
+      headQ3.isEmpty.result.map(_ shouldBe false),
+      headQ3.result.map(_ shouldBe Some(3)),
+      headQ3.filter(_ > 5).result.map(_ shouldBe None),
+      headQ3.filter(_ > 5).getOrElse(0).result.map(_ shouldBe 0),
+
+      headQ4.isDefined.result.map(_ shouldBe true),
+      headQ4.isEmpty.result.map(_ shouldBe false),
+      headQ4.result.map(_ shouldBe Some(None)),
+      headQ4.flatten.getOrElse("Not found!").result.map(_ shouldBe "Not found!"),
+
+      headQ5.isDefined.result.map(_ shouldBe true),
+      headQ5.result.map(_ shouldBe Some((2, None)))
+//      // There is a bug in the ExpandSums code; instead of expanding complete paths, it expands only Refs
+//      headQ5.map{ case (b: Rep[Int], s: Rep[Option[String]]) => s.getOrElse(b.asColumnOf[String]) }.result.map(_ shouldBe "2")
     )
   }
 

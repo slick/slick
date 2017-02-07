@@ -44,10 +44,10 @@ class ExpandSums extends Phase {
         case OptionFold(fo @ FirstOption(n), ifEmpty, map, gen) =>
           val first = Take(n, LiteralNode(1)).infer()
           val extendGen = new AnonSymbol
-          val selectDisc = new AnonSymbol
+          val selectSym = new AnonSymbol
           val discExtended = Bind(extendGen, first, Pure(ProductNode(ConstArray(Disc1, Ref(extendGen))))).infer()
-          logger.warn("discExtended := ", discExtended)
-          val pred = Library.==.typed[Boolean](Bind(selectDisc, discExtended, FwdPath(List(selectDisc, ElementSymbol(1)))).infer(), LiteralNode(null))
+          val selectPure = Pure(FwdPath(List(selectSym, ElementSymbol(1))))
+          val pred = Library.==.typed[Boolean](Bind(selectSym, discExtended, selectPure).infer(), LiteralNode(null))
           val n2 = (ifEmpty, map) match {
             case (LiteralNode(true), LiteralNode(false)) => pred
             case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](pred)
