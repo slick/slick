@@ -1,8 +1,8 @@
 package slick.compiler
 
-import slick.util.{ConstArray, ConstArrayOp}
-import slick.{SlickException, SlickTreeException}
-import slick.ast.{CollectionType, _}
+import slick.util.{ConstArrayOp, ConstArray}
+import slick.{SlickTreeException, SlickException}
+import slick.ast._
 import Util._
 import TypeUtil._
 
@@ -21,6 +21,7 @@ class ExpandSums extends Phase {
 
   def expandSums(n: Node): Node = {
     var multi = false
+    logger.debug("Received tree:", n)
 
     /** Perform the sum expansion on a Node */
     def tr(tree: Node, oldDiscCandidates: Set[(TypeSymbol, List[TermSymbol])]): Node = {
@@ -46,18 +47,21 @@ class ExpandSums extends Phase {
           val extendGen = new AnonSymbol
           val selectSym = new AnonSymbol
           val discExtended = Bind(extendGen, first, Pure(ProductNode(ConstArray(Disc1, Ref(extendGen))))).infer()
-          val selectPure = Pure(FwdPath(List(selectSym, ElementSymbol(1))))
-          val pred = Library.==.typed[Boolean](Bind(selectSym, discExtended, selectPure).infer(), LiteralNode(null))
+          val discCheck = Bind(selectSym, discExtended, Pure(FwdPath(selectSym :: ElementSymbol(1) :: Nil))).infer()
+          val predicate = Library.==.typed[Boolean](discCheck, LiteralNode(null))
           val n2 = (ifEmpty, map) match {
-            case (LiteralNode(true), LiteralNode(false)) => pred
-            case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](pred)
+            case (LiteralNode(true), LiteralNode(false)) => predicate
+            case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](predicate)
             case (LiteralNode(v), Ref(s)) if s == gen => GetOrElse(silentCast(OptionType(fo.innerType), first), () => v)
             case _ =>
-              val ifDefined = map.replace({
-                case r @ Ref(s) if s == gen => silentCast(r.nodeType, first)
+              val mapSym = new AnonSymbol
+              val map2 = map.replace({
+                case r @ Ref(s) if s == gen => Ref(mapSym) :@ r.nodeType
               }, keepType = true)
-              val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
-              IfThenElse(ConstArray(pred, ifEmpty2, ifDefined))
+              val ifDefined = Bind(mapSym, Take(n, LiteralNode(1)), Pure(map2)).infer()
+              val ifEmpty2 = silentCast(map2.nodeType.structural, ifEmpty)
+              val ifDefined2 = silentCast(map2.nodeType.structural, ifDefined)
+              IfThenElse(ConstArray(predicate, ifEmpty2, ifDefined2))
           }
           n2.infer()
 
@@ -125,6 +129,7 @@ class ExpandSums extends Phase {
     }
 
     val n2 = tr(n, Set.empty)
+    logger.debug("After tr() :=>", n2)
     if(multi) expandConditionals(n2) else n2
   }
 

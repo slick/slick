@@ -197,6 +197,11 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
       def toNode = self.toNode
     }
 
+  /**
+    * Select the first element of this result as a Some(_) or a None otherwise.
+    * Users must note that trying to execute a headOption on a table may yield inconsistent results
+    * since the sequence of table elements is not defined.
+    */
   def headOption[E2 >: E, OU](implicit ol: OptionLift[E2, Rep[OU]]): Rep[OU] =
     ol.lift(shaped.value).encodeRef(FirstOption(toNode))
 

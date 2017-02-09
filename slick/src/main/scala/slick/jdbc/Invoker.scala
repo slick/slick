@@ -20,7 +20,7 @@ trait Invoker[+R] { self =>
     * in Some, or None if the result set is empty. */
   final def firstOption(implicit session: JdbcBackend#Session): Option[R] = {
     var res: Option[R] = None
-    foreach({ x => res = Option(x) }, 1)
+    foreach({ x => res = Some(x) }, 1)
     res
   }
 

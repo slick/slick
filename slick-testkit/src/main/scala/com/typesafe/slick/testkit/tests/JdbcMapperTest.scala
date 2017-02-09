@@ -93,45 +93,56 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     val headQ3 = ts.filter(_.a === 2).map(_.b).headOption
     val headQ4 = ts.filter(_.a === 1).map(_.c).headOption
     val headQ5 = ts.filter(_.a === 1).map(t => (t.b, t.c)).headOption
+    val headQ6 = ts.filter(_.a === 5).map(t => (t.a, t.b, t.c)).headOption
 
     // Test types of all queries
-    headQ1.shouldBeA[Rep[Option[T]]]
-    headQ2.shouldBeA[Rep[Option[Int]]]
-    headQ3.shouldBeA[Rep[Option[Int]]]
-    headQ4.shouldBeA[Rep[Option[Option[String]]]]
-    headQ5.shouldBeA[Rep[Option[(Rep[Int], Rep[Option[String]])]]]
+    val t1: Rep[Option[T]] = headQ1
+    val t2: Rep[Option[Int]] = headQ2
+    val t3: Rep[Option[Int]] = headQ3
+    val t4: Rep[Option[Option[String]]] = headQ4
+    val t5: Rep[Option[(Rep[Int], Rep[Option[String]])]] = headQ5
+    val t6: Rep[Option[(Rep[Int], Rep[Int], Rep[Option[String]])]] = headQ6
 
     seq(
       ts.schema.create,
       ts ++= Seq(Data(1, 2, None), Data(2, 3, Some("2")), Data(3, 4, Some("3")), Data(4, 5, None), Data(5, 6, Some("5"))),
 
-      ts.headOption.result.map(_ shouldBe Some(Data(1, 2, None))),
+      headQ1.isDefined.result shouldYield false,
+      headQ1.isEmpty.result shouldYield true,
+      headQ1.result shouldYield None,
+      { val c = ts.filter(_.a === 10).map(t => t.a + t.b).result
+        println(c.hashCode())
+        headQ1.map(t => t.a + t.b).result} shouldYield None,
+      // Not possible to write this query due to issue/738. Use the workaround such as in `headQ6`.
+      // headQ1.getOrElse((43, 54, None: Option[String])).result shouldYield (43, 54, None),
 
-      headQ1.isDefined.result.map(_ shouldBe false),
-      headQ1.isEmpty.result.map(_ shouldBe true),
-      headQ1.result.map(_ shouldBe None),
+      headQ2.isDefined.result shouldYield true,
+      headQ2.isEmpty.result shouldYield false,
+      headQ2.result shouldYield Some(3),
+      headQ2.map(_ * 2).result shouldYield Some(6),
+      headQ2.getOrElse(0).result shouldYield 3,
 
-      headQ2.isDefined.result.map(_ shouldBe true),
-      headQ2.isEmpty.result.map(_ shouldBe false),
-      headQ2.result.map(_ shouldBe Some(3)),
-      headQ2.map(_ * 2).result.map(_ shouldBe Some(6)),
-      headQ2.getOrElse(0).result.map(_ shouldBe 3),
+      headQ3.isDefined.result shouldYield true,
+      headQ3.isEmpty.result shouldYield false,
+      headQ3.result shouldYield Some(3),
+      headQ3.filter(_ > 5).result shouldYield None,
+      headQ3.filter(_ > 5).getOrElse(0).result shouldYield 0,
 
-      headQ3.isDefined.result.map(_ shouldBe true),
-      headQ3.isEmpty.result.map(_ shouldBe false),
-      headQ3.result.map(_ shouldBe Some(3)),
-      headQ3.filter(_ > 5).result.map(_ shouldBe None),
-      headQ3.filter(_ > 5).getOrElse(0).result.map(_ shouldBe 0),
+      headQ4.isDefined.result shouldYield true,
+      headQ4.isEmpty.result shouldYield false,
+      headQ4.result shouldYield Some(None),
+      headQ4.flatten.getOrElse("Not found!").result shouldYield "Not found!",
 
-      headQ4.isDefined.result.map(_ shouldBe true),
-      headQ4.isEmpty.result.map(_ shouldBe false),
-      headQ4.result.map(_ shouldBe Some(None)),
-      headQ4.flatten.getOrElse("Not found!").result.map(_ shouldBe "Not found!"),
+      headQ5.isDefined.result shouldYield true,
+      headQ5.isEmpty.result shouldYield false,
+//      headQ5.result shouldYield Some((2, None)),
+      headQ5.map{ case (b: Rep[Int], s: Rep[Option[String]]) => s.getOrElse(b.asColumnOf[String]) }.result shouldYield Some("2"),
 
-      headQ5.isDefined.result.map(_ shouldBe true),
-      headQ5.result.map(_ shouldBe Some((2, None)))
-//      // There is a bug in the ExpandSums code; instead of expanding complete paths, it expands only Refs
-//      headQ5.map{ case (b: Rep[Int], s: Rep[Option[String]]) => s.getOrElse(b.asColumnOf[String]) }.result.map(_ shouldBe "2")
+      headQ6.isDefined.result shouldYield true,
+      headQ6.isEmpty.result shouldYield false,
+//      headQ6.result shouldYield Some((5, 6, Some("5"))),
+      headQ6.map(tuple => tuple._1 + tuple._2).result shouldYield Some(11)
+//      headQ6.filter(tuple => tuple._1 > tuple._2).result shouldYield None
     )
   }
 
