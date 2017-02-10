@@ -119,6 +119,8 @@ size when using
 Slick uses *prepared* statements wherever possible but it does not cache them on its own. You
 should therefore enable prepared statement caching in the connection pool's configuration.
 
+.. _databaseconfig:
+
 DatabaseConfig
 --------------
 

@@ -670,17 +670,6 @@ final case class IfThenElse(clauses: ConstArray[Node]) extends SimplyTypedNode {
   def ifThenClauses: Iterator[(Node, Node)] =
     clauses.iterator.grouped(2).withPartial(false).map { case List(i, t) => (i, t) }
   def elseClause = clauses.last
-  /** Return a null-extended version of a single-column IfThenElse expression */
-  def nullExtend: IfThenElse = { //TODO 3.2: Remove this method. It is only preserved for binary compatibility in 3.1.1
-    def isOpt(n: Node) = n match {
-      case LiteralNode(null) => true
-      case _ :@ OptionType(_) => true
-      case _ => false
-    }
-    val hasOpt = (ifThenClauses.map(_._2) ++ Iterator(elseClause)).exists(isOpt)
-    if(hasOpt) mapResultClauses(ch => if(isOpt(ch)) ch else OptionApply(ch)).infer()
-    else this
-  }
 }
 
 /** Lift a value into an Option as Some (or None if the value is a `null` column). */
