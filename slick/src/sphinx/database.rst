@@ -54,7 +54,7 @@ is set. You may also define a custom environment variable with standard
 Typesafe Config syntax, such as ``${?MYSQL_DATABASE_URL}``.
 
 Or you may pass a :api:`DatabaseUrlDataSource <slick/jdbc/DatabaseUrlDataSource>` object to
-:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor,Boolean):DatabaseDef>`.
+:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,Option[Int],AsyncExecutor,Boolean):DatabaseDef>`.
 
 .. includecode:: code/Connection.scala#forDatabaseURL
 
@@ -63,8 +63,9 @@ Using a DataSource
 ------------------
 
 You can pass a :javaapi:`DataSource <javax/sql/DataSource>` object to
-:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor,Boolean):DatabaseDef>`.
-If you got it from the connection pool of your application framework, this plugs the pool into Slick.
+:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,Option[Int],AsyncExecutor,Boolean):DatabaseDef>`.
+If you got it from the connection pool of your application framework, this plugs the pool into Slick. If the pool has
+a size limit, the correct size should always be specified.
 
 .. includecode:: code/Connection.scala#forDataSource
 
@@ -74,8 +75,9 @@ Using a JNDI Name
 -----------------
 
 If you are using :wikipedia:`JNDI` you can pass a JNDI name to
-:api:`forName <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forName(String,AsyncExecutor):DatabaseDef>`
-under which a :javaapi:`DataSource <javax/sql/DataSource>` object can be looked up.
+:api:`forName <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forName(String,Option[Int],AsyncExecutor):DatabaseDef>`
+under which a :javaapi:`DataSource <javax/sql/DataSource>` object can be looked up. If the data source has
+a limit in the number of connections it can provide, the correct size should always be specified.
 
 .. includecode:: code/Connection.scala#forName
 

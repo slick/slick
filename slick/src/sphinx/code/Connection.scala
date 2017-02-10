@@ -23,20 +23,22 @@ object Connection extends App {
   val coffees = TableQuery[Coffees]
   if (false){
     val dataSource = null.asInstanceOf[javax.sql.DataSource]
+    val size = 42
     //#forDataSource
-    val db = Database.forDataSource(dataSource: javax.sql.DataSource)
+    val db = Database.forDataSource(dataSource: javax.sql.DataSource, Some(size: Int))
     //#forDataSource
   }
   if (false){
     val dataSource = null.asInstanceOf[slick.jdbc.DatabaseUrlDataSource]
     //#forDatabaseURL
-    val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource)
+    val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource, None)
     //#forDatabaseURL
   }
   if(false) {
     val jndiName = ""
+    val size = 42
     //#forName
-    val db = Database.forName(jndiName: String)
+    val db = Database.forName(jndiName: String, Some(size: Int))
     //#forName
   }
   ;{
