@@ -11,7 +11,7 @@ object CodeGeneratorRoundTripTest extends DBTestObject(H2Mem, SQLiteMem, Postgre
 
 class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.api._
-  import tdb.driver.quoteIdentifier
+  import tdb.profile.quoteIdentifier
 
   @Test def test: Unit = runBlocking {
     object Tables extends roundtrip.Tables { val profile = tdb.profile }

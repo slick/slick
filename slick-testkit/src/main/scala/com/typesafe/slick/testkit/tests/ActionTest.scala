@@ -1,6 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{StandardTestDBs, RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB, StandardTestDBs}
+import slick.dbio.DBIOAction
+import slick.dbio.Effect.Read
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
@@ -105,8 +107,115 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       a1.map(_ shouldBe (1 to 5000).toSeq),
       a2.map(_ shouldBe (1 to 20).toSeq),
       a3.map(_ shouldBe (1 to 20).toSeq),
-      a4.map(_ shouldBe ()),
+      a4.map(_ shouldBe (())),
       a5.map(_ shouldBe "a5")
     )
   } else DBIO.successful(())
+
+  def testOptionSequence = {
+    class T(tag: Tag) extends Table[Option[Int]](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a.?
+    }
+    val ts = TableQuery[T]
+
+    val aSetup = ts.schema.create
+
+    val a1 = LiteralColumn(Option(1)).result
+    val a2 = DBIO.sequenceOption(Option(LiteralColumn(1).result))
+    val a3 = DBIO.sequenceOption(Option.empty[DBIO[Int]])
+
+    for {
+      _ <- aSetup
+      b1 <- a1
+      b2 <- a2
+      b3 <- a3
+    } yield {
+      b1 shouldBe b2
+      b2 shouldNotBe b3
+    }
+  }
+
+  def testFlatten = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+    for {
+      _ <- db.run {
+        ts.schema.create >>
+          (ts ++= Seq(2, 3, 1, 5, 4))
+      }
+      needFlatten = for (_ <- ts.result) yield ts.result
+      result <- db.run(needFlatten.flatten)
+      _ = result shouldBe Seq(2, 3, 1, 5, 4)
+    } yield ()
+  }
+
+  def testZipWith = {
+      class T(tag: Tag) extends Table[Int](tag, u"t") {
+        def a = column[Int]("a")
+        def * = a
+      }
+      val ts = TableQuery[T]
+
+      for {
+        _ <- db.run {
+          ts.schema.create >>
+            (ts ++= Seq(2, 3, 1, 5, 4))
+        }
+        q1 = ts.sortBy(_.a).map(_.a).take(1)
+        result <- db.run(q1.result.head.zipWith(q1.result.head)({ case (a, b) => a + b }))
+        _ = result shouldBe 2
+      } yield ()
+    }
+
+  def testCollect = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+
+      def * = a
+    }
+    val ts = TableQuery[T]
+    for {
+      _ <- db.run {
+        ts.schema.create >>
+          (ts ++= Seq(2, 3, 1, 5, 4))
+      }
+      q1 = ts.sortBy(_.a).map(_.a).take(1)
+      result <- db.run(q1.result.headOption.collect {
+        case Some(a) => a
+      })
+      _ = result shouldBe 1
+      _ = result shouldFail { _ =>
+        val future = db.run(q1.result.headOption.collect {
+          case None => ()
+        })
+        import scala.concurrent.duration.Duration
+        import scala.concurrent.Await
+        Await.result(future, Duration.Inf)
+      }
+    } yield ()
+  }
+
+  def testTruncate = {
+    class T(_tag: Tag) extends Table[Int](_tag , "truncate_test"){
+      def a = column[Int]("a")
+      def * = a
+    }
+
+    val ts = TableQuery[T]
+    for{
+      _ <- ts.schema.create
+      initial <- ts.result
+      _ = assert(initial.toSet == Set())
+      res <- (ts ++= Seq(2, 3, 1, 5, 4)) >>
+             ts.result
+      _ = assert(res.toSet == Set(2, 3, 1, 5, 4))
+      newRes <- ts.schema.truncate >>
+                ts.result
+      _ = assert(newRes.toSet == Set())
+    } yield ()
+  }
 }

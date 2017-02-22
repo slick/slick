@@ -1,19 +1,23 @@
 package slick.memory
 
 import scala.language.{implicitConversions, existentials}
+
 import scala.collection.mutable.{Builder, HashMap}
+
 import slick.SlickException
-import slick.dbio._
 import slick.ast._
 import slick.ast.TypeUtil._
+import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler._
-import slick.relational.{ResultConverter, CompiledMapping}
-import slick.profile.{FixedBasicStreamingAction, FixedBasicAction, RelationalDriver, RelationalProfile}
+import slick.dbio._
+import slick.relational.{RelationalProfile, ResultConverter, CompiledMapping}
 import slick.util.{DumpInfo, RefId, ??}
 
-/** A profile and driver for distributed queries. */
-trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriver =>
-  val drivers: Seq[RelationalProfile]
+/** A profile for distributed queries. */
+class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryingProfile { self: DistributedProfile =>
+
+  @deprecated("Use the Profile object directly instead of calling `.profile` on it", "3.2")
+  override val profile: DistributedProfile = this
 
   type Backend = DistributedBackend
   type QueryExecutor[R] = QueryExecutorDef[R]
@@ -44,34 +48,34 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
       createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
   }
 
-  type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
-  type StreamingDriverAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
+  type ProfileAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
+  type StreamingProfileAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
-    def result: DriverAction[R, S, Effect.Read] =
-      new StreamingDriverAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
+    def result: ProfileAction[R, S, Effect.Read] =
+      new StreamingProfileAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
         def run(ctx: Backend#Context) = exe.run(ctx.session)
-        def getDumpInfo = DumpInfo("DistributedProfile.DriverAction")
+        def getDumpInfo = DumpInfo("DistributedProfile.ProfileAction")
         def head: ResultAction[Any, NoStream, Effect.Read] = ??
         def headOption: ResultAction[Option[Any], NoStream, Effect.Read] = ??
-      }.asInstanceOf[DriverAction[R, S, Effect.Read]]
+      }.asInstanceOf[ProfileAction[R, S, Effect.Read]]
   }
 
   class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingDriverAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingDriverAction[R, T, Effect.Read]]
+    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {
     import QueryInterpreter._
 
     override def run(n: Node) = n match {
-      case DriverComputation(compiled, driver, _) =>
+      case ProfileComputation(compiled, profile, _) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
-        val idx = drivers.indexOf(driver)
-        if(idx < 0) throw new SlickException("No session found for driver "+driver)
-        val driverSession = session.sessions(idx).asInstanceOf[driver.Backend#Session]
-        val dv = driver.runSynchronousQuery[Any](compiled, param)(driverSession)
+        val idx = profiles.indexOf(profile)
+        if(idx < 0) throw new SlickException("No session found for profile "+profile)
+        val profileSession = session.sessions(idx).asInstanceOf[profile.Backend#Session]
+        val dv = profile.runSynchronousQuery[Any](compiled, param)(profileSession)
         val wr = wrapScalaValue(dv, n.nodeType)
         if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)
         wr
@@ -98,23 +102,21 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
       case _ => value
     }
   }
-}
 
-class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingDriver with DistributedProfile { driver =>
-  override val profile: DistributedProfile = this
+  /* internal: */
 
-  /** Compile sub-queries with the appropriate drivers */
+  /** Compile sub-queries with the appropriate profile */
   class Distribute extends Phase {
     import Util._
     val name = "distribute"
 
     def apply(state: CompilerState) = state.map { tree =>
-      // Collect the required drivers and tainting drivers for all subtrees
-      val needed = new HashMap[RefId[Node], Set[RelationalDriver]]
-      val taints = new HashMap[RefId[Node], Set[RelationalDriver]]
-      def collect(n: Node, scope: Scope): (Set[RelationalDriver], Set[RelationalDriver]) = {
-        val (dr: Set[RelationalDriver], tt: Set[RelationalDriver]) = n match {
-          case t: TableNode => (Set(t.driverTable.asInstanceOf[RelationalDriver#Table[_]].tableProvider), Set.empty)
+      // Collect the required profiles and tainting profiles for all subtrees
+      val needed = new HashMap[RefId[Node], Set[RelationalProfile]]
+      val taints = new HashMap[RefId[Node], Set[RelationalProfile]]
+      def collect(n: Node, scope: Scope): (Set[RelationalProfile], Set[RelationalProfile]) = {
+        val (dr: Set[RelationalProfile], tt: Set[RelationalProfile]) = n match {
+          case t: TableNode => (Set(t.profileTable.asInstanceOf[RelationalProfile#Table[_]].tableProvider), Set.empty)
           case Ref(sym) =>
             scope.get(sym) match {
               case Some(nn) =>
@@ -124,8 +126,8 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
                 (Set.empty, Set.empty)
             }
           case n =>
-            var nnd = Set.empty[RelationalDriver]
-            var ntt = Set.empty[RelationalDriver]
+            var nnd = Set.empty[RelationalProfile]
+            var ntt = Set.empty[RelationalProfile]
             mapChildrenWithScope(n, { (n, sc) =>
               val (nd, tt) = collect(n, sc)
               nnd ++= nd
@@ -147,7 +149,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
           val substituteType = compiled.nodeType.replace {
             case CollectionType(cons, el) => CollectionType(cons.iterableSubstitute, el)
           }
-          DriverComputation(compiled :@ substituteType, dr.head, substituteType)
+          ProfileComputation(compiled :@ substituteType, dr.head, substituteType)
         } else n.mapChildren(transform)
       }
       transform(tree)
@@ -171,11 +173,11 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
   }
 }
 
-/** Represents a computation that needs to be performed by another driver.
+/** Represents a computation that needs to be performed by another profile.
   * Despite having a child it is a NullaryNode because the sub-computation
   * should be opaque to the query compiler. */
-final case class DriverComputation(compiled: Node, driver: RelationalDriver, buildType: Type) extends NullaryNode with SimplyTypedNode {
-  type Self = DriverComputation
+final case class ProfileComputation(compiled: Node, profile: RelationalProfile, buildType: Type) extends NullaryNode with SimplyTypedNode {
+  type Self = ProfileComputation
   protected[this] def rebuild = copy()
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = driver.toString)
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = profile.toString)
 }

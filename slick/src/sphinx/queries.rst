@@ -40,17 +40,20 @@ are added through implicit conversions defined in
 the classes ``AnyExtensionMethods``, ``ColumnExtensionMethods``,
 ``NumericColumnExtensionMethods``, ``BooleanColumnExtensionMethods`` and
 ``StringColumnExtensionMethods``
-(cf. :slick:`ExtensionMethods <src/main/scala/slick/lifted/ExtensionMethods.scala>`).
+(cf. :slick:`ExtensionMethods <slick/src/main/scala/slick/lifted/ExtensionMethods.scala>`).
 
 .. warning::
    Most operators mimic the plain Scala equivalents, but you have to use ``===`` instead of
    ``==`` for comparing two values for equality and ``=!=`` instead of ``!=`` for inequality.
    This is necessary because these operators are already defined (with unsuitable types and
    semantics) on the base type ``Any``, so they cannot be replaced by extension methods.
+   Similarly, to combine a Scala ``String`` with a ``Rep[String]`` or ``ConstColumn[String]``, 
+   don't use ``str + rep`` syntax, since Scala provides a universal ``+`` operator for strings
+   that works with ``Any``.  Instead use slick's ``++`` operator: ``(str: Rep[String]) ++ rep``
 
 Collection values are represented by the ``Query`` class (a ``Rep[Seq[T]]``) which contains many
 standard collection methods like ``flatMap``, ``filter``, ``take`` and ``groupBy``. Due to the two
-different component types of a ``Query`` (lifted and plain, e.g. ``Query[(Rep[Int), Rep[String]),
+different component types of a ``Query`` (lifted and plain, e.g. ``Query[(Rep[Int], Rep[String]),
 (Int, String), Seq]``), the signatures for these methods are very complex but the semantics are
 essentially the same as for Scala collections.
 
@@ -219,10 +222,14 @@ Deleting
 Deleting works very similarly to querying. You write a query which selects the
 rows to delete and then get an Action by calling the ``delete`` method on it:
 
-.. includecode:: code/LiftedEmbedding.scala#delete
+.. includecode:: code/LiftedEmbedding.scala#delete1
 
-A query for deleting must only select from a single table. Any projection is
-ignored (it always deletes full rows).
+A query for deleting must only use a single table - no joins are allowed (Slick does not yet support
+the ``USING`` keyword for deletes). Any projection is ignored (it always deletes full rows).
+
+If you need to perform a join, you can ``filter`` based on another ``Query``:
+
+.. includecode:: code/LiftedEmbedding.scala#delete2
 
 .. index:: insert, +=, ++=, InsertInvoker, insertStatement
 
@@ -234,8 +241,8 @@ directly, the insert is performed against its ``*`` projection. Omitting some of
 when inserting causes the database to use the default values specified in the table definition, or
 a type-specific default in case no explicit default was given. All methods for building insert
 Actions are defined in
-:api:`CountingInsertActionComposer <slick.driver.JdbcActionComponent@CountingInsertActionComposer[U]:JdbcDriver.CountingInsertActionComposer[U]>` and
-:api:`ReturningInsertActionComposer <slick.driver.JdbcActionComponent@ReturningInsertActionComposer[U,RU]:JdbcDriver.ReturningInsertActionComposer[U,RU]>`.
+:api:`CountingInsertActionComposer <slick.jdbc.JdbcActionComponent@CountingInsertActionComposer[U]:JdbcProfile.CountingInsertActionComposer[U]>` and
+:api:`ReturningInsertActionComposer <slick.jdbc.JdbcActionComponent@ReturningInsertActionComposer[U,RU]:JdbcProfile.ReturningInsertActionComposer[U,RU]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
 
@@ -265,6 +272,14 @@ Here is an example of using this feature to return an object with an updated id:
 
 .. includecode:: code/LiftedEmbedding.scala#insert3b
 
+.. note::
+  When using the ``++=`` batch insert operation, Slick makes use of the JDBC batch API.
+  The underlying JDBC driver will decide how to transmit the batch (via SQL) to the database server.
+
+  Slick may fall back to generating multiple insert statements for batch operations.
+  This will depend on the driver (if it supports batch insert),
+  and other circumstances (``returning`` keys is generally not supported in batch operations).
+
 Instead of inserting data from the client side you can also insert data
 created by a ``Query`` or a scalar expression that is executed in the
 database server:
@@ -275,6 +290,7 @@ In these cases, ``AutoInc`` columns are *not* ignored.
 
 .. index:: update, UpdateInvoker, updateStatement
 
+
 Updating
 --------
 
@@ -282,7 +298,7 @@ Updates are performed by writing a query that selects the data to update and
 then replacing it with new data. The query must only return raw columns (no
 computed values) selected from a single table. The relevant methods for
 updating are defined in
-:api:`UpdateExtensionMethods <slick.driver.JdbcActionComponent@UpdateActionExtensionMethodsImpl[T]:JdbcDriver.UpdateActionExtensionMethodsImpl[T]>`.
+:api:`UpdateExtensionMethods <slick.jdbc.JdbcActionComponent@UpdateActionExtensionMethodsImpl[T]:JdbcProfile.UpdateActionExtensionMethodsImpl[T]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#update1
 
@@ -316,14 +332,13 @@ query functions:
 
 .. includecode:: code/LiftedEmbedding.scala#compiled1
 
-This works for all functions that take parameters consisting only of individual columns or
-or :ref:`records <record-types>` of columns and return a ``Query`` object or a
+This works for all functions that take parameters consisting only of individual columns or :ref:`records <record-types>` of columns and return a ``Query`` object or a
 scalar query. See the API documentation for :api:`slick.lifted.Compiled`
 and its subclasses for details on composing compiled queries.
 
 .. index:: take, drop
 
-Be aware that ``take`` and ``drop`` take ``ConstColumn[Long]`` parameters. Unlike ``Rep[Long]]``,
+Be aware that ``take`` and ``drop`` take ``ConstColumn[Long]`` parameters. Unlike ``Rep[Long]``,
 which could be substituted by another value computed by a query, a ConstColumn can only be literal
 value or a parameter of a compiled query. This is necessary because the actual value has to be
 known by the time the query is prepared for execution by Slick.

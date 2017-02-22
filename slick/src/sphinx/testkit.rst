@@ -1,23 +1,23 @@
 .. index:: TestKit, testing
 .. index::
-   pair: driver; custom
+   pair: profile; custom
 
 Slick TestKit
 =============
 
 .. note::
    This chapter is based on the `Slick TestKit Example template`_.
-   The prefered way of reading this introduction is in Activator_, where you can
+   The preferred way of reading this introduction is in Activator_, where you can
    edit and run the code directly while reading the tutorial.
 
-When you write your own database driver for Slick, you need a way to run all
+When you write your own database profile for Slick, you need a way to run all
 the standard unit tests on it (in addition to any custom tests you may want to
 add) to ensure that it works correctly and does not claim to support any
 capabilities which are not actually implemented. For this purpose the Slick
 unit tests have been factored out into a separate Slick TestKit project.
 
 To get started, you can clone the `Slick TestKit Example template`_ which
-contains a copy of Slick's standard PostgreSQL driver and all the infrastructure
+contains a copy of Slick's standard PostgreSQL profile and all the infrastructure
 required to build and test it.
 
 Scaffolding
@@ -47,32 +47,32 @@ There is a copy of Slick's logback configuration in
 ``src/test/resources/logback-test.xml`` but you can swap out the logging
 framework if you prefer a different one.
 
-Driver
-------
+Profile
+-------
 
-The actual driver implementation can be found under ``src/main/scala``.
+The actual profile implementation can be found under ``src/main/scala``.
 
-.. index:: DriverTest, TestDB
+.. index:: ProfileTest, TestDB
 
 Test Harness
 ------------
 
 In order to run the TestKit tests, you need to add a class that extends
-``DriverTest``, plus an implementation of ``TestDB`` which tells the TestKit
+``ProfileTest``, plus an implementation of ``TestDB`` which tells the TestKit
 how to connect to a test database, get a list of tables, clean up between
 tests, etc.
 
-In the case of the PostgreSQL test harness (in ``src/test/slick/driver/test/MyPostgresTest.scala``)
+In the case of the PostgreSQL test harness (in ``src/test/slick/jdbc/test/MyPostgresTest.scala``)
 most of the default implementations can be used out of the box. Only ``localTables`` and
-``getLocalSequences`` require custom implementations. We also modify the driver's ``capabilities``
-to indicate that our driver does not support the JDBC ``getFunctions`` call::
+``getLocalSequences`` require custom implementations. We also modify the profile's ``capabilities``
+to indicate that our profile does not support the JDBC ``getFunctions`` call::
 
   @RunWith(classOf[Testkit])
-  class MyPostgresTest extends DriverTest(MyPostgresTest.tdb)
+  class MyPostgresTest extends ProfileTest(MyPostgresTest.tdb)
 
   object MyPostgresTest {
     def tdb = new ExternalJdbcTestDB("mypostgres") {
-      val driver = MyPostgresDriver
+      val profile = MyPostgresProfile
       override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
         ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
           ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
@@ -111,5 +111,5 @@ Testing
 
 Running ``sbt test`` discovers ``MyPostgresTest`` and runs it with TestKit's
 JUnit runner. This in turn causes the database to be set up through the test
-harness and all tests which are applicable for the driver (as determined by
+harness and all tests which are applicable for the profile (as determined by
 the ``capabilities`` setting in the test harness) to be run.

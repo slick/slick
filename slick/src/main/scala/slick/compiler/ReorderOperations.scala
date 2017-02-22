@@ -3,7 +3,7 @@ package slick.compiler
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.util.{ConstArray, Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis}
 
 /** Reorder certain stream operations for more efficient merging in `mergeToComprehensions`. */
 class ReorderOperations extends Phase {
@@ -46,13 +46,19 @@ class ReorderOperations extends Phase {
     // Remove Subquery boundary on top of TableNode and Join
     case Subquery(n @ (_: TableNode | _: Join), _) => n
 
-    // Push distincness-preserving aliasing / literal projection into Subquery.AboveDistinct
+    // Push distinctness-preserving aliasing / literal projection into Subquery.AboveDistinct
     case n @ Bind(s, Subquery(from :@ CollectionType(_, tpe), Subquery.AboveDistinct), Pure(StructNode(defs), ts1))
         if isAliasingOrLiteral(s, defs) && isDistinctnessPreserving(s, defs, tpe) =>
       Subquery(n.copy(from = from), Subquery.AboveDistinct).infer()
 
+    // Push Take and Drop (always distinctness-preserving) into Subquery.AboveDistinct
+    case Take(Subquery(from, Subquery.AboveDistinct), count) =>
+      Subquery(Take(from, count), Subquery.AboveDistinct).infer()
+    case Drop(Subquery(from, Subquery.AboveDistinct), count) =>
+      Subquery(Drop(from, count), Subquery.AboveDistinct).infer()
+
     // Push any aliasing / literal projection into other Subquery
-    case n @ Bind(s, Subquery(from, cond), Pure(StructNode(defs), ts1)) if cond != Subquery.AboveDistinct && isAliasingOrLiteral(s, defs) =>
+    case n @ Bind(s, Subquery(from, cond), Pure(StructNode(defs), ts1)) if cond != Subquery.AboveDistinct && cond != Subquery.BelowRowNumber && isAliasingOrLiteral(s, defs) =>
       Subquery(n.copy(from = from), cond).infer()
 
     // If a Filter checks an upper bound of a ROWNUM, push it into the AboveRownum boundary
@@ -72,6 +78,10 @@ class ReorderOperations extends Phase {
     // Push a BelowRowNumber boundary into Filter
     case sq @ Subquery(n: Filter, Subquery.BelowRowNumber) =>
       n.copy(from = convert1(sq.copy(child = n.from))).infer()
+
+    // Push a BelowRowNumber boundary into aliasing / literal projection
+    case sq @ Subquery(n @ Bind(s, from, Pure(StructNode(defs), ts1)), Subquery.BelowRowNumber) if isAliasingOrLiteral(s, defs) =>
+      n.copy(from = convert1(sq.copy(child = from))).infer()
 
     case n => n
   }

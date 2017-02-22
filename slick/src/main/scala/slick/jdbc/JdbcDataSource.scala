@@ -3,10 +3,11 @@ package slick.jdbc
 import java.io.Closeable
 import java.util.Properties
 import java.util.concurrent.TimeUnit
-import java.sql.{SQLException, DriverManager, Driver, Connection}
+import java.sql.{Connection, Driver, DriverManager, SQLException}
 import javax.sql.DataSource
+
 import com.typesafe.config.Config
-import slick.util.{Logging, ClassLoaderUtil, BeanConfigurator}
+import slick.util._
 import slick.util.ConfigExtensionMethods._
 import slick.SlickException
 
@@ -14,12 +15,18 @@ import slick.SlickException
   * similar to a `javax.sql.DataSource` but simpler. Unlike [[JdbcBackend.DatabaseDef]] it is not a
   * part of the backend cake. This trait defines the SPI for 3rd-party connection pool support. */
 trait JdbcDataSource extends Closeable {
+
   /** Create a new Connection or get one from the pool */
   def createConnection(): Connection
 
   /** If this object represents a connection pool managed directly by Slick, close it.
     * Otherwise no action is taken. */
   def close(): Unit
+
+  /** If this object represents a connection pool with a limited size, return the maximum pool size.
+    * Otherwise return None. This is required to prevent deadlocks when scheduling database actions.
+    */
+  val maxConnections: Option[Int]
 }
 
 object JdbcDataSource extends Logging {
@@ -51,6 +58,7 @@ trait JdbcDataSourceFactory {
 
 /** A JdbcDataSource for a `DataSource` */
 class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Boolean,
+                               val maxConnections: Option[Int],
                                val connectionPreparer: ConnectionPreparer = null) extends JdbcDataSource {
   private[this] var openedKeepAliveConnection: Connection = null
 
@@ -92,7 +100,7 @@ object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
         BeanConfigurator.configure(ds, c.toProperties, Set("url", "user", "password", "properties", "driver", "driverClassName"))
         ds
     }
-    new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), new ConnectionPreparer(c))
+    new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), None, new ConnectionPreparer(c))
   }
 }
 
@@ -114,6 +122,8 @@ trait DriverBasedJdbcDataSource extends JdbcDataSource {
   def deregisterDriver(): Boolean =
     if(registeredDriver ne null) { DriverManager.deregisterDriver(registeredDriver); true }
     else false
+
+  val maxConnections: Option[Int] = None
 }
 
 /** A JdbcDataSource for lookup via a `Driver` or the `DriverManager` */

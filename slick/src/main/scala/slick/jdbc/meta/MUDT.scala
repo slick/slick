@@ -1,7 +1,6 @@
 package slick.jdbc.meta
 
-import slick.jdbc.ResultSetAction
-import slick.driver.JdbcTypesComponent
+import slick.jdbc.{ResultSetAction, JdbcTypesComponent}
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getUDTs(). */
 case class MUDT(

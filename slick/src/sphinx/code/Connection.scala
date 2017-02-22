@@ -1,6 +1,7 @@
 package com.typesafe.slick.docs
 
 import java.sql.Blob
+import javax.sql.rowset.serial.SerialBlob
 
 import org.reactivestreams.Publisher
 
@@ -9,8 +10,9 @@ import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
-import slick.backend.DatabasePublisher
-import slick.driver.H2Driver.api._
+import scala.util.{Failure, Success}
+import slick.basic.DatabasePublisher
+import slick.jdbc.H2Profile.api._
 
 object Connection extends App {
   class Coffees(tag: Tag) extends Table[(String, Blob)](tag, "COFFEES") {
@@ -21,20 +23,22 @@ object Connection extends App {
   val coffees = TableQuery[Coffees]
   if (false){
     val dataSource = null.asInstanceOf[javax.sql.DataSource]
+    val size = 42
     //#forDataSource
-    val db = Database.forDataSource(dataSource: javax.sql.DataSource)
+    val db = Database.forDataSource(dataSource: javax.sql.DataSource, Some(size: Int))
     //#forDataSource
   }
   if (false){
     val dataSource = null.asInstanceOf[slick.jdbc.DatabaseUrlDataSource]
     //#forDatabaseURL
-    val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource)
+    val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource, None)
     //#forDatabaseURL
   }
   if(false) {
     val jndiName = ""
+    val size = 42
     //#forName
-    val db = Database.forName(jndiName: String)
+    val db = Database.forName(jndiName: String, Some(size: Int))
     //#forName
   }
   ;{
@@ -89,6 +93,7 @@ object Connection extends App {
       val a = q.result
       val p1: DatabasePublisher[Blob] = db.stream(a)
       val p2: DatabasePublisher[Array[Byte]] = p1.mapResult { b =>
+        // Executed synchronously on the database thread
         b.getBytes(0, b.length().toInt)
       }
       //#streamblob
@@ -102,6 +107,33 @@ object Connection extends App {
       val f: Future[Unit] = db.run(a)
       //#transaction
       Await.result(f, Duration.Inf)
+    };{
+      //#rollback
+      val countAction = coffees.length.result
+
+      val rollbackAction = (coffees ++= Seq(
+        ("Cold_Drip", new SerialBlob(Array[Byte](101))),
+        ("Dutch_Coffee", new SerialBlob(Array[Byte](49)))
+      )).flatMap { _ =>
+        DBIO.failed(new Exception("Roll it back"))
+      }.transactionally
+
+      val errorHandleAction = rollbackAction.asTry.flatMap {
+        case Failure(e: Throwable) => DBIO.successful(e.getMessage)
+        case Success(_) => DBIO.successful("never reached")
+      }
+
+      // Here we show that that coffee count is the same before and after the attempted insert.
+      // We also show that the result of the action is filled in with the exception's message.
+      val f = db.run(countAction zip errorHandleAction zip countAction).map {
+        case ((initialCount, result), finalCount) =>
+          // init: 5, final: 5, result: Roll it back
+          println(s"init: ${initialCount}, final: ${finalCount}, result: ${result}")
+          result
+      }
+
+      //#rollback
+      assert(Await.result(f, Duration.Inf) == "Roll it back")
     }
     lines.foreach(Predef.println _)
   } finally db.close

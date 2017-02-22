@@ -377,6 +377,14 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
   }
 }
 
+/** A .forUpdate call */
+final case class ForUpdate(generator: TermSymbol, from: Node) extends ComplexFilteredQuery {
+  type Self = ForUpdate
+  lazy val children = ConstArray(from)
+  protected[this] def rebuild(ch: ConstArray[Node]) = copy(from = ch(0))
+  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
+}
+
 /** A .take call. */
 final case class Take(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
   type Self = Take
@@ -563,6 +571,7 @@ object Path {
   def apply(l: List[TermSymbol]): PathElement = l match {
     case s :: Nil => Ref(s)
     case s :: l => Select(apply(l), s)
+    case _ => throw new SlickException("Empty Path")
   }
   def unapply(n: PathElement): Option[List[TermSymbol]] = {
     var l = new ListBuffer[TermSymbol]
@@ -611,10 +620,10 @@ object FwdPath {
 }
 
 /** A Node representing a database table. */
-final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, baseIdentity: TableIdentitySymbol)(val driverTable: Any) extends NullaryNode with SimplyTypedNode with TypeGenerator {
+final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, baseIdentity: TableIdentitySymbol)(val profileTable: Any) extends NullaryNode with SimplyTypedNode with TypeGenerator {
   type Self = TableNode
   def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedType))
-  def rebuild = copy()(driverTable)
+  def rebuild = copy()(profileTable)
   override def getDumpInfo = super.getDumpInfo.copy(name = "Table", mainInfo = schemaName.map(_ + ".").getOrElse("") + tableName)
 }
 
@@ -661,17 +670,6 @@ final case class IfThenElse(clauses: ConstArray[Node]) extends SimplyTypedNode {
   def ifThenClauses: Iterator[(Node, Node)] =
     clauses.iterator.grouped(2).withPartial(false).map { case List(i, t) => (i, t) }
   def elseClause = clauses.last
-  /** Return a null-extended version of a single-column IfThenElse expression */
-  def nullExtend: IfThenElse = { //TODO 3.2: Remove this method. It is only preserved for binary compatibility in 3.1.1
-    def isOpt(n: Node) = n match {
-      case LiteralNode(null) => true
-      case _ :@ OptionType(_) => true
-      case _ => false
-    }
-    val hasOpt = (ifThenClauses.map(_._2) ++ Iterator(elseClause)).exists(isOpt)
-    if(hasOpt) mapResultClauses(ch => if(isOpt(ch)) ch else OptionApply(ch)).infer()
-    else this
-  }
 }
 
 /** Lift a value into an Option as Some (or None if the value is a `null` column). */
@@ -706,8 +704,7 @@ final case class GetOrElse(child: Node, default: () => Any) extends UnaryNode wi
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }
 
-/** A compiled statement with a fixed type, a statement string and
-  * driver-specific extra data. */
+/** A compiled statement with a fixed type, a statement string and profile-specific extra data. */
 final case class CompiledStatement(statement: String, extra: Any, buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = CompiledStatement
   def rebuild = copy()

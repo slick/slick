@@ -10,7 +10,6 @@ API Documentation (scaladoc)
 * `Code Generator <codegen-api/index.html>`_ (slick-codegen)
 * `HikariCP integration <hikaricp-api/index.html>`_ (slick-hikaricp)
 * `TestKit <testkit-api/index.html>`_ (slick-testkit)
-* `Slick Extensions`_ |slick_extensions_version| (slick-extensions)
 
 User Manual
 -----------
@@ -21,6 +20,7 @@ User Manual
    introduction
    supported-databases
    gettingstarted
+   concepts
    database
    dbio
    schemas
@@ -31,7 +31,7 @@ User Manual
    orm-to-slick
    sql-to-slick
    upgrade
-   extensions
+   migrations
 
 Appendix
 ________
@@ -40,3 +40,5 @@ ________
    :maxdepth: 3
 
    testkit
+   sphinx-documentation
+   config

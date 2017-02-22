@@ -1,10 +1,9 @@
 package slick.test.codegen
 
-import slick.driver.JdbcProfile
-
 import scala.concurrent.ExecutionContext.Implicits.global
+import slick.ast.{FieldSymbol, Node, Select}
+import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
-import slick.ast.{Node, Select}
 import slick.test.codegen.generated._
 import com.typesafe.slick.testkit.util.{TestCodeRunner, JdbcTestDB}
 import org.junit.Assert._
@@ -51,7 +50,7 @@ object GeneratedCodeTest {
         assertTrue("Indices should refer to correct field", dIdxFieldsName sameElements List("f1", "f2"))
 
         def optionsOfColumn(c: slick.lifted.Rep[_]) =
-          c.toNode.asInstanceOf[Select].field.asInstanceOf[slick.ast.FieldSymbol].options.toList
+          c.toNode.asInstanceOf[Select].field.asInstanceOf[FieldSymbol].options.toList
         val k1Options = optionsOfColumn(E.baseTableRow.k1)
         val k2Options = optionsOfColumn(E.baseTableRow.k2)
         val sOptions = optionsOfColumn(E.baseTableRow.s)
@@ -68,7 +67,7 @@ object GeneratedCodeTest {
 
   def testCG2 = {
     class Db1 extends CG2 {
-      val profile = slick.driver.HsqldbDriver
+      val profile = slick.jdbc.HsqldbProfile
     }
     val Db1 = new Db1
     import Db1._
@@ -132,6 +131,23 @@ object GeneratedCodeTest {
       E += ERow(3,"foo",Some("bar"),None),
       E.result.map(assertAll),
       sql"select k1, k2, s, n from e".as[ERow].map(assertAll)
+    )
+  }
+
+  def testCG11 = {
+    import CG11._
+    import profile.api._
+    def assertAll(all: Seq[SimpleA]) = {
+      assertEquals( 1, all.size )
+      assertEquals(List(SimpleA(Some(1), Some("foo"))), all)
+    }
+    DBIO.seq(
+      schema.create,
+      SimpleAs.length.result.map(assertEquals(0, _)),
+      SimpleAs += SimpleA(Some(1), Some("foo")),
+      SimpleAs.length.result.map(assertEquals(1, _)),
+      SimpleAs.result.map(assertEquals(List(SimpleA(Some(1), Some("foo"))), _)),
+      sql"select a1, a2 from SIMPLE_AS".as[SimpleA].map(assertAll)
     )
   }
 

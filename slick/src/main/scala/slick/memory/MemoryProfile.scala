@@ -5,16 +5,16 @@ import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
-import slick.dbio._
 import slick.ast._
-import TypeUtil._
+import slick.ast.TypeUtil._
+import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler._
-import slick.profile._
-import slick.relational.{ResultConverterCompiler, ResultConverter, CompiledMapping}
+import slick.dbio._
+import slick.relational.{RelationalProfile, ResultConverterCompiler, ResultConverter, CompiledMapping}
 import slick.util.{DumpInfo, ??}
 
-/** A profile and driver for interpreted queries on top of the in-memory database. */
-trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { driver: MemoryDriver =>
+/** A profile for interpreted queries on top of the in-memory database. */
+trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
 
   type SchemaDescription = SchemaDescriptionDef
   type InsertInvoker[T] = InsertInvokerDef[T]
@@ -27,7 +27,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
   lazy val deleteCompiler = compiler
   lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.NonAutoInc), new MemoryInsertCodeGen)
 
-  override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
+  override protected def computeCapabilities = super.computeCapabilities ++ MemoryCapabilities.all
 
   def createInsertInvoker[T](tree: Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ??
@@ -106,15 +106,15 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
       new DDL(tables ++ other.asInstanceOf[DDL].tables)
   }
 
-  type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
-  type StreamingDriverAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
+  type ProfileAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
+  type StreamingProfileAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
 
-  protected[this] def dbAction[R, S <: NoStream, E <: Effect](f: Backend#Session => R): DriverAction[R, S, E] = new DriverAction[R, S, E] with SynchronousDatabaseAction[R, S, Backend#This, E] {
+  protected[this] def dbAction[R, S <: NoStream, E <: Effect](f: Backend#Session => R): ProfileAction[R, S, E] = new ProfileAction[R, S, E] with SynchronousDatabaseAction[R, S, Backend#This, E] {
     def run(ctx: Backend#Context): R = f(ctx.session)
-    def getDumpInfo = DumpInfo("MemoryProfile.DriverAction")
+    def getDumpInfo = DumpInfo("MemoryProfile.ProfileAction")
   }
 
-  class StreamingQueryAction[R, T](tree: Node, param: Any) extends StreamingDriverAction[R, T, Effect.Read] with SynchronousDatabaseAction[R, Streaming[T], Backend#This, Effect.Read] {
+  class StreamingQueryAction[R, T](tree: Node, param: Any) extends StreamingProfileAction[R, T, Effect.Read] with SynchronousDatabaseAction[R, Streaming[T], Backend#This, Effect.Read] {
     type StreamState = Iterator[T]
     protected[this] def getIterator(ctx: Backend#Context): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
@@ -133,11 +133,11 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
       }
       if(it.hasNext) it else null
     }
-    def head: DriverAction[T, NoStream, Effect.Read] = new DriverAction[T, NoStream, Effect.Read] with SynchronousDatabaseAction[T, NoStream, Backend#This, Effect.Read] {
+    def head: ProfileAction[T, NoStream, Effect.Read] = new ProfileAction[T, NoStream, Effect.Read] with SynchronousDatabaseAction[T, NoStream, Backend#This, Effect.Read] {
       def run(ctx: Backend#Context): T = getIterator(ctx).next
       def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
     }
-    def headOption: DriverAction[Option[T], NoStream, Effect.Read] = new DriverAction[Option[T], NoStream, Effect.Read] with SynchronousDatabaseAction[Option[T], NoStream, Backend#This, Effect.Read] {
+    def headOption: ProfileAction[Option[T], NoStream, Effect.Read] = new ProfileAction[Option[T], NoStream, Effect.Read] with SynchronousDatabaseAction[Option[T], NoStream, Backend#This, Effect.Read] {
       def run(ctx: Backend#Context): Option[T] = {
         val it = getIterator(ctx)
         if(it.hasNext) Some(it.next) else None
@@ -148,12 +148,12 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
   }
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
-    def result: DriverAction[R, S, Effect.Read] =
-      new StreamingQueryAction[R, Nothing](tree, param).asInstanceOf[DriverAction[R, S, Effect.Read]]
+    def result: ProfileAction[R, S, Effect.Read] =
+      new StreamingQueryAction[R, Nothing](tree, param).asInstanceOf[ProfileAction[R, S, Effect.Read]]
   }
 
   class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingDriverAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingDriverAction[R, T, Effect.Read]]
+    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
@@ -168,6 +168,10 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
     def drop = dbAction { session =>
       tables.foreach(t => session.database.dropTable(t.tableName))
     }
+
+    def truncate = dbAction{ session =>
+      tables.foreach(t => session.database.truncateTable(t.tableName) )
+    }
   }
 
   class InsertActionExtensionMethodsImpl[T](compiled: CompiledInsert) extends super.InsertActionExtensionMethodsImpl[T] {
@@ -177,19 +181,6 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
     def += (value: T) = dbAction(inv.+=(value)(_))
     def ++= (values: Iterable[T]) = dbAction(inv.++=(values)(_))
   }
-}
-
-object MemoryProfile {
-  object capabilities {
-    /** Supports all MemoryProfile features which do not have separate capability values */
-    val other = Capability("memory.other")
-
-    /** All MemoryProfile capabilities */
-    val all = Set(other)
-  }
-}
-
-trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with MemoryProfile { driver =>
 
   override val profile: MemoryProfile = this
 
@@ -197,7 +188,7 @@ trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with Memor
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
     val Insert(_, table: TableNode, ProductNode(cols), _) = insert
-    val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
+    val tableColumnIdxs = table.profileTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
     def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] =
       new InsertResultConverter(tableColumnIdxs(column.get))
@@ -217,7 +208,7 @@ trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with Memor
   }
 }
 
-object MemoryDriver extends MemoryDriver
+object MemoryProfile extends MemoryProfile
 
 /** A non-streaming Action that wraps a synchronous MemoryProfile API call. */
 case class SimpleMemoryAction[+R](f: HeapBackend#Context => R) extends SynchronousDatabaseAction[R, NoStream, HeapBackend, Effect.All] {

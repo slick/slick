@@ -1,96 +1,96 @@
 package slick.util
 
-import java.util.concurrent.{ArrayBlockingQueue, TimeUnit, BlockingQueue}
+import java.util.concurrent.{BlockingQueue, TimeUnit}
 import java.util.concurrent.locks._
-import java.util._
+import java.util
+
+import slick.util.AsyncExecutor._
 
 /** A simplified copy of `java.util.concurrent.ArrayBlockingQueue` with additional logic for
   * temporarily rejecting elements based on the current size. All features of the original
   * ArrayBlockingQueue have been ported, except the mutation methods of the iterator. See
   * `java.util.concurrent.ArrayBlockingQueue` for documentation. */
-abstract class ManagedArrayBlockingQueue[E >: Null <: AnyRef](capacity: Int, fair: Boolean = false) extends AbstractQueue[E] with BlockingQueue[E] { self =>
+class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: Int, capacity: Int, fair: Boolean = false)
+  extends util.AbstractQueue[E]
+  with BlockingQueue[E]
+  with Logging { self =>
 
-  /** Determine if the item should be accepted at the current time. */
-  protected[this] def accept(item: E, size: Int): Boolean
-
-  private[this] val items = new Array[AnyRef](capacity)
   private[this] val lock = new ReentrantLock(fair)
   private[this] val notEmpty = lock.newCondition
   private[this] val notFull = lock.newCondition
-  private[this] var takeIndex, putIndex, count = 0
 
   private[this] def checkNotNull(v: AnyRef): Unit = if (v == null) throw new NullPointerException
+  private[this] def checkNotInUse(e: E) = require(!e.inUseCounterSet, "in use count is already set")
 
-  private[this] def inc(i: Int): Int = if(i+1 == items.length) 0 else i+1
+  private[this] val itemQueue = new InternalArrayQueue[E](2*capacity)
+  private[this] val highPrioItemQueue = new InternalArrayQueue[E](capacity)
 
-  private[this] def dec(i: Int): Int = (if(i == 0) items.length else i) - 1
+  private[this] def counts = (if (paused) 0 else  itemQueue.count) + highPrioItemQueue.count
 
-  private[this] def itemAt(i: Int): E = items(i).asInstanceOf[E]
+  /**
+    * The number of low/medium priority items in use
+    */
+  private[this] var inUseCount = 0
 
-  private[this] def insert(x: E) {
-    items(putIndex) = x
-    putIndex = inc(putIndex)
-    count += 1
-    notEmpty.signal
-  }
+  private[this] var paused = false
 
-  private[this] def extract: E = {
-    val items = this.items
-    val x: E = items(takeIndex).asInstanceOf[E]
-    items(takeIndex) = null
-    takeIndex = inc(takeIndex)
-    count -= 1
-    notFull.signal
-    return x
-  }
-
-  private[this] def removeAt(_i: Int) {
-    var i = _i
-    val items = this.items
-    if (i == takeIndex) {
-      items(takeIndex) = null
-      takeIndex = inc(takeIndex)
-    }
-    else {
-      var cond = true
-      while (cond) {
-        val nexti: Int = inc(i)
-        if (nexti != putIndex) {
-          items(i) = items(nexti)
-          i = nexti
-        }
-        else {
-          items(i) = null
-          putIndex = i
-          cond = false
+  private[util] def increaseInUseCount(pr: PrioritizedRunnable): Unit = {
+    if (!pr.inUseCounterSet) {
+      locked {
+        require(inUseCount < maximumInUse, "count cannot be increased")
+        inUseCount += 1
+        pr.inUseCounterSet = true
+        if (inUseCount == maximumInUse) {
+          logger.debug("pausing")
+          paused = true
         }
       }
     }
-    count -= 1
-    notFull.signal
+  }
+
+  private[util] def decreaseInUseCount(): Unit = {
+    locked {
+      require(inUseCount > 0, "count cannot be decreased")
+      inUseCount -= 1
+      if (inUseCount == maximumInUse - 1) {
+        logger.debug("resuming")
+        paused = false
+        if (counts > 0) notEmpty.signalAll()
+      }
+    }
   }
 
   def offer(e: E): Boolean = {
     checkNotNull(e)
-    locked {
-      if (count == items.length || !accept(e, count)) false
-      else { insert(e); true }
-    }
+    checkNotInUse(e)
+    locked { insert(e) }
   }
 
-  def put(e: E) {
+  private[this] def insert(e: E): Boolean = {
+    val r = e.priority match {
+      case WithConnection => highPrioItemQueue.insert(e)
+      case Continuation => itemQueue.insert(e)
+      case Fresh => if (itemQueue.count < capacity) itemQueue.insert(e) else false
+    }
+    if (counts > 0) notEmpty.signal()
+    r
+  }
+
+  def put(e: E): Unit = {
     checkNotNull(e)
+    checkNotInUse(e)
     lockedInterruptibly {
-      while (count == items.length || !accept(e, count)) notFull.await
+      while (e.priority == Fresh && itemQueue.count >= capacity) notFull.await()
       insert(e)
     }
   }
 
   def offer(e: E, timeout: Long, unit: TimeUnit): Boolean = {
     checkNotNull(e)
+    checkNotInUse(e)
     var nanos: Long = unit.toNanos(timeout)
     lockedInterruptibly {
-      while (count == items.length || !accept(e, count)) {
+      while (e.priority == Fresh && itemQueue.count >= capacity) {
         if (nanos <= 0) return false
         nanos = notFull.awaitNanos(nanos)
       }
@@ -99,169 +99,126 @@ abstract class ManagedArrayBlockingQueue[E >: Null <: AnyRef](capacity: Int, fai
     }
   }
 
-  def poll: E = locked(if ((count == 0)) null else extract)
+  def poll: E = locked { extract() }
+
+  private[this] def extract(): E = {
+    if (highPrioItemQueue.count != 0) highPrioItemQueue.extract
+    else if (!paused && itemQueue.count != 0) {
+      val item = itemQueue.extract
+      increaseInUseCount(item)
+      item
+    }
+    else null
+  }
 
   def take: E = lockedInterruptibly {
-    while (count == 0) notEmpty.await
-    extract
+    while (counts == 0) notEmpty.await()
+    extract()
   }
 
   def poll(timeout: Long, unit: TimeUnit): E = {
     var nanos: Long = unit.toNanos(timeout)
     lockedInterruptibly {
-      while (count == 0) {
+      while (counts == 0) {
         if (nanos <= 0) return null
         nanos = notEmpty.awaitNanos(nanos)
       }
-      extract
+      extract()
     }
   }
 
-  def peek: E = locked((if(count == 0) null else itemAt(takeIndex)))
+  def peek: E = locked {
+    if (counts == 0) null
+    else {
+      val e = highPrioItemQueue.peek
+      if (e != null) e else itemQueue.peek
+    }
+  }
 
-  def size: Int = locked(count)
+  def size: Int = locked(counts)
 
-  def remainingCapacity: Int = locked(items.length - count)
+  def remainingCapacity: Int = locked(capacity - itemQueue.count - highPrioItemQueue.count)
 
   override def remove(o: AnyRef): Boolean = if (o eq null) false else {
-    val items = this.items
     locked {
-      var i: Int = takeIndex
-      var k: Int = count
-      while (k > 0) {
-        if (o == items(i)) {
-          removeAt(i)
-          return true
-        }
-        i = inc(i)
-        k -= 1
+      if (highPrioItemQueue.remove(o)) {
+        true
+      } else {
+        itemQueue.remove(o)
       }
-      false
     }
   }
 
   override def contains(o: AnyRef): Boolean = {
-    if (o == null) return false
-    val items = this.items
     locked {
-      var i = takeIndex
-      var k = count
-      while (k > 0) {
-        if (o == items(i)) return true
-        i = inc(i)
-        k -= 1
-      }
-      false
+      itemQueue.contains(o) || highPrioItemQueue.contains(o)
     }
   }
 
-  override def clear {
-    val items = this.items
+  override def clear() {
     locked {
-      var i = takeIndex
-      var k = count
-      while (k > 0) {
-        items(i) = null
-        i = inc(i)
-        k -= 1
-      }
-      count = 0
-      putIndex = 0
-      takeIndex = 0
-      notFull.signalAll
+      itemQueue.clear()
+      highPrioItemQueue.clear()
+      notFull.signalAll()
     }
   }
 
-  def drainTo(c: Collection[_ >: E]): Int = {
-    checkNotNull(c)
-    if (c eq this) throw new IllegalArgumentException
-    val items = this.items
+  def drainTo(c: util.Collection[_ >: E]): Int = {
     locked {
-      var i = takeIndex
-      var n = 0
-      val max = count
-      while (n < max) {
-        c.add(items(i).asInstanceOf[E])
-        items(i) = null
-        i = inc(i)
-        n += 1
-      }
+      val n = highPrioItemQueue.drainTo(c) + itemQueue.drainTo(c)
       if (n > 0) {
-        count = 0
-        putIndex = 0
-        takeIndex = 0
-        notFull.signalAll
+        notFull.signalAll()
       }
       n
     }
   }
 
-  def drainTo(c: Collection[_ >: E], maxElements: Int): Int = {
-    checkNotNull(c)
-    if (c eq this) throw new IllegalArgumentException
-    if (maxElements <= 0) return 0
-    val items = this.items
+  def drainTo(c: util.Collection[_ >: E], maxElements: Int): Int = {
     locked {
-      var i: Int = takeIndex
-      var n: Int = 0
-      val max: Int = if ((maxElements < count)) maxElements else count
-      while (n < max) {
-        c.add(items(i).asInstanceOf[E])
-        items(i) = null
-        i = inc(i)
-        n += 1
+      var n = highPrioItemQueue.drainTo(c, maxElements)
+      if (n < maxElements) {
+        n += itemQueue.drainTo(c, maxElements - n)
       }
       if (n > 0) {
-        count -= n
-        takeIndex = i
-        notFull.signalAll
+        notFull.signalAll()
       }
       n
     }
   }
 
-  def iterator: Iterator[E] = new Iterator[E] {
-    private var remaining: Int = _
-    private var nextIndex: Int = _
-    private var nextItem: E = _
-    private var lastItem: E = _
-    private var lastRet: Int = -1
+  def iterator: util.Iterator[E] = new util.Iterator[E] {
 
-    locked {
-      remaining = count
-      if(remaining > 0) {
-        nextIndex = takeIndex
-        nextItem = itemAt(nextIndex)
+    private var current = 0
+    private val iterators = Array(highPrioItemQueue.iterator, itemQueue.iterator)
+
+    override def hasNext: Boolean = {
+      locked {
+        while (current < iterators.length && !iterators(current).hasNext)
+          current = current + 1
+
+        current < iterators.length
       }
     }
-
-    def hasNext: Boolean = remaining > 0
 
     def next: E = {
       locked {
-        if (remaining <= 0) throw new NoSuchElementException
-        lastRet = nextIndex
-        var x: E = itemAt(nextIndex)
-        if (x == null) {
-          x = nextItem
-          lastItem = null
-        }
-        else lastItem = x
-        while ({ remaining -= 1; remaining > 0 } && { nextIndex = inc(nextIndex); nextItem = itemAt(nextIndex); nextItem == null }) ()
-        x
+        while (current < iterators.length && !iterators(current).hasNext)
+          current = current + 1
+
+        return iterators(current).next()
       }
     }
 
-    def remove: Unit = throw new UnsupportedOperationException
+    override def remove(): Unit = throw new UnsupportedOperationException
   }
 
   @inline private[this] def locked[T](f: => T) = {
-    lock.lock
-    try f finally lock.unlock
+    lock.lock()
+    try f finally lock.unlock()
   }
 
   @inline private[this] def lockedInterruptibly[T](f: => T) = {
-    lock.lockInterruptibly
-    try f finally lock.unlock
+    lock.lockInterruptibly()
+    try f finally lock.unlock()
   }
 }

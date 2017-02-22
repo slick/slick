@@ -1,0 +1,15 @@
+#!/bin/bash
+# This script extracts jars that aren't in public repositories. This is used for slick CI.
+# Don't use this script to get the jars for your environment. Download them from the relevant source.
+# https://www.microsoft.com/en-gb/download/details.aspx?id=11774
+# http://www.oracle.com/technetwork/database/features/jdbc/index-091264.html
+# http://www-01.ibm.com/support/docview.wss?uid=swg21363866
+
+DIR="$( cd "$( dirname $0 )" && pwd )"
+SCRIPTPATH=$DIR/ZNonPublicDeps
+OJDBCDIR=ojdbc7
+export CxD=$(echo wraan | tr '[A-Za-z]' '[N-ZA-Mn-za-m]')
+openssl enc -in ${SCRIPTPATH}/mssql.enc -out ./sqljdbc42.jar -d -aes256  -pass env:CxD
+openssl enc -in ${SCRIPTPATH}/npj.enc -out ${SCRIPTPATH}/npj.tjz -d -aes256  -pass env:CxD
+tar xvjf ${SCRIPTPATH}/npj.tjz -C ${SCRIPTPATH}
+cp ${SCRIPTPATH}/nonpublicjars/${OJDBCDIR}/jars/ojdbc7-12.1.0.2.jar .

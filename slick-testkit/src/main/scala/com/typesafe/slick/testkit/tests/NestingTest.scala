@@ -218,7 +218,7 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
       def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
       def name = column[Option[String]]("name")
       def popularOptions = column[Option[String]]("popularOptions")
-      def * = (name.getOrElse(""), popularOptions.getOrElse(""), id) <> (Chord.tupled, Chord.unapply)
+      def * = (name.getOrElse(""), popularOptions.getOrElse(""), id).mapTo[Chord]
     }
     val chords = TableQuery[Chords]
     val allChords = Set(Chord("maj7", "9 #11"), Chord("m7", "9 11"), Chord("7", "9 13"), Chord("m7b5", "11"), Chord("aug7", "9"), Chord("dim7", ""))

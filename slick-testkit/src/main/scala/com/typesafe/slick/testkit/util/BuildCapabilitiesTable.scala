@@ -1,47 +1,54 @@
 package com.typesafe.slick.testkit.util
 
-import slick.profile.{SqlProfile, RelationalProfile, BasicProfile}
-import slick.driver.JdbcProfile
 import java.io.{PrintWriter, OutputStreamWriter, BufferedWriter, FileOutputStream, FileWriter}
+
+import slick.basic.BasicProfile
+import slick.jdbc.{JdbcCapabilities, JdbcProfile}
+import slick.relational.RelationalCapabilities
+import slick.sql.SqlCapabilities
+
 
 /** Build a table of supported capability flags for the user manual. */
 object BuildCapabilitiesTable extends App {
   // testkit/runMain com.typesafe.slick.testkit.util.BuildCapabilitiesTable ../src/sphinx/capabilities.csv
   if(args.length < 1 || args.length > 2) {
-    println("Syntax: com.typesafe.slick.testkit.util.BuildCapabilitiesTable OUTPUTFILE [DRIVERLIST]")
+    println("Syntax: com.typesafe.slick.testkit.util.BuildCapabilitiesTable OUTPUTFILE [PROFILELIST]")
     System.exit(1)
   }
 
-  val driverNames = if(args.length > 1) args(1).split(",") else Array(
-    "slick.driver.DerbyDriver",
-    "slick.driver.H2Driver",
-    "slick.driver.HsqldbDriver",
-    "slick.driver.MySQLDriver",
-    "slick.driver.PostgresDriver",
-    "slick.driver.SQLiteDriver"
+  val profileNames = if(args.length > 1) args(1).split(",") else Array(
+    "slick.jdbc.DB2Profile",
+    "slick.jdbc.DerbyProfile",
+    "slick.jdbc.H2Profile",
+    "slick.jdbc.HsqldbProfile",
+    "slick.jdbc.MySQLProfile",
+    "slick.jdbc.OracleProfile",
+    "slick.jdbc.PostgresProfile",
+    "slick.jdbc.SQLiteProfile",
+    "slick.jdbc.SQLServerProfile"
   )
 
-  val drivers = driverNames.map { n =>
+  val profiles = profileNames.map { n =>
     Class.forName(n + "$").getField("MODULE$").get(null).asInstanceOf[BasicProfile]
   }
 
-  val profiles = Vector(
-    RelationalProfile.capabilities.all -> "slick.profile.RelationalProfile$$capabilities$@",
-    SqlProfile.capabilities.all -> "slick.profile.SqlProfile$$capabilities$@",
-    JdbcProfile.capabilities.all -> "slick.driver.JdbcProfile$$capabilities$@"
+  val profileCapabilities = Vector(
+    RelationalCapabilities.all -> "slick.relational.RelationalCapabilities$@",
+    SqlCapabilities.all -> "slick.sql.SqlCapabilities$@",
+    JdbcCapabilities.all -> "slick.jdbc.JdbcCapabilities$@"
   )
 
   val capabilities = for {
-    (caps, linkBase) <- profiles
+    (caps, linkBase) <- profileCapabilities
     cap <- caps.toVector.sortBy(c => if(c.toString.endsWith(".other")) "" else c.toString)
-  } yield (cap, linkBase + cap.toString.replaceFirst(".*\\.", "") + ":slick.profile.Capability")
+  } yield (cap, linkBase + cap.toString.replaceFirst(".*\\.", "") + ":slick.basic.Capability")
 
   val out = new FileOutputStream(args(0))
   try {
     val wr = new PrintWriter(new BufferedWriter(new OutputStreamWriter(out, "UTF-8")))
-    wr.println("Capability," + driverNames.map(n => s":api:`$n`").mkString(","))
+    wr.println("Capability," + profileNames.map(n => s":api:`$n`").mkString(","))
     for((cap, link) <- capabilities) {
-      val flags = drivers.map(d => d.capabilities.contains(cap))
+      val flags = profiles.map(d => d.capabilities.contains(cap))
       wr.println(s":api:`$cap <$link>`," + flags.map(b => if(b) "Yes" else "").mkString(","))
     }
     wr.flush()

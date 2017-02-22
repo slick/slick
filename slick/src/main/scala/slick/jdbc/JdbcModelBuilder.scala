@@ -2,17 +2,19 @@ package slick.jdbc
 
 import org.slf4j.LoggerFactory
 
-import scala.reflect.ClassTag
 import scala.concurrent.{ExecutionContext, Future}
-import slick.profile.{RelationalProfile, SqlProfile}
+import scala.reflect.ClassTag
+
 import scala.util.{Failure, Success}
 import java.sql.DatabaseMetaData
 
 import slick.SlickException
-import slick.dbio._
 import slick.ast.ColumnOption
+import slick.dbio._
 import slick.jdbc.meta._
 import slick.{model => m}
+import slick.relational.RelationalProfile
+import slick.sql.SqlProfile
 import slick.util.Logging
 
 /** Build a Slick model from introspecting the JDBC metadata.
@@ -176,7 +178,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     /** Regex matcher to extract string out ouf surrounding '' */
     final val StringPattern = """^'(.*)'$""".r
     /** Scala type this column is mapped to */
-    def tpe = jdbcTypeToScala(meta.sqlType).toString match {
+    def tpe = jdbcTypeToScala(meta.sqlType, meta.typeName).toString match {
       case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
       case t => t
     }
@@ -225,7 +227,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
               case 3 => v(1) // quoted character
             }
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
-          case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
+          case (v,"scala.math.BigDecimal") => BigDecimal(s"${v.trim}") // need the trim for Oracle trailing space
           case (StringPattern(str),"String") => str
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false

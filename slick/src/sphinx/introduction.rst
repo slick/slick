@@ -11,7 +11,7 @@ What is Slick?
 Slick ("Scala Language-Integrated Connection Kit") is `Typesafe <http://www.typesafe.com>`_'s
 Functional Relational Mapping (FRM) library for Scala that makes it easy to work with relational
 databases. It allows you to work with stored data almost as if you were using Scala collections
-while at the same time giving you full control over when a database access happens and which data
+while at the same time giving you full control over when database access happens and which data
 is transferred. You can also use SQL directly. Execution of database actions is done
 asynchronously, making Slick a perfect fit for your reactive applications based on Play_ and Akka_.
 
@@ -53,7 +53,7 @@ Some of the key benefits of Slick's FRM approach for functional programming incl
 
 * Efficiency with Pre-Optimization
 
-FRM is more efficient way to connect; unlike ORM it has the ability to pre-optimize its
+FRM is a more efficient way to connect; unlike ORM it has the ability to pre-optimize its
 communication with the database - and with FRM you get this out of the box. The road to making an
 app faster is much shorter with FRM than ORM.
 
@@ -74,8 +74,8 @@ Misspelled the column name ``price``? The compiler will tell you::
 The same goes for type errors::
 
     GettingStartedOverview.scala:89: type mismatch;
-     found   : slick.driver.H2Driver.StreamingDriverAction[Seq[String],String,slick.dbio.Effect.Read]
-        (which expands to)  slick.profile.FixedSqlStreamingAction[Seq[String],String,slick.dbio.Effect.Read]
+     found   : slick.jdbc.H2Profile.StreamingProfileAction[Seq[String],String,slick.dbio.Effect.Read]
+        (which expands to)  slick.sql.FixedSqlStreamingAction[Seq[String],String,slick.dbio.Effect.Read]
      required: slick.dbio.DBIOAction[Seq[Double],slick.dbio.NoStream,Nothing]
             coffees.map(_.name).result
                                 ^
@@ -123,7 +123,7 @@ The Scala-based query API for Slick allows you to write database queries like qu
 Scala collections. Please see :doc:`gettingstarted` for an introduction. Most of this
 user manual focuses on this API.
 
-If you want to write your own SQL statements and still execute them asynchronously like a
+If you want to write your own SQL statements and still execute them asynchronously like
 normal Slick queries, you can use the :doc:`Plain SQL<sql>` API:
 
 .. includecode:: code/GettingStartedOverview.scala#what-is-slick-micro-example-plainsql
@@ -134,9 +134,6 @@ License
 -------
 
 Slick is released under a BSD-Style free and open source software :slick:`license <LICENSE.txt>`.
-See the chapter on the commercial :doc:`Slick Extensions <extensions>` add-on
-package for details on licensing the Slick drivers for the big commercial
-database systems.
 
 .. index:: APIs
 

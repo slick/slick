@@ -3,7 +3,7 @@ Schema Code Generation
 
 The Slick code generator is a convenient tool for working
 with an existing or evolving database schema. It can be run
-stand-alone or integrated into you sbt build for creating all
+stand-alone or integrated into your sbt build for creating all
 code Slick needs to work.
 
 Overview
@@ -35,6 +35,10 @@ For Maven projects add the following to your ``<dependencies>``:
 
 Slick's code generator comes with a default runner that can be used from the command line or from Java/Scala. You can simply execute
 
+.. includecode:: code/CodeGenerator.scala#default-runner-uri
+
+or
+
 .. includecode:: code/CodeGenerator.scala#default-runner
 
 or
@@ -43,9 +47,10 @@ or
 
 and provide the following values
 
-* **slickDriver** Fully qualified name of Slick driver class, e.g. *"slick.driver.H2Driver"*
-* **jdbcDriver** Fully qualified name of jdbc driver class, e.g. *"org.h2.Driver"*
-* **url** jdbc url, e.g. *"jdbc:postgresql://localhost/test"*
+* **uri** Config URL and/or fragment for path in typesafe config, e.g. *"url#slick.db.default"*
+* **profile** Fully qualified name of the profile class, e.g. *"slick.jdbc.H2Profile"*
+* **jdbcDriver** Fully qualified name of the JDBC driver class, e.g. *"org.h2.Driver"*
+* **url** JDBC url, e.g. *"jdbc:postgresql://localhost/test"*
 * **outputFolder** Place where the package folder structure should be put
 * **pkg** Scala package the generated code should be places in
 * **user** database connection user name
@@ -60,14 +65,14 @@ Generated Code
 --------------
 By default, the code generator places a file ``Tables.scala`` in the given folder in a subfolder corresponding
 to the package. The file contains an ``object Tables`` from which the code
-can be imported for use right away. Make sure you use the same Slick driver.
+can be imported for use right away. Make sure you use the same profile.
 The file also contains a ``trait Tables`` which can be used in the cake pattern.
 
 .. warning::
-   When using the generated code, be careful **not** to mix different database drivers accidentally. The
-   default ``object Tables`` uses the driver used during code generation. Using it together with a different
-   driver for queries will lead to runtime errors. The generated ``trait Tables`` can be used with a
-   different driver, but be aware, that this is currently untested and not officially supported. It may or
+   When using the generated code, be careful **not** to mix different profile accidentally. The
+   default ``object Tables`` uses the profile used during code generation. Using it together with a different
+   profile for queries will lead to runtime errors. The generated ``trait Tables`` can be used with a
+   different profile, but be aware, that this is currently untested and not officially supported. It may or
    may not work in your case. We will officially support this at some point in the future.
 
 Customization

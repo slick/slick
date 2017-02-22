@@ -6,15 +6,15 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 //#imports
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 //#imports
 import slick.jdbc.GetResult
-import slick.driver.JdbcProfile
-import slick.backend.{DatabaseConfig, StaticDatabaseConfig}
+import slick.jdbc.JdbcProfile
+import slick.basic.{DatabaseConfig, StaticDatabaseConfig}
 
 /** A simple example that uses plain SQL queries against an in-memory
   * H2 database. The example data comes from Oracle's JDBC tutorial at
-  * http://download.oracle.com/javase/tutorial/jdbc/basics/tables.html. */
+  * http://docs.oracle.com/javase/tutorial/jdbc/basics/tables.html. */
 object PlainSQL extends App {
   var out = new ArrayBuffer[String]()
   def println(s: String): Unit = out += s
@@ -155,7 +155,7 @@ object PlainSQL extends App {
 object TypedSQL extends App {
   //#staticdatabaseconfig
   val dc = DatabaseConfig.forAnnotation[JdbcProfile]
-  import dc.driver.api._
+  import dc.profile.api._
   //#staticdatabaseconfig
 
   //#tsql

@@ -33,7 +33,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Slick'
-copyright = u'2011-2015 Typesafe, Inc'
+copyright = u'2011-2016 Typesafe, Inc'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -205,7 +205,7 @@ latex_documents = [
 epub_title = u"Slick"
 epub_author = u'Slick Team'
 epub_publisher = u'Typesafe, Inc.'
-epub_copyright = u'2011-2015 Typesafe, Inc.'
+epub_copyright = u'2011-2016 Typesafe, Inc.'
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.
@@ -246,11 +246,6 @@ epub_copyright = u'2011-2015 Typesafe, Inc.'
 
 slick_template_suffix = '-'+version
 scala_version = '2.10.0'
-slick_extensions_version = os.environ["slick_extensions_version"]
-if slick_extensions_version == release:
-  slick_extensions_api_path = 'extensions-api'
-else:
-  slick_extensions_api_path = '../'+slick_extensions_version+'/extensions-api'
 
 # e.g. :issue:`36` :ticket:`8`
 extlinks = {
@@ -274,10 +269,6 @@ rst_epilog = '''
 .. _Slick Plain SQL Queries template: https://typesafe.com/activator/template/slick-plainsql%(template-suffix)s
 .. _Slick Multi-DB Patterns template: http://typesafe.com/activator/template/slick-multidb%(template-suffix)s
 .. _Slick TestKit Example template: https://typesafe.com/activator/template/slick-testkit-example%(template-suffix)s
-.. _Slick Extensions: %(slick_extensions_api_path)s/index.html
-.. |slick_extensions_version| replace:: %(slick_extensions_version)s
 ''' % {
-  'template-suffix': slick_template_suffix,
-  'slick_extensions_version': slick_extensions_version,
-  'slick_extensions_api_path': slick_extensions_api_path
+  'template-suffix': slick_template_suffix
 }

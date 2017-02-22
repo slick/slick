@@ -2,7 +2,7 @@ package com.typesafe.slick.docs
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 import java.sql.Date
 import scala.reflect.ClassTag
 
@@ -167,6 +167,7 @@ object LiftedEmbedding extends App {
 
   //#ddl2
     schema.create.statements.foreach(println)
+    schema.truncate.statements.foreach(println)
     schema.drop.statements.foreach(println)
   //#ddl2
     TableQuery[A].schema.create.statements.foreach(println)
@@ -266,12 +267,27 @@ object LiftedEmbedding extends App {
         Await.result(result, Duration.Inf)
       }
       {
-        //#delete
+        //#delete1
         val q = coffees.filter(_.supID === 15)
         val action = q.delete
         val affectedRowsCount: Future[Int] = db.run(action)
         val sql = action.statements.head
-        //#delete
+        //#delete1
+        Await.result(affectedRowsCount, Duration.Inf)
+      }
+      {
+        //#delete2
+        //
+        val q = coffees filter { coffee =>
+          // You can do any subquery here - this example uses the foreign key relation in coffees.
+          coffee.supID in (
+            coffee.supplier filter { _.name === "Delete Me" } map { _.id }
+          )
+        }
+        val action = q.delete
+        val affectedRowsCount: Future[Int] = db.run(action)
+        val sql = action.statements.head
+        //#delete2
         Await.result(affectedRowsCount, Duration.Inf)
       }
     }
@@ -508,7 +524,7 @@ object LiftedEmbedding extends App {
 
       // A Shape implementation for Pair
       final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](
-        val shapes: Seq[Shape[_, _, _, _]])
+        val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]])
       extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
         def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
         def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)

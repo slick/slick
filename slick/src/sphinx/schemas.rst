@@ -23,7 +23,7 @@ All columns are defined through the ``column`` method. Each column has a
 Scala type and a column name for the database (usually in upper-case). The
 following primitive types are supported out of the box for JDBC-based
 databases in ``JdbcProfile`` (with certain limitations imposed by the
-individual database drivers):
+individual database profiles):
 
 - *Numeric types*: Byte, Short, Int, Long, BigDecimal, Float, Double
 - *LOB types*: java.sql.Blob, java.sql.Clob, Array[Byte]
@@ -62,9 +62,9 @@ object. The following ones are defined for ``JdbcProfile``:
 
 .. index:: type
 
-``DBType(dbType: String)``
+``SqlType(typeName: String)``
    Use a non-standard database-specific type for the DDL statements (e.g.
-   ``DBType("VARCHAR(20)")`` for a ``String`` column).
+   ``SqlType("VARCHAR(20)")`` for a ``String`` column).
 
 .. index:: AutoInc, generated, identity
 
@@ -75,14 +75,6 @@ object. The following ones are defined for ``JdbcProfile``:
    be returned when inserting data (often silently ignoring other columns), so
    Slick will check if the return column is properly marked as AutoInc where
    needed.
-
-.. index:: null, nullable, NotNull
-
-``NotNull``, ``Nullable``
-   Explicitly mark the column as nullable or non-nullable when creating the
-   DDL statements for the table. Nullability is otherwise determined from the
-   type (Option or non-Option). There is usually no reason to specify these
-   options.
 
 .. index:: *, star projection
 
@@ -154,7 +146,7 @@ if you manually extend the correct Scala function type. Alternatively you can us
 Constraints
 -----------
 
-A foreign key constraint can be defined with a Table's :api:`foreignKey <slick.profile.RelationalTableComponent$Table@foreignKey[P,PU,TT<:AbstractTable[_],U](String,P,TableQuery[TT])((TT)⇒P,ForeignKeyAction,ForeignKeyAction)(Shape[_<:FlatShapeLevel,TT,U,_],Shape[_<:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U]>` method.
+A foreign key constraint can be defined with a Table's :api:`foreignKey <slick.relational.RelationalTableComponent$Table@foreignKey[P,PU,TT<:AbstractTable[_],U](String,P,TableQuery[TT])((TT)⇒P,ForeignKeyAction,ForeignKeyAction)(Shape[_<:FlatShapeLevel,TT,U,_],Shape[_<:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U]>` method.
 It first takes a name for the constraint, the referencing column(s) and the referenced table. The second argument list takes a function from the referenced table to its referenced column(s) as well as :api:`ForeignKeyAction <slick.model.ForeignKeyAction$>` for ``onUpdate`` and ``onDelete``, which are optional and default to :api:`NoAction <slick.model.ForeignKeyAction$$NoAction$>`. When creating the DDL statements for the table, the foreign key definition is added to it.
 
 .. includecode:: code/LiftedEmbedding.scala#foreignkey
@@ -189,7 +181,7 @@ Data Definition Language
 DDL statements for a table can be created with its ``TableQuery``'s ``schema`` method. Multiple
 ``DDL`` objects can be concatenated with ``++`` to get a compound ``DDL`` object which can create
 and drop all entities in the correct order, even in the presence of cyclic dependencies between
-tables. The ``create`` and ``drop`` methods produce the Actions for executing the DDL statements:
+tables. The ``create``, ``drop`` and ``truncate`` methods produce the Actions for executing the DDL statements:
 
 .. includecode:: code/LiftedEmbedding.scala#ddl
 

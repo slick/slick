@@ -81,6 +81,13 @@ class MergeToComprehensions extends Phase {
         logger.debug("Merged SortBy into Comprehension:", c2)
         (c2, replacements1)
 
+      case ForUpdate(s1, f1) =>
+        val (c1, replacements1) = mergeSortBy(f1, true)
+        logger.debug("Merging ForUpdate into Comprehension:", Ellipsis(n, List(0)))
+        val c2 = c1.copy(forUpdate = true) :@ c1.nodeType
+        logger.debug("Merged ForUpdate into Comprehension:", c2)
+        (c2, replacements1)
+
       case Distinct(s1, f1, o1) =>
         val (c1, replacements1) = mergeSortBy(f1, true)
         val (c1a, replacements1a) =

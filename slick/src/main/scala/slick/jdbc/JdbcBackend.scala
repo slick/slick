@@ -12,16 +12,16 @@ import javax.sql.DataSource
 import javax.naming.InitialContext
 
 import slick.dbio._
-import slick.backend.{DatabasePublisher, DatabaseComponent, RelationalBackend}
+import slick.basic.DatabasePublisher
 import slick.SlickException
+import slick.relational.RelationalBackend
 import slick.util._
 import slick.util.ConfigExtensionMethods._
 
 import org.slf4j.LoggerFactory
 import com.typesafe.config.{ConfigFactory, Config}
 
-/** A JDBC-based database back-end which can be used for <em>Plain SQL</em> queries
-  * and with all [[slick.driver.JdbcProfile]]-based drivers. */
+/** A JDBC-based database back-end that is used by [[slick.jdbc.JdbcProfile]]. */
 trait JdbcBackend extends RelationalBackend {
   type This = JdbcBackend
   type Database = DatabaseDef
@@ -83,13 +83,28 @@ trait JdbcBackend extends RelationalBackend {
     def forSource(source: JdbcDataSource, executor: AsyncExecutor = AsyncExecutor.default()) =
       new DatabaseDef(source, executor)
 
-    /** Create a Database based on a DataSource. */
-    def forDataSource(ds: DataSource, executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false): DatabaseDef =
-      forSource(new DataSourceJdbcDataSource(ds, keepAliveConnection), executor)
+    /** Create a Database based on a DataSource.
+      *
+      * @param ds The DataSource to use.
+      * @param maxConnection The maximum number of connections that the DataSource can provide. This is necessary to
+      *                      prevent deadlocks when scheduling database actions. Use `None` if there is no hard limit.
+      * @param executor The AsyncExecutor for scheduling database actions.
+      * @param keepAliveConnection If this is set to true, one extra connection will be opened as soon as the database
+      *                            is accessed for the first time, and kept open until `close()` is called. This is
+      *                            useful for named in-memory databases in test environments.
+      */
+    def forDataSource(ds: DataSource, maxConnections: Option[Int], executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false): DatabaseDef =
+      forSource(new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections), executor)
 
-    /** Create a Database based on the JNDI name of a DataSource. */
-    def forName(name: String, executor: AsyncExecutor = null) = new InitialContext().lookup(name) match {
-      case ds: DataSource => forDataSource(ds, executor match {
+    /** Create a Database based on the JNDI name of a DataSource.
+      *
+      * @param ds The name of the DataSource to use.
+      * @param maxConnection The maximum number of connections that the DataSource can provide. This is necessary to
+      *                      prevent deadlocks when scheduling database actions. Use `None` if there is no hard limit.
+      * @param executor The AsyncExecutor for scheduling database actions.
+      */
+    def forName(name: String, maxConnections: Option[Int], executor: AsyncExecutor = null) = new InitialContext().lookup(name) match {
+      case ds: DataSource => forDataSource(ds, maxConnections, executor match {
         case null => AsyncExecutor.default(name)
         case e => e
       })
@@ -100,7 +115,7 @@ trait JdbcBackend extends RelationalBackend {
     def forURL(url: String, user: String = null, password: String = null, prop: Properties = null, driver: String = null,
                executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false,
                classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): DatabaseDef =
-      forDataSource(new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader), executor, keepAliveConnection)
+      forDataSource(new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader), None, executor, keepAliveConnection)
 
     /** Create a Database that uses the DriverManager to open new connections. */
     def forURL(url: String, prop: Map[String, String]): Database = {
@@ -114,7 +129,7 @@ trait JdbcBackend extends RelationalBackend {
       * This is needed to open a JDBC URL with a driver that was not loaded by the system ClassLoader. */
     def forDriver(driver: Driver, url: String, user: String = null, password: String = null, prop: Properties = null,
                   executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
-      forDataSource(new DriverDataSource(url, user, password, prop, driverObject = driver), executor)
+      forDataSource(new DriverDataSource(url, user, password, prop, driverObject = driver), None, executor)
 
     /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
       *
@@ -132,13 +147,20 @@ trait JdbcBackend extends RelationalBackend {
       *   <li>`numThreads` (Int, optional, default: 20): The number of concurrent threads in the
       *     thread pool for asynchronous execution of database actions. See the
       *     [[https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing HikariCP wiki]]
-      *     for more imformation about sizing the thread pool correctly. Note that for asynchronous
+      *     for more information about sizing the thread pool correctly. Note that for asynchronous
       *     execution in Slick you should tune the thread pool size (this parameter) accordingly
       *     instead of the maximum connection pool size.</li>
       *   <li>`queueSize` (Int, optional, default: 1000): The size of the queue for database
       *     actions which cannot be executed immediately when all threads are busy. Beyond this
       *     limit new actions fail immediately. Set to 0 for no queue (direct hand-off) or to -1
       *     for an unlimited queue size (not recommended).</li>
+      *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
+      *     Beans ("MBeans") are registered. Slick supports an MBean of its own for monitoring the
+      *     `AsyncExecutor` with the thread pool and queue, but connection pool implementations
+      *     may register additional MBeans. In particular, HikariCP does this.</li>
+      *   <li>`poolName` (String, optional): A user-defined name for the connection pool in logging
+      *     and JMX management consoles to identify pools and pool configurations. This defaults to
+      *     the config path.</li>
       * </ul>
       *
       * The pool is tuned for asynchronous execution by default. Apart from the connection
@@ -199,8 +221,6 @@ trait JdbcBackend extends RelationalBackend {
       *     database is still alive. It is database dependent and should be a query that takes very
       *     little processing by the database (e.g. "VALUES 1"). When not set, the JDBC4
       *     `Connection.isValid()` method is used instead (which is usually preferable).</li>
-      *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
-      *     Beans ("MBeans") are registered.</li>
       * </ul>
       *
       * Direct connections are based on a `java.sql.DataSource` or a `java.sql.Driver`. This is
@@ -258,7 +278,7 @@ trait JdbcBackend extends RelationalBackend {
       * @param driver An optional JDBC driver to call directly. If this is set to a non-null value,
       *               the `driver` key from the configuration is ignored. The default is to use the
       *               standard lookup mechanism. The explicit driver may not be supported by all
-      *               connection pools (in particular, the default [[HikariCPJdbcDataSource]]).
+      *               connection pools (in particular, the default HikariCPJdbcDataSource).
       * @param classLoader The ClassLoader to use to load any custom classes from. The default is to
       *                    try the context ClassLoader first and fall back to Slick's ClassLoader.
       */
@@ -266,7 +286,12 @@ trait JdbcBackend extends RelationalBackend {
                   classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Database = {
       val usedConfig = if(path.isEmpty) config else config.getConfig(path)
       val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
-      val executor = AsyncExecutor(path, usedConfig.getIntOr("numThreads", 20), usedConfig.getIntOr("queueSize", 1000))
+      val poolName = usedConfig.getStringOr("poolName", path)
+      val numThreads = usedConfig.getIntOr("numThreads", 20)
+      val maxConnections = source.maxConnections.fold(numThreads*5)(identity)
+      val registerMbeans = usedConfig.getBooleanOr("registerMbeans", false)
+      val executor = AsyncExecutor(poolName, numThreads, numThreads, usedConfig.getIntOr("queueSize", 1000),
+        maxConnections, registerMbeans = registerMbeans)
       forSource(source, executor)
     }
   }
@@ -393,10 +418,12 @@ trait JdbcBackend extends RelationalBackend {
     }
 
     protected def loggingStatement(st: Statement): Statement =
-      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled) new LoggingStatement(st) else st
+      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled)
+        new LoggingStatement(st) else st
 
     protected def loggingPreparedStatement(st: PreparedStatement): PreparedStatement =
-      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled) new LoggingPreparedStatement(st) else st
+      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled || JdbcBackend.parameterLogger.isDebugEnabled)
+        new LoggingPreparedStatement(st) else st
 
     /** Start a `transactionally` block */
     private[slick] def startInTransaction: Unit
@@ -405,17 +432,11 @@ trait JdbcBackend extends RelationalBackend {
   }
 
   class BaseSession(val database: Database) extends SessionDef {
-    protected var open = false
     protected var inTransactionally = 0
 
-    def isOpen = open
     def isInTransaction = inTransactionally > 0
 
-    lazy val conn = {
-      val c = database.source.createConnection
-      open = true
-      c
-    }
+    val conn = database.source.createConnection
 
     lazy val metaData = conn.getMetaData()
 
@@ -429,9 +450,7 @@ trait JdbcBackend extends RelationalBackend {
       }
     }
 
-    def close() {
-      if(open) conn.close()
-    }
+    def close() { conn.close() }
 
     private[slick] def startInTransaction: Unit = {
       if(!isInTransaction) conn.setAutoCommit(false)
@@ -502,6 +521,7 @@ object JdbcBackend extends JdbcBackend {
 
   protected[jdbc] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
   protected[jdbc] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))
+  protected[jdbc] lazy val parameterLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".parameter"))
 
   protected[jdbc] def logStatement(msg: String, stmt: String) = if(statementLogger.isDebugEnabled) {
     val s = if(GlobalConfig.sqlIndent) msg + ":\n" + LogUtil.multilineBorder(stmt) else msg + ": " + stmt

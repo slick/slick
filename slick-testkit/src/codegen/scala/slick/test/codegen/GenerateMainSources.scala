@@ -11,9 +11,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.{Codec, Source}
 import slick.dbio.DBIO
 import slick.codegen.{OutputHelpers, SourceCodeGenerator}
-import slick.driver._
 import slick.jdbc.JdbcBackend
-import slick.driver.JdbcDriver
 import slick.jdbc.meta.MTable
 import slick.model.Model
 
@@ -27,7 +25,7 @@ object GenerateMainSources extends TestCodeGenerator {
     new Config("CG2", StandardTestDBs.HsqldbMem, "HsqldbMem", Seq("/dbs/hsqldb.sql")),
     new Config("CG3", StandardTestDBs.SQLiteMem, "SQLiteMem", Seq("/dbs/sqlite.sql")),
     new Config("CG7", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def entityName = {
           case "COFFEES" => "Coff"
           case other => super.entityName(other)
@@ -49,7 +47,7 @@ object GenerateMainSources extends TestCodeGenerator {
       })
     },
     new Config("CG8", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
-      override def generator = tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def EntityType = new EntityType{
             override def enabled = false
@@ -75,15 +73,27 @@ val  SimpleA = CustomTyping.SimpleA
       })
     },
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def autoIncLastAsOption = true
+          override def Column = new Column(_){
+            override def asOption = autoInc
+          }
         }
       })
     },
-    new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid.sql")),
+    new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
+    new Config("CG11", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+        override def Table = new Table(_){
+          override def Column = new Column(_){
+            override def asOption = true
+          }
+        }
+      })
+    },
     new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
-      import tdb.driver.api._
+      import tdb.profile.api._
       class A(tag: Tag) extends Table[(Int, Array[Byte], Blob)](tag, "a") {
         def id = column[Int]("id")
         def ba = column[Array[Byte]]("ba")
@@ -92,7 +102,7 @@ val  SimpleA = CustomTyping.SimpleA
       }
       override def generator =
         TableQuery[A].schema.create >>
-        tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
       override def testCode =
         """
           |  import java.sql.Blob
@@ -105,23 +115,113 @@ val  SimpleA = CustomTyping.SimpleA
           |  ).transactionally
         """.stripMargin
     },
-    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql")),
-    new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil)
+    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),    
+    new Config("Postgres3", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/postgres.sql")) {
+      override def testCode: String =
+      """import slick.ast.{FieldSymbol, Select}
+        |import slick.jdbc.meta.MTable
+        |import slick.relational.RelationalProfile
+        |DBIO.seq(
+        |  schema.create,
+        |  MTable.getTables(Some(""), Some("public"), None, None).map { tables =>
+        |    def optionsOfColumn(c: slick.lifted.Rep[_]) =
+        |      c.toNode.asInstanceOf[Select].field.asInstanceOf[FieldSymbol].options.toList
+        |    //val smallserialOptions = optionsOfColumn(TestDefault.baseTableRow.smallintAutoInc)
+        |    val serialOptions = optionsOfColumn(TestDefault.baseTableRow.intAutoInc)
+        |    val bigserialOptions = optionsOfColumn(TestDefault.baseTableRow.bigintAutoInc)
+        |    val char1EmptyOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultEmpty)
+        |    val char1ValidOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultValid)
+        |    val char1InvalidOptions = optionsOfColumn(TestDefault.baseTableRow.char1DefaultInvalid)
+        |    //assertTrue("smallint_auto_inc should be AutoInc", smallserialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
+        |    assertTrue("int_auto_inc should be AutoInc", serialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
+        |    assertTrue("bigint_auto_inc should be AutoInc", bigserialOptions.exists(option => (option equals TestDefault.baseTableRow.O.AutoInc)))
+        |    assertTrue("default value of char1_default_empty should be ' '", char1EmptyOptions.exists(option => (option equals TestDefault.baseTableRow.O.Default(Some(' ')))))
+        |    assertTrue("default value of char1_default_valid should be 'a'", char1ValidOptions.exists(option => (option equals TestDefault.baseTableRow.O.Default(Some('a')))))
+        |    assertTrue("default value of char1_default_invalid should not exist", char1InvalidOptions.forall(option => (option.isInstanceOf[RelationalProfile.ColumnOption.Default[_]])))
+        |  }
+        |)
+      """.stripMargin
+    },
+    new Config("MySQL1", StandardTestDBs.MySQL, "MySQL", Nil) {
+      import tdb.profile.api._
+      class A(tag: Tag) extends Table[(String)](tag, "a") {
+        def quote = column[String]("x", O.Default("\"\"")) // column name with double quote
+        def * = quote
+      }
+      override def generator =
+        TableQuery[A].schema.create >>
+        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+      override def testCode =
+        """
+          |  val a1 = ARow("e")
+          |  DBIO.seq(
+          |    schema.create,
+          |    A += a1,
+          |    A.result.map { case Seq(ARow(quote)) => assertEquals("e", quote) }
+          |  ).transactionally
+        """.stripMargin
+    },
+    new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql") ){
+      override def generator: DBIO[SourceCodeGenerator] =
+        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new SourceCodeGenerator(_){
+          override def parentType = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
+          override def code = {
+            val testcode =
+              """
+                |  val entry = DefaultNumericRow(d0 = scala.math.BigDecimal(123.45), d1 = scala.math.BigDecimal(90), d3 = 0)
+                |  val createStmt = schema.create.statements.mkString
+                |  assertTrue(createStmt contains "`entry1` LONGTEXT")
+                |  assertTrue(createStmt contains "`entry2` MEDIUMTEXT")
+                |  assertTrue(createStmt contains "`entry3` TEXT")
+                |  assertTrue(createStmt contains "`entry4` VARCHAR(255)")
+                |  DBIO.seq(
+                |    schema.create,
+                |    TableName += TableNameRow(0),
+                |    TableName.result.map{ case Seq(TableNameRow(id) ) => assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.get eq "slick_test" ) },
+                |    DefaultNumeric += entry,
+                |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }
+                |  )
+              """.stripMargin
+            s"""
+               |lazy val tdb = $fullTdbName
+               |def test = {
+               |  import org.junit.Assert._
+               |  import scala.concurrent.ExecutionContext.Implicits.global
+               |  $testcode
+               |}
+           """.stripMargin + super.code
+          }
+        })
+    },
+    new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
+    new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
+      override def useSingleLineStatements = true
+      override def testCode =
+        """
+          |  val entry = PersonRow(1)
+          |  assertEquals(scala.math.BigDecimal(0), entry.age)
+          |  DBIO.seq (
+          |    schema.create,
+          |    Person += entry,
+          |    Person.result.head.map{ r =>  assertEquals(r , entry) }
+          |  )
+        """.stripMargin
+    }
   )
 
   //Unified UUID config
   class UUIDConfig(objectName: String, tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String])
     extends Config(objectName, tdb, tdbName, initScripts) {
-      override def generator =tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
-        override def Table = new Table(_) {
-          override def Column = new Column(_){
-            override def defaultCode: (Any) => String = {
-              case v: java.util.UUID => s"""java.util.UUID.fromString("${v.toString}")"""
-              case v => super.defaultCode(v)
-            }
+    override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def Table = new Table(_) {
+        override def Column = new Column(_){
+          override def defaultCode: (Any) => String = {
+            case v: java.util.UUID => s"""java.util.UUID.fromString("${v.toString}")"""
+            case v => super.defaultCode(v)
           }
-          override def code = {
-            Seq("""
+        }
+        override def code = {
+          Seq("""
                 |  /* default UUID, which is the same as for 'uuid.sql' */
                 |  val defaultUUID = java.util.UUID.fromString("2f3f866c-d8e6-11e2-bb56-50e549c9b654")
                 |  /* convert UUID */
@@ -132,32 +232,35 @@ val  SimpleA = CustomTyping.SimpleA
                 |  implicit object GetOptionUUID extends slick.jdbc.GetResult[Option[java.util.UUID]] {
                 |    def apply(rs: slick.jdbc.PositionedResult) = Option(rs.nextObject().asInstanceOf[java.util.UUID])
                 |  }
-                """.stripMargin) ++ super.code
-          }
+              """.stripMargin) ++ super.code
         }
-      })
-      override def testCode =
-        """
-          |  import java.util.UUID
-          |  val u1 = UUID.randomUUID()
-          |  val u2 = UUID.randomUUID()
-          |  val p1 = PersonRow(1, u1)
-          |  val p2 = PersonRow(2, u2)
-          |
-          |  def assertAll(all: Seq[PersonRow]) = {
-          |    assertEquals( 2, all.size )
-          |    assertEquals( Set(1,2), all.map(_.id).toSet )
-          |    assertEquals( Set(u1, u2), all.map(_.uuid).toSet )
-          |    //it should contain sample UUID
-          |    assert(all.forall(_.uuidDef == Some(defaultUUID)))
-          |  }
-          |
-          |  DBIO.seq(
-          |    schema.create,
-          |    Person += p1,
-          |    Person += p2,
-          |    Person.result.map(assertAll)
-          |  ).transactionally
-        """.stripMargin
-    }
+      }
+    })
+    override def testCode =
+      """
+        |  import java.util.UUID
+        |  val u1 = UUID.randomUUID()
+        |  val u2 = UUID.randomUUID()
+        |  val u3 = UUID.randomUUID()
+        |  val u4 = UUID.randomUUID()
+        |  val p1 = PersonRow(1, u1, uuidFunc = Some(u3))
+        |  val p2 = PersonRow(2, u2, uuidFunc = Some(u4))
+        |
+        |  def assertAll(all: Seq[PersonRow]) = {
+        |    assertEquals( 2, all.size )
+        |    assertEquals( Set(1,2), all.map(_.id).toSet )
+        |    assertEquals( Set(u1, u2), all.map(_.uuid).toSet )
+        |    assertEquals( Set(Some(u3), Some(u4)), all.map(_.uuidFunc).toSet )
+        |    //it should contain sample UUID
+        |    assert(all.forall(_.uuidDef == Some(defaultUUID)))
+        |  }
+        |
+        |  DBIO.seq(
+        |    schema.create,
+        |    Person += p1,
+        |    Person += p2,
+        |    Person.result.map(assertAll)
+        |  ).transactionally
+      """.stripMargin
+  }
 }

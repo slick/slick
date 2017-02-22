@@ -225,31 +225,22 @@ final class AnyOptionExtensionMethods[O <: Rep[_], P](val r: O) extends AnyVal {
   def nonEmpty = isDefined
 }
 
-trait ExtensionMethodConversions extends ExtensionMethodConversionsLowPriority {
-  implicit def columnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]) = new BaseColumnExtensionMethods[B1](c)
-  implicit def optionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]) = new OptionColumnExtensionMethods[B1](c)
-  implicit def numericColumnExtensionMethods[B1](c: Rep[B1])(implicit tm: BaseTypedType[B1] with NumericTypedType) = new BaseNumericColumnExtensionMethods[B1](c)
-  implicit def numericOptionColumnExtensionMethods[B1](c: Rep[Option[B1]])(implicit tm: BaseTypedType[B1] with NumericTypedType) = new OptionNumericColumnExtensionMethods[B1](c)
-  implicit def stringColumnExtensionMethods(c: Rep[String]) = new StringColumnExtensionMethods[String](c)
-  implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]) = new StringColumnExtensionMethods[Option[String]](c)
-  implicit def booleanColumnExtensionMethods(c: Rep[Boolean]) = new BooleanColumnExtensionMethods[Boolean](c)
-  implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]) = new BooleanColumnExtensionMethods[Option[Boolean]](c)
+trait ExtensionMethodConversions {
+  implicit def columnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]): BaseColumnExtensionMethods[B1] = new BaseColumnExtensionMethods[B1](c)
+  implicit def optionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): OptionColumnExtensionMethods[B1] = new OptionColumnExtensionMethods[B1](c)
+  implicit def numericColumnExtensionMethods[B1](c: Rep[B1])(implicit tm: BaseTypedType[B1] with NumericTypedType): BaseNumericColumnExtensionMethods[B1] = new BaseNumericColumnExtensionMethods[B1](c)
+  implicit def numericOptionColumnExtensionMethods[B1](c: Rep[Option[B1]])(implicit tm: BaseTypedType[B1] with NumericTypedType): OptionNumericColumnExtensionMethods[B1] = new OptionNumericColumnExtensionMethods[B1](c)
+  implicit def stringColumnExtensionMethods(c: Rep[String]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c)
+  implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c)
+  implicit def booleanColumnExtensionMethods(c: Rep[Boolean]): BooleanColumnExtensionMethods[Boolean] = new BooleanColumnExtensionMethods[Boolean](c)
+  implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]): BooleanColumnExtensionMethods[Option[Boolean]] = new BooleanColumnExtensionMethods[Option[Boolean]](c)
 
-  implicit def anyColumnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]) = new AnyExtensionMethods(c.toNode)
-  implicit def anyOptionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]) = new AnyExtensionMethods(c.toNode)
-  implicit def anyValueExtensionMethods[B1 : BaseTypedType](v: B1) = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[B1]], v))
-  implicit def anyOptionValueExtensionMethods[B1 : BaseTypedType](v: Option[B1]) = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[Option[B1]]], v))
-  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[B1], _, C]) = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
-  implicit def singleOptionColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[Option[B1]], _, C]) = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
+  implicit def anyColumnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]): AnyExtensionMethods = new AnyExtensionMethods(c.toNode)
+  implicit def anyOptionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): AnyExtensionMethods = new AnyExtensionMethods(c.toNode)
+  implicit def anyValueExtensionMethods[B1 : BaseTypedType](v: B1): AnyExtensionMethods = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[B1]], v))
+  implicit def anyOptionValueExtensionMethods[B1 : BaseTypedType](v: Option[B1]): AnyExtensionMethods = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[Option[B1]]], v))
+  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[B1], _, C]): SingleColumnQueryExtensionMethods[B1, B1, C] = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
+  implicit def singleOptionColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[Option[B1]], _, C]): SingleColumnQueryExtensionMethods[B1, Option[B1], C] = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
 
-  // Not possible on Scala 2.10 due to SI-3346
-  //implicit def anyOptionExtensionMethods[T, P](v: Rep[Option[T]])(implicit ol: OptionLift[P, Rep[Option[T]]]) = new AnyOptionExtensionMethods[Rep[Option[T]], P](v)
-
-  implicit def repOptionExtensionMethods[T <: Rep[_]](v: Rep[Option[T]]) = new AnyOptionExtensionMethods[Rep[Option[T]], T](v)
-  implicit def baseColumnRepOptionExtensionMethods[T : TypedType](v: Rep[Option[T]]) = new AnyOptionExtensionMethods[Rep[Option[T]], Rep[T]](v)
-  implicit def nestedOptionExtensionMethods[T](v: Rep[Option[Option[T]]]) = new AnyOptionExtensionMethods[Rep[Option[Option[T]]], Rep[Option[T]]](v)
-}
-
-trait ExtensionMethodConversionsLowPriority {
-  implicit def otherOptionExtensionMethods[T](v: Rep[Option[T]]) = new AnyOptionExtensionMethods[Rep[Option[T]], T](v)
+  implicit def anyOptionExtensionMethods[T, P](v: Rep[Option[T]])(implicit ol: OptionLift[P, Rep[Option[T]]]): AnyOptionExtensionMethods[Rep[Option[T]], P] = new AnyOptionExtensionMethods[Rep[Option[T]], P](v)
 }

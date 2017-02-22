@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
-import slick.driver.{H2Driver, PostgresDriver}
+import slick.jdbc.{PostgresProfile, H2Profile}
 
 class AggregateTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
@@ -15,8 +15,8 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val ts = TableQuery[T]
     def q1(i: Int) = for { t <- ts if t.a === i } yield t
     def q2(i: Int) = (q1(i).length, q1(i).map(_.b).length, q1(i).map(_.b).countDefined, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
-    val q2_0 = q2(0).shaped
-    val q2_1 = q2(1).shaped
+    val q2_0 = q2(0)
+    val q2_1 = q2(1)
     ts.schema.create >>
       (ts ++= Seq((1, Some(1)), (1, Some(3)), (1, None))) >>
       q2_0.result.map(_ shouldBe (0, 0, 0, None, None, None)) >>
@@ -147,7 +147,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       class T4(tag: Tag) extends Table[Pair](tag, "t4") {
         def a = column[Int]("a")
         def b = column[Option[Int]]("b")
-        def * = (a, b) <> (Pair.tupled,Pair.unapply)
+        def * = (a, b).mapTo[Pair]
       }
       val t4s = TableQuery[T4]
       db.run(t4s.schema.create >>
@@ -198,7 +198,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       def col4 = column[Int]("COL4")
       def col5 = column[Int]("COL5")
 
-      def * = (col1, col2, col3, col4, col5) <> (Tab.tupled, Tab.unapply)
+      def * = (col1, col2, col3, col4, col5).mapTo[Tab]
     }
     val Tabs = TableQuery[Tabs]
 
@@ -293,7 +293,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val q2 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._2)
     val q3 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._1)
 
-    if(tdb.driver == H2Driver) {
+    if(tdb.profile == H2Profile) {
       assertNesting(q1, 2)
       assertNesting(q2, 2)
       assertNesting(q3, 1)
@@ -329,8 +329,9 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val q5b = as.distinct.map(_.id)
     val q5c = as.distinct.map(a => (a.id, a.a))
     val q6 = as.distinct.length
+    val q7 = as.map(a => (a.a, a.b)).distinct.take(10)
 
-    if(tdb.driver == H2Driver) {
+    if(tdb.profile == H2Profile) {
       assertNesting(q1a, 1)
       assertNesting(q1b, 1)
       assertNesting(q3a, 2)
@@ -338,7 +339,8 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       assertNesting(q5a, 1)
       assertNesting(q5b, 1)
       assertNesting(q5c, 1)
-    } else if(tdb.driver == PostgresDriver) {
+      assertNesting(q7, 1)
+    } else if(tdb.profile == PostgresProfile) {
       assertNesting(q1a, 1)
       assertNesting(q1b, 1)
       assertNesting(q3a, 4)
@@ -346,6 +348,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       assertNesting(q5a, 1)
       assertNesting(q5b, 1)
       assertNesting(q5c, 1)
+      assertNesting(q7, 1)
     }
 
     DBIO.seq(
@@ -359,7 +362,8 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       mark("q5a", q5a.result).map(_.sortBy(identity) shouldBe Seq(1, 3)),
       mark("q5b", q5b.result).map(_.sortBy(identity) should (r => r == Seq(1, 3) || r == Seq(2, 3))),
       mark("q5c", q5c.result).map(_.sortBy(identity) should (r => r == Seq((1, "a"), (3, "c")) || r == Seq((2, "a"), (3, "c")))),
-      mark("q6", q6.result).map(_ shouldBe 2)
+      mark("q6", q6.result).map(_ shouldBe 2),
+      mark("q7", q7.result).map(_.sortBy(identity) shouldBe Seq(("a", "a"), ("a", "b"), ("c", "b")))
     )
   }
 }

@@ -3,7 +3,7 @@ package slick.collection.heterogeneous
 import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.annotation.unchecked.{uncheckedVariance => uv}
-import scala.reflect.macros.Context
+import scala.reflect.macros.whitebox.Context
 import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 import scala.reflect.ClassTag
 
@@ -127,7 +127,7 @@ sealed abstract class HList extends Product {
 final object HList {
   import syntax._
 
-  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
+  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
     def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
     def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new HListShape(shapes)
   }
@@ -149,7 +149,7 @@ final object HListMacros{
         ctx.Expr(
           Apply(
             TypeApply(
-              Select(ctx.prefix.tree, newTermName("_unsafeApply")),
+              Select(ctx.prefix.tree, TermName("_unsafeApply")),
               List(tt)
             ),
             List(t)

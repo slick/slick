@@ -249,9 +249,6 @@ class RewriteJoins extends Phase {
     case j => j
   }
 
-  // binary compatibility shim for 3.1
-  def rearrangeJoinConditions(j: Join): Join = rearrangeJoinConditions(j, Set.empty)
-
   /** Merge nested mapping operations of the form `Bind(_, Bind(_, _, Pure(StructNode(p1), _)), Pure(StructNode(p2), _))`
     * into a single Bind, provided that each element of either p1 or p2 contains not more than one path.
     * This transformation is not required for the correctness of join rewriting but it keeps the

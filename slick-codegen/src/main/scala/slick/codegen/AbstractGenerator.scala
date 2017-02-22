@@ -1,9 +1,10 @@
 package slick.codegen
 
+import slick.ast.ColumnOption
 import slick.{model => m}
 import slick.model.ForeignKeyAction
-import slick.profile.{RelationalProfile, SqlProfile}
-import slick.ast.ColumnOption
+import slick.sql.SqlProfile
+import slick.relational.RelationalProfile
 
 /**
  * Slick code generator providing the base structure and facilities.
@@ -49,7 +50,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Database column positions in the desired user-facing order. Currently just moves the positions of AutoInc columns to the end if autoIncLastAsOption is enabled. */
     lazy val desiredColumnOrder: Seq[Int] = {
       val withIndex = columnsPositional.zipWithIndex
-      if(autoIncLastAsOption)
+      if(autoIncLast)
         // put auto inc column last
         (withIndex.filterNot( _._1.autoInc ) ++ withIndex.filter( _._1.autoInc )).map(_._2)
       else
@@ -90,7 +91,12 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Indicates whether auto increment columns should be put last and made an Option with a None default.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
+    @deprecated("Use autoIncLast = true and ColumnDef.asOption = autoInc instead.", "3.2.0")
     def autoIncLastAsOption = false
+    /** Indicates whether auto increment columns should be put last.
+        Please set to !hlistEnabled for switching this on.
+        @group Basic customization overrides */
+    def autoIncLast = autoIncLastAsOption
     /** Indicates if this table should be mapped using factory and extractor or not, in which case tuples are used. (Consider overriding EntityType.enabled instead, which affects this, too.) Disabled by default when using hlists.
         @group Basic customization overrides */
     def mappingEnabled = !hlistEnabled
@@ -111,8 +117,10 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     trait EntityTypeDef extends TypeDef{
       /** Column types */
       def types: Code = compoundType(columns.map(_.exposedType))
-      /** Indicated whether a case class should be generated. Otherwise a type alias. */
+      /** Indicates whether a case class should be generated. Otherwise a type alias. */
       def classEnabled = mappingEnabled
+      /** Indicates whether a generated case class should be final. */
+      def caseClassFinal = true
       def doc =
         if(classEnabled){
           s"Entity class storing rows of table ${TableValue.name}\n" +
@@ -210,18 +218,24 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /**
        * Underlying Scala type of this column.
        * Override this to just affect the data type but preserve potential Option-wrapping.
-       * Override GeneratorHelpers#mapJdbcTypeString for generic adjustments.
        * @group Basic customization overrides
        */
       def rawType: Code = parseType(model.tpe)
+      /**
+       * Indicates whether the exposed type of this column should be wrapped in an Option. Useful for autoInc and automatically created columns.
+       * Set to autoInc to expose autoInc columns as Option.
+       * @group Basic customization overrides
+       */
+      def asOption = fakeNullable
       /** Possibly Option-wrapped Scala type of this column. @see rawType and @see exposedType */
       final def actualType: Code      = if(model.nullable) optionType(rawType) else rawType
-      /** Option of actualType if fakeNullable else actualType. Useful to expose autoInc columns as nullable. */
-      final def exposedType: Code  = if(fakeNullable) optionType(actualType) else actualType
+      /** Option of actualType if fakeNullable else actualType. */
+      final def exposedType: Code  = if(asOption) optionType(actualType) else actualType
       /** Indicates whether this column should be user facing as a nullable column with default None even though it is not. Useful for autoInc columns. */
+      @deprecated("Use asOption instead.", "3.2.0")
       final def fakeNullable = autoIncLastAsOption && autoInc
 
-      assert(!(model.nullable && fakeNullable),s"Cannot enable 'fakeNullable' for a 'nullable' column. $model")
+      assert(!(model.nullable && asOption),s"Cannot enable 'fakeNullable' for a 'nullable' column. $model")
 
       /** Indicates whether this is an auto increment column */
       final def autoInc = model.options.contains(ColumnOption.AutoInc)
@@ -239,7 +253,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Generates a literal represenation of the default value or None in case of an Option-typed autoinc column */
       def default: Option[Code] = model.options.collect{
         case RelationalProfile.ColumnOption.Default(value) => value
-        case _ if fakeNullable => None
+        case _ if asOption => None
       }.map(defaultCode).headOption
 
       def rawName: String = model.name.toCamelCase.uncapitalize

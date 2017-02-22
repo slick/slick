@@ -1,8 +1,8 @@
 package com.typesafe.slick.docs
 
 //#imports
-// Use H2Driver to connect to an H2 database
-import slick.driver.H2Driver.api._
+// Use H2Profile to connect to an H2 database
+import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 //#imports
@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * A simple example that uses statically typed queries against an in-memory
  * H2 database. The example data comes from Oracle's JDBC tutorial at
- * http://download.oracle.com/javase/tutorial/jdbc/basics/tables.html.
+ * http://docs.oracle.com/javase/tutorial/jdbc/basics/tables.html.
  */
 object FirstExample extends App {
   val lines = new ArrayBuffer[Any]()

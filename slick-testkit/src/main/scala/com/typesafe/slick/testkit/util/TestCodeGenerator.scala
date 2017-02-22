@@ -40,7 +40,7 @@ trait TestCodeGenerator {
   class Config(val objectName: String, val tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String]) { self =>
     def useSingleLineStatements = false
 
-    def slickDriver = tdb.driver.getClass.getName.replaceAll("\\$", "")
+    def slickProfile = tdb.profile.getClass.getName.replaceAll("\\$", "")
 
     def fullTdbName = computeFullTdbName(tdbName)
 
@@ -50,7 +50,7 @@ trait TestCodeGenerator {
         var init: DBIO[Any] = DBIO.successful(())
         var current: String = null
         initScripts.foreach { initScript =>
-          import tdb.driver.api._
+          import tdb.profile.api._
           Source.fromURL(self.getClass.getResource(initScript))(Codec.UTF8).getLines().foreach { s =>
             if(current eq null) current = s else current = current + "\n" + s
             if(s.trim.endsWith(";")) {
@@ -70,7 +70,7 @@ trait TestCodeGenerator {
         val db = tdb.createDB()
         try {
           val m = Await.result(db.run((init >> generator).withPinnedSession), Duration.Inf)
-          m.writeToFile(profile=slickDriver, folder=dir, pkg=packageName, objectName, fileName=objectName+".scala" )
+          m.writeToFile(profile=slickProfile, folder=dir, pkg=packageName, objectName, fileName=objectName+".scala" )
         } finally db.close
       }
       finally tdb.cleanUpAfter()
@@ -78,7 +78,7 @@ trait TestCodeGenerator {
     } else None
 
     def generator: DBIO[SourceCodeGenerator] =
-      tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+      tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
 
     def testCode: String = defaultTestCode(this)
 
@@ -97,7 +97,7 @@ trait TestCodeGenerator {
            |  import scala.concurrent.ExecutionContext.Implicits.global
            |  $testCode
            |}
-         """.stripMargin + super.code
+           |""".stripMargin + super.code
       }
     }
   }
