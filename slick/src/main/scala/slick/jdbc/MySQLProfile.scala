@@ -170,7 +170,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
-        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName(None)
+        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else if(ti == columnTypes.bigDecimalJdbcType) "DECIMAL" else ti.sqlTypeName(None)
         b"\({fn convert(!${ch},$tn)}\)"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
