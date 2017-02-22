@@ -27,6 +27,7 @@ class RelationalScalarFunctionTest extends AsyncTest[RelationalTestDB] {
       checkLit("foo"),
 
       check("42".asColumnOf[Int], 42),
+      check("42".asColumnOf[BigDecimal], BigDecimal(42)),
       check(LiteralColumn("foo").length, 3),
       check(LiteralColumn("foo") ++ "bar", "foobar"),
       check(LiteralColumn(1) ifNull 42, 1),
