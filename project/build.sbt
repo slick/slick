@@ -4,7 +4,7 @@ scalacOptions += "-feature"
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "0.8.1")
 
-addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.1.6")
+addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.1.14")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.7.0")
 

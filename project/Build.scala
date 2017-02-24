@@ -5,14 +5,14 @@ import com.typesafe.sbt.site.SphinxSupport.{Sphinx, sphinxEnv, sphinxProperties}
 import com.typesafe.sbt.SbtSite.site
 import com.typesafe.sbt.SbtSite.SiteKeys.makeSite
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
+import com.typesafe.tools.mima.plugin.MimaKeys.{mimaPreviousArtifacts, mimaBinaryIssueFilters, mimaReportBinaryIssues}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.sdlc.Plugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.2.0-SNAPSHOT"
+  val slickVersion = "3.2.1-SNAPSHOT"
   val binaryCompatSlickVersion = "3.2.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.11.8", "2.12.0")
 
@@ -171,7 +171,8 @@ object SlickBuild extends Build {
       packageDoc in Compile in slickProject,
       packageDoc in Compile in slickCodegenProject,
       packageDoc in Compile in slickHikariCPProject,
-      packageDoc in Compile in slickTestkitProject
+      packageDoc in Compile in slickTestkitProject,
+      mimaReportBinaryIssues in Compile in slickProject
     )
     val withSdlc =
       if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
@@ -209,8 +210,8 @@ object SlickBuild extends Build {
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickHikariCPProject, "hikaricp-api"),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickTestkitProject, "testkit-api"),
       test := (), testOnly :=  (), // suppress test status output
-      previousArtifact := Some("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value)  % binaryCompatSlickVersion),
-      binaryIssueFilters ++= Seq(
+      mimaPreviousArtifacts := Set("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value)  % binaryCompatSlickVersion),
+      mimaBinaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl")
       ),
