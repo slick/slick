@@ -12,8 +12,8 @@ import com.typesafe.sbt.sdlc.Plugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.2.1-SNAPSHOT"
-  val binaryCompatSlickVersion = "3.2.0" // Slick base version for binary compatibility checks
+  val slickVersion = "3.3.0-SNAPSHOT"
+  val binaryCompatSlickVersion = "3.3.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.11.8", "2.12.0")
 
   /** Dependencies for reuse in different parts of the build */
@@ -171,8 +171,7 @@ object SlickBuild extends Build {
       packageDoc in Compile in slickProject,
       packageDoc in Compile in slickCodegenProject,
       packageDoc in Compile in slickHikariCPProject,
-      packageDoc in Compile in slickTestkitProject,
-      mimaReportBinaryIssues in Compile in slickProject
+      packageDoc in Compile in slickTestkitProject
     )
     val withSdlc =
       if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
