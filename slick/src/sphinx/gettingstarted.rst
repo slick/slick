@@ -13,6 +13,8 @@ templates are created by the Slick team, with updated versions being made for ne
 
 * The `Slick Multi-DB Patterns template`_ shows you how to write Slick applications that can use
   different database systems and how to use custom database functions in Slick queries.
+* The `Slick-starting-on-the-right-foot`_ shows you how to write a Slick application using the cake pattern. 
+  It also demonstrates unit testing and in general provides a seed for starting the product with Slick.
 
 * The `Slick TestKit Example template`_ shows you how to use Slick TestKit to test your own Slick profiles.
 

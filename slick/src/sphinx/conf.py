@@ -268,6 +268,7 @@ rst_epilog = '''
 .. _Hello Slick template: https://typesafe.com/activator/template/hello-slick%(template-suffix)s
 .. _Slick Plain SQL Queries template: https://typesafe.com/activator/template/slick-plainsql%(template-suffix)s
 .. _Slick Multi-DB Patterns template: http://typesafe.com/activator/template/slick-multidb%(template-suffix)s
+.. _Slick-starting-on-the-right-foot: https://www.typesafe.com/activator/template/slick-starting-on-the-right-foot%(template-suffix)s
 .. _Slick TestKit Example template: https://typesafe.com/activator/template/slick-testkit-example%(template-suffix)s
 ''' % {
   'template-suffix': slick_template_suffix
