@@ -47,7 +47,7 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
     * run the next action in sequence. The resulting action fails if either this action, the
     * computation, or the computed action fails. */
   def flatMap[R2, S2 <: NoStream, E2 <: Effect](f: R => DBIOAction[R2, S2, E2])(implicit executor: ExecutionContext): DBIOAction[R2, S2, E with E2] =
-    FlatMapAction[R2, S2, R, E with E2](this, f, executor)
+    FlatMapAction[R2, S2, E with E2](this, Vector(f.asInstanceOf[Any => DBIOAction[Any, NoStream, E with E2]]), executor)
 
   /** Creates a new DBIOAction with one level of nesting flattened, this method is equivalent
     * to `flatMap(identity)`.
@@ -327,8 +327,15 @@ case class FutureAction[+R](f: Future[R]) extends DBIOAction[R, NoStream, Effect
 }
 
 /** A DBIOAction that represents a `flatMap` operation for sequencing in the DBIOAction monad. */
-case class FlatMapAction[+R, +S <: NoStream, P, -E <: Effect](base: DBIOAction[P, NoStream, E], f: P => DBIOAction[R, S, E], executor: ExecutionContext) extends DBIOAction[R, S, E] {
-  def getDumpInfo = DumpInfo("flatMap", String.valueOf(f), children = Vector(("base", base)))
+case class FlatMapAction[+R, +S <: NoStream, -E <: Effect](base: DBIOAction[Any, NoStream, E], fs: Vector[Any => DBIOAction[Any, NoStream, E]], executor: ExecutionContext) extends DBIOAction[R, S, E] {
+  def getDumpInfo = DumpInfo("flatMap", children = Vector(("base", base)))
+
+  override def flatMap[R2, S2 <: NoStream, E2 <: Effect](f: (R) => DBIOAction[R2, S2, E2])(implicit executor: ExecutionContext): DBIOAction[R2, S2, E with E2] =
+    if (this.executor == executor) {
+      FlatMapAction(base, fs :+ f.asInstanceOf[Any => DBIOAction[Any, NoStream, E with E2]], executor)
+    } else {
+      super.flatMap(f)(executor)
+    }
 }
 
 /** A DBIOAction that represents a `seq` or `andThen` operation for sequencing in the DBIOAction
@@ -554,7 +561,7 @@ object SynchronousDatabaseAction {
     * fused action can fail with a `ClassCastException` during evaluation. */
   private[slick] def fuseUnsafe[R, S <: NoStream, E <: Effect](a: DBIOAction[R, S, E]): DBIOAction[R, S, E] = {
     a match {
-      case FlatMapAction(base: SynchronousDatabaseAction[_, _, _, _], f, ec) if ec eq DBIO.sameThreadExecutionContext =>
+      case FlatMapAction(base: SynchronousDatabaseAction[_, _, _, _], Vector(f), ec) if ec eq DBIO.sameThreadExecutionContext =>
         new SynchronousDatabaseAction.Fused[R, S, BasicBackend, E] {
           def run(context: BasicBackend#Context): R = {
             val b = base.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, BasicBackend, Effect]].run(context)
