@@ -46,10 +46,11 @@ object BuildCapabilitiesTable extends App {
   val out = new FileOutputStream(args(0))
   try {
     val wr = new PrintWriter(new BufferedWriter(new OutputStreamWriter(out, "UTF-8")))
-    wr.println("Capability," + profileNames.map(n => s":api:`$n`").mkString(","))
+    wr.println("| Capability |" + profileNames.map(n => s" [${n.replace("slick.jdbc.","").replace("Profile","")}](api:$n) |").mkString)
+    wr.println("| :--- |" + profileNames.map(n => " :---: |").mkString)
     for((cap, link) <- capabilities) {
       val flags = profiles.map(d => d.capabilities.contains(cap))
-      wr.println(s":api:`$cap <$link>`," + flags.map(b => if(b) "Yes" else "").mkString(","))
+      wr.println(s"| [$cap](api:$link) |" + flags.map(b => if(b) " :white_check_mark: |" else " |").mkString)
     }
     wr.flush()
   } finally out.close()

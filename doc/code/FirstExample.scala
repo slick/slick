@@ -55,7 +55,7 @@ object FirstExample extends App {
     // ...
 //#setup
 
-//#create
+    //#create
     val setup = DBIO.seq(
       // Create the tables, including primary and foreign keys
       (suppliers.schema ++ coffees.schema).create,
@@ -80,10 +80,10 @@ object FirstExample extends App {
     )
 
     val setupFuture = db.run(setup)
-//#create
+    //#create
     val resultFuture = setupFuture.flatMap { _ =>
 
-  //#readall
+      //#readall
       // Read all coffees and print them to the console
       println("Coffees:")
       db.run(coffees.result).map(_.foreach {
@@ -92,15 +92,15 @@ object FirstExample extends App {
       })
       // Equivalent SQL code:
       // select COF_NAME, SUP_ID, PRICE, SALES, TOTAL from COFFEES
-  //#readall
+      //#readall
 
     }.flatMap { _ =>
 
-  //#projection
+      //#projection
       // Why not let the database do the string conversion and concatenation?
-  //#projection
+      //#projection
       println("Coffees (concatenated by DB):")
-  //#projection
+      //#projection
       val q1 = for(c <- coffees)
         yield LiteralColumn("  ") ++ c.name ++ "\t" ++ c.supID.asColumnOf[String] ++
           "\t" ++ c.price.asColumnOf[String] ++ "\t" ++ c.sales.asColumnOf[String] ++
@@ -112,23 +112,23 @@ object FirstExample extends App {
       // select '  ' || COF_NAME || '\t' || SUP_ID || '\t' || PRICE || '\t' SALES || '\t' TOTAL from COFFEES
 
       db.stream(q1.result).foreach(println)
-  //#projection
+      //#projection
 
     }.flatMap { _ =>
 
-  //#join
+      //#join
       // Perform a join to retrieve coffee names and supplier names for
       // all coffees costing less than $9.00
-  //#join
+      //#join
       println("Manual join:")
-  //#join
+      //#join
       val q2 = for {
         c <- coffees if c.price < 9.0
         s <- suppliers if s.id === c.supID
       } yield (c.name, s.name)
       // Equivalent SQL code:
       // select c.COF_NAME, s.SUP_NAME from COFFEES c, SUPPLIERS s where c.PRICE < 9.0 and s.SUP_ID = c.SUP_ID
-  //#join
+      //#join
       db.run(q2.result).map(_.foreach(t =>
         println("  " + t._1 + " supplied by " + t._2)
       ))
@@ -137,14 +137,14 @@ object FirstExample extends App {
 
       // Do the same thing using the navigable foreign key
       println("Join by foreign key:")
-  //#fkjoin
+      //#fkjoin
       val q3 = for {
         c <- coffees if c.price < 9.0
         s <- c.supplier
       } yield (c.name, s.name)
       // Equivalent SQL code:
       // select c.COF_NAME, s.SUP_NAME from COFFEES c, SUPPLIERS s where c.PRICE < 9.0 and s.SUP_ID = c.SUP_ID
-  //#fkjoin
+      //#fkjoin
 
       db.run(q3.result).map(_.foreach { case (s1, s2) => println("  " + s1 + " supplied by " + s2) })
 
