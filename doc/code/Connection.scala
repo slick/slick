@@ -25,13 +25,15 @@ object Connection extends App {
     val dataSource = null.asInstanceOf[javax.sql.DataSource]
     val size = 42
     //#forDataSource
-    val db = Database.forDataSource(dataSource: javax.sql.DataSource, Some(size: Int))
+    val db = Database.forDataSource(dataSource: javax.sql.DataSource,
+      Some(size: Int))
     //#forDataSource
   }
   if (false){
     val dataSource = null.asInstanceOf[slick.jdbc.DatabaseUrlDataSource]
     //#forDatabaseURL
-    val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource, None)
+    val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource,
+      None)
     //#forDatabaseURL
   }
   if(false) {
@@ -49,13 +51,15 @@ object Connection extends App {
   }
   ;{
     //#forURL
-    val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
+    val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1",
+      driver="org.h2.Driver")
     //#forURL
     db.close
   }
   ;{
     //#forURL2
-    val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver",
+    val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1",
+      driver="org.h2.Driver",
       executor = AsyncExecutor("test1", numThreads=10, queueSize=1000))
     //#forURL2
     db.close
