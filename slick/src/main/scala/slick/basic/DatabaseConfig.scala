@@ -124,7 +124,7 @@ object DatabaseConfig {
       else (s.substring(0, s.length-f.length-1), uri.getFragment)
     }
     val root =
-      if(base eq null) ConfigFactory.load()
+      if(base eq null) ConfigFactory.load(classLoader)
       else ConfigFactory.parseURL(new URL(base)).resolve()
     forConfig[P](path, root, classLoader)
   }
