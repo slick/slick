@@ -13,6 +13,10 @@ with Slick's Scala API.
 Scalar Database Functions {index="scalar,function,user-defined; function,scalar,user-defined"}
 -------------------------
 
+> {.note}
+> This section is based on the ready-to-run`CallNativeDBFunction` app in the **MultiDB** sample
+> ([github](samplerepo:slick-multidb), [zip](samplezip:slick-multidb)).
+
 If your database system supports a scalar function that is not available as a method in Slick you can define it as a
 <api:slick.lifted.SimpleFunction>. There are predefined methods for creating unary, binary and ternary functions with
 fixed parameter and return types.

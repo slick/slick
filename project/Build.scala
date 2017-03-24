@@ -12,6 +12,9 @@ import com.novocode.ornate.sbtplugin.OrnatePlugin.autoImport._
 
 object SlickBuild extends Build {
 
+  // NOTE: remember to change the version numbers in the sample projects
+  // when changing them here
+
   val slickVersion = "3.3.0-SNAPSHOT"
   val binaryCompatSlickVersion = "3.3.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.11.12", "2.12.4")
@@ -57,6 +60,8 @@ object SlickBuild extends Build {
 
   /* Custom Settings */
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
+
+  val testSamples = TaskKey[Unit]("testSamples", "Run tests in the sample apps")
 
   val publishedScalaSettings = Seq(
     scalaVersion := scalaVersions.head,
@@ -182,7 +187,9 @@ object SlickBuild extends Build {
       packageDoc in Compile in slickProject,
       packageDoc in Compile in slickCodegenProject,
       packageDoc in Compile in slickHikariCPProject,
-      packageDoc in Compile in slickTestkitProject
+      packageDoc in Compile in slickTestkitProject,
+      mimaReportBinaryIssues in Compile in slickProject,
+      testSamples in aRootProject
     )
     val withSdlc =
       /*if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
@@ -201,6 +208,22 @@ object SlickBuild extends Build {
       PgpKeys.publishLocalSigned := {},
       test := (), testOnly :=  (), // suppress test status output
       commands += testAll,
+      testSamples := {
+        val __ = Def.sequential(
+          test in (sampleHelloSlickProject, Test),
+          (runMain in Compile in sampleHelloSlickProject).toTask(" HelloSlick"),
+          (runMain in Compile in sampleHelloSlickProject).toTask(" CaseClassMapping"),
+          (runMain in Compile in sampleHelloSlickProject).toTask(" QueryActions"),
+          (runMain in Compile in sampleSlickPlainsqlProject).toTask(" PlainSQL"),
+          (runMain in Compile in sampleSlickPlainsqlProject).toTask(" TypedSQL"),
+          (runMain in Compile in sampleSlickMultidbProject).toTask(" SimpleExample"),
+          (runMain in Compile in sampleSlickMultidbProject).toTask(" MultiDBExample"),
+          (runMain in Compile in sampleSlickMultidbProject).toTask(" MultiDBCakeExample"),
+          (runMain in Compile in sampleSlickMultidbProject).toTask(" CallNativeDBFunction"),
+          compile in (sampleSlickTestkitExampleProject, Test) // running would require external setup
+        ).value
+        ()
+      },
       ornateBaseDir := Some(file("doc")),
       ornateSourceDir := Some(file("doc/src")),
       ornateTargetDir := Some(file("doc/target")),
@@ -359,6 +382,18 @@ object SlickBuild extends Build {
       parallelExecution in Test := false
     )
   ) dependsOn(slickTestkitProject)
+
+  def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s))
+    .dependsOn(slickProject)
+    .addSbtFiles(file("../override.sbt"))
+
+  lazy val sampleHelloSlickProject = sampleProject("hello-slick")
+
+  lazy val sampleSlickMultidbProject = sampleProject("slick-multidb")
+
+  lazy val sampleSlickPlainsqlProject = sampleProject("slick-plainsql")
+
+  lazy val sampleSlickTestkitExampleProject = sampleProject("slick-testkit-example").dependsOn(slickTestkitProject)
 
   lazy val osgiBundleFiles = taskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
 

@@ -1,28 +1,41 @@
-# Getting Started {index="Activator;template"}
+# Getting Started {index="sample;download"}
 
-The easiest way to get started is with a working application in [Activator]. The following
-templates are created by the Slick team, with updated versions being made for new Slick releases:
+The easiest way to get started is with a working sample application. The following samples are part of the official
+Slick distribution. You can either clone Slick from github or download pre-packaged zip files with an indiviual
+sample plus an [sbt] launcher.
 
-* To learn the basics of Slick, start with the [Hello Slick template]. It contains an extended
-  version of the tutorial and code from this page.
+* To learn the basics of Slick, start with the **Hello Slick** sample ([github](samplerepo:hello-slick),
+  [zip](samplezip:hello-slick)). This is the one we are using in this chapter.
 
-* The [Slick Plain SQL Queries template] shows you how to do SQL queries with Slick.
+* The **Plain SQL Queries** sample ([github](samplerepo:slick-plainsql), [zip](samplezip:slick-plainsql)) shows you how
+  to do SQL queries with Slick. See [](sql.md) for details.
 
-* The [Slick Multi-DB Patterns template] shows you how to write Slick applications that can use
-  different database systems and how to use custom database functions in Slick queries.
+* The **Multi-DB Patterns** sample ([github](samplerepo:slick-multidb), [zip](samplezip:slick-multidb)) shows you how
+  to write Slick applications that can use different database systems and how to use custom database functions in
+  Slick queries.
 
-* The [Slick TestKit Example template] shows you how to use Slick TestKit to test your own Slick profiles.
+* The **TestKit** sample ([github](samplerepo:slick-testkit-example), [zip](samplezip:slick-testkit-example)) shows you
+  how to use Slick TestKit to test your own database profiles.
 
-There are more Slick templates created by the community, as well as versions of our own templates for other
-Slick releases. You can find [all Slick templates](https://lightbend.com/activator/templates#filter:slick)
-on the Lightbend web site.
+## Hello Slick
+
+The *Hello Slick* sample contains simple Scala application, `HelloSlick.scala`, that does basic FRM operations with
+Slick. You can run it out of the box with `sbt run`. To make things simple this project uses an embedded in-memory
+[H2] database, so no database installation or configuration is required.
+
+The file `TableSuite.scala` contains ScalaTest tests which perform some basic integration tests. You can run these
+tests with `sbt test`.
+
+> {.note}
+> Note: The example code in this app has intentionally verbose type information. In normal applications type inference
+> is used more extensively but to assist with learning the type information was included. 
 
 ## Adding Slick to Your Project {index="Maven; sbt; artifacts; build; dependency; logging; SLF4j"}
 
-To include Slick in an existing project use the library published on Maven Central.  For sbt projects add the
-following to your build definition - `build.sbt` or `project/Build.scala`:
+To include Slick in an existing project use the library published on Maven Central. Add the following to your
+build definition (`build.sbt` for [sbt] or `pom.xml` for Maven):
 
-```scala expandVars=true
+```scala expandVars=true tab=sbt
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "{{version}}",
   "org.slf4j" % "slf4j-nop" % "1.6.4",
@@ -30,29 +43,30 @@ libraryDependencies ++= Seq(
 )
 ```
 
-For Maven projects add the following to your `<dependencies>` (make sure to use the correct Scala
-version prefix, `_2.11` or `_2.12`, to match your project's Scala version):
-
-```xml expandVars=true
-<dependency>
-  <groupId>com.typesafe.slick</groupId>
-  <artifactId>slick_2.11</artifactId>
-  <version>{{version}}</version>
-</dependency>
-<dependency>
-  <groupId>org.slf4j</groupId>
-  <artifactId>slf4j-nop</artifactId>
-  <version>1.6.4</version>
-</dependency>
-<dependency>
-  <groupId>com.typesafe.slick</groupId>
-  <artifactId>slick-hikaricp_2.11</artifactId>
-  <version>{{version}}</version>
-</dependency>
+```xml expandVars=true tab=Maven
+<!-- Make sure to use the correct Scala version suffix "_2.11" or "_2.12"
+     to match your project's Scala version. -->
+<dependencies>
+  <dependency>
+    <groupId>com.typesafe.slick</groupId>
+    <artifactId>slick_2.11</artifactId>
+    <version>{{version}}</version>
+  </dependency>
+  <dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-nop</artifactId>
+    <version>1.6.4</version>
+  </dependency>
+  <dependency>
+    <groupId>com.typesafe.slick</groupId>
+    <artifactId>slick-hikaricp_2.11</artifactId>
+    <version>{{version}}</version>
+  </dependency>
+</dependencies>
 ```
 
 Slick uses [SLF4J] for its own debug logging so you also need to add an SLF4J
-implementation. Here we are using `slf4j-nop` to disable logging. You have
+implementation. *Hello Slick* uses `slf4j-nop` to disable logging. You have
 to replace this with a real logging framework like [Logback] if you want to see
 log output.
 
@@ -64,11 +78,6 @@ provide a compatible version of HikariCP as a transitive dependency. Otherwise, 
 might need to disable connection pooling or specify a third-party connection pool.
 
 ## Quick Introduction
-
-> {.note}
-> Note: The rest of this chapter is based on the [Hello Slick template]. The preferred
-> way of reading this introduction is in [Activator], where you can edit and run the code
-> directly while reading the tutorial.
 
 To use Slick you first need to import the API for the database you will be using, like:
 
@@ -95,9 +104,17 @@ your `application.conf`, which is also used by [Play] and [Akka] for their confi
 ```
 
 For the purpose of this example we disable the connection pool (there is no point in using one for
-an embedded in-memory database) and request a keep-alive connection (which ensures that the
-database does not get dropped while we are using it). The database can be easily instantiated from
-the configuration like this:
+an embedded in-memory database). When you use a real, external database server, the connection pool provides
+improved performance and resilience.
+
+The `keepAliveConnection` option (which is only available without a connection pool) keeps an extra connection
+open for the lifetime of the `Database` object in the application. This ensures that the
+database does not get dropped while we are using it.
+
+*Hello Slick* is a standalone command-line application, not running inside of a container which takes care of
+resource management, so we have to do it ourselves. Since all database calls in Slick are asynchronous, we are
+going to compose Futures throughout the app, but eventually we have to wait for the result. This gives us the
+following scaffolding:
 
 ```scala src=../code/FirstExample.scala#setup
 ```
@@ -105,6 +122,11 @@ the configuration like this:
 > {.note}
 > Note: A `Database` object usually manages a thread pool and a connection pool. You should always
 > shut it down properly when it is no longer needed (unless the JVM process terminates anyway).
+> Do not create a new `Database` for every database operation. A single instance is meant to be kept
+> alive for the entire lifetime your your application.
+
+If you are not familiar with asynchronous, Future-based programming Scala, you can learn more about
+[Futures and Promises](http://docs.scala-lang.org/overviews/core/futures.html) in the Scala documentation.
 
 ### Schema
 
@@ -142,12 +164,15 @@ dependencies on each other.
 Inserting the tuples of data is done with the `+=` and `++=` methods, similar to how you add data to mutable
 Scala collections.
 
-The `create`, `+=` and `++=` methods return a `DBIOAction` which can be executed on a database
-at a later time to produce a result. There are several different combinators for combining multiple
-`DBIOAction`s into sequences, yielding another action. Here we use the simplest one, `DBIO.seq`, which
-can concatenate any number of actions, discarding the return values (i.e. the resulting `DBIOAction`
-produces a result of type `Unit`). We then execute the setup action asynchronously with
-`db.run`, yielding a `Future[Unit]`.
+The `create`, `+=` and `++=` methods return *database I/O actions* (`DBIOAction`) which can be executed on a database
+at a later time to produce a result. If you do not care about more advanced features like streaming, effect tracking
+or extension methods for certain actions, you can denote their type as `DBIO[T]` (for an operation which will
+eventually produce a value of type `T`).
+
+There are several different combinators for combining multiple `DBIOAction`s into sequences, yielding another action.
+Here we use the simplest one, `DBIO.seq`, which can concatenate any number of actions, discarding the return values
+(i.e. the resulting `DBIOAction` produces a result of type `Unit`). We then execute the setup action asynchronously
+with `db.run`, yielding a `Future[Unit]`.
 
 > {.note}
 > Note: Database connections and transactions are managed automatically by Slick. By default
@@ -157,9 +182,24 @@ produces a result of type `Unit`). We then execute the setup action asynchronous
 > (`db.run(setup.transactionally)`). Then the order would not matter because the constraints are
 > only enforced at the end when the transaction is committed.
 
+When inserting data, the database usually returns the number of affected rows, therefore the return type is
+`Option[Int]` as can be seen in this definition of `insertAction`:
+
+```scala src=../../samples/hello-slick/src/main/scala/HelloSlick.scala#insertAction
+```
+
+We can use the `map` combinator to run some code and compute a new value from the value returned by the action
+(or in this case run it only for its side effects and return `Unit`).
+
+> {.note}
+> Note that `map` and all other combinators which run user code (e.g. `flatMap`, `cleanup`, `filter`) take an implicit
+> `ExecutionContext` on which to run this code. Slick uses its own `ExecutionContext` internally for running blocking
+> database I/O but it always maintains a clean separation and prevents you from running non-I/O code on it.
+
 ### Querying
 
-The simplest kind of query iterates over all the data in a table:
+The simplest kind of query iterates over all the data in a table by calling `.result` on the `TableQuery` to get
+a `DBIOAction`:
 
 ```scala src=../code/FirstExample.scala#readall
 ```
@@ -201,3 +241,65 @@ key `Coffees.supplier`. Instead of repeating the join condition here we can use 
 
 ```scala src=../code/FirstExample.scala#fkjoin
 ```
+
+### Aggregations
+
+Aggregates values like minimum, maximum, summation, and average can be computed by the database using the query
+functions `min`, `max`, `sum` and `avg` like:
+
+```scala src=../../samples/hello-slick/src/main/scala/HelloSlick.scala#maxPrice
+```
+
+This creates a new scalar query (`Rep`) that can be run like a collection-valued `Query` by calling `.result`.
+
+### Plain SQL / String Interpolation
+
+Sometimes writing SQL code manually is the easiest and best way to go but we don't want to lose SQL injection
+protection that Slick includes. [SQL String Interpolation](sql.md) provides a nice API for doing this.
+In *Hello Slick* we use the `sql` interpolator:
+
+```scala src=../../samples/hello-slick/src/main/scala/HelloSlick.scala#plainSql
+```
+
+This produces a database I/O action that can be run or streamed in the usual way.
+
+### Case Class Mapping
+
+The `CaseClassMapping.scala` app provides an example which uses a *case class* instead of tupled values.
+To use case classes instead of tuples setup a `def *` projection which transforms the tuple values to and from the
+case class. For example:
+
+```scala src=../../samples/hello-slick/src/main/scala/CaseClassMapping.scala#mapTo
+```
+
+This uses the `mapTo` macro to convert between `(Option[Int], String)` and `User` bidirectionally. Now all of the
+queries can work with a `User` object instead of the tuples. 
+
+See [](schemas.md#mapped-tables) for details.
+
+### Auto-Generated Primary Keys
+
+The `Users` table mapping in `CaseClassMapping.scala` defines an `id` column which uses an auto-incrementing
+primary key:
+
+```scala src=../../samples/hello-slick/src/main/scala/CaseClassMapping.scala#autoInc
+```
+
+See [](schemas.md#table-rows) for more column options.
+
+### Running Queries
+
+So far you have seen how to get a `Seq` from a collection-valued query and how to stream individual elements.
+There are several other useful methods which are shown in `QueryActions.scala`. They are equally applicable to
+[Scala queries](queries.md) and [Plain SQL queries](sql.md).
+
+Note the use of `Compiled` in this app. It is used to define a pre-compiled query that can be executed with
+different parameters without having to recompile the SQL statement each time. This is the preferred way of defining
+queries in real-world applications. It prevents the (possibly expensive) compilation each time and leads to the
+same SQL statement (or a small, fixed set of SQL statements) so that the database system can also reuse a previously
+computed execution plan. As a side-effect, all parameters are automatically turned into bind variables:
+
+```scala src=../../samples/hello-slick/src/main/scala/QueryActions.scala#upTo
+```
+
+See [](queries.md#compiled-queries) for details.
