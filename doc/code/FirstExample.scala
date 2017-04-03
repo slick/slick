@@ -52,7 +52,7 @@ object FirstExample extends App {
 //#setup
   val db = Database.forConfig("h2mem1")
   try {
-    // ...
+    // val resultFuture: Future[_] = { ... }
 //#setup
 
     //#create
@@ -149,9 +149,9 @@ object FirstExample extends App {
       db.run(q3.result).map(_.foreach { case (s1, s2) => println("  " + s1 + " supplied by " + s2) })
 
     }
+    //#setup
     Await.result(resultFuture, Duration.Inf)
     lines.foreach(Predef.println _)
-//#setup
   } finally db.close
 //#setup
 }
