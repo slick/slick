@@ -1,14 +1,13 @@
 import sbt._
 import Keys._
 import Tests._
-import com.typesafe.sbt.site.SphinxSupport.{Sphinx, sphinxEnv, sphinxProperties}
-import com.typesafe.sbt.SbtSite.site
-import com.typesafe.sbt.SbtSite.SiteKeys.makeSite
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaPreviousArtifacts, mimaBinaryIssueFilters, mimaReportBinaryIssues}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.sdlc.Plugin._
+import com.novocode.ornate.sbtplugin.OrnatePlugin
+import com.novocode.ornate.sbtplugin.OrnatePlugin.autoImport._
 
 object SlickBuild extends Build {
 
@@ -94,6 +93,8 @@ object SlickBuild extends Build {
     }
   }
 
+  val makeSite = TaskKey[Unit]("makeSite")
+
   lazy val sharedSettings = Seq(
     version := slickVersion,
     organizationName := "Typesafe",
@@ -146,8 +147,8 @@ object SlickBuild extends Build {
 
   def commonSdlcSettings = Seq(
     sdlcBase := (projectID.value.name + "-api/").replaceFirst("^slick-", ""),
-    sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
-    sdlc := (sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)).value
+    sdlcCheckDir := (ornateTargetDir in aRootProject).value.get,
+    sdlc := (sdlc dependsOn (doc in Compile, makeSite in aRootProject)).value
   )
 
   def runTasksSequentially(tasks: List[TaskKey[_]])(state: State): State = tasks match {
@@ -174,8 +175,8 @@ object SlickBuild extends Build {
       packageDoc in Compile in slickTestkitProject
     )
     val withSdlc =
-      if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
-      else tasks
+      /*if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
+      else*/ tasks
     runTasksSequentially(withSdlc)(state)
   }
 
@@ -186,12 +187,39 @@ object SlickBuild extends Build {
       publishArtifact := false,
       test := (), testOnly :=  (), // suppress test status output
       commands += testAll,
+      ornateBaseDir := Some(file("doc")),
+      ornateSourceDir := Some(file("doc/src")),
+      ornateTargetDir := Some(file("doc/target")),
+      cleanFiles += file("doc/target"),
+      ornateResourceDir := Some(file("doc/resources")),
+      ornateSettings := Map(
+        "version" -> version.value,
+        "shortVersion" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1"""),
+        "tag" -> version.value, // for snippet links
+        "branch" -> "master", // for "Edit page" links
+        "scalaVersion" -> scalaVersion.value // for "scalaapi:" links
+      ),
+      ornate := (ornate dependsOn (buildCapabilitiesTable in slickTestkitProject)).value,
       sdlc := (),
-      sdlc := (sdlc dependsOn (sdlc in slickProject, sdlc in slickCodegenProject, sdlc in slickHikariCPProject)).value
-    )).aggregate(slickProject, slickCodegenProject, slickHikariCPProject, slickTestkitProject)
+      sdlc := (sdlc dependsOn (sdlc in slickProject, sdlc in slickCodegenProject, sdlc in slickHikariCPProject)).value,
+      makeSite := {
+        val __ = ornate.value
+        def cp(s: File, t: File) = {
+          IO.delete(t)
+          IO.createDirectory(t)
+          IO.copyDirectory(s, t)
+        }
+        cp((doc in Compile in slickProject).value, file("doc/target/api"))
+        cp((doc in Compile in slickCodegenProject).value, file("doc/target/codegen-api"))
+        cp((doc in Compile in slickHikariCPProject).value, file("doc/target/hikaricp-api"))
+        cp((doc in Compile in slickTestkitProject).value, file("doc/target/testkit-api"))
+      }
+    ))
+    .enablePlugins(OrnatePlugin)
+    .aggregate(slickProject, slickCodegenProject, slickHikariCPProject, slickTestkitProject)
 
   lazy val slickProject: Project = Project(id = "slick", base = file("slick"),
-    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick") ++ commonSdlcSettings ++ osgiSettings ++ Seq(
+    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ mimaDefaultSettings ++ extTarget("slick") ++ commonSdlcSettings ++ osgiSettings ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       libraryDependencies ++= Dependencies.mainDependencies,
@@ -199,15 +227,6 @@ object SlickBuild extends Build {
         "-doc-source-url", s"https://github.com/slick/slick/blob/${version.value}/slick/src/main€{FILE_PATH}.scala",
         "-doc-root-content", "scaladoc-root.txt"
       ),
-      (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value +
-        ("version" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1""")) +
-        ("release" -> version.value),
-      (sphinxProperties in Sphinx) := Map.empty,
-      makeSite := (makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject)).value,
-      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickProject, "api"),
-      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickCodegenProject, "codegen-api"),
-      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickHikariCPProject, "hikaricp-api"),
-      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickTestkitProject, "testkit-api"),
       test := (), testOnly :=  (), // suppress test status output
       mimaPreviousArtifacts := Set("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value)  % binaryCompatSlickVersion),
       mimaBinaryIssueFilters ++= Seq(
@@ -273,15 +292,15 @@ object SlickBuild extends Build {
         val logger = ConsoleLogger()
         Run.run( "com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
           (fullClasspath in Compile).value.map(_.data),
-          Seq("slick/src/sphinx/capabilities.csv"),
+          Seq("doc/capabilities.md"),
           logger)(runner.value)
       }
     ) ++ ifPublished(Seq(
       libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided"
     ))
   ).configs(DocTest).settings(inConfig(DocTest)(Defaults.testSettings): _*).settings(
-    unmanagedSourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/code",
-    unmanagedResourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/resources"
+    unmanagedSourceDirectories in DocTest += (baseDirectory in LocalProject("root")).value / "doc/code",
+    unmanagedResourceDirectories in DocTest += (baseDirectory in LocalProject("root")).value / "doc/code"
   ) dependsOn(slickProject, slickCodegenProject % "compile->compile", slickHikariCPProject)
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
