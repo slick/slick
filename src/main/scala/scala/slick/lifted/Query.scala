@@ -174,7 +174,7 @@ object Query extends Query[Unit, Unit] {
 }
 
 /** A typeclass for types that can be used as predicates in `filter` calls. */
-@implicitNotFound("Type ${T} cannot be a query condition (only Boolean, Column[Boolean] and Column[Option[Boolean]] are allowed")
+@implicitNotFound("Type ${T} cannot be a query condition (only Boolean and Column[Boolean] are allowed")
 trait CanBeQueryCondition[-T] extends (T => Column[_])
 
 object CanBeQueryCondition {
@@ -184,10 +184,6 @@ object CanBeQueryCondition {
   implicit val BooleanColumnCanBeQueryCondition : CanBeQueryCondition[Column[Boolean]] =
     new CanBeQueryCondition[Column[Boolean]] {
       def apply(value: Column[Boolean]) = value
-    }
-  implicit val BooleanOptionColumnCanBeQueryCondition : CanBeQueryCondition[Column[Option[Boolean]]] =
-    new CanBeQueryCondition[Column[Option[Boolean]]] {
-      def apply(value: Column[Option[Boolean]]) = value
     }
   implicit val BooleanCanBeQueryCondition : CanBeQueryCondition[Boolean] =
     new CanBeQueryCondition[Boolean] {

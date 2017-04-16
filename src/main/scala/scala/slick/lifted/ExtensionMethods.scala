@@ -32,18 +32,25 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
   val c: Column[P1]
 
+  /** Returns true if the column is NULL, false otherwise. */
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))
+  /** Returns false if the column is NULL, true otherwise. */
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
 
-  def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om.column(Library.==, n, e.toNode)
+  def is [P2](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, Option[Boolean]]): Column[Boolean] =
+    (new OptionColumnExtensionMethods(om.column(Library.is, n, e.toNode))).getOrElse(false)
+
+  def isNot[P2](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, Option[Boolean]]): Column[Boolean] =
+    Library.Not.column[Boolean]((new OptionColumnExtensionMethods(om.column(Library.is, n, e.toNode))).getOrElse(false).toNode)
+
   def === [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.==, n, e.toNode)
-  def isNot[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om.column(Library.Not, Library.==.typed(om.liftedType, n, e.toNode))
+
   @deprecated("Use =!= instead", "0.9.0")
-  def != [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) = isNot[P2, R](e)
-  def =!= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) = isNot[P2, R](e)
+  def != [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) = =!=[P2,R](e)
+  
+  def =!= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
+    om.column(Library.Not, Library.==.typed(om.liftedType, n, e.toNode))
 
   def < [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.<, n, e.toNode)
@@ -73,6 +80,12 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
 }
 
 final class PlainColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal with ColumnExtensionMethods[P1, P1] {
+  def is(e: Column[P1]): Column[Boolean] =
+    Library.is.column[Boolean](n, e.toNode)
+
+  def isNot(e: Column[P1]): Column[Boolean] =
+    Library.Not.column[Boolean](Library.==.column[Boolean](n, e.toNode).toNode)
+
   def ? : Column[Option[P1]] = Column.forNode(OptionApply(c.toNode))(c.tpe.optionType)
 }
 
@@ -81,6 +94,10 @@ final class OptionColumnExtensionMethods[B1](val c: Column[Option[B1]]) extends 
     Column.forNode[B1](GetOrElse(c.toNode, () => default))(c.tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
   def get: Column[B1] =
     getOrElse { throw new SlickException("Read NULL value for column "+this) }
+  /** Returns true if the column is NULL, false otherwise. */
+  def isEmpty = this.isNull
+  /** Returns false if the column is NULL, true otherwise. */
+  def nonEmpty = this.isNotNull
 }
 
 /** Extension methods for numeric Columns */

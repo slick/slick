@@ -287,7 +287,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   }
 
   def evalFunction(sym: Symbol, args: Seq[(Type, Any)], retType: Type) = sym match {
-    case Library.== => args(0)._2 == args(1)._2
+    case Library.== => args(0)._2 == args(1)._2// && args(0)._2 != None && args(2)._2 != None
+    case Library.is => args(0)._2 == args(1)._2
     case Library.< => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lt(args(0)._2, args(1)._2)
     case Library.<= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lteq(args(0)._2, args(1)._2)
     case Library.> => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.gt(args(0)._2, args(1)._2)

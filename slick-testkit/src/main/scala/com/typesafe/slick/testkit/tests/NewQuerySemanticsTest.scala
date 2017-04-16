@@ -424,15 +424,15 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     q4.run
 
     val q6a =
-      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
+      (for (o <- orders if o.orderID is (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
     q6a.run
 
     val q6b =
-      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
+      (for (o <- orders if o.orderID is (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
     q6b.run
 
     val q6c =
-      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
+      (for (o <- orders if o.orderID is (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
     q6c.run
 
     (users.ddl ++ orders.ddl).drop
