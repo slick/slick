@@ -85,10 +85,13 @@ object GeneratedCodeTest {
     import CG3._
     import profile.api._
     val s = Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460")
+    val m = Model(Some("key"), Some("1000"), Some("model"), Some("en"), Some("0.0.1"), None)
     DBIO.seq(
       schema.create,
       Suppliers += s,
-      Suppliers.result.map(assertEquals(List(s), _))
+      Models += m,
+      Suppliers.result.map(assertEquals(List(s), _)),
+      Models.result.map(assertEquals(List(m), _))
     )
   }
 

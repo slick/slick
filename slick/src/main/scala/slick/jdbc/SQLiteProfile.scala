@@ -100,6 +100,7 @@ trait SQLiteProfile extends JdbcProfile {
       final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
       private val (_dbType,_size) = meta.typeName match {
         case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
+        case "" => ("TEXT", None)
       }
       override def dbType = Some(_dbType)
       override def length = _size
