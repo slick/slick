@@ -47,6 +47,21 @@ class DataSourceTest {
     } finally db.close
   }
 
+  @Test def testAltDatabaseUrlDataSourceScheme: Unit = {
+    import slick.jdbc.H2Profile.api.actionBasedSQLInterpolation
+    MockDriver.reset
+    val db = JdbcBackend.Database.forConfig("altDatabaseUrl")
+    try {
+      assertEquals(Some(100), db.source.maxConnections)
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
+      assertEquals("jdbc:postgresql://host/dbname", url)
+      assertEquals("user", info.getProperty("user"))
+      assertEquals("pass", info.getProperty("password"))
+      assertEquals("bar", info.getProperty("foo"))
+    } finally db.close
+  }
+
   @Test def testMaxConnections: Unit = {
     MockDriver.reset
     val db = JdbcBackend.Database.forConfig("databaseUrl", ConfigFactory.parseString(
