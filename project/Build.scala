@@ -6,6 +6,7 @@ import com.typesafe.tools.mima.plugin.MimaKeys.{mimaPreviousArtifacts, mimaBinar
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.sdlc.Plugin._
+import com.typesafe.sbt.pgp.PgpKeys
 import com.novocode.ornate.sbtplugin.OrnatePlugin
 import com.novocode.ornate.sbtplugin.OrnatePlugin.autoImport._
 
@@ -95,6 +96,9 @@ object SlickBuild extends Build {
 
   val makeSite = TaskKey[Unit]("makeSite")
 
+  def versionTag(v: String) = // get the tag for a version
+    "v" + v
+
   lazy val sharedSettings = Seq(
     version := slickVersion,
     organizationName := "Typesafe",
@@ -106,7 +110,7 @@ object SlickBuild extends Build {
       "-doc-version", version.value,
       "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
       "-sourcepath", (sourceDirectory in Compile).value.getPath, // needed for scaladoc to strip the location of the linked source path
-      "-doc-source-url", s"https://github.com/slick/slick/blob/${version.value}/slick/src/main€{FILE_PATH}.scala",
+      "-doc-source-url", s"https://github.com/slick/slick/blob/${versionTag(version.value)}/slick/src/main€{FILE_PATH}.scala",
       "-implicits",
       "-diagrams", // requires graphviz
       "-groups"
@@ -186,6 +190,10 @@ object SlickBuild extends Build {
     settings = Defaults.coreDefaultSettings ++ sharedSettings ++ extTarget("root") ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
+      publish := {},
+      publishLocal := {},
+      PgpKeys.publishSigned := {},
+      PgpKeys.publishLocalSigned := {},
       test := (), testOnly :=  (), // suppress test status output
       commands += testAll,
       ornateBaseDir := Some(file("doc")),
@@ -196,8 +204,8 @@ object SlickBuild extends Build {
       ornateSettings := Map(
         "version" -> version.value,
         "shortVersion" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1"""),
-        "tag" -> version.value, // for snippet links
-        "branch" -> "master", // for "Edit page" links
+        "tag" -> versionTag(version.value), // for snippet links
+        "branch" -> "3.2", // for "Edit page" links
         "scalaVersion" -> scalaVersion.value // for "scalaapi:" links
       ),
       ornate := (ornate dependsOn (buildCapabilitiesTable in slickTestkitProject)).value,
@@ -225,11 +233,11 @@ object SlickBuild extends Build {
       description := "Scala Language-Integrated Connection Kit",
       libraryDependencies ++= Dependencies.mainDependencies,
       scalacOptions in (Compile, doc) ++= Seq(
-        "-doc-source-url", s"https://github.com/slick/slick/blob/${version.value}/slick/src/main€{FILE_PATH}.scala",
+        "-doc-source-url", s"https://github.com/slick/slick/blob/${versionTag(version.value)}/slick/src/main€{FILE_PATH}.scala",
         "-doc-root-content", "scaladoc-root.txt"
       ),
       test := (), testOnly :=  (), // suppress test status output
-      mimaPreviousArtifacts := Set("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value)  % binaryCompatSlickVersion),
+      mimaPreviousArtifacts := Set("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % binaryCompatSlickVersion),
       mimaBinaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl")
@@ -267,7 +275,7 @@ object SlickBuild extends Build {
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) ++= Seq(
-        "-doc-source-url", s"https://github.com/slick/slick/blob/${version.value}/slick-testkit/src/main€{FILE_PATH}.scala"
+        "-doc-source-url", s"https://github.com/slick/slick/blob/${versionTag(version.value)}/slick-testkit/src/main€{FILE_PATH}.scala"
       ),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a", "-Djava.awt.headless=true"),
       //scalacOptions in Compile += "-Yreify-copypaste",
@@ -309,7 +317,7 @@ object SlickBuild extends Build {
       name := "Slick-CodeGen",
       description := "Code Generator for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) ++= Seq(
-        "-doc-source-url", s"https://github.com/slick/slick/blob/${version.value}/slick-codegen/src/main€{FILE_PATH}.scala"
+        "-doc-source-url", s"https://github.com/slick/slick/blob/${versionTag(version.value)}/slick-codegen/src/main€{FILE_PATH}.scala"
       ),
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       test := (), testOnly :=  () // suppress test status output
@@ -321,7 +329,7 @@ object SlickBuild extends Build {
       name := "Slick-HikariCP",
       description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) ++= Seq(
-        "-doc-source-url", s"https://github.com/slick/slick/blob/${version.value}/slick-hikaricp/src/main€{FILE_PATH}.scala"
+        "-doc-source-url", s"https://github.com/slick/slick/blob/${versionTag(version.value)}/slick-hikaricp/src/main€{FILE_PATH}.scala"
       ),
       libraryDependencies += Dependencies.hikariCP,
       test := (), testOnly := (), // suppress test status output
