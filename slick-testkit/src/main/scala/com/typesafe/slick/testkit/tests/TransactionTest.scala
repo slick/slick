@@ -4,6 +4,8 @@ import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 import slick.jdbc.TransactionIsolation
 
+import scala.util.{Success, Failure}
+
 class TransactionTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
@@ -72,5 +74,18 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
         _ <- getTI.map(_ shouldBe ti1)
       } yield ()).withPinnedSession
     }}
+  }
+
+  def testChaining =  {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    ts.length.result.flatMap(_ => DBIO.failed(new Exception())).transactionally.asTry.map {
+      case Failure(e: Throwable) => "failed"
+      case Success(_) => "succeeded"
+    }
   }
 }

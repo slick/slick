@@ -151,7 +151,7 @@ object DBIOAction {
   def successful[R](v: R): DBIOAction[R, NoStream, Effect] = SuccessAction[R](v)
 
   /** Create a [[DBIOAction]] that always fails. */
-  def failed(t: Throwable): DBIOAction[Nothing, NoStream, Effect] = FailureAction(t)
+  def failed[E <: Throwable](t: E): DBIOAction[E, NoStream, Effect] = FailureAction[E](t)
 
   private[this] def groupBySynchronicity[R, E <: Effect](in: TraversableOnce[DBIOAction[R, NoStream, E]]): Vector[Vector[DBIOAction[R, NoStream, E]]] = {
     var state = 0 // no current = 0, sync = 1, async = 2
@@ -315,7 +315,7 @@ case class SuccessAction[+R](value: R) extends SynchronousDatabaseAction[R, NoSt
 }
 
 /** A DBIOAction that fails. */
-case class FailureAction(t: Throwable) extends SynchronousDatabaseAction[Nothing, NoStream, BasicBackend, Effect] {
+case class FailureAction[E <: Throwable](t: E) extends SynchronousDatabaseAction[E, NoStream, BasicBackend, Effect] {
   def getDumpInfo = DumpInfo("failure", String.valueOf(t))
   def run(ctx: BasicBackend#Context): Nothing = throw t
 }
