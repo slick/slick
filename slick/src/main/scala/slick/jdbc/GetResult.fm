@@ -3,8 +3,10 @@ package slick.jdbc
 import java.sql.{Date, Time, Timestamp}
 import slick.SlickException
 import slick.util.TupleSupport
+import scala.annotation.implicitNotFound
 
 /** Basic conversions for extracting values from PositionedResults. */
+@implicitNotFound("No GetResult found for type ${r"${T}"}. Try to implement an implicit GetResult for this type.")
 trait GetResult[+T] extends (PositionedResult => T) { self =>
   override def andThen[A](g: T => A): GetResult[A] = new GetResult[A] { def apply(rs: PositionedResult): A = g(self.apply(rs)) }
 }
