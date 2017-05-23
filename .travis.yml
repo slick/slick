@@ -8,8 +8,6 @@ before_install:
 - docker version
 - sh -v travis/runcontainer.sh oracle db2
 - docker ps
-- openssl aes-256-cbc -K $encrypted_c3c0a1170361_key -iv $encrypted_c3c0a1170361_iv
-  -in secrets.tar.enc -out secrets.tar -d
 jdk:
   - oraclejdk8
 notifications:
@@ -31,5 +29,5 @@ script:
 - admin/build.sh
 cache:
   directories:
-    - $HOME/.sbt
-    - $HOME/.ivy2
+    - "$HOME/.sbt"
+    - "$HOME/.ivy2"

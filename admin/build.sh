@@ -3,8 +3,9 @@
 # Setup:
 # - Copy keys to admin/secring.asc, admin/pubring.asc
 #   - Use a new key pair per repository
-# - Copy deploykey and deploykey.pub to admin/
-# - ssh-keygen -t rsa -b 4096 -C "<github-user-email>"
+# - ssh-keygen -t rsa -b 4096 -C "<github-user-email>" #save as deploykey
+#   - Setup github deploy keys using generated keys, keep a copy of generated keys
+# - cp deploykey deploykey.pub admin/
 # - openssl rsa -in admin/deploykey -outform pem > admin/deploykey.pem
 # - chmod 400 admin/deploykey.pem
 # - cp ~/.sbt/sonatype.sbt ./
@@ -16,6 +17,7 @@ set -e
 
 if [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
   echo "Going to release from tag $TRAVIS_TAG!"
+  openssl aes-256-cbc -K $encrypted_c3c0a1170361_key -iv $encrypted_c3c0a1170361_iv -in secrets.tar.enc -out secrets.tar -d
   myVer=$(echo $TRAVIS_TAG | sed -e s/^v//)
   publishVersion='set every version := "'$myVer'"'
   extraTarget="+publishSigned +makeSite"
