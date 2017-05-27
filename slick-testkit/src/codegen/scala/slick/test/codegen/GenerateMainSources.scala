@@ -170,14 +170,19 @@ val  SimpleA = CustomTyping.SimpleA
               """
                 |  val entry = DefaultNumericRow(d0 = scala.math.BigDecimal(123.45), d1 = scala.math.BigDecimal(90), d3 = 0)
                 |  val createStmt = schema.create.statements.mkString
+                |  assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.getOrElse("") == "slick_test" )
                 |  assertTrue(createStmt contains "`entry1` LONGTEXT")
                 |  assertTrue(createStmt contains "`entry2` MEDIUMTEXT")
                 |  assertTrue(createStmt contains "`entry3` TEXT")
                 |  assertTrue(createStmt contains "`entry4` VARCHAR(255)")
+                |  def assertType(r: Rep[_], t: String) = assert(r.toNode.nodeType.toString == s"$t'")
+                |  assertType(TableName.baseTableRow.si, "Int")
+                |  assertType(TableName.baseTableRow.mi, "Int")
+                |  assertType(TableName.baseTableRow.bi, "Long")
                 |  DBIO.seq(
                 |    schema.create,
-                |    TableName += TableNameRow(0),
-                |    TableName.result.map{ case Seq(TableNameRow(id) ) => assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.get eq "slick_test" ) },
+                |    TableName += TableNameRow(0, 0, 0, 0),
+                |    TableName.result.map{ case rows: Seq[TableNameRow] => assert(rows.length == 1) },
                 |    DefaultNumeric += entry,
                 |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }
                 |  )
