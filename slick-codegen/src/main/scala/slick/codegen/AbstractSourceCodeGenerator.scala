@@ -68,10 +68,39 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     def extractor = s"${TableClass.elementType}.unapply"
 
     trait EntityTypeDef extends super.EntityTypeDef{
+      
+      def argWithDefaultVal( value: String , tpe: String ) = { 
+        val dv = if ( tpe.startsWith("Option[") ) "= None" else "" 
+        val sval = value.replace("'","").replace("\"","")
+        tpe.stripPrefix("Option[").stripSuffix("]") match 
+        {
+            case "java.sql.Timestamp" => try{
+              java.sql.Timestamp.valueOf( sval ); 
+              s"""= java.sql.Timestamp.valueOf("$sval")"""
+              }catch{
+                case _ : Throwable => dv
+            }
+            case "java.sql.Time" => try{
+              java.sql.Time.valueOf(sval); 
+              s"""= java.sql.Time.valueOf("$sval")"""
+            }catch{
+              case _ : Throwable => dv
+            }
+            case "java.sql.Date" => try{
+              java.sql.Date.valueOf(sval); 
+              s"""= java.sql.Date.valueOf("$sval")"""
+            }catch{
+              case _ : Throwable => dv
+            }
+            case _ => s"= $value"
+          
+        }
+      }
+
       def code = {
         val args = columns.map(c=>
           c.default.map( v =>
-            s"${c.name}: ${c.exposedType} = $v"
+            s"${c.name}: ${c.exposedType} ${argWithDefaultVal( v , c.exposedType  )}"
           ).getOrElse(
             s"${c.name}: ${c.exposedType}"
           )

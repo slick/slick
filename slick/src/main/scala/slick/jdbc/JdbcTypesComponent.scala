@@ -31,7 +31,9 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     }
     def wasNull(r: ResultSet, idx: Int) = tmd.wasNull(r, idx)
     def updateValue(v: T, r: ResultSet, idx: Int) = tmd.updateValue(map(v), r, idx)
-    def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
+    def valueToSQLLiteral[A](value: A) = value match{
+      case v: T => newValueToSQLLiteral(v).getOrElse(tmd.valueToSQLLiteral(map(v)))
+    }
     def hasLiteralForm = newHasLiteralForm.getOrElse(tmd.hasLiteralForm)
     def scalaType = ScalaBaseType[T]
     override def toString = s"MappedJdbcType[${classTag.runtimeClass.getName} -> $tmd]"
@@ -86,7 +88,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   abstract class DriverJdbcType[@specialized T](implicit val classTag: ClassTag[T]) extends JdbcType[T] {
     def scalaType = ScalaBaseType[T]
     def sqlTypeName(sym: Option[FieldSymbol]): String = self.defaultSqlTypeName(this, sym)
-    def valueToSQLLiteral(value: T) =
+    override def valueToSQLLiteral[A](value: A) =  
       if(hasLiteralForm) value.toString
       else throw new SlickException(sqlTypeName(None) + " does not have a literal representation")
     def hasLiteralForm = true
@@ -161,7 +163,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         if(s == null || s.isEmpty) ' ' else s.charAt(0)
       }
       def updateValue(v: Char, r: ResultSet, idx: Int) = stringJdbcType.updateValue(String.valueOf(v), r, idx)
-      override def valueToSQLLiteral(v: Char) = stringJdbcType.valueToSQLLiteral(String.valueOf(v))
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: Char => stringJdbcType.valueToSQLLiteral(String.valueOf(v)) }
     }
 
     class DateJdbcType extends DriverJdbcType[Date] {
@@ -169,7 +171,14 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def setValue(v: Date, p: PreparedStatement, idx: Int) = p.setDate(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getDate(idx)
       def updateValue(v: Date, r: ResultSet, idx: Int) = r.updateDate(idx, v)
-      override def valueToSQLLiteral(value: Date) = "{d '"+value.toString+"'}"
+      override def valueToSQLLiteral[A](value: A) = value match{
+        case v: java.sql.Date => "'"+v.toString+"'"
+        case v: String => try{ 
+            "'"+java.sql.Date.valueOf(v)+"'"
+          }catch{
+            case _ : Throwable => v.toUpperCase
+          }
+      }
     }
 
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
@@ -212,15 +221,17 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def setValue(v: String, p: PreparedStatement, idx: Int) = p.setString(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getString(idx)
       def updateValue(v: String, r: ResultSet, idx: Int) = r.updateString(idx, v)
-      override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
-        val sb = new StringBuilder
-        sb append '\''
-        for(c <- value) c match {
-          case '\'' => sb append "''"
-          case _ => sb append c
+      override def valueToSQLLiteral[A](value: A) = value match {
+        case v: String => if(v eq null) "NULL" else {
+          val sb = new StringBuilder
+          sb append '\''
+          for(c <- v) c match {
+            case '\'' => sb append "''"
+            case _ => sb append c
+          }
+          sb append '\''
+          sb.toString
         }
-        sb append '\''
-        sb.toString
       }
     }
 
@@ -229,7 +240,14 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def setValue(v: Time, p: PreparedStatement, idx: Int) = p.setTime(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getTime(idx)
       def updateValue(v: Time, r: ResultSet, idx: Int) = r.updateTime(idx, v)
-      override def valueToSQLLiteral(value: Time) = "{t '"+value.toString+"'}"
+      override def valueToSQLLiteral[A](value: A) = value match{
+        case v: java.sql.Time => "'"+v.toString+"'"
+        case v: String => try{ 
+            "'"+java.sql.Time.valueOf(v)+"'"
+          }catch{
+            case _ : Throwable => v.toUpperCase
+          }
+      }
     }
 
     class TimestampJdbcType extends DriverJdbcType[Timestamp] {
@@ -237,7 +255,15 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def setValue(v: Timestamp, p: PreparedStatement, idx: Int) = p.setTimestamp(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getTimestamp(idx)
       def updateValue(v: Timestamp, r: ResultSet, idx: Int) = r.updateTimestamp(idx, v)
-      override def valueToSQLLiteral(value: Timestamp) = "{ts '"+value.toString+"'}"
+      override def valueToSQLLiteral[A](value: A) = value match{
+        case v: java.sql.Timestamp => "'"+v.toString+"'"
+        case v: String => try{ 
+            "'"+java.sql.Timestamp.valueOf(v)+"'"
+          }catch{
+            case _ : Throwable => v.toUpperCase
+          }
+      }
+
     }
 
     class UUIDJdbcType extends DriverJdbcType[UUID] {
@@ -285,7 +311,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def setNull(p: PreparedStatement, idx: Int) = p.setString(idx, null)
       def getValue(r: ResultSet, idx: Int) = null
       def updateValue(v: Null, r: ResultSet, idx: Int) = r.updateNull(idx)
-      override def valueToSQLLiteral(value: Null) = "NULL"
+      def valueToSQLLiteral[A](value: A) = value match{ case v: Null => "NULL"}
     }
   }
 

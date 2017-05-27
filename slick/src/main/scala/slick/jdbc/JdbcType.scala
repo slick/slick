@@ -34,7 +34,8 @@ trait JdbcType[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean
 
   /** Convert a value to a SQL literal.
     * This should throw a `SlickException` if `hasLiteralForm` is false. */
-  def valueToSQLLiteral(value: T): String
+  def valueToSQLLiteral[A](value: A): String 
+  
 
   /** Indicates whether values of this type have a literal representation in
     * SQL statements.

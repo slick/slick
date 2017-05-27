@@ -175,7 +175,10 @@ trait DB2Profile extends JdbcProfile {
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
     class BooleanJdbcType extends super.BooleanJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
-      override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+      override def valueToSQLLiteral[A](value: A) = value match{ 
+        case v: Boolean => if(v) "1" else "0"
+        case _ => super.valueToSQLLiteral(value) 
+      }
     }
   }
 }
