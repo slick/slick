@@ -1,8 +1,7 @@
 package slick.lifted
 
-import slick.relational.{ProductResultConverter, SimpleFastPathResultConverter, ResultConverterDomain, TypeMappingResultConverter}
 
-import scala.language.{existentials, implicitConversions, higherKinds}
+import scala.language.{existentials, implicitConversions}
 import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance

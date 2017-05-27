@@ -10,7 +10,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object CodeGeneratorRoundTripTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
-  import tdb.profile.api._
   import tdb.profile.quoteIdentifier
 
   @Test def test: Unit = runBlocking {

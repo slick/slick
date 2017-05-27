@@ -2,7 +2,6 @@ package slick.compiler
 
 import slick.ast._
 import Util._
-import TypeUtil._
 import slick.util.ConstArray
 
 /** Rewrite zip joins into a form suitable for SQL using inner joins and RowNumber columns.

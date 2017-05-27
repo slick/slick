@@ -4,7 +4,7 @@ import slick.SlickException
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.util.{ConstArray, Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis}
 
 import scala.util.control.NonFatal
 

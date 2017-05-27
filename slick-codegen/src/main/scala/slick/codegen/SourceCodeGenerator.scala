@@ -4,7 +4,6 @@ import java.net.URI
 
 import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration.Duration
-import scala.util.Try
 
 import slick.basic.DatabaseConfig
 import slick.{model => m}

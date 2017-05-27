@@ -3,11 +3,10 @@ package slick.jdbc
 import scala.concurrent.ExecutionContext
 
 import slick.ast._
-import slick.compiler.{CompilerState, QueryCompiler, Phase}
+import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalCapabilities
 import slick.basic.Capability
 import slick.util.MacroSupport.macroSupportInterpolation

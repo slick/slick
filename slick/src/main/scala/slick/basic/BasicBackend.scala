@@ -2,16 +2,14 @@ package slick.basic
 
 import slick.util.AsyncExecutor.{Priority, Continuation, Fresh, WithConnection}
 
-import scala.language.existentials
 
 import java.io.Closeable
-import java.util.concurrent.atomic.{AtomicReferenceArray, AtomicBoolean, AtomicLong}
+import java.util.concurrent.atomic.{AtomicReferenceArray, AtomicLong}
 
 import com.typesafe.config.Config
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Promise, ExecutionContext, Future}
-import scala.util.{Try, Success, Failure}
+import scala.util.{Success, Failure}
 import scala.util.control.NonFatal
 
 import org.slf4j.LoggerFactory

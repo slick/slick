@@ -12,13 +12,11 @@ import slick.basic.Capability
 import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
 import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
 import slick.lifted._
-import slick.model.Model
 import slick.relational.{RelationalProfile, RelationalCapabilities}
 import slick.sql.SqlCapabilities
 import slick.util.{SlickLogger, GlobalConfig, ConstArray}
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.util.ConfigExtensionMethods.configExtensionMethods
-import slick.util.SQLBuilder.Result
 
 /** Slick profile for MySQL.
   *

@@ -1,7 +1,6 @@
 package slick.compiler
 
 import slick.util.{ConstArray, Ellipsis}
-import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
 import TypeUtil._
