@@ -20,6 +20,18 @@ abstract class DatabasePublisher[T] extends Publisher[T] { self =>
     })
   }
 
+  /** Create a Publisher that runs an asynchronous mapping function on this Publisher. This
+    * can be used to materialize LOB values in a convenient way. */
+  def mapResultAsync[U](f: T => Future[U])(implicit ec: ExecutionContext): DatabasePublisher[U] =
+    new DatabasePublisher[U] {
+      def subscribe(s: Subscriber[_ >: U]) = self.subscribe(new Subscriber[T] {
+        def onSubscribe(sn: Subscription): Unit = s.onSubscribe(sn)
+        def onComplete(): Unit = s.onComplete()
+        def onError(t: Throwable): Unit = s.onError(t)
+        def onNext(t: T): Unit = f(t).foreach(s.onNext)
+      })
+    }
+
   /** Consume the stream, processing each element sequentially on the specified ExecutionContext.
     * The resulting Future completes when all elements have been processed or an error was
     * signaled. */
