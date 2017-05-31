@@ -65,6 +65,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     - SqlCapabilities.sequenceLimited
     - RelationalCapabilities.joinFull
     - JdbcCapabilities.nullableNoDefault
+    - JdbcCapabilities.distinguishesIntTypes //https://github.com/slick/slick/pull/1735
   )
 
   override protected[this] def loadProfileConfig: Config = {
@@ -101,6 +102,16 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta){
       override def schema = meta.name.catalog
       override def catalog = meta.name.schema 
+    }
+
+    //https://dev.mysql.com/doc/connector-j/5.1/en/connector-j-reference-type-conversions.html
+    import scala.reflect.{ClassTag, classTag}
+    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
+      import java.sql.Types._
+      jdbcType match{
+        case SMALLINT =>  classTag[Int]
+        case _ => super.jdbcTypeToScala(jdbcType, typeName)
+      }
     }
   }
 
