@@ -1,10 +1,8 @@
 package slick.test.jdbc
 
-import java.io.PrintWriter
 import java.sql.{Connection, Driver, DriverPropertyInfo, SQLException}
 import java.util.Properties
 import java.util.logging.Logger
-import javax.sql.DataSource
 
 import com.typesafe.config.ConfigFactory
 import org.junit.Test

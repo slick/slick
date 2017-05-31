@@ -6,7 +6,7 @@ import java.lang.reflect.Method
 import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.{Promise, ExecutionContext, Await, Future, blocking}
+import scala.concurrent.{Promise, ExecutionContext, Await, Future}
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
@@ -15,11 +15,11 @@ import scala.util.control.NonFatal
 import slick.SlickTreeException
 import slick.basic.Capability
 import slick.dbio._
-import slick.jdbc.{JdbcProfile, JdbcCapabilities, JdbcBackend}
+import slick.jdbc.{JdbcCapabilities, JdbcBackend}
 import slick.lifted.Rep
 import slick.util.DumpInfo
-import slick.relational.{RelationalProfile, RelationalCapabilities}
-import slick.sql.{SqlProfile, SqlCapabilities}
+import slick.relational.RelationalCapabilities
+import slick.sql.SqlCapabilities
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier

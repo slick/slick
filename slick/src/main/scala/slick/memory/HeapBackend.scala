@@ -11,7 +11,6 @@ import scala.concurrent.{Future, ExecutionContext}
 
 import slick.SlickException
 import slick.ast._
-import slick.dbio._
 import slick.lifted.{PrimaryKey, Constraint, Index}
 import slick.relational.{RelationalProfile, RelationalBackend}
 import slick.util.Logging

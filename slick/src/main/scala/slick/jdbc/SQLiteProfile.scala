@@ -8,14 +8,10 @@ import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.basic.Capability
 import slick.dbio._
-import slick.lifted._
 import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.compiler.CompilerState
-import slick.model.Model
 import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
-import slick.relational.RelationalProfile
-import slick.sql.SqlProfile
 
 /** Slick profile for SQLite.
   *

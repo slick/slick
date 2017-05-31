@@ -6,8 +6,7 @@ import slick.relational.{RelationalActionComponent, RelationalTableComponent, Re
 
 import scala.language.higherKinds
 import slick.dbio._
-import slick.ast.{TableNode, Symbol, SymbolNamer, Node, ColumnOption}
-import slick.lifted.AbstractTable
+import slick.ast.{TableNode, Symbol, SymbolNamer, ColumnOption}
 import slick.util.DumpInfo
 
 /** Abstract profile for SQL-based databases. */

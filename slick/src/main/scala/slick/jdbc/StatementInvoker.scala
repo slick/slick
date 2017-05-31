@@ -2,7 +2,6 @@ package slick.jdbc
 
 import java.sql.PreparedStatement
 import slick.util.{TableDump, SlickLogger, CloseableIterator}
-import slick.SlickException
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
 

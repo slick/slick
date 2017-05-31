@@ -4,12 +4,10 @@ import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 import org.junit.Assert._
 
-import scala.concurrent.{ExecutionContext, Await}
-import scala.concurrent.duration.Duration
 
 import slick.ast.ColumnOption
 import slick.model._
-import slick.jdbc.{SQLiteProfile, meta}
+import slick.jdbc.SQLiteProfile
 import slick.jdbc.meta.MTable
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile

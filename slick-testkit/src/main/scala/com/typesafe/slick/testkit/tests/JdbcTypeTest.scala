@@ -5,7 +5,6 @@ import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
 import java.util.UUID
 import javax.sql.rowset.serial.SerialBlob
-import org.junit.Assert._
 
 import scala.concurrent.Future
 

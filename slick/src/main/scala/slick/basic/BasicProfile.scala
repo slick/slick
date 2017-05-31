@@ -2,14 +2,13 @@ package slick.basic
 
 import scala.language.{higherKinds, implicitConversions, existentials}
 
-import slick.SlickException
 import slick.ast._
 import slick.compiler.QueryCompiler
 import slick.dbio._
 import slick.lifted._
 import slick.util.GlobalConfig
 
-import com.typesafe.config.{ConfigFactory, Config}
+import com.typesafe.config.Config
 
 /** The basic functionality that has to be implemented by all profiles. */
 trait BasicProfile extends BasicActionComponent { self: BasicProfile =>

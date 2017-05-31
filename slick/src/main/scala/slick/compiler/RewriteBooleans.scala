@@ -1,7 +1,6 @@
 package slick.compiler
 
 import slick.ast._
-import Util.nodeToNodeOps
 import TypeUtil._
 
 /** For SQL back-ends which do not support real boolean types for fields and general expressions

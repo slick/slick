@@ -1,8 +1,7 @@
 package slick.jdbc
 
-import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 
 import scala.util.{Failure, Success}

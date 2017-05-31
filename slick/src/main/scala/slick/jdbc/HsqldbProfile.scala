@@ -10,9 +10,7 @@ import slick.compiler.{Phase, CompilerState}
 import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
-import slick.model.Model
-import slick.relational.RelationalProfile
-import slick.sql.{SqlProfile, SqlCapabilities}
+import slick.sql.SqlCapabilities
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
