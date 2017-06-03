@@ -143,8 +143,14 @@ trait BasicBackend { self =>
         case SuccessAction(v) => Future.successful(v)
         case FailureAction(t) => Future.failed(t)
         case FutureAction(f) => f
-        case FlatMapAction(base, f, ec) =>
-          runInContext(base, ctx, false, topLevel).flatMap(v => runInContext(f(v), ctx, streaming, false))(ctx.getEC(ec))
+        case FlatMapAction(base, fs, ec) =>
+          val last = fs.length - 1
+          def run(pos: Int, v: Any): Future[Any] = {
+            val f1 = runInContext(fs(pos)(v), ctx, streaming && pos == last, pos == 0)
+            if(pos == last) f1
+            else f1.flatMap(run(pos + 1, _))(ctx.getEC(ec))
+          }
+          runInContext(base, ctx, false, topLevel).flatMap(run(0, _))(ctx.getEC(ec)).asInstanceOf[Future[R]]
         case AndThenAction(actions) =>
           val last = actions.length - 1
           def run(pos: Int, v: Any): Future[Any] = {
