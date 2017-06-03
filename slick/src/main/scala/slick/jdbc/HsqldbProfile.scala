@@ -12,6 +12,7 @@ import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
 import slick.sql.SqlCapabilities
+import slick.relational.RelationalProfile
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
