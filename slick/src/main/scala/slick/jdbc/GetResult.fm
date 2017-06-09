@@ -29,6 +29,7 @@ object GetResult {
   implicit object GetString extends GetResult[String] { def apply(rs: PositionedResult) = rs.nextString() }
   implicit object GetTime extends GetResult[Time] { def apply(rs: PositionedResult) = rs.nextTime() }
   implicit object GetTimestamp extends GetResult[Timestamp] { def apply(rs: PositionedResult) = rs.nextTimestamp() }
+  implicit object GetBytes extends GetResult[Array[Byte]] { def apply(rs: PositionedResult) = rs.nextBytes() }
 
   implicit object GetBigDecimalOption extends GetResult[Option[BigDecimal]] { def apply(rs: PositionedResult) = rs.nextBigDecimalOption() }
   implicit object GetBooleanOption extends GetResult[Option[Boolean]] { def apply(rs: PositionedResult) = rs.nextBooleanOption() }
@@ -42,6 +43,7 @@ object GetResult {
   implicit object GetStringOption extends GetResult[Option[String]] { def apply(rs: PositionedResult) = rs.nextStringOption() }
   implicit object GetTimeOption extends GetResult[Option[Time]] { def apply(rs: PositionedResult) = rs.nextTimeOption() }
   implicit object GetTimestampOption extends GetResult[Option[Timestamp]] { def apply(rs: PositionedResult) = rs.nextTimestampOption() }
+  implicit object GetBytesOption extends GetResult[Option[Array[Byte]]] { def apply(rs: PositionedResult) = rs.nextBytesOption() }
 
 <#list 2..22 as i>
   @inline implicit def createGetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: GetResult[T${j}]<#if i != j>, </#if></#list>): GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)

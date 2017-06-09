@@ -31,6 +31,7 @@ object SetParameter {
   implicit object SetString extends SetParameter[String] { def apply(v: String, pp: PositionedParameters) { pp.setString(v) } }
   implicit object SetTime extends SetParameter[Time] { def apply(v: Time, pp: PositionedParameters) { pp.setTime(v) } }
   implicit object SetTimestamp extends SetParameter[Timestamp] { def apply(v: Timestamp, pp: PositionedParameters) { pp.setTimestamp(v) } }
+  implicit object SetBytes extends SetParameter[Array[Byte]] { def apply(v: Array[Byte], pp: PositionedParameters) { pp.setBytes(v) } }
 
   implicit object SetBigDecimalOption extends SetParameter[Option[BigDecimal]] { def apply(v: Option[BigDecimal], pp: PositionedParameters) { pp.setBigDecimalOption(v) } }
   implicit object SetBooleanOption extends SetParameter[Option[Boolean]] { def apply(v: Option[Boolean], pp: PositionedParameters) { pp.setBooleanOption(v) } }
@@ -44,6 +45,7 @@ object SetParameter {
   implicit object SetStringOption extends SetParameter[Option[String]] { def apply(v: Option[String], pp: PositionedParameters) { pp.setStringOption(v) } }
   implicit object SetTimeOption extends SetParameter[Option[Time]] { def apply(v: Option[Time], pp: PositionedParameters) { pp.setTimeOption(v) } }
   implicit object SetTimestampOption extends SetParameter[Option[Timestamp]] { def apply(v: Option[Timestamp], pp: PositionedParameters) { pp.setTimestampOption(v) } }
+  implicit object SetBytesOption extends SetParameter[Option[Array[Byte]]] { def apply(v: Option[Array[Byte]], pp: PositionedParameters) { pp.setBytesOption(v) } }
 
 <#list 2..22 as i>
   @inline implicit def createSetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: SetParameter[T${j}]<#if i != j>, </#if></#list>): SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
@@ -63,6 +65,7 @@ object SetParameter {
         case v: String => pp.setString(v)
         case v: Time => pp.setTime(v)
         case v: Timestamp => pp.setTimestamp(v)
+        case v: Array[Byte] => pp.setBytes(v)
         case v => throw new SQLException("SetProduct doesn't know how to handle parameter "+i+" ("+v+")")
       }
   }
