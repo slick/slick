@@ -179,9 +179,12 @@ val  SimpleA = CustomTyping.SimpleA
                 |  assertType(TableName.baseTableRow.si, "Int")
                 |  assertType(TableName.baseTableRow.mi, "Int")
                 |  assertType(TableName.baseTableRow.bi, "Long")
+		|  val bitEntries = Seq(BitTestRow(true), BitTestRow(false, true, true))
                 |  DBIO.seq(
                 |    schema.create,
                 |    TableName += TableNameRow(0, 0, 0, 0),
+		|    BitTest ++= bitEntries,
+		|    BitTest.result.map{assertEquals(_, bitEntries)},
                 |    TableName.result.map{ case rows: Seq[TableNameRow] => assert(rows.length == 1) },
                 |    DefaultNumeric += entry,
                 |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }

@@ -80,8 +80,8 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       override def default = meta.columnDef.map((_,tpe)).collect{
         case (v,"String")    => Some(Some(v))
-        case ("1","Boolean") => Some(Some(true))
-        case ("0","Boolean") => Some(Some(false))
+        case ("1"|"b'1'", "Boolean") => Some(Some(true))
+        case ("0"|"b'0'", "Boolean") => Some(Some(false))
         case ( v , "scala.math.BigDecimal") => Some( Some( scala.math.BigDecimal(v) ) )
       }.getOrElse{
         val d = super.default
