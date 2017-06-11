@@ -103,6 +103,24 @@ trait SQLiteProfile extends JdbcProfile {
       override def varying = dbType == Some("VARCHAR")
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
+      	case (v , "java.sql.Timestamp") => {
+      	  import scala.util.{Try, Success}
+      	  val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
+            (s: String) => java.sql.Timestamp.valueOf(s),
+            (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s).getTime.getTime),
+      	    (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replaceAll(" ","T")).getTime.getTime),
+      	    (s: String) => {
+      		    if(s == "now")
+      		      "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
+      		    else
+      		      throw new Exception(s"Failed to parse timestamp - $s")
+      	    }
+          )
+      	  val v2 = v.replaceAll("\"", "")
+      	  convertors.collectFirst(fn => Try(fn(v2)) match{
+      	    case Success(v) => Some(v)
+      	  })
+      	}
       }.getOrElse{super.default}
       override def tpe = dbType match {
         case Some("DOUBLE") => "Double"
