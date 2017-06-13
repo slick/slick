@@ -1,7 +1,7 @@
 package slick.test.jdbc.hikaricp
 
 import java.lang.management.ManagementFactory
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{ThreadPoolExecutor, TimeUnit}
 import javax.management.ObjectName
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
@@ -10,7 +10,7 @@ import org.junit.{After, Before, Ignore, Test}
 import org.slf4j.LoggerFactory
 import slick.jdbc.H2Profile.api._
 import slick.lifted.{ProvenShape, TableQuery}
-import slick.util.SlickLogger
+import slick.util.{ManagedArrayBlockingQueue, SlickLogger}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -72,9 +72,12 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
   }
 
   /**
-    * Use introspection to retrieve the inUseCount field of the ManagedArrayBlockingQueue
+    * Use (mix of Java/scala) reflection to retrieve the inUseCount field of the ManagedArrayBlockingQueue
     */
   def inUseCount: Int = {
+    import scala.reflect.runtime.{universe => ru}
+    val mirror = ru.runtimeMirror(this.getClass.getClassLoader)
+
     val asyncExecutorField = database.getClass.getDeclaredField("executor")
     asyncExecutorField.setAccessible(true)
     val asyncExecutor = asyncExecutorField.get(database)
@@ -84,10 +87,9 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
     val threadPoolExecutor = threadPoolExecutorField.get(asyncExecutor)
 
     val queue = threadPoolExecutor.getClass.getMethod("getQueue").invoke(threadPoolExecutor)
-    val inUseCountField = queue.getClass.getDeclaredField("slick$util$ManagedArrayBlockingQueue$$inUseCount")
-    inUseCountField.setAccessible(true)
 
-    inUseCountField.get(queue).asInstanceOf[Int]
+    val inUseCountMember = ru.typeOf[ManagedArrayBlockingQueue[_]].decl(ru.TermName("inUseCount")).asTerm
+    mirror.reflect(queue).reflectField(inUseCountMember).get.asInstanceOf[Int]
   }
 
 
