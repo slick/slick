@@ -231,7 +231,11 @@ trait BasicBackend { self =>
     protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context, continuation: Boolean): Future[R] = {
       val promise = Promise[R]()
       ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
-        def priority = ctx.priority(continuation)
+        def priority = {
+          ctx.readSync
+          ctx.priority(continuation)
+        }
+
         def run: Unit =
           try {
             ctx.readSync
@@ -244,7 +248,7 @@ trait BasicBackend { self =>
               releaseSession(ctx, false)
               res
             } finally {
-              if (!ctx.isPinned) connectionReleased = true
+              if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
               ctx.sync = 0
             }
             promise.success(res)
@@ -265,7 +269,10 @@ trait BasicBackend { self =>
       ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
         private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
 
-        def priority = ctx.priority(continuation)
+        def priority = {
+          ctx.readSync
+          ctx.priority(continuation)
+        }
 
         def run: Unit = try {
           val debug = streamLogger.isDebugEnabled
@@ -300,7 +307,7 @@ trait BasicBackend { self =>
               throw ex
             } finally {
               ctx.streamState = state
-              if (!ctx.isPinned) connectionReleased = true
+              if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
               ctx.sync = 0
             }
             if(debug) {
@@ -374,8 +381,6 @@ trait BasicBackend { self =>
     private[BasicBackend] def readSync = sync // workaround for SI-9053 to avoid warnings
 
     private[BasicBackend] var currentSession: Session = null
-
-    private[BasicBackend] var releasedConnection = false
 
     private[BasicBackend] def priority(continuation: Boolean): Priority = {
       if (currentSession != null) WithConnection
