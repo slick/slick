@@ -171,9 +171,6 @@ object StandardTestDBs {
       } yield ()))
     }
 
-    override def cleanUpAfter(): Unit =
-      await(databaseFor("adminConn").run(dropSchema))
-
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
       session.close()
       cleanUpBefore()
