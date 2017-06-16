@@ -153,6 +153,13 @@ object GeneratedCodeTest {
     )
   }
 
+  def testDerby = testEmptyDB
+  def testDerbyMem = testEmptyDB
+  def testDerbyDisk = testEmptyDB
+  def testMySQL = testEmptyDB
+  def testSqlServer = testEmptyDB
+  def testDB2 = testEmptyDB
+
   def testEmptyDB = slick.dbio.DBIO.successful(())
 
   def tableName( node:Node ) : String = {

@@ -24,6 +24,8 @@ object GenerateMainSources extends TestCodeGenerator {
     new Config("CG1", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")),
     new Config("CG2", StandardTestDBs.HsqldbMem, "HsqldbMem", Seq("/dbs/hsqldb.sql")),
     new Config("CG3", StandardTestDBs.SQLiteMem, "SQLiteMem", Seq("/dbs/sqlite.sql")),
+    new Config("DB2", StandardTestDBs.DB2, "DB2", Seq("/dbs/db2.sql")),
+    new Config("DerbyMem", StandardTestDBs.DerbyMem, "DerbyMem", Seq("/dbs/derby.sql")),
     new Config("CG7", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def entityName = {
@@ -115,7 +117,7 @@ val  SimpleA = CustomTyping.SimpleA
           |  ).transactionally
         """.stripMargin
     },
-    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),    
+    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),
     new Config("Postgres3", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/postgres.sql")) {
       override def testCode: String =
       """import slick.ast.{FieldSymbol, Select}
