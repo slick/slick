@@ -186,6 +186,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
       case RowNum(sym, false) => b"@`$sym"
       case RowNumGen(sym, init) => b"@`$sym := $init"
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None, false)
+        if(all) b"\nunion all " else b"\nunion "
+        buildFrom(right, None, false)
+        b"\}"
       case _ => super.expr(n, skipParens)
     }
 
