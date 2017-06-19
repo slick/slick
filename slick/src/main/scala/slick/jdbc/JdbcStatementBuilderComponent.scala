@@ -424,9 +424,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         b"\}"
       case Union(left, right, all) =>
         b"\{"
-        buildFrom(left, None, true)
+        buildFrom(left, None, false)
         if(all) b"\nunion all " else b"\nunion "
-        buildFrom(right, None, true)
+        buildFrom(right, None, false)
         b"\}"
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)
