@@ -122,4 +122,29 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
       userForIdAndName(2, "foo").headOption shouldYield None //TODO Support `head` and `headOption` in Plain SQL Actions
     )
   }
+
+  def testByteArrayParams = ifCap(tcap.plainSql){
+    case class Data(id: Int, data: Array[Byte])
+    implicit val getDataResult = GetResult(r => new Data(r.<<, r.<<))
+
+    val create: DBIO[Int] = sqlu"create table DATA(ID int not null primary key, data TEXT NOT NULL)"
+    def dataForID(id: Int) = sql"select id, data from DATA where id = $id".as[Data]
+    def dataForIdAndData(id: Int, data: Array[Byte]) = sql"select id, data from DATA where id = $id and data = #$data".as[Data]
+
+    val s1 = sql"select id from DATA where data = ${Array[Byte](1,2,3)}".as[Int]
+    val s2 = sql"select id from DATA where data = '#${Array[Byte](4, 5, 6)}'".as[Int]
+
+    val data = (Array[Byte](1,2,3), Array[Byte](4, 5, 6), Array[Byte](7, 8 , 9), Array[Byte](0, -1, -2))
+    seq(
+      create.map(_ shouldBe 0),
+      DBIO.fold((for {
+        (id, d) <- List((1, data._1), (0, data._2), (2, data._3), (3, data._4))
+      } yield sqlu"insert into DATA values ($id, ${d.mkString})"), 0)(_ + _) shouldYield(4),
+      dataForID(2).head shouldYield Data(2, Array[Byte](7, 8 , 9)),
+      s1 shouldYield List(1),
+      s2 shouldYield List(2),
+      dataForIdAndData(2, data._3).head shouldYield Data(2, data._3),
+      dataForIdAndData(2, data._3).headOption shouldYield None
+    )
+  }
 }
