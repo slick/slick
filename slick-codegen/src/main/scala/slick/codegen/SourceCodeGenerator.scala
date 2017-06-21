@@ -59,8 +59,10 @@ class SourceCodeGenerator(model: m.Model)
 
 /** A runnable class to execute the code generator without further setup */
 object SourceCodeGenerator {
+  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean): Unit =
+    run(profile, jdbcDriver, url, outputDir, pkg, user, password, ignoreInvalidDefaults, None)
 
-  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String] = None): Unit = {
+  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String]): Unit = {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
     val dbFactory = profileInstance.api.Database
