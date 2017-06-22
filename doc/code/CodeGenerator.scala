@@ -1,8 +1,10 @@
 package com.typesafe.slick.docs
 
+//#imports
 import scala.concurrent.ExecutionContext.Implicits.global
 import slick.jdbc.H2Profile.api._
 import slick.jdbc.H2Profile
+//#imports
 
 object CodeGenerator extends App {
   val uri = "#slick.db.default"

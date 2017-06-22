@@ -6,6 +6,12 @@ them manually, which is useful when you start writing an application without a p
 If you already have a schema in the database, you can also use the [code generator](code-generation.md)
 to take this work off your hands.
 
+> {.note}
+> In the code examples below we assume the following imports:
+>```scala src=../code/LiftedEmbedding.scala#imports
+> ```
+> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
+
 Table Rows {index="table; row; ColumnOption; primary key; default; type; AutoInc; generated; identity; *; star projection; schema,name; name,schema"}
 ----------
 
