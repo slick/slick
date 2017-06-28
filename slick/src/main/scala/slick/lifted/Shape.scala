@@ -62,6 +62,9 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
 
+  // Needs to be of higher priority thatn repColumnShape, otherwise single-column ShapedValues are ambiguous
+  @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel] = RepShape[Level, ShapedValue[T, U], U]
+
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Mixed) = ()
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
@@ -279,8 +282,6 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
 }
 
 object ShapedValue {
-  @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel] = RepShape[Level, ShapedValue[T, U], U]
-
   def mapToImpl[R <: Product with Serializable, U](c: Context { type PrefixType = ShapedValue[_, U] })(rCT: c.Expr[ClassTag[R]])(implicit rTag: c.WeakTypeTag[R], uTag: c.WeakTypeTag[U]): c.Tree = {
     import c.universe._
     val rSym = symbolOf[R]
