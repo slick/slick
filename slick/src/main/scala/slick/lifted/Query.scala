@@ -202,8 +202,8 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * Users must note that trying to execute a headOption on a table may yield inconsistent results
     * since the sequence of table elements is not defined.
     */
-  def headOption[E2 >: E, OU](implicit ol: OptionLift[E2, Rep[OU]]): Rep[OU] =
-    ol.lift(shaped.value).encodeRef(FirstOption(toNode))
+  def headOption[E2 >: E, OU](implicit ol: OptionLift[E2, OU], sh: Shape[FlatShapeLevel, OU, _, _]): OU =
+    sh.encodeRef(ol.lift(shaped.value), FirstOption(toNode)).asInstanceOf[OU]
 
   /** Select the first `num` elements. */
   def take(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Take(toNode, num.toNode), shaped)
