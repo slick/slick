@@ -52,8 +52,6 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
     implicit final def anyToShapedValue[T, U](value: T)(implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]): ShapedValue[T, U] =
       new ShapedValue[T, U](value, shape)
 
-    implicit def repQueryActionExtensionMethods[U](rep: Rep[U]): QueryActionExtensionMethods[U, NoStream] =
-      createQueryActionExtensionMethods[U, NoStream](queryCompiler.run(rep.toNode).tree, ())
     implicit def streamableQueryActionExtensionMethods[U, C[_]](q: Query[_,U, C]): StreamingQueryActionExtensionMethods[C[U], U] =
       createStreamingQueryActionExtensionMethods[C[U], U](queryCompiler.run(q.toNode).tree, ())
     implicit def runnableCompiledQueryActionExtensionMethods[RU](c: RunnableCompiled[_, RU]): QueryActionExtensionMethods[RU, NoStream] =
