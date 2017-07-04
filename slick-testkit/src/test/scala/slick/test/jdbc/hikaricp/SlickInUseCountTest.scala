@@ -14,6 +14,7 @@ import slick.util.SlickLogger
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.{Try, Success}
 
 class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
 
@@ -84,7 +85,11 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
     val threadPoolExecutor = threadPoolExecutorField.get(asyncExecutor)
 
     val queue = threadPoolExecutor.getClass.getMethod("getQueue").invoke(threadPoolExecutor)
-    val inUseCountField = queue.getClass.getDeclaredField("slick$util$ManagedArrayBlockingQueue$$inUseCount")
+    val inUseCountField = Seq("inUseCount", "slick$util$ManagedArrayBlockingQueue$$inUseCount").collectFirst{name =>
+	Try(queue.getClass.getDeclaredField(name)) match{
+            case Success(field) => field
+        }
+    }.get
     inUseCountField.setAccessible(true)
 
     inUseCountField.get(queue).asInstanceOf[Int]
