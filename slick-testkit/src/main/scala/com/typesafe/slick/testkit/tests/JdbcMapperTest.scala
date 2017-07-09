@@ -135,12 +135,12 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
       headQ5.isDefined.result shouldYield true,
       headQ5.isEmpty.result shouldYield false,
-//      headQ5.result shouldYield Some((2, None)),
+      headQ5.result shouldYield Some((2, None)),
       headQ5.map{ case (b: Rep[Int], s: Rep[Option[String]]) => s.getOrElse(b.asColumnOf[String]) }.result shouldYield Some("2"),
 
       headQ6.isDefined.result shouldYield true,
       headQ6.isEmpty.result shouldYield false,
-//      headQ6.result shouldYield Some((5, 6, Some("5"))),
+      headQ6.result shouldYield Some((5, 6, Some("5"))),
       headQ6.map(tuple => tuple._1 + tuple._2).result shouldYield Some(11)
 //      headQ6.filter(tuple => tuple._1 > tuple._2).result shouldYield None
     )

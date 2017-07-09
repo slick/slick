@@ -46,9 +46,9 @@ class ExpandSums extends Phase {
           val first = Take(n, LiteralNode(1)).infer()
           val extendGen = new AnonSymbol
           val selectSym = new AnonSymbol
-          val discExtended = Bind(extendGen, first, Pure(ProductNode(ConstArray(Disc1, Ref(extendGen))))).infer()
-          val discCheck = Bind(selectSym, discExtended, Pure(FwdPath(selectSym :: ElementSymbol(1) :: Nil))).infer()
-          val predicate = Library.==.typed[Boolean](discCheck, LiteralNode(null))
+          val discExtended = Bind(extendGen, first, Pure(ProductNode(ConstArray(Disc1, Ref(extendGen)))))
+          val discCheck = Bind(selectSym, discExtended, Pure(FwdPath(selectSym :: ElementSymbol(1) :: Nil)))
+          val predicate = Library.==.typed[Boolean](silentCast(Disc1.nodeType, discCheck), LiteralNode(null)).infer()
           val n2 = (ifEmpty, map) match {
             case (LiteralNode(true), LiteralNode(false)) => predicate
             case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](predicate)
@@ -58,7 +58,7 @@ class ExpandSums extends Phase {
               val map2 = map.replace({
                 case r @ Ref(s) if s == gen => Ref(mapSym) :@ r.nodeType
               }, keepType = true)
-              val ifDefined = Bind(mapSym, Take(n, LiteralNode(1)), Pure(map2)).infer()
+              val ifDefined = Bind(mapSym, first, Pure(map2)).infer()
               val ifEmpty2 = silentCast(map2.nodeType.structural, ifEmpty)
               val ifDefined2 = silentCast(map2.nodeType.structural, ifDefined)
               IfThenElse(ConstArray(predicate, ifEmpty2, ifDefined2))
