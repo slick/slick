@@ -62,8 +62,9 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
 
-  // Needs to be of higher priority thatn repColumnShape, otherwise single-column ShapedValues are ambiguous
+  // Need to be of higher priority than repColumnShape, otherwise single-column ShapedValues and MappedProjections are ambiguous
   @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel] = RepShape[Level, ShapedValue[T, U], U]
+  @inline implicit def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P] = RepShape[Level, MappedProjection[T, P], T]
 
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Mixed) = ()
@@ -383,9 +384,4 @@ class MappedProjection[T, P](child: Node, mapper: MappedScalaType.Mapper, classT
     override def toNode = path
   }
   def genericFastPath(f: Function[Any, Any]) = new MappedProjection[T, P](child, mapper.copy(fastPath = Some(f)), classTag)
-}
-
-object MappedProjection {
-  /** The Shape for a MappedProjection */
-  @inline implicit final def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P] = RepShape[Level, MappedProjection[T, P], T]
 }
