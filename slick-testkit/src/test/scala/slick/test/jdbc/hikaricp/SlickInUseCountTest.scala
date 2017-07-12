@@ -1,0 +1,99 @@
+package slick.test.jdbc.hikaricp
+
+import java.lang.management.ManagementFactory
+import java.util.concurrent.TimeUnit
+import javax.management.ObjectName
+
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import org.junit.Assert.assertEquals
+import org.junit.{After, Before, Ignore, Test}
+import org.slf4j.LoggerFactory
+import slick.jdbc.H2Profile.api._
+import slick.lifted.{ProvenShape, TableQuery}
+import slick.util.SlickLogger
+
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.{Try, Success}
+
+class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
+
+  val poolName = "inUseCount"
+  val mbeanServer = ManagementFactory.getPlatformMBeanServer
+  val aeBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$poolName")
+  val poolBeanName = new ObjectName(s"com.zaxxer.hikari:type=Pool ($poolName)")
+
+  val logger = new SlickLogger(LoggerFactory.getLogger("slick.util.AsyncExecutor"))
+
+  class TestTable(tag: Tag) extends Table[(Int)](tag, "SDL") {
+
+    def id: Rep[Int] = column[Int]("ID")
+    def * : ProvenShape[(Int)] = id
+
+  }
+
+  var database: Database = _
+  val testTable: TableQuery[TestTable] = TableQuery[TestTable]
+
+  @Before
+  def openDatabase() = {
+    System.setProperty("com.zaxxer.hikari.housekeeping.periodMs", "5000")
+    database = Database.forConfig("h2mem-inuse")
+    Await.result(database.run(testTable.schema.create), Duration.Inf /*2.seconds*/)
+  }
+
+  @After
+  def closeDatabase() = {
+    Await.result(database.run(testTable.schema.drop), 2.seconds)
+    database.close()
+  }
+
+  @Test def slickInUseCount() {
+    val loops = 1000
+    val count = 100
+    1 to loops foreach { _ =>
+      val tasks = 1 to count map { i =>
+        val action = { testTable += i }
+          .flatMap { _ => testTable.length.result }
+          //.flatMap { _ => DBIO.successful(s"inserted value $i") }
+
+        database.run(action)
+      }
+      Await.result(Future.sequence(tasks), Duration(10, TimeUnit.SECONDS))
+
+    }
+    //we need to wait until there are no more active threads in the threadpool
+    //DBIOAction results might be available before the threads have completely finished their work
+    while (mbeanServer.getAttribute(aeBeanName, "ActiveThreads").asInstanceOf[Int] > 0) {
+      Thread.sleep(100)
+    }
+
+    assertEquals(0, inUseCount)
+
+  }
+
+  /**
+    * Use introspection to retrieve the inUseCount field of the ManagedArrayBlockingQueue
+    */
+  def inUseCount: Int = {
+    val asyncExecutorField = database.getClass.getDeclaredField("executor")
+    asyncExecutorField.setAccessible(true)
+    val asyncExecutor = asyncExecutorField.get(database)
+
+    val threadPoolExecutorField = asyncExecutor.getClass.getDeclaredField("slick$util$AsyncExecutor$$anon$$executor")
+    threadPoolExecutorField.setAccessible(true)
+    val threadPoolExecutor = threadPoolExecutorField.get(asyncExecutor)
+
+    val queue = threadPoolExecutor.getClass.getMethod("getQueue").invoke(threadPoolExecutor)
+    val inUseCountField = Seq("inUseCount", "slick$util$ManagedArrayBlockingQueue$$inUseCount").collectFirst{name =>
+	Try(queue.getClass.getDeclaredField(name)) match{
+            case Success(field) => field
+        }
+    }.get
+    inUseCountField.setAccessible(true)
+
+    inUseCountField.get(queue).asInstanceOf[Int]
+  }
+
+
+}
