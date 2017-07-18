@@ -63,6 +63,8 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
 
+  @inline final implicit def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P] = RepShape[Level, MappedProjection[T, P], T]
+
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Mixed) = ()
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
@@ -387,5 +389,6 @@ class MappedProjection[T, P](child: Node, mapper: MappedScalaType.Mapper, classT
 
 object MappedProjection {
   /** The Shape for a MappedProjection */
-  @inline implicit final def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P] = RepShape[Level, MappedProjection[T, P], T]
+  @deprecated("Use Shape.mappedProjectionShape instead", "3.2.1")
+  @inline final def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P] = RepShape[Level, MappedProjection[T, P], T]
 }
