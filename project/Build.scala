@@ -40,7 +40,7 @@ object SlickBuild extends Build {
       "org.xerial" % "sqlite-jdbc" % "3.8.11.2",
       "org.apache.derby" % "derby" % "10.9.1.0",
       "org.hsqldb" % "hsqldb" % "2.2.8",
-      "org.postgresql" % "postgresql" % "9.4.1209",
+      "org.postgresql" % "postgresql" % "42.1.4",
       "mysql" % "mysql-connector-java" % "5.1.38",
       "net.sourceforge.jtds" % "jtds" % "1.3.1"
     )
