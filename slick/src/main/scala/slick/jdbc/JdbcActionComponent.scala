@@ -325,7 +325,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         }
       }
     }
-    /** Get the statement usd by `update` */
+    /** Get the statement used by `update` */
     def updateStatement: String = sres.sql
   }
 
