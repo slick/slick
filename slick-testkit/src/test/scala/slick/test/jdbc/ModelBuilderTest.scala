@@ -20,10 +20,9 @@ class ModelBuilderTest(val tdb: JdbcTestDB) extends DBTest {
     // test timestamps don't fail
     val a =
       sqlu"""create table BAR (FOO TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""" >>
-      tdb.profile.createModel(ignoreInvalidDefaults=false) >>
+      tdb.profile.createModel(ignoreDefaultExpression=false) >>
       sqlu"""create table BAZ (FOO VARCHAR(255) DEFAULT CURRENT_USER)""" >>
-      tdb.profile.createModel(ignoreInvalidDefaults=false).asTry
+      tdb.profile.createModel(ignoreDefaultExpression=false)
     val mt = Await.result(db.run(a.withPinnedSession), Duration.Inf)
-    assertTrue(mt.asInstanceOf[Failure[_]].exception.asInstanceOf[SlickException].getMessage.contains("not parse default"))
   }
 }

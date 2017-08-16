@@ -85,7 +85,7 @@ trait SQLServerProfile extends JdbcProfile {
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+  class ModelBuilder(mTables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreDefaultExpression) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       override def tpe = dbType match {
         case Some("date") => "java.sql.Date"
@@ -110,8 +110,8 @@ trait SQLServerProfile extends JdbcProfile {
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def createModelBuilder(tables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreDefaultExpression)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     import api._

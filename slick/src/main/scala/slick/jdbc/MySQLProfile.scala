@@ -72,7 +72,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     super.loadProfileConfig
   }
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+  class ModelBuilder(mTables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreDefaultExpression) {
     override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
       // TODO: this needs a test
       override def name = super.name.filter(_ != "PRIMARY")
@@ -113,8 +113,8 @@ trait MySQLProfile extends JdbcProfile { profile =>
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def createModelBuilder(tables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreDefaultExpression)
 
   override val columnTypes = new JdbcTypes
   override protected def computeQueryCompiler = super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering

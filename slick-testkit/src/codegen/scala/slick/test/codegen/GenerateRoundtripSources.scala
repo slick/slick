@@ -20,14 +20,15 @@ object GenerateRoundtripSources {
     object Tables extends Tables(profile)
     import Tables._
     import Tables.profile.api._
-    val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
-    val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+    val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++
+      X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema ++ defaultExpr.schema
+    val a1 = profile.createModel(ignoreDefaultExpression=false).map(m => new SourceCodeGenerator(m) {
       override def tableName = {
         case n if n.toLowerCase == "null" => "null" // testing null as table name
         case n => super.tableName(n)
       }
     })
-    val a2 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+    val a2 = profile.createModel(ignoreDefaultExpression=false).map(m => new SourceCodeGenerator(m) {
       override def Table = new Table(_){
         override def autoIncLast = true
         override def Column = new Column(_){
@@ -108,6 +109,15 @@ class Tables(val profile: JdbcProfile){
     def idx = index("IDX_NAME",name)
   }
   val categories = TableQuery[Categories]
+
+  /** Tests columns using DefaultExpression and Default **/
+  case class DefaultExprRow(val ts1: java.sql.Timestamp, val ts2: java.sql.Timestamp)
+  class DefaultExpr(tag: Tag) extends Table[DefaultExprRow](tag, "default_expression"){
+    def ts1 = column[java.sql.Timestamp]("ts1" , O.Default(java.sql.Timestamp.valueOf("1980-04-18 12:00:00")))
+    def ts2 = column[java.sql.Timestamp]("ts2" , O.DefaultExpression("CURRENT_TIMESTAMP"))
+    def * = (ts1, ts2) <> (DefaultExprRow.tupled , DefaultExprRow.unapply)
+  }
+  val defaultExpr = TableQuery[DefaultExpr]
 
   class Posts(tag: Tag) extends Table[(Int, String, Option[Int])](tag, "POSTS") {
     def id = column[Int]("id")

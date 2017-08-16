@@ -47,6 +47,9 @@ object. The following ones are defined for `JdbcProfile`:
 - `Default[T](defaultValue: T)`:  Specify a default value for inserting data into the table without this column.
   This information is only used for creating DDL statements so that the database can fill in the missing information.
 
+- `DefaultExpression(expression: String)`:  Specify an expression to be used as the default for inserting data into the table without this column.
+  This information is only used for creating DDL statements so that the database can fill in the missing information. To support more expressions the code generator and dbms profile must be extended.
+
 - `SqlType(typeName: String)`: Use a non-standard database-specific type for the DDL statements (e.g.
   `SqlType("VARCHAR(20)")` for a `String` column).
 

@@ -253,6 +253,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Generates a literal represenation of the default value or None in case of an Option-typed autoinc column */
       def default: Option[Code] = model.options.collect{
         case RelationalProfile.ColumnOption.Default(value) => value
+        case RelationalProfile.ColumnOption.DefaultExpression(expr) => expr
         case _ if asOption => None
       }.map(defaultCode).headOption
 

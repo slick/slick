@@ -75,7 +75,7 @@ trait OracleProfile extends JdbcProfile {
 
   override val columnOptions: ColumnOptions = new ColumnOptions {}
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+  class ModelBuilder(mTables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreDefaultExpression) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       override def tpe = meta.sqlType match {
         case 101 => "Double"
@@ -88,8 +88,8 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def createModelBuilder(tables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreDefaultExpression)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     for {

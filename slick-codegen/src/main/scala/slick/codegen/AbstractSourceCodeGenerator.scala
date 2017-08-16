@@ -69,13 +69,14 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
 
     trait EntityTypeDef extends super.EntityTypeDef{
       def code = {
-        val args = columns.map(c=>
-          c.default.map( v =>
-            s"${c.name}: ${c.exposedType} = $v"
-          ).getOrElse(
-            s"${c.name}: ${c.exposedType}"
-          )
-        ).mkString(", ")
+        val args = columns.map{
+          c => c.model.options.collect{
+                case RelationalProfile.ColumnOption.Default(v) => v
+                case RelationalProfile.ColumnOption.DefaultExpression(v) => defaultExpressionToScala(v, c.model.nullable)
+                case _ if c.fakeNullable  => None
+              }.map(c.defaultCode).headOption.map( v => s"${c.name}: ${c.exposedType} = $v")
+              .getOrElse(s"${c.name}: ${c.exposedType}")
+        }.mkString(", ")
         if(classEnabled){
           val prns = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
           (if(caseClassFinal) "final " else "") +
@@ -89,6 +90,19 @@ def $name($args): $name = {
 }
           """.trim
         }
+      }
+      /**
+       * Default sql expressions to scala code
+       * Extend here to support more default expressions. If the default expression is DBMS
+       * specific be sure to extend the particular DBMS profile
+       */
+      def defaultExpressionToScala(s: String, nullable: Boolean) = {
+        val code = s.toUpperCase match{
+          case "NOW()" | "NOW" | "CURRENT_TIMESTAMP()" | "CURRENT_TIMESTAMP" =>
+            "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
+          case _ => if(nullable) "None" else "null"
+        }
+        if(nullable && code != "None") s"Some($code)" else code
       }
     }
 
@@ -162,6 +176,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       def columnOptionCode = {
         case ColumnOption.PrimaryKey => Some(s"O.PrimaryKey")
         case Default(value)     => Some(s"O.Default(${default.get})") // .get is safe here
+        case DefaultExpression(expr) => Some(s"""O.DefaultExpression("${defaultCode(expr)}")""")
         case SqlType(dbType)    => Some(s"""O.SqlType("$dbType")""")
         case Length(length,varying) => Some(s"O.Length($length,varying=$varying)")
         case AutoInc            => Some(s"O.AutoInc")
@@ -183,7 +198,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
         case v:Short   => s"$v"
         case v:Char   => s"'$v'"
         case v:BigDecimal => s"""scala.math.BigDecimal(\"$v\")"""
-	case v: java.sql.Timestamp => s"""java.sql.Timestamp.valueOf("${v}")"""
+	      case v: java.sql.Timestamp => s"""java.sql.Timestamp.valueOf("${v}")"""
         case v => throw new SlickException( s"Dont' know how to generate code for default value $v of ${v.getClass}. Override def defaultCode to render the value." )
       }
       // Explicit type to allow overloading existing Slick method names.

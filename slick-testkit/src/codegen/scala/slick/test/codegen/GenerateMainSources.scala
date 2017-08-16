@@ -27,7 +27,7 @@ object GenerateMainSources extends TestCodeGenerator {
     new Config("DB2", StandardTestDBs.DB2, "DB2", Seq("/dbs/db2.sql")),
     new Config("DerbyMem", StandardTestDBs.DerbyMem, "DerbyMem", Seq("/dbs/derby.sql")),
     new Config("CG7", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_) {
         override def entityName = {
           case "COFFEES" => "Coff"
           case other => super.entityName(other)
@@ -49,7 +49,7 @@ object GenerateMainSources extends TestCodeGenerator {
       })
     },
     new Config("CG8", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def EntityType = new EntityType{
             override def enabled = false
@@ -75,7 +75,7 @@ val  SimpleA = CustomTyping.SimpleA
       })
     },
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def autoIncLastAsOption = true
           override def Column = new Column(_){
@@ -86,7 +86,7 @@ val  SimpleA = CustomTyping.SimpleA
     },
     new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
     new Config("CG11", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def Column = new Column(_){
             override def asOption = true
@@ -104,7 +104,7 @@ val  SimpleA = CustomTyping.SimpleA
       }
       override def generator =
         TableQuery[A].schema.create >>
-        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+        tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_))
       override def testCode =
         """
           |  import java.sql.Blob
@@ -152,7 +152,7 @@ val  SimpleA = CustomTyping.SimpleA
       }
       override def generator =
         TableQuery[A].schema.create >>
-        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+        tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_))
       override def testCode =
         """
           |  val a1 = ARow("e")
@@ -165,7 +165,7 @@ val  SimpleA = CustomTyping.SimpleA
     },
     new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql") ){
       override def generator: DBIO[SourceCodeGenerator] =
-        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new SourceCodeGenerator(_){
+        tdb.profile.createModel(ignoreDefaultExpression=false).map(new SourceCodeGenerator(_){
           override def parentType = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
           override def code = {
             val testcode =
@@ -222,7 +222,7 @@ val  SimpleA = CustomTyping.SimpleA
   //Unified UUID config
   class UUIDConfig(objectName: String, tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String])
     extends Config(objectName, tdb, tdbName, initScripts) {
-    override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+    override def generator = tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_) {
       override def Table = new Table(_) {
         override def Column = new Column(_){
           override def defaultCode: (Any) => String = {

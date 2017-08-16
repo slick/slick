@@ -719,6 +719,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       case ColumnOption.PrimaryKey => primaryKey = true
       case ColumnOption.Unique      => unique = true
       case RelationalProfile.ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
+      case RelationalProfile.ColumnOption.DefaultExpression(expr) => {
+        //when extending this method, also extend the defaultToScalaCode method in the codegenerator
+        defaultLiteral = if(Seq("CURRENT_TIMESTAMP").contains(expr.stripSuffix("()").toUpperCase))
+          expr.stripSuffix("()")
+        else
+          expr
+      }
     }
 
     def appendType(sb: StringBuilder): Unit = sb append sqlType

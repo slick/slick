@@ -78,7 +78,7 @@ trait TestCodeGenerator {
     } else None
 
     def generator: DBIO[SourceCodeGenerator] =
-      tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+      tdb.profile.createModel(ignoreDefaultExpression=false).map(new MyGen(_))
 
     def testCode: String = defaultTestCode(this)
 

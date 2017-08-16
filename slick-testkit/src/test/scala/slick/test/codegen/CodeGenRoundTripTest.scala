@@ -19,6 +19,8 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
     GetResultPostsRow
     GetResultLargeRow
 
+    assertTrue( DefaultExpression.schema.create.statements.mkString contains "DEFAULT CURRENT_TIMESTAMP" )
+
     DBIO.seq(
       schema.create,
       Categories += CategoriesRow(1,"cat"),
@@ -27,6 +29,11 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
         PostsRow(2,"post 2",Some(1)),
         PostsRow(3,"post 3",Some(1))
       ),
+      DefaultExpression.map(_.ts1) += java.sql.Timestamp.valueOf("1980-11-11 12:00:00"),
+      DefaultExpression.result.head.map{ r  =>
+        //at most 1 minute difference
+        assert((java.util.Calendar.getInstance.getTimeInMillis - r.ts2.getTime*1000) <= 60000)
+      },
       Categories += CategoriesRow(2,"cat"),
       Posts.length.result.zip(Posts.filter(_.title =!= "post 1").map(_.title).to[List].result).map(res => assertEquals((3,List("post 2","post 3")), res)),
       sql"""select * from #${quoteIdentifier("POSTS")} where #${quoteIdentifier("id")} = 2""".as[PostsRow].head.map(res => assertEquals(PostsRow(2,"post 2",Some(1)), res)),

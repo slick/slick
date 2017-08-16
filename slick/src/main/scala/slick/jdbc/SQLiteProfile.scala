@@ -1,7 +1,7 @@
 package slick.jdbc
 
 import java.sql.{Timestamp, Time, Date}
-import slick.relational.RelationalCapabilities
+import slick.relational.{RelationalProfile, RelationalCapabilities}
 import slick.sql.SqlCapabilities
 
 import scala.concurrent.ExecutionContext
@@ -90,7 +90,7 @@ trait SQLiteProfile extends JdbcProfile {
     - JdbcCapabilities.forUpdate
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+  class ModelBuilder(mTables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreDefaultExpression) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       /** Regex matcher to extract name and length out of a db type name with length ascription */
       final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
@@ -142,8 +142,8 @@ trait SQLiteProfile extends JdbcProfile {
     )
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def createModelBuilder(tables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreDefaultExpression)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
@@ -236,6 +236,12 @@ trait SQLiteProfile extends JdbcProfile {
       if(notNull) sb append " NOT NULL"
       if( unique ) sb append " UNIQUE"
     }
+
+    override protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
+      case RelationalProfile.ColumnOption.DefaultExpression(expr) if Seq("NOW").contains(expr.stripSuffix("()").toUpperCase)=>
+        defaultLiteral = " (datetime('now','localtime'))"
+      case _ => super.handleColumnOption(o)
+    }
   }
 
   class CountingInsertActionComposerImpl[U](compiled: CompiledInsert) extends super.CountingInsertActionComposerImpl[U](compiled) {
@@ -273,7 +279,19 @@ trait SQLiteProfile extends JdbcProfile {
       override def valueToSQLLiteral(value: Time) = value.getTime.toString
     }
     class TimestampJdbcType extends super.TimestampJdbcType {
+      import scala.util.{Try, Success}
+      val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
+        (s: String) => java.sql.Timestamp.valueOf(s),
+        (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s).getTime.getTime),
+        (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replaceAll(" ","T")).getTime.getTime)
+      )
       override def valueToSQLLiteral(value: Timestamp) = value.getTime.toString
+      override def getValue(r: java.sql.ResultSet, idx: Int) = Try{r.getTimestamp(idx)} match{
+        case Success(ts) => ts
+        case _ => convertors.collectFirst(fn => Try(fn(r.getString(idx))) match{
+            case Success(ts) => ts
+        }).get
+      }
     }
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB

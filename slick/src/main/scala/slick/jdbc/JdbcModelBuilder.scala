@@ -26,9 +26,9 @@ import slick.util.Logging
   * The tight coupling can easily lead to source code incompatibilities in future versions. Avoid hooking in here if you
   * don't have to.
   *
-  * @param ignoreInvalidDefaults see JdbcModelBuilder#ColumnBuilder#default
+  * @param ignoreDefaultExpression see JdbcModelBuilder#ColumnBuilder#default
   */
-class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends Logging {
+class JdbcModelBuilder(mTables: Seq[MTable], ignoreDefaultExpression: Boolean)(implicit ec: ExecutionContext) extends Logging {
 
   ////////////////////////////////////////////////////////////////////// Actions for reading the required JDBC metadata
 
@@ -176,6 +176,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
   class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) {
     /** Regex matcher to extract string out ouf surrounding '' */
     final val StringPattern = """^'(.*)'$""".r
+    final val TimestampPattern = """^TIMESTAMP '(.*)'$""".r
     /** Scala type this column is mapped to */
     def tpe = jdbcTypeToScala(meta.sqlType, meta.typeName).toString match {
       case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
@@ -208,8 +209,11 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       *
       * Default values for autoInc column are automatically ignored (as if returning None).
       *
-      * If `ignoreInvalidDefaults = true`, Slick catches scala.MatchError and java.lang.NumberFormatException thrown by
-      * this method, logs the message and treats it as no default value for convenience. */
+      * If `ignoreDefaultExpression = true`, and any exceptions are thrown by this method
+      * Slick catches the exceptions and logs the message ignoring the default value. Alternatively
+      * when `ignoreDefaultExpression = false` and a `scala.MatchError` is thrown by this method
+      * it is treated as a default expression.
+      * */
     def default: Option[Option[Any]] = rawDefault.map { v =>
       if(v == "NULL") None else {
         // NOTE: When extending this list, please also extend the code generator accordingly
@@ -228,6 +232,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
           case (v,"scala.math.BigDecimal") => BigDecimal(s"${v.trim}") // need the trim for Oracle trailing space
           case (StringPattern(str),"String") => str
+          case (TimestampPattern(ts), "java.sql.Timestamp") => java.sql.Timestamp.valueOf(ts)
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false
         })
@@ -243,32 +248,25 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       *
       * Default values for autoInc columns are automatically ignored.
       *
-      * If `ignoreInvalidDefaults = true`, Slick catches scala.MatchError and java.lang.NumberFormatException thrown by
+      * If `ignoreDefaultExpression = true`, Slick catches scala.MatchError and java.lang.Exception thrown by
       * this method, logs the message and treats it as no default value for convenience. */
-    def defaultColumnOption: Option[RelationalProfile.ColumnOption.Default[_]] = rawDefault.map(v => (v,tpe)).collect {
-      case (v,_) if Seq("NOW","CURRENT_TIMESTAMP","CURRENT_DATE","CURRENT_TIME").contains(v.stripSuffix("()").toUpperCase) =>
-        logger.debug(s"Ignoring"+formatDefault(v))
-        None
-    }.getOrElse {
-      default.map( d =>
-        RelationalProfile.ColumnOption.Default(
-          if(nullable) d
-          else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${tableBuilder.namer.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
-        )
-      )
+    def defaultColumnOption: Option[RelationalProfile.ColumnOption.DefaultValue[_]] = default.map{
+      d => RelationalProfile.ColumnOption.Default(
+            if(nullable) d
+            else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${tableBuilder.namer.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
+          )
     }
 
-    private def convenientDefault: Option[RelationalProfile.ColumnOption.Default[_]] =
+    private def convenientDefault: Option[RelationalProfile.ColumnOption.DefaultValue[_]] =
       try defaultColumnOption catch {
-        case e: java.lang.NumberFormatException if ignoreInvalidDefaults =>
-          logger.debug(s"NumberFormatException: Could not parse"+formatDefault(rawDefault))
+        case e: Exception if ignoreDefaultExpression =>
+          logger.debug(s"Exception: Could not parse"+formatDefault(rawDefault))
           None
-        case e: scala.MatchError =>
-          val msg = "Could not parse" + formatDefault(rawDefault)
-          if(ignoreInvalidDefaults) {
-            logger.debug(s"SlickException: $msg")
-            None
-          } else throw new SlickException(msg, e)
+        case e: scala.MatchError if ignoreDefaultExpression =>
+          logger.debug(s"MatchError: Could not parse"+formatDefault(rawDefault))
+          None
+        case _ if !ignoreDefaultExpression =>
+          Some(RelationalProfile.ColumnOption.DefaultExpression(rawDefault.get))
       }
 
     def model = m.Column(name=name, table=tableBuilder.namer.qualifiedName, tpe=tpe, nullable=nullable,

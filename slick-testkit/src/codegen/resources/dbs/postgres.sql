@@ -59,5 +59,9 @@ CREATE TABLE "test_default" (
                        "char1_default_empty" CHAR(1) DEFAULT '',
                        "char1_default_valid" CHAR(1) DEFAULT 'a',
                        "char1_default_invalid" CHAR(1) DEFAULT 'ab',
-                       "char1_default_null" CHAR(1) DEFAULT NULL
+                       "char1_default_null" CHAR(1) DEFAULT NULL,
+                       -- for Timestamp
+                       "timestamp_default_current_timestamp" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                       "timestamp_default_current_timestamp2" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                       "timestamp_default_current_date" TIMESTAMP NOT NULL DEFAULT CURRENT_DATE
                       );
