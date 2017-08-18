@@ -157,6 +157,45 @@ trait OracleProfile extends JdbcProfile {
     override val createPhase1 = super.createPhase1 ++ createAutoIncSequences
     override val dropPhase2 = dropAutoIncSequences ++ super.dropPhase2
 
+    override def createIfNotExistsPhase = {
+      //
+      Iterable(
+"""
+BEGIN
+
+"""+ ((createPhase1 ++ createPhase2).map{s =>
+      "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+  }.mkString("\n")) +"""
+EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLCODE = -955 THEN
+        NULL; -- suppresses ORA-00955 exception
+      ELSE
+         RAISE;
+      END IF;
+END; """)
+    }
+
+    override def dropIfExistsPhase = {
+      //http://stackoverflow.com/questions/1799128/oracle-if-table-exists
+      Iterable(
+"""
+BEGIN
+"""+ ((dropPhase1 ++ dropPhase2).map{s =>
+"execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+            }.mkString("\n")) +
+"""
+EXCEPTION
+   WHEN OTHERS THEN
+      IF SQLCODE = -942 THEN
+        NULL; -- suppresses ORA-00942 exception
+      ELSE
+         RAISE;
+      END IF;
+END;
+""")
+    }
+
     def createAutoIncSequences = columns.flatMap { case cb: ColumnDDLBuilder =>
       cb.createSequenceAndTrigger(table)
     }

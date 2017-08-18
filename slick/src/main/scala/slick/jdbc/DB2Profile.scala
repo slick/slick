@@ -134,6 +134,28 @@ trait DB2Profile extends JdbcProfile {
     //For compatibility with all versions of DB2 
     //http://stackoverflow.com/questions/3006999/sql-query-to-truncate-table-in-ibm-db2
     override def truncateTable = s"DELETE FROM ${quoteTableName(tableNode)}"
+
+    override def createIfNotExistsPhase = {
+      //
+      Iterable(
+        "begin\n"
+      + "declare continue handler for sqlstate '42710' begin end; \n"
+      + ((createPhase1 ++ createPhase2).map{s =>
+        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+      }.mkString("\n"))
+      + "\nend")
+    }
+
+    override def dropIfExistsPhase = {
+      //
+      Iterable(
+        "begin\n"
+      + "declare continue handler for sqlstate '42704' begin end; \n"
+      + ((dropPhase1 ++ dropPhase2).map{s =>
+        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+      }.mkString("\n"))
+      + "\nend")
+    }
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
