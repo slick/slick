@@ -45,7 +45,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case (_: AnonSymbol | _: FieldSymbol) => v.asInstanceOf[StructValue].getBySymbol(field)
         }
       case n: StructNode =>
-        new StructValue(n.nodeChildren.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
+        new StructValue(n.nodeChildren.toIndexedSeq.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
       case ProductNode(ch) =>
         new ProductValue(ch.map(run).toIndexedSeq)
       case Pure(n, _) => Vector(run(n))

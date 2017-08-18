@@ -1,13 +1,43 @@
+# by default Travis uses JDK 8u31, which is much too old for Scala 2.12 (versions before 8u102 have issues - https://issues.scala-lang.org/browse/SI-9828)
+# Trusty has 8u131 or later
+dist: trusty
+sudo: required
+
 language: scala
-script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll
-jdk:
-  - openjdk6
+
+scala:
+  - 2.12.3
+  - 2.11.11
+  - 2.10.6
+
+env:
+  - JDK=oraclejdk8
+  - JDK=openjdk6
+
+before_script:
+  - jdk_switcher use $JDK
+
+script: sbt ++$TRAVIS_SCALA_VERSION -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf testAll
+
+matrix:
+  # scala 2.12 requires java 8
+  exclude:
+    - scala: 2.12.3
+      env: JDK=openjdk6
+    - scala: 2.11.11
+      env: JDK=oraclejdk8
+    - scala: 2.10.6
+      env: JDK=oraclejdk8
+
 notifications:
   flowdock:
     secure: j3YP9TjiIcMRy2mvunF1AHBOFnz2H7mZAFVbHPBNkAjMCwSdBNvLpn33qv6ybr02c5snBDJTs0P70RJ/mh3YsqwnIeloQD9HUfnndKQD6ujxx1QWRI/lVDW4pfVRQEuPsXdW/3AiqxrSG5BS4thiyc3vj3LpnodHwNMUT+Nlmq0=
+
 services:
   - mysql
   - postgresql
+
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y python-sphinx
+  - mysql -e 'CREATE DATABASE IF NOT EXISTS mysql;'
