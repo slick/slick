@@ -188,9 +188,9 @@ trait MySQLProfile extends JdbcProfile { profile =>
       case RowNumGen(sym, init) => b"@`$sym := $init"
       case Union(left, right, all) =>
         b"\{"
-        buildFrom(left, None, false)
-        if(all) b"\nunion all " else b"\nunion "
-        buildFrom(right, None, false)
+        buildFrom(left, None)
+        if (all) b"\nunion all " else b"\nunion "
+        buildFrom(right, None)
         b"\}"
       case _ => super.expr(n, skipParens)
     }
