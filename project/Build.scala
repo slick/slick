@@ -14,7 +14,7 @@ object SlickBuild extends Build {
 
   val slickVersion = "3.3.0-SNAPSHOT"
   val binaryCompatSlickVersion = "3.3.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.11.8", "2.12.0")
+  val scalaVersions = Seq("2.11.8", "2.12.3")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
@@ -26,9 +26,9 @@ object SlickBuild extends Build {
       val v = "3.0.0"
       "org.scalatest" %% "scalatest" % v
     }
-    val slf4j = "org.slf4j" % "slf4j-api" % "1.7.18"
+    val slf4j = "org.slf4j" % "slf4j-api" % "1.7.25"
     val logback = "ch.qos.logback" % "logback-classic" % "1.1.6"
-    val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
+    val typesafeConfig = "com.typesafe" % "config" % "1.3.1"
     val reactiveStreamsVersion = "1.0.0"
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
@@ -40,7 +40,7 @@ object SlickBuild extends Build {
       "org.xerial" % "sqlite-jdbc" % "3.8.11.2",
       "org.apache.derby" % "derby" % "10.9.1.0",
       "org.hsqldb" % "hsqldb" % "2.2.8",
-      "org.postgresql" % "postgresql" % "9.4.1209",
+      "org.postgresql" % "postgresql" % "42.1.4",
       "mysql" % "mysql-connector-java" % "5.1.38",
       "net.sourceforge.jtds" % "jtds" % "1.3.1"
     )

@@ -6,8 +6,8 @@ class RelationalScalarFunctionTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def test = {
-    def check[T](q: Rep[T], exp: T) = q.result.map(_ shouldBe exp)
-    def checkLit[T : ColumnType](v: T) = check(LiteralColumn(v), v)
+    def check[T : BaseColumnType](q: Rep[T], exp: T) = q.result.map(_ shouldBe exp)
+    def checkLit[T : BaseColumnType](v: T) = check(LiteralColumn(v), v)
     val s = "abcdefghijklmnopqrstuvwxyz"
 
     seq(

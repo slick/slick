@@ -89,6 +89,14 @@ object GeneratedCodeTest {
       schema.create,
       Suppliers += s,
       Models += m,
+      Timestamps += new Timestamp(),
+      Timestamps.result.head.map{r =>
+	val c = new Timestamp()
+	val diff = 10*1000 //10 seconds
+	(r.ts, r.ts2, r.ts3, r.ts4, r.ts5, r.ts6, r.ts7) match{
+		case (c.ts, c.ts2, c.ts3, c.ts4, c.ts5, now, c.ts7) =>  assertTrue(c.ts6.compareTo(r.ts6) <= diff)
+	}
+      },
       Suppliers.result.map(assertEquals(List(s), _)),
       Models.result.map(assertEquals(List(m), _))
     )

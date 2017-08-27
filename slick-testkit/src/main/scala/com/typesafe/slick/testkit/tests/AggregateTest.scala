@@ -20,7 +20,9 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     ts.schema.create >>
       (ts ++= Seq((1, Some(1)), (1, Some(3)), (1, None))) >>
       q2_0.result.map(_ shouldBe (0, 0, 0, None, None, None)) >>
-      q2_1.result.map(_ shouldBe (3, 3, 2, Some(3), Some(4), Some(2)))
+      q2_1.result.map(_ shouldBe (3, 3, 2, Some(3), Some(4), Some(2))) >>
+      q2_0._1.result >>
+      q2_0._1.shaped.result
   }
 
   def testGroupBy = {
