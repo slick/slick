@@ -191,6 +191,12 @@ trait PostgresProfile extends JdbcProfile {
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
       case Library.CurrentDate() => b"current_date"
       case Library.CurrentTime() => b"current_time"
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None)
+        if (all) b"\nunion all " else b"\nunion "
+        buildFrom(right, None)
+        b"\}"
       case _ => super.expr(n, skipParens)
     }
   }
