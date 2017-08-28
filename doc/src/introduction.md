@@ -107,7 +107,7 @@ blocking database APIs, Slick gives you:
 * [Reactive Streams] for asynchronous streaming.
 
 * Efficient utilization of database resources: Slick can be tuned easily and precisely for the
-  parallelism (number of concurrent active jobs) and resource ussage (number of currently
+  parallelism (number of concurrent active jobs) and resource usage (number of currently
   suspended database sessions) of your database server.
 
 ## Plain SQL Support
