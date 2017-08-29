@@ -85,9 +85,9 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
      *  Uses HList if hlistEnabled else tuple.
      */
     def compoundValue(values: Seq[Code]): Code
-    /** If HList should be used as a compound type instead of tuples. Default to true for > 22 columns.
+    /** If HList should be used as a compound type instead of tuples. Default to true for > 22*22 columns.
         @group Basic customization overrides */
-    def hlistEnabled = columns.size > 22
+    def hlistEnabled = (columns.size > 22 && columns.size <= 22*22)
     /** Indicates whether auto increment columns should be put last and made an Option with a None default.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
@@ -99,7 +99,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def autoIncLast = autoIncLastAsOption
     /** Indicates if this table should be mapped using factory and extractor or not, in which case tuples are used. (Consider overriding EntityType.enabled instead, which affects this, too.) Disabled by default when using hlists.
         @group Basic customization overrides */
-    def mappingEnabled = !hlistEnabled
+    def mappingEnabled = (!hlistEnabled)
     /** Function that constructs an entity object from the unmapped values
         @group Basic customization overrides */
     def factory: Code
@@ -156,7 +156,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** The * projection that accumulates all columns and map them if mappingEnabled is true*/
       def star: Code
       /** Indicates whether a ? projection should be generated. */
-      def optionEnabled = mappingEnabled && columns.exists(c => !c.model.nullable)
+      def optionEnabled = mappingEnabled && columns.exists(! _.model.nullable) && hlistEnabled
       /** The ? projection to produce an Option row. Useful for outer joins. */
       def option: Code
       /** Function that constructs an Option of an entity object from the unmapped Option values */

@@ -7,13 +7,14 @@ import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object CodeGeneratorRoundTripTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerJTDS, SQLServerSQLJDBC)
+object CodeGeneratorRoundTrip3Test extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
-class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
+class CodeGeneratorRoundTrip3Test(val tdb: JdbcTestDB) extends DBTest {
+  import tdb.profile.api._
   import tdb.profile.quoteIdentifier
 
   @Test def test: Unit = runBlocking {
-    object Tables extends roundtrip.Tables { val profile = tdb.profile }
+    object Tables extends roundtrip3.Tables { val profile = tdb.profile }
     import Tables.profile.api._
     import Tables._
     GetResultPostsRow
@@ -30,15 +31,8 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
       Categories += CategoriesRow(2,"cat"),
       Posts.length.result.zip(Posts.filter(_.title =!= "post 1").map(_.title).to[List].result).map(res => assertEquals((3,List("post 2","post 3")), res)),
       sql"""select * from #${quoteIdentifier("POSTS")} where #${quoteIdentifier("id")} = 2""".as[PostsRow].head.map(res => assertEquals(PostsRow(2,"post 2",Some(1)), res)),
-      {
-        import slick.jdbc.JdbcCapabilities
-        if(tdb.profile.capabilities.contains(JdbcCapabilities.forceInsert)){
-          DBIO.seq(
-            SelfRef.forceInsert(SelfRefRow(1,None)),
-            SelfRef.forceInsert(SelfRefRow(2,Some(1))))
-        }else
-          DBIO.seq()
-      },
+      SelfRef.forceInsert(SelfRefRow(1,None)),
+      SelfRef.forceInsert(SelfRefRow(2,Some(1))),
       SelfRef.result,
       {
         // Testing table larger 22 columns

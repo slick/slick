@@ -57,14 +57,41 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       else compoundValue(types)
     }
 
-    def compoundValue(values: Seq[String]): String = {
-      if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
-      else if (values.size == 1) values.head
-      else if(values.size <= 22) s"""(${values.mkString(", ")})"""
-      else throw new Exception("Cannot generate tuple for > 22 columns, please set hlistEnable=true or override compound.")
+    val maxTupleSize = 22*22
+    //build and nest tuples if < 22**2 elements
+    def nestedTuple(values: Seq[String] , prefix: String): String = {
+      def mkTuple[T](l: Seq[T], _prefix: String) = l.map{
+       _prefix + _
+      }.mkString("(" , ", " , ")")
+      if(values.size <= 22)
+        mkTuple(values, "")
+      else
+        mkTuple(values.grouped(22).toList.map{mkTuple(_,prefix)}, "")
     }
 
-    def factory   = if(columns.size == 1) TableClass.elementType else s"${TableClass.elementType}.tupled"
+    def nestedTupleFactory(columns: Seq[Column]): String = {
+      val count = (columns.size / 22.0).ceil.toInt
+      val tuples = Range(0,count).map{ "t" + _ }
+      s"""{ case ${tuples.mkString("(",", ",")")} => ${TableClass.elementType}""" + tuples.zipWithIndex.map {
+        case(tple,index) => {
+          columns.slice(index*22 , (index*22)+22).zipWithIndex.map{
+            case(c,index)=> s"${tple}.${tuple(index)}"
+          }
+        }
+      }.flatten.mkString("(" , ", " , ")") + "}" 
+    }
+
+    def compoundValue(values: Seq[String]) = compoundValue(values, "")
+    def compoundValue(values: Seq[String], prefix: String): String = {
+      if(hlistEnabled || values.size > maxTupleSize) values.mkString(" :: ") + " :: HNil"
+      else if (values.size == 1) values.head
+      else nestedTuple(values, prefix)
+    }
+
+    def factory   = if(columns.size == 1) TableClass.elementType 
+                    else if(hlistEnabled || columns.size > maxTupleSize) columns.mkString("(", " :: ", " HNil")
+                    else if(columns.size > 22) s"${TableClass.elementType}.tupled"
+                    else nestedTupleFactory(columns)
     def extractor = s"${TableClass.elementType}.unapply"
 
     trait EntityTypeDef extends super.EntityTypeDef{
@@ -77,9 +104,19 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
           )
         ).mkString(", ")
         if(classEnabled){
-          val prns = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
-          (if(caseClassFinal) "final " else "") +
-          s"""case class $name($args)$prns"""
+          val _parents = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
+          val companion: String =
+            if(columns.size > 22 && columns.size <= maxTupleSize)(
+              s"""
+object $name{
+  def unapply(x: $name) = {
+    val data = ${compoundValue(columns.map(_.name), "x.")}
+    Option(data)
+  }
+}
+              """.trim + "\n"
+            ) else ""
+          s"""${companion}case class $name($args)${_parents}"""
         } else {
           s"""
 type $name = $types
@@ -94,19 +131,26 @@ def $name($args): $name = {
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
-        val positional = compoundValue(columnsPositional.map(c => (if(c.asOption || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
+        def argList(values: Seq[String]) = values.mkString("(" ,", " , ")")
+        val positional = columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]"))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
-        val rearranged = compoundValue(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
-        def result(args: String) = if(mappingEnabled) s"$factory($args)" else args
+        val rearranged   =if(desiredColumnOrder.size <= 22)
+                            desiredColumnOrder.map(i => tuple(i))
+                          else
+                            desiredColumnOrder.zipWithIndex.map{
+                              case(index,i) => s"${tuple(index/22)}.${tuple(index%22)}"
+                            }
+        def result(args: Seq[String]) = s"""${TableClass.elementType}${argList(args)}""" 
         val body =
           if(autoIncLast && columns.size > 1){
             s"""
-val r = $positional
+val r = ${nestedTuple(positional, "")}
 import r._
 ${result(rearranged)} // putting AutoInc last
             """.trim
-          } else
-           result(positional)
+          } else {
+            result(positional)
+          }
         s"""
 implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR{
   prs => import prs._
