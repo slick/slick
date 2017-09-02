@@ -178,13 +178,16 @@ val  SimpleA = CustomTyping.SimpleA
                 |  assertTrue(createStmt contains "`entry3` TEXT")
                 |  assertTrue(createStmt contains "`entry4` VARCHAR(255)")
                 |  def assertType(r: Rep[_], t: String) = assert(r.toNode.nodeType.toString == s"$t'")
+                |  assertType(TableName.baseTableRow.id, "Int")
                 |  assertType(TableName.baseTableRow.si, "Int")
                 |  assertType(TableName.baseTableRow.mi, "Int")
+                |  assertType(TableName.baseTableRow.ui, "Long")
                 |  assertType(TableName.baseTableRow.bi, "Long")
+                |  //assertType(TableName.baseTableRow.ubi, "BigInt")
 		|  val bitEntries = Seq(BitTestRow(true), BitTestRow(false, true, true))
                 |  DBIO.seq(
                 |    schema.create,
-                |    TableName += TableNameRow(0, 0, 0, 0),
+                |    TableName += TableNameRow(0, 0, 0, 0, 0/*, BigInt(0)*/),
 		|    BitTest ++= bitEntries,
 		|    BitTest.result.map{assertEquals(_, bitEntries)},
                 |    TableName.result.map{ case rows: Seq[TableNameRow] => assert(rows.length == 1) },
