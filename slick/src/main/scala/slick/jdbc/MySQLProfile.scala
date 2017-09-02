@@ -107,7 +107,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
       import java.sql.Types._
       jdbcType match{
-        case SMALLINT =>  classTag[Int]
+        case SMALLINT                                  =>  classTag[Int]
+        case INTEGER if typeName.contains("UNSIGNED")  =>  classTag[Long]
+          /**
+            * Currently java.math.BigInteger/scala.math.BigInt isn't supported as a default datatype, so this is currently out of scope.
+           */
+//        case BIGINT  if typeName.contains("UNSIGNED")  =>  classTag[BigInt]
         case _ => super.jdbcTypeToScala(jdbcType, typeName)
       }
     }
