@@ -12,9 +12,9 @@ import com.typesafe.sbt.sdlc.Plugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "2.1.0"
+  val slickVersion = "2.1.1-SNAPSHOT"
   val binaryCompatSlickVersion = "2.1.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.10.4", "2.11.1")
+  val scalaVersions = Seq("2.12.3", "2.10.6", "2.11.11")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
@@ -55,8 +55,8 @@ object SlickBuild extends Build {
   )
 
   def localScalaSettings(path: String): Seq[Setting[_]] = Seq(
-    scalaVersion := "2.10.0-unknown",
-    scalaBinaryVersion := "2.10.0-unknown",
+    scalaVersion := "2.12.0-unknonw",
+    scalaBinaryVersion := "2.12.0-unknown",
     crossVersion := CrossVersion.Disabled,
     scalaHome := Some(file(path)),
     autoScalaLibrary := false,
@@ -185,7 +185,14 @@ object SlickBuild extends Build {
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
       test := (), // suppress test status output
       testOnly :=  (),
-      previousArtifact := Some("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % binaryCompatSlickVersion),
+      // TODO remove partialVersion matching for 2.12 on next release with Scala 2.12 support
+//      previousArtifact := Some("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % binaryCompatSlickVersion),
+      previousArtifact := {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, 12)) => None
+          case _ => Some("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % binaryCompatSlickVersion)
+        }
+      },
       binaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
