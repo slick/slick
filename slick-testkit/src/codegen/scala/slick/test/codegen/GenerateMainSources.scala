@@ -24,6 +24,8 @@ object GenerateMainSources extends TestCodeGenerator {
     new Config("CG1", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")),
     new Config("CG2", StandardTestDBs.HsqldbMem, "HsqldbMem", Seq("/dbs/hsqldb.sql")),
     new Config("CG3", StandardTestDBs.SQLiteMem, "SQLiteMem", Seq("/dbs/sqlite.sql")),
+    new Config("DB2", StandardTestDBs.DB2, "DB2", Seq("/dbs/db2.sql")),
+    new Config("DerbyMem", StandardTestDBs.DerbyMem, "DerbyMem", Seq("/dbs/derby.sql")),
     new Config("CG7", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def entityName = {
@@ -115,7 +117,7 @@ val  SimpleA = CustomTyping.SimpleA
           |  ).transactionally
         """.stripMargin
     },
-    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),    
+    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),
     new Config("Postgres3", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/postgres.sql")) {
       override def testCode: String =
       """import slick.ast.{FieldSymbol, Select}
@@ -170,14 +172,25 @@ val  SimpleA = CustomTyping.SimpleA
               """
                 |  val entry = DefaultNumericRow(d0 = scala.math.BigDecimal(123.45), d1 = scala.math.BigDecimal(90), d3 = 0)
                 |  val createStmt = schema.create.statements.mkString
+                |  assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.getOrElse("") == "slick_test" )
                 |  assertTrue(createStmt contains "`entry1` LONGTEXT")
                 |  assertTrue(createStmt contains "`entry2` MEDIUMTEXT")
                 |  assertTrue(createStmt contains "`entry3` TEXT")
                 |  assertTrue(createStmt contains "`entry4` VARCHAR(255)")
+                |  def assertType(r: Rep[_], t: String) = assert(r.toNode.nodeType.toString == s"$t'")
+                |  assertType(TableName.baseTableRow.id, "Int")
+                |  assertType(TableName.baseTableRow.si, "Int")
+                |  assertType(TableName.baseTableRow.mi, "Int")
+                |  assertType(TableName.baseTableRow.ui, "Long")
+                |  assertType(TableName.baseTableRow.bi, "Long")
+                |  //assertType(TableName.baseTableRow.ubi, "BigInt")
+		|  val bitEntries = Seq(BitTestRow(true), BitTestRow(false, true, true))
                 |  DBIO.seq(
                 |    schema.create,
-                |    TableName += TableNameRow(0),
-                |    TableName.result.map{ case Seq(TableNameRow(id) ) => assertTrue("Schema name should be `slick_test`" , TableName.baseTableRow.schemaName.get eq "slick_test" ) },
+                |    TableName += TableNameRow(0, 0, 0, 0, 0/*, BigInt(0)*/),
+		|    BitTest ++= bitEntries,
+		|    BitTest.result.map{assertEquals(_, bitEntries)},
+                |    TableName.result.map{ case rows: Seq[TableNameRow] => assert(rows.length == 1) },
                 |    DefaultNumeric += entry,
                 |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }
                 |  )

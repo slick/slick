@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import javax.sql.rowset.serial.SerialBlob
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-import org.junit.{After, Before, Ignore, Test}
+import org.junit.{After, Before, Test}
 import slick.jdbc.H2Profile.api._
 import slick.lifted.{ProvenShape, TableQuery}
 

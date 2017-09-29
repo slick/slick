@@ -6,13 +6,10 @@ import java.sql.{PreparedStatement, ResultSet}
 import scala.concurrent.ExecutionContext
 
 import slick.ast._
-import slick.ast.Util._
 import slick.basic.Capability
 import slick.compiler.{Phase, CompilerState}
 import slick.dbio._
 import slick.jdbc.meta.{MIndexInfo, MColumn, MTable}
-import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalProfile
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -194,6 +191,12 @@ trait PostgresProfile extends JdbcProfile {
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
       case Library.CurrentDate() => b"current_date"
       case Library.CurrentTime() => b"current_time"
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None)
+        if (all) b"\nunion all " else b"\nunion "
+        buildFrom(right, None)
+        b"\}"
       case _ => super.expr(n, skipParens)
     }
   }

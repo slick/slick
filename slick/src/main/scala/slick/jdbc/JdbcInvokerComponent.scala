@@ -1,6 +1,6 @@
 package slick.jdbc
 
-import scala.language.{higherKinds, existentials}
+import scala.language.existentials
 import java.sql.PreparedStatement
 import slick.ast.{CompiledStatement, ResultSetMapping, Node, ParameterSwitch}
 import slick.util.SQLBuilder

@@ -13,7 +13,6 @@ import slick.compiler._
 import slick.dbio._
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.{SlickLogger, ConstArray, GlobalConfig}

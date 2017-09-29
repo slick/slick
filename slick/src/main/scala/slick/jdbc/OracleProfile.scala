@@ -3,18 +3,16 @@ package slick.jdbc
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
-import scala.language.implicitConversions
 
 import java.sql.{Array => _, _}
 
 import slick.SlickException
 import slick.ast._
-import slick.ast.Util._
-import slick.compiler.{CompilerState, Phase, QueryCompiler}
+import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
-import slick.model.{ForeignKeyAction, Model}
+import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, ResultConverter, RelationalProfile}
 import slick.basic.Capability
 import slick.util.ConstArray

@@ -1,11 +1,9 @@
 package com.typesafe.slick.testkit.util
 
-import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
 import slick.compiler.Phase
 import slick.dbio._
-import slick.driver.JdbcProfile
 import slick.memory.MemoryProfile
 import slick.jdbc._
 import slick.jdbc.GetResult._
@@ -170,9 +168,6 @@ object StandardTestDBs {
         _ <- sqlu"create schema #$schema"
       } yield ()))
     }
-
-    override def cleanUpAfter(): Unit =
-      await(databaseFor("adminConn").run(dropSchema))
 
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
       session.close()

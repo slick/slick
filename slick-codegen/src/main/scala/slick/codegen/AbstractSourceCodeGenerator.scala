@@ -171,6 +171,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       }
       def defaultCode = {
         case Some(v) => s"Some(${defaultCode(v)})"
+        case s: String if rawType == "java.sql.Timestamp" => s
         case s:String  => "\""+s.replaceAll("\"", """\\"""")+"\""
         case None      => s"None"
         case v:Byte    => s"$v"
@@ -182,6 +183,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
         case v:Short   => s"$v"
         case v:Char   => s"'$v'"
         case v:BigDecimal => s"""scala.math.BigDecimal(\"$v\")"""
+	case v: java.sql.Timestamp => s"""java.sql.Timestamp.valueOf("${v}")"""
         case v => throw new SlickException( s"Dont' know how to generate code for default value $v of ${v.getClass}. Override def defaultCode to render the value." )
       }
       // Explicit type to allow overloading existing Slick method names.

@@ -2,7 +2,6 @@ package slick.test.memory
 
 import org.junit.Test
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.StandardTestDBs
 import slick.basic.DatabaseConfig
 import slick.jdbc.JdbcProfile
 import slick.memory.{DistributedBackend, DistributedProfile}
