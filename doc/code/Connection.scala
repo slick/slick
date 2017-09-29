@@ -1,5 +1,6 @@
 package com.typesafe.slick.docs
 
+//#imports
 import java.sql.Blob
 import javax.sql.rowset.serial.SerialBlob
 
@@ -13,6 +14,7 @@ import scala.language.higherKinds
 import scala.util.{Failure, Success}
 import slick.basic.DatabasePublisher
 import slick.jdbc.H2Profile.api._
+//#imports
 
 object Connection extends App {
   class Coffees(tag: Tag) extends Table[(String, Blob)](tag, "COFFEES") {

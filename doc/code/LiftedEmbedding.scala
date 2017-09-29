@@ -1,10 +1,12 @@
 package com.typesafe.slick.docs
 
+//#imports
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 import slick.jdbc.H2Profile.api._
 import java.sql.Date
 import scala.reflect.ClassTag
+//#imports
 
 object LiftedEmbedding extends App {
   // Simple Coffees for Rep types comparison
