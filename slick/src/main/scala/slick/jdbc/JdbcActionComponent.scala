@@ -7,6 +7,8 @@ import scala.language.{existentials, higherKinds}
 import java.sql.{PreparedStatement, Statement}
 
 import scala.collection.mutable.Builder
+import scala.concurrent.Future
+import scala.util.Try
 import scala.util.control.NonFatal
 
 import slick.SlickException
@@ -16,7 +18,7 @@ import slick.ast.Util._
 import slick.ast.TypeUtil.:@
 import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
 import slick.relational.{ResultConverter, CompiledMapping}
-import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
+import slick.util.{CloseableIterator, DumpInfo, SQLBuilder, ignoreFollowOnError}
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
@@ -325,7 +327,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         }
       }
     }
-    /** Get the statement used by `update` */
+    /** Get the statement usd by `update` */
     def updateStatement: String = sres.sql
   }
 

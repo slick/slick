@@ -1,6 +1,7 @@
 package slick.compiler
 
 import slick.ast._
+import scala.collection.mutable.ArrayBuffer
 import slick.{SlickTreeException, SlickException}
 import slick.util.{ConstArray, SlickLogger}
 import org.slf4j.LoggerFactory

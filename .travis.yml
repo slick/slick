@@ -22,12 +22,13 @@ addons:
   apt:
     packages:
     - graphviz
+    - python-sphinx
     - mysql-server-5.6
     - mysql-client-core-5.6
     - mysql-client-5.6
 script:
-- admin/build.sh
+- sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf clean +testAll
 cache:
   directories:
-    - "$HOME/.sbt"
-    - "$HOME/.ivy2"
+    - $HOME/.sbt
+    - $HOME/.ivy2

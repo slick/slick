@@ -1,5 +1,6 @@
 package slick.ast
 
+import slick.ast.Util._
 import slick.ast.TypeUtil._
 import slick.SlickException
 import slick.util.ConstArray

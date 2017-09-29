@@ -53,8 +53,6 @@ object. The following ones are defined for `JdbcProfile`:
 - `Default[T](defaultValue: T)`:  Specify a default value for inserting data into the table without this column.
   This information is only used for creating DDL statements so that the database can fill in the missing information.
 
-- `Unique`: Add a uniqueness constraint to the DDL statement for the column.
-
 - `SqlType(typeName: String)`: Use a non-standard database-specific type for the DDL statements (e.g.
   `SqlType("VARCHAR(20)")` for a `String` column).
 

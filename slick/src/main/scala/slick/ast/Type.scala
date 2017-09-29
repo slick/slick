@@ -5,6 +5,8 @@ import slick.SlickException
 import scala.collection.generic.CanBuild
 import scala.collection.mutable.{Builder, ArrayBuilder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
+import Util._
+import scala.collection.mutable.ArrayBuffer
 import scala.annotation.implicitNotFound
 import slick.util.{DumpInfo, Dumpable, TupleSupport, ConstArray}
 

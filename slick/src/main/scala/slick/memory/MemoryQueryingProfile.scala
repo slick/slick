@@ -1,10 +1,13 @@
 package slick.memory
 
+import scala.concurrent.Future
+import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.ArrayBuffer
 import slick.SlickException
 import slick.ast._
 import slick.basic.BasicProfile
 import slick.compiler._
+import slick.lifted._
 import slick.relational._
 import slick.util.{??, ConstArray}
 import TypeUtil._

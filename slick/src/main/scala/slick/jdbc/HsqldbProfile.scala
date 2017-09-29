@@ -1,4 +1,3 @@
-
 package slick.jdbc
 
 import java.sql.Types
@@ -11,8 +10,9 @@ import slick.compiler.{Phase, CompilerState}
 import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
-import slick.sql.SqlCapabilities
+import slick.model.Model
 import slick.relational.RelationalProfile
+import slick.sql.{SqlProfile, SqlCapabilities}
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -64,13 +64,6 @@ trait HsqldbProfile extends JdbcProfile {
   override protected lazy val useServerSideUpsertReturning = false
 
   override val scalarFrom = Some("(VALUES (0))")
-
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
-    case java.sql.Types.VARCHAR =>
-      val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
-      size.fold("LONGVARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
-    case _ => super.defaultSqlTypeName(tmd, sym)
-  }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")

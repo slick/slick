@@ -2,6 +2,7 @@ package slick.jdbc
 
 import java.io.Closeable
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 import java.sql.{Connection, Driver, DriverManager, SQLException}
 import javax.sql.DataSource
 

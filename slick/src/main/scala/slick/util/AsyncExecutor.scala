@@ -83,7 +83,9 @@ object AsyncExecutor extends Logging {
         override def afterExecute(r: Runnable, t: Throwable): Unit = {
           super.afterExecute(r, t)
           (r, queue) match {
-            case (pr: PrioritizedRunnable, q: ManagedArrayBlockingQueue[Runnable]) if pr.connectionReleased => q.decreaseInUseCount()
+            case (pr: PrioritizedRunnable, q: ManagedArrayBlockingQueue[Runnable]) =>
+              if (pr.connectionReleased && pr.priority != WithConnection) q.decreaseInUseCount()
+              pr.inUseCounterSet = false
             case _ =>
           }
         }
@@ -150,7 +152,7 @@ object AsyncExecutor extends Logging {
   case object Fresh extends Priority
   /** Continuation is used for database actions that are a continuation of some previously executed actions */
   case object Continuation extends Priority
-  /** WithConnection is used for database actions that already have a JDBC connection associated. */
+  /** WithContinuation is used for database actions that already have a JDBC connection associated. */
   case object WithConnection extends Priority
 
   trait PrioritizedRunnable extends Runnable {

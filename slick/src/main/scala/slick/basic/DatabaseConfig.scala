@@ -62,7 +62,7 @@ object DatabaseConfig {
     * in a future release.
     *
     * @param path The path in the configuration file for the database configuration (e.g. `foo.bar`
-    *             would find a profile name at config key `foo.bar.profile`) or an empty string
+    *             would find a profile name at config key `foo.bar.pfoile`) or an empty string
     *             for the top level of the `Config` object.
     * @param config The `Config` object to read from. This defaults to the global app config
     *               (e.g. in `application.conf` at the root of the class path) if not specified.

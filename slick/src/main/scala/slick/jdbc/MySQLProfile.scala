@@ -12,11 +12,13 @@ import slick.basic.Capability
 import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
 import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
 import slick.lifted._
+import slick.model.Model
 import slick.relational.{RelationalProfile, RelationalCapabilities}
 import slick.sql.SqlCapabilities
 import slick.util.{SlickLogger, GlobalConfig, ConstArray}
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.util.ConfigExtensionMethods.configExtensionMethods
+import slick.util.SQLBuilder.Result
 
 /** Slick profile for MySQL.
   *
@@ -63,7 +65,6 @@ trait MySQLProfile extends JdbcProfile { profile =>
     - SqlCapabilities.sequenceLimited
     - RelationalCapabilities.joinFull
     - JdbcCapabilities.nullableNoDefault
-    - JdbcCapabilities.distinguishesIntTypes //https://github.com/slick/slick/pull/1735
   )
 
   override protected[this] def loadProfileConfig: Config = {
@@ -80,8 +81,8 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       override def default = meta.columnDef.map((_,tpe)).collect{
         case (v,"String")    => Some(Some(v))
-        case ("1"|"b'1'", "Boolean") => Some(Some(true))
-        case ("0"|"b'0'", "Boolean") => Some(Some(false))
+        case ("1","Boolean") => Some(Some(true))
+        case ("0","Boolean") => Some(Some(false))
         case ( v , "scala.math.BigDecimal") => Some( Some( scala.math.BigDecimal(v) ) )
       }.getOrElse{
         val d = super.default
@@ -100,21 +101,6 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta){
       override def schema = meta.name.catalog
       override def catalog = meta.name.schema 
-    }
-
-    //https://dev.mysql.com/doc/connector-j/5.1/en/connector-j-reference-type-conversions.html
-    import scala.reflect.{ClassTag, classTag}
-    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
-      import java.sql.Types._
-      jdbcType match{
-        case SMALLINT                                  =>  classTag[Int]
-        case INTEGER if typeName.contains("UNSIGNED")  =>  classTag[Long]
-          /**
-            * Currently java.math.BigInteger/scala.math.BigInt isn't supported as a default datatype, so this is currently out of scope.
-           */
-//        case BIGINT  if typeName.contains("UNSIGNED")  =>  classTag[BigInt]
-        case _ => super.jdbcTypeToScala(jdbcType, typeName)
-      }
     }
   }
 
@@ -191,12 +177,6 @@ trait MySQLProfile extends JdbcProfile { profile =>
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
       case RowNum(sym, false) => b"@`$sym"
       case RowNumGen(sym, init) => b"@`$sym := $init"
-      case Union(left, right, all) =>
-        b"\{"
-        buildFrom(left, None)
-        if (all) b"\nunion all " else b"\nunion "
-        buildFrom(right, None)
-        b"\}"
       case _ => super.expr(n, skipParens)
     }
 

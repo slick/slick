@@ -1,5 +1,6 @@
 package slick.jdbc
 
+import java.util.concurrent.Executors
 
 import org.reactivestreams.Subscriber
 

@@ -6,7 +6,7 @@ package slick.jdbc
   */
 class DatabaseUrlDataSource extends DriverDataSource(null) {
 
-  private val PostgresFullUrl = "^(?:postgres|postgresql)://([a-zA-Z0-9_]+):([^@]+)@([^/]+)/([^\\s]+)$".r
+  private val PostgresFullUrl = "^postgres://([a-zA-Z0-9_]+):([^@]+)@([^/]+)/([^\\s]+)$".r
   private val MysqlFullUrl = "^mysql://([a-zA-Z0-9_]+):([^@]+)@([^/]+)/([^\\s]+)$".r
   private val MysqlCustomProperties = ".*\\?(.*)".r
 

@@ -1,5 +1,6 @@
 package slick.ast
 
+import Util._
 import slick.util.ConstArray
 import scala.collection.mutable.HashMap
 import scala.reflect.ClassTag

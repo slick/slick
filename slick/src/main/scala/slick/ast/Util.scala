@@ -1,9 +1,12 @@
 package slick.ast
 
+import slick.ast.TypeUtil.:@
 import slick.util.ConstArray
 
+import scala.collection
 import scala.collection.mutable
 import scala.language.implicitConversions
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Utility methods for AST manipulation.
@@ -24,6 +27,7 @@ object Util {
 /** Extra methods for Nodes. */
 final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
+  import NodeOps._
 
   def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): ConstArray[T] = {
     val retNull: (Node => T) = (_ => null.asInstanceOf[T])
