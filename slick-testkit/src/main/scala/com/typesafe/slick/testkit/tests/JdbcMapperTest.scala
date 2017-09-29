@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import org.junit.Assert._
 
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 import scala.reflect.ClassTag
@@ -77,6 +78,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
   def testWideMappedEntity = {
     import slick.collection.heterogeneous._
+    import slick.collection.heterogeneous.syntax._
 
     case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
     case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)

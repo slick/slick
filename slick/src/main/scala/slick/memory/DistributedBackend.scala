@@ -5,6 +5,7 @@ import org.reactivestreams.Subscriber
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import slick.SlickException
+import slick.dbio._
 import slick.relational.RelationalBackend
 import slick.basic.BasicBackend
 import slick.util.Logging

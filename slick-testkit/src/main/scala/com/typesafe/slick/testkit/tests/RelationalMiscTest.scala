@@ -58,7 +58,7 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testSorting = {
-    import slick.lifted.{Shape, Ordered}
+    import slick.lifted.{Shape, ShapeLevel, Ordered}
 
     class T1(tag: Tag) extends Table[(String, String, String)](tag, "t1_3") {
       def a = column[String]("a")

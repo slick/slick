@@ -1,7 +1,8 @@
 package slick.jdbc
 
+import org.slf4j.LoggerFactory
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 import scala.util.{Failure, Success}
@@ -195,7 +196,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     def dbType: Option[String] = Some(meta.typeName)
     /** Column length of string types */
     def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
-    /** Indicates whether this should be a varchar in case of a string column.
+    /** Indicates wether this should be a varchar in case of a string column.
       * Currently defaults to true. Should be based on the value of dbType in the future. */
     def varying: Boolean =
       Seq(java.sql.Types.NVARCHAR, java.sql.Types.VARCHAR, java.sql.Types.LONGVARCHAR, java.sql.Types.LONGNVARCHAR) contains meta.sqlType

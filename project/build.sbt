@@ -13,5 +13,3 @@ addSbtPlugin("de.johoop" % "sbt-testng-plugin" % "3.0.2")
 resolvers += Resolver.url("fix-sbt-plugin-releases", url("https://dl.bintray.com/sbt/sbt-plugin-releases"))(Resolver.ivyStylePatterns)
 
 addSbtPlugin("com.novocode" % "sbt-ornate" % "0.4")
-
-addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")

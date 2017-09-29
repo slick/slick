@@ -1,9 +1,10 @@
 package slick.lifted
 
-import scala.language.higherKinds
+import scala.language.{implicitConversions, higherKinds}
 import scala.annotation.implicitNotFound
 import slick.ast.Node
 import slick.basic.BasicProfile
+import slick.compiler.QueryCompiler
 
 /** A possibly parameterized query that will be cached for repeated efficient
   * execution without having to recompile it every time. The compiled state

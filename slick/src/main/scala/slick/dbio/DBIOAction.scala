@@ -2,6 +2,7 @@ package slick.dbio
 
 import org.reactivestreams.Subscription
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.language.higherKinds
 

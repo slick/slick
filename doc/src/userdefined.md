@@ -4,8 +4,18 @@ User-Defined Features {index="user-defined"}
 This chapter describes how to use custom data types and database functions
 with Slick's Scala API.
 
+> {.note}
+> In the code examples below we assume the following imports:
+>```scala src=../code/LiftedEmbedding.scala#imports
+> ```
+> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
+
 Scalar Database Functions {index="scalar,function,user-defined; function,scalar,user-defined"}
 -------------------------
+
+> {.note}
+> This section is based on the ready-to-run`CallNativeDBFunction` app in the **MultiDB** sample
+> ([github](samplerepo:slick-multidb), [zip](samplezip:slick-multidb)).
 
 If your database system supports a scalar function that is not available as a method in Slick you can define it as a
 <api:slick.lifted.SimpleFunction>. There are predefined methods for creating unary, binary and ternary functions with

@@ -7,16 +7,15 @@ to the low level of [JDBC], you can use Slick's *Plain SQL* queries with a much
 nicer Scala-based API.
 
 > {.note}
-> The rest of this chapter is based on the [Slick Plain SQL Queries template].
-> The preferred way of reading this introduction is in [Activator], where you can edit and
-> run the code directly while reading the tutorial.
+> This chapter is based on the **Plain SQL Queries** sample ([github](samplerepo:slick-plainsql),
+> [zip](samplezip:slick-plainsql)) which provides a ready-to-run app to demonstrate the features.
 
 Scaffolding
 -----------
 
 The database connection is opened
 [in the usual way](gettingstarted.md#database-configuration). All *Plain SQL* queries result in
-<api:slick.dbio.DBIOAction> that can be composed and run like any other action.
+a <api:slick.dbio.DBIOAction> that can be composed and run like any other action.
 
 String Interpolation {index="interpolation; sqlu,interpolator; update,Plain SQL; Plain SQL;update"}
 --------------------

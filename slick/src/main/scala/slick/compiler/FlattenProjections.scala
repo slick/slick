@@ -4,6 +4,7 @@ import slick.util.ConstArray
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import slick.ast._
+import Util._
 import TypeUtil._
 
 /** Flatten all `Pure` node contents into a single `StructNode`.

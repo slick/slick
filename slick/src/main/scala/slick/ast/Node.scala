@@ -4,7 +4,8 @@ import scala.collection.mutable.ListBuffer
 import scala.language.existentials
 import scala.reflect.ClassTag
 import slick.SlickException
-import slick.util.{Dumpable, DumpInfo, GlobalConfig, ConstArray}
+import slick.util.{Logging, Dumpable, DumpInfo, GlobalConfig, ConstArray}
+import Util._
 import TypeUtil._
 
 /** A node in the Slick AST.

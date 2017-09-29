@@ -2,7 +2,7 @@ package slick.test.compile
 
 import com.typesafe.slick.testkit.util.ShouldNotTypecheck
 import slick.jdbc.H2Profile.api._
-import slick.lifted.Shape
+import slick.lifted.{Shape, ShapeLevel}
 
 class NestedShapesTest {
   def legal = {

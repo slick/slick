@@ -11,6 +11,7 @@ import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.compiler.{Phase, CompilerState}
 import slick.jdbc.meta.{MColumn, MTable}
+import slick.model.Model
 
 /** Slick profile for H2.
   *

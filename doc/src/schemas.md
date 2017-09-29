@@ -6,6 +6,12 @@ them manually, which is useful when you start writing an application without a p
 If you already have a schema in the database, you can also use the [code generator](code-generation.md)
 to take this work off your hands.
 
+> {.note}
+> In the code examples below we assume the following imports:
+>```scala src=../code/LiftedEmbedding.scala#imports
+> ```
+> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
+
 Table Rows {index="table; row; ColumnOption; primary key; default; type; AutoInc; generated; identity; *; star projection; schema,name; name,schema"}
 ----------
 
@@ -46,8 +52,6 @@ object. The following ones are defined for `JdbcProfile`:
 
 - `Default[T](defaultValue: T)`:  Specify a default value for inserting data into the table without this column.
   This information is only used for creating DDL statements so that the database can fill in the missing information.
-
-- `Unique`: Add a uniqueness constraint to the DDL statement for the column.
 
 - `SqlType(typeName: String)`: Use a non-standard database-specific type for the DDL statements (e.g.
   `SqlType("VARCHAR(20)")` for a `String` column).

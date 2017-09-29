@@ -16,7 +16,6 @@ When using Scala instead of raw SQL for your queries you benefit from compile-ti
 and compositionality. Slick can generate queries for different back-end databases including
 your own, using its extensible query compiler.
 
-Get started learning Slick in minutes using the [Hello Slick template] in [Activator].
 See [here](supported-databases.md) for an overview of the supported database systems for which
 Slick can generate code.
 

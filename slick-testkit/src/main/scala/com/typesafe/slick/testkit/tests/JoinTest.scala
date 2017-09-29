@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
 class JoinTest extends AsyncTest[RelationalTestDB] {

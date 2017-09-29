@@ -15,6 +15,12 @@ In most cases you will want to use the type aliases [DBIO](api:slick.dbio.packag
 and [StreamingDBIO](api:slick.dbio.package@StreamingDBIO[+R,+T]:StreamingDBIO[R,T]) for non-streaming and
 streaming Database I/O Actions. They omit the optional *effect types* supported by <api:slick.dbio.DBIOAction>.
 
+> {.note}
+> In the code examples below we assume the following imports:
+>```scala src=../code/Connection.scala#imports
+> ```
+> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
+
 Executing Database I/O Actions {index="execute,Action;Action,execute"}
 ------------------------------
 

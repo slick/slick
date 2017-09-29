@@ -1,6 +1,7 @@
 package slick.compiler
 
 import slick.ast._
+import Util._
 
 /** Inject the proper orderings into the RowNumber nodes produced earlier by
   * the resolveFixJoins phase. */

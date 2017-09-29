@@ -5,9 +5,11 @@ import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit, Thre
 import com.typesafe.slick.testkit.util.{TestkitConfig, AsyncTest, JdbcTestDB}
 import org.junit.Assert
 import slick.dbio.DBIOAction
+import slick.jdbc.{SQLServerProfile, TransactionIsolation}
 import slick.util.Logging
 
-import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Failure
 
 
