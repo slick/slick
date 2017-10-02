@@ -35,6 +35,13 @@ For Maven projects add the following to your `<dependencies>`:
 </dependency>
 ```
 
+> {.note}
+> In the code examples below we assume the following imports:
+>```scala src=../code/CodeGenerator.scala#imports
+> ```
+> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
+
+
 Slick's code generator comes with a default runner that can be used from the command line or from Java/Scala. You can simply execute
 
 ```scala src=../code/CodeGenerator.scala#default-runner-uri

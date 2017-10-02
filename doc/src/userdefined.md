@@ -4,6 +4,12 @@ User-Defined Features {index="user-defined"}
 This chapter describes how to use custom data types and database functions
 with Slick's Scala API.
 
+> {.note}
+> In the code examples below we assume the following imports:
+>```scala src=../code/LiftedEmbedding.scala#imports
+> ```
+> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
+
 Scalar Database Functions {index="scalar,function,user-defined; function,scalar,user-defined"}
 -------------------------
 
