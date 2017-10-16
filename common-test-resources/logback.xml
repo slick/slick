@@ -43,6 +43,7 @@
     <logger name="slick.compiler.VerifyTypes"               level="${log.qcomp.verifyTypes:-inherited}" />
     <logger name="slick.jdbc.DriverDataSource"              level="${log.jdbc.driver:-info}" />
     <logger name="slick.jdbc.JdbcBackend.statement"         level="${log.jdbc.statement:-info}" />
+    <logger name="slick.jdbc.JdbcBackend.parameter"         level="${log.jdbc.parameter:-info}" />
     <logger name="slick.jdbc.JdbcBackend.benchmark"         level="${log.jdbc.bench:-info}" />
     <logger name="slick.jdbc.StatementInvoker.result"       level="${log.jdbc.result:-info}" />
     <logger name="slick.jdbc.JdbcModelBuilder"              level="${log.createModel:-info}" />

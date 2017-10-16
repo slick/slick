@@ -2,10 +2,8 @@ package slick.compiler
 
 import slick.ast.Library.AggregateFunctionSymbol
 
-import scala.collection.mutable.{HashSet, HashMap}
-import slick.SlickException
+import scala.collection.mutable.HashMap
 import slick.ast._
-import TypeUtil._
 
 /** Ensure that all symbol definitions in a tree are unique. The same symbol can initially occur in
   * multiple sub-trees when some part of a query is reused multiple times. This phase assigns new,

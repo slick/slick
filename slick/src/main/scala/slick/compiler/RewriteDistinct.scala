@@ -1,6 +1,5 @@
 package slick.compiler
 
-import slick.ast.Library.AggregateFunctionSymbol
 import slick.ast.TypeUtil._
 import slick.ast.Util._
 import slick.ast._

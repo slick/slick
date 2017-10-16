@@ -139,6 +139,28 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     implicitly[Shape[_ <: FlatShapeLevel, MyTable, _, _]]
     TableQuery(new MyTable(_)).map(identity)
   }
+
+  def testMappedProjectionShape = {
+    def toLower(s: Option[String]) = s.map(_.toLowerCase)
+    def toUpper(s: Option[String]): Option[Option[String]] = Some(s.map(_.toUpperCase))
+
+    case class Row(id: String, escaped: Option[String])
+
+    class T(tag: Tag) extends Table[Row](tag, u"t") {
+      val id = column[String]("id", O.PrimaryKey)
+      val name = column[Option[String]]("name")
+      val upperName = name.shaped <> (toLower, toUpper)
+      def * = (id, upperName) <> (Row.tupled, Row.unapply)
+    }
+    val ts = TableQuery[T]
+
+    seq(
+      ts.schema.create,
+      ts += Row("a", Some("foo")),
+      ts.map(_.name).result.map(_ shouldBe Seq(Some("FOO"))),
+      ts.result.map(_ shouldBe Seq(Row("a", Some("foo"))))
+    )
+  }
 }
 
 case class MyMappedID(value: Int) extends AnyVal with slick.lifted.MappedTo[Int]

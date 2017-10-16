@@ -1,8 +1,8 @@
 package com.typesafe.slick.testkit.util
 
+
 import com.typesafe.config.Config
 
-import org.junit.Assert
 
 import java.io._
 import java.net.{URL, URLClassLoader}
@@ -14,10 +14,9 @@ import java.util.zip.GZIPInputStream
 import scala.collection.mutable
 import scala.concurrent.{Await, Future, ExecutionContext}
 
-import slick.SlickException
 import slick.basic.{BasicProfile, Capability}
 import slick.dbio.{NoStream, DBIOAction, DBIO}
-import slick.jdbc.{JdbcProfile, ResultSetAction, JdbcDataSource, SimpleJdbcAction}
+import slick.jdbc.{JdbcProfile, ResultSetAction, JdbcDataSource}
 import slick.jdbc.GetResult._
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
@@ -186,6 +185,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     profile.backend.Database.forSource(new JdbcDataSource {
       def createConnection(): Connection = wrappedConn
       def close(): Unit = ()
+      val maxConnections: Option[Int] = Some(1)
     }, executor)
   }
   final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])(implicit session: profile.Backend#Session): R = {
@@ -265,7 +265,21 @@ object ExternalTestDB {
   // A cache for custom drivers to avoid excessive reloading and memory leaks
   private[this] val driverCache = new mutable.HashMap[(String, String), Driver]()
 
-  def getCustomDriver(url: String, driverClass: String): Driver = synchronized {
+  def getCustomDriver(url: String, driverClass: String) = synchronized {
+    val sysloader = java.lang.ClassLoader.getSystemClassLoader
+    val sysclass = classOf[URLClassLoader]
+
+    // Add the supplied jar onto the system classpath
+    // Doing this allows Hikari to initialise the driver, if needed
+    try {
+        val method = sysclass.getDeclaredMethod("addURL", classOf[URL])
+        method.setAccessible(true)
+        method.invoke(sysloader, new URL(url))
+    } catch {
+      case t: Throwable =>
+        t.printStackTrace()
+        throw new IOException(s"Error, could not add URL $url to system classloader");
+    }
     driverCache.getOrElseUpdate((url, driverClass),
       new URLClassLoader(Array(new URL(url)), getClass.getClassLoader).loadClass(driverClass).newInstance.asInstanceOf[Driver]
     )

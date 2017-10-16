@@ -205,4 +205,22 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testMappedUnion = {
+    class T(tag: Tag) extends Table[(String, Int, String, Int)](tag, u"t") {
+      def a = column[String]("a")
+      def b = column[Int]("b")
+      def c = column[String]("c")
+      def d = column[Int]("d")
+      def e = column[String]("e")
+      def * = (a, b, c, d)
+      override def create_* = collectFieldSymbols((*, e).shaped.toNode)
+    }
+    val ts = TableQuery[T]
+    val q1 = ts.filter(_.a === "a") ++ ts.filter(_.e === "e")
+    DBIO.seq(
+      ts.schema.create,
+      ts.map(f => (f.a, f.b, f.c, f.d, f.e)) += (("a", 1, "c", 3, "e")),
+      q1.result.map(_ shouldBe Vector(("a",1,"c",3), ("a",1,"c",3)))
+    )
+  }
 }

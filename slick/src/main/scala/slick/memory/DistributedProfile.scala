@@ -1,6 +1,5 @@
 package slick.memory
 
-import scala.language.{implicitConversions, existentials}
 
 import scala.collection.mutable.{Builder, HashMap}
 
@@ -107,7 +106,6 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
 
   /** Compile sub-queries with the appropriate profile */
   class Distribute extends Phase {
-    import Util._
     val name = "distribute"
 
     def apply(state: CompilerState) = state.map { tree =>

@@ -3,11 +3,10 @@ package slick.jdbc
 import scala.concurrent.ExecutionContext
 
 import slick.ast._
-import slick.compiler.{CompilerState, QueryCompiler, Phase}
+import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalCapabilities
 import slick.basic.Capability
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -131,6 +130,10 @@ trait DB2Profile extends JdbcProfile {
         sb.toString
       } else super.createIndex(idx)
     }
+
+    //For compatibility with all versions of DB2 
+    //http://stackoverflow.com/questions/3006999/sql-query-to-truncate-table-in-ibm-db2
+    override def truncateTable = s"DELETE FROM ${quoteTableName(tableNode)}"
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {

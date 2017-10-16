@@ -11,7 +11,7 @@ class DelegateConnection(conn: Connection) extends Connection {
   def setAutoCommit(autoCommit: Boolean): Unit = conn.setAutoCommit(autoCommit)
   def setHoldability(holdability: Int): Unit = conn.setHoldability(holdability)
   def clearWarnings(): Unit = conn.clearWarnings()
-  def getNetworkTimeout: Int = ??? //conn.getNetworkTimeout
+  def getNetworkTimeout: Int = conn.getNetworkTimeout
   def createBlob(): Blob = conn.createBlob()
   def createSQLXML(): SQLXML = conn.createSQLXML()
   def setSavepoint(): Savepoint = conn.setSavepoint()
@@ -20,8 +20,8 @@ class DelegateConnection(conn: Connection) extends Connection {
   def getTransactionIsolation: Int = conn.getTransactionIsolation
   def getClientInfo(name: String): String = conn.getClientInfo(name)
   def getClientInfo: Properties = conn.getClientInfo
-  def getSchema: String = ??? //conn.getSchema
-  def setNetworkTimeout(executor: Executor, milliseconds: Int): Unit = ??? //conn.setNetworkTimeout(executor, milliseconds)
+  def getSchema: String = conn.getSchema
+  def setNetworkTimeout(executor: Executor, milliseconds: Int): Unit = conn.setNetworkTimeout(executor, milliseconds)
   def getMetaData: DatabaseMetaData = conn.getMetaData
   def getTypeMap: util.Map[String, Class[_]] = conn.getTypeMap
   def rollback(): Unit = conn.rollback()
@@ -45,7 +45,7 @@ class DelegateConnection(conn: Connection) extends Connection {
   def setCatalog(catalog: String): Unit = conn.setCatalog(catalog)
   def close(): Unit = conn.close()
   def getAutoCommit: Boolean = conn.getAutoCommit
-  def abort(executor: Executor): Unit = ??? //conn.abort(executor)
+  def abort(executor: Executor): Unit = conn.abort(executor)
   def isValid(timeout: Int): Boolean = conn.isValid(timeout)
   def prepareStatement(sql: String): PreparedStatement = conn.prepareStatement(sql)
   def prepareStatement(sql: String, resultSetType: Int, resultSetConcurrency: Int): PreparedStatement = conn.prepareStatement(sql, resultSetType, resultSetConcurrency)
@@ -57,7 +57,7 @@ class DelegateConnection(conn: Connection) extends Connection {
   def isClosed: Boolean = conn.isClosed
   def createStruct(typeName: String, attributes: Array[AnyRef]): Struct = conn.createStruct(typeName, attributes)
   def getWarnings: SQLWarning = conn.getWarnings
-  def setSchema(schema: String): Unit = ??? //conn.setSchema(schema)
+  def setSchema(schema: String): Unit = conn.setSchema(schema)
   def commit(): Unit = conn.commit()
   def unwrap[T](iface: Class[T]): T = conn.unwrap[T](iface)
   def isWrapperFor(iface: Class[_]): Boolean = conn.isWrapperFor(iface)

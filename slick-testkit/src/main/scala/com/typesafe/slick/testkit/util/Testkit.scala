@@ -6,7 +6,7 @@ import java.lang.reflect.Method
 import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.{Promise, ExecutionContext, Await, Future, blocking}
+import scala.concurrent.{Promise, ExecutionContext, Await, Future}
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
@@ -15,11 +15,11 @@ import scala.util.control.NonFatal
 import slick.SlickTreeException
 import slick.basic.Capability
 import slick.dbio._
-import slick.jdbc.{JdbcProfile, JdbcCapabilities, JdbcBackend}
+import slick.jdbc.{JdbcCapabilities, JdbcBackend}
 import slick.lifted.Rep
 import slick.util.DumpInfo
-import slick.relational.{RelationalProfile, RelationalCapabilities}
-import slick.sql.{SqlProfile, SqlCapabilities}
+import slick.relational.RelationalCapabilities
+import slick.sql.SqlCapabilities
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
@@ -365,5 +365,15 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def shouldAllMatch(f: PartialFunction[T, _]) = v.foreach { x =>
       if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
     }
+  }
+
+  implicit class DBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[T, S, E]) {
+    @inline def shouldYield(t: T) = action.map(_.shouldBe(t))
+  }
+
+  implicit class CollectionDBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[Vector[T], S, E]) {
+    @inline def shouldYield(t: Set[T]) = action.map(_.toSet.shouldBe(t))
+    @inline def shouldYield(t: Seq[T]) = action.map(_.toSeq.shouldBe(t))
+    @inline def shouldYield(t: List[T]) = action.map(_.toList.shouldBe(t))
   }
 }

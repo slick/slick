@@ -3,18 +3,16 @@ package slick.jdbc
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
-import scala.language.implicitConversions
 
 import java.sql.{Array => _, _}
 
 import slick.SlickException
 import slick.ast._
-import slick.ast.Util._
-import slick.compiler.{CompilerState, Phase, QueryCompiler}
+import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
-import slick.model.{ForeignKeyAction, Model}
+import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, ResultConverter, RelationalProfile}
 import slick.basic.Capability
 import slick.util.ConstArray
@@ -96,8 +94,7 @@ trait OracleProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     for {
       user <- SimpleJdbcAction(_.session.metaData.getUserName)
-      tables <- SQLActionBuilder(Seq("select TABLE_NAME from all_tables where OWNER = ?"), implicitly[SetParameter[String]].applied(user)).as[String]
-      mtables <- MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(t => tables contains t.name.name)) // FIXME: this should check schema and maybe more
+      mtables <- MTable.getTables(None, Some(user), None, Some(Seq("TABLE")))
     } yield mtables
   }
 
@@ -215,6 +212,7 @@ trait OracleProfile extends JdbcProfile {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
+      if( unique ) sb append " UNIQUE"
     }
 
     override protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {

@@ -1,9 +1,8 @@
 package slick.memory
 
-import scala.language.{implicitConversions, existentials}
+import scala.language.existentials
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
-import scala.util.control.NonFatal
 
 import slick.ast._
 import slick.ast.TypeUtil._
@@ -167,6 +166,10 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     }
     def drop = dbAction { session =>
       tables.foreach(t => session.database.dropTable(t.tableName))
+    }
+
+    def truncate = dbAction{ session =>
+      tables.foreach(t => session.database.truncateTable(t.tableName) )
     }
   }
 

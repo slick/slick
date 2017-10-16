@@ -7,7 +7,7 @@ import slick.dbio._
 import slick.lifted.FunctionSymbolExtensionMethods._
 import slick.lifted._
 
-import scala.language.{existentials, higherKinds, implicitConversions}
+import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.ClassTag
 
 /** A profile for relational databases that does not assume the existence
@@ -110,6 +110,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
+    val Unique = ColumnOption.Unique
     val Length = RelationalProfile.ColumnOption.Length
   }
 
@@ -246,5 +247,8 @@ trait RelationalActionComponent extends BasicActionComponent { self: RelationalP
 
     /** Create an Action that drops the entities described by this schema description. */
     def drop: ProfileAction[Unit, NoStream, Effect.Schema]
+
+    /** Create an Action that truncates entries described by this schema description */
+    def truncate: ProfileAction[Unit, NoStream, Effect.Schema]
   }
 }

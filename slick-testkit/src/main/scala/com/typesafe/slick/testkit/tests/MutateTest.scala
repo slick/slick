@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class MutateTest extends AsyncTest[JdbcTestDB] {

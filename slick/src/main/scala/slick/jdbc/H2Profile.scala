@@ -11,7 +11,6 @@ import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.compiler.{Phase, CompilerState}
 import slick.jdbc.meta.{MColumn, MTable}
-import slick.model.Model
 
 /** Slick profile for H2.
   *
@@ -76,6 +75,7 @@ trait H2Profile extends JdbcProfile {
   override protected def computeQueryCompiler = super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) - Phase.fixRowNumberOrdering
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new CountingInsertActionComposerImpl[T](compiled)
 
@@ -104,6 +104,16 @@ trait H2Profile extends JdbcProfile {
       case (Some(t), None   ) => b"\nlimit $t"
       case (None, Some(d)   ) => b"\nlimit -1 offset $d"
       case _ =>
+    }
+  }
+
+  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+    override protected def appendOptions(sb: StringBuilder) {
+      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if(notNull) sb append " NOT NULL"
+      if(primaryKey) sb append " PRIMARY KEY"
+      if(autoIncrement) sb append " AUTO_INCREMENT"
+      if(unique) sb append " UNIQUE"
     }
   }
 

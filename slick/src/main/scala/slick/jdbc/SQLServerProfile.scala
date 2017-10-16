@@ -1,7 +1,7 @@
 package slick.jdbc
 
 import scala.concurrent.ExecutionContext
-
+import scala.reflect.{ClassTag,classTag}
 import java.sql.{Timestamp, Date, Time, ResultSet}
 
 import com.typesafe.config.Config
@@ -13,7 +13,6 @@ import slick.compiler._
 import slick.dbio._
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.{SlickLogger, ConstArray, GlobalConfig}
@@ -102,13 +101,25 @@ trait SQLServerProfile extends JdbcProfile {
         case ("1","Boolean")  => Some(true)
       }.map(d => Some(d)).getOrElse{super.default}
     }
+    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
+      //SQL Server's TINYINT type is unsigned while Scala's Byte is signed
+      if( jdbcType == java.sql.Types.TINYINT )
+        classTag[Short]
+      else
+        super.jdbcTypeToScala( jdbcType , typeName )
+    }
   }
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
-    MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
+    import api._
+    for {
+      schema <- Functions.user.result
+      mtables <- MTable.getTables(None, Some(schema), None, Some(Seq("TABLE")))
+    } yield mtables
+  }
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
@@ -214,6 +225,7 @@ trait SQLServerProfile extends JdbcProfile {
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
       if(autoIncrement) sb append " IDENTITY"
+      if( unique ) sb append " UNIQUE"
     }
   }
 

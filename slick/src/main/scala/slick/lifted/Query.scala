@@ -48,7 +48,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   }
   /** Select all elements of this query which satisfy a predicate. Unlike
     * `withFilter, this method only allows `Rep`-valued predicates, so it
-    * guards against the accidental use use plain Booleans. */
+    * guards against the accidental use plain Booleans. */
   def filter[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
     withFilter(f)
   def filterNot[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
@@ -185,6 +185,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def size = length
 
   /** The number of distinct elements of the query. */
+  @deprecated("Use `length` on `distinct` or `distinctOn` instead of `countDistinct`", "3.2")
   def countDistinct: Rep[Int] = Library.CountDistinct.column(toNode)
 
   /** Test whether this query is non-empty. */
@@ -259,7 +260,7 @@ trait CanBeQueryCondition[-T] extends (T => Rep[_])
 
 object CanBeQueryCondition {
   // Using implicits with explicit type annotation here (instead of previously implicit objects)
-  // because otherwise they would not be found in this file above this line. 
+  // because otherwise they would not be found in this file above this line.
   // See https://github.com/slick/slick/pull/217
   implicit val BooleanColumnCanBeQueryCondition : CanBeQueryCondition[Rep[Boolean]] =
     new CanBeQueryCondition[Rep[Boolean]] {

@@ -1,0 +1,3 @@
+[submodule "suegithub"]
+	path = travis/ZNonPublicDeps
+	url = https://github.com/smootoo/ZNonPublicDeps.git

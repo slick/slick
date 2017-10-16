@@ -1,8 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{StandardTestDBs, RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB, StandardTestDBs}
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 
 class ActionTest extends AsyncTest[RelationalTestDB] {
@@ -110,6 +109,30 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     )
   } else DBIO.successful(())
 
+  def testOptionSequence = {
+    class T(tag: Tag) extends Table[Option[Int]](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a.?
+    }
+    val ts = TableQuery[T]
+
+    val aSetup = ts.schema.create
+
+    val a1 = LiteralColumn(Option(1)).result
+    val a2 = DBIO.sequenceOption(Option(LiteralColumn(1).result))
+    val a3 = DBIO.sequenceOption(Option.empty[DBIO[Int]])
+
+    for {
+      _ <- aSetup
+      b1 <- a1
+      b2 <- a2
+      b3 <- a3
+    } yield {
+      b1 shouldBe b2
+      b2 shouldNotBe b3
+    }
+  }
+
   def testFlatten = {
     class T(tag: Tag) extends Table[Int](tag, u"t") {
       def a = column[Int]("a")
@@ -170,6 +193,26 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
         import scala.concurrent.Await
         Await.result(future, Duration.Inf)
       }
+    } yield ()
+  }
+
+  def testTruncate = {
+    class T(_tag: Tag) extends Table[Int](_tag , "truncate_test"){
+      def a = column[Int]("a")
+      def * = a
+    }
+
+    val ts = TableQuery[T]
+    for{
+      _ <- ts.schema.create
+      initial <- ts.result
+      _ = assert(initial.toSet == Set())
+      res <- (ts ++= Seq(2, 3, 1, 5, 4)) >>
+             ts.result
+      _ = assert(res.toSet == Set(2, 3, 1, 5, 4))
+      newRes <- ts.schema.truncate >>
+                ts.result
+      _ = assert(newRes.toSet == Set())
     } yield ()
   }
 }

@@ -2,7 +2,6 @@ package slick.dbio
 
 import org.reactivestreams.Subscription
 
-import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.language.higherKinds
 
@@ -168,6 +167,12 @@ object DBIOAction {
     }
     if(state != 0) total += current.result()
     total.result()
+  }
+
+  /** Transform a `Option[ DBIO[R] ]` into a `DBIO[ Option[R] ]`. */
+  def sequenceOption[R, E <: Effect](in: Option[DBIOAction[R, NoStream, E]]): DBIOAction[Option[R], NoStream, E] = {
+    implicit val ec = DBIO.sameThreadExecutionContext
+    sequence(in.toList).map(_.headOption)
   }
 
   /** Transform a `TraversableOnce[ DBIO[R] ]` into a `DBIO[ TraversableOnce[R] ]`. */
