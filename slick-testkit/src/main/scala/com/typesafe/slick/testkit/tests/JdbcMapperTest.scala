@@ -229,6 +229,53 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     } yield ()
   }
 
+  def testCaseClassMapping2 = {
+    case class LiftedB(
+      a: Rep[Option[Long]],
+      b: Rep[Option[Long]],
+      c: Rep[Option[Long]],
+      d: Rep[Option[Int]],
+      e: Rep[Option[Double]],
+      f: Rep[Option[Int]]
+    )
+
+    case class B(
+      a: Option[Long],
+      b: Option[Long],
+      c: Option[Long],
+      d: Option[Int],
+      e: Option[Double],
+      f: Option[Int]
+    )
+
+    implicit object shape
+        extends CaseClassShape((LiftedB.apply _).tupled,
+                               (B.apply _).tupled)
+
+    case class ARow(id: Int, s: Long)
+
+    class A(tag: Tag) extends Table[ARow](tag, "A_TestCaseClass2") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[Long]("s")
+      def * = (id, s).mapTo[ARow]
+    }
+    val as = TableQuery[A]
+    val data = Seq(ARow(1, 1L), ARow(2, 2L))
+
+    as.schema.create >>
+      (as ++= data) >>
+      (as.length, LiftedB(
+        as.map(_.id).sum.getOrElse(0).asColumnOf[Option[Long]],
+        LiteralColumn(None),
+        as.map(_.s).sum.getOrElse(0L).asColumnOf[Option[Long]],
+        LiteralColumn(None),
+        LiteralColumn(None),
+        LiteralColumn(None)
+      )).result.map (
+        _._1 shouldBe 2
+      )
+  }
+
   def testCaseClassShape = {
     case class C(a: Int, b: String)
     case class LiftedC(a: Rep[Int], b: Rep[String])
