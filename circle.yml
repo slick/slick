@@ -1,6 +1,6 @@
 machine:
   environment:
-    SBT_VERSION: 0.13.13
+    SBT_VERSION: 0.13.16
     _JAVA_OPTIONS: "-Xms1g -Xmx2g"
   services:
     - postgresql
