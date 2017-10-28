@@ -14,7 +14,7 @@ object SlickBuild extends Build {
 
   val slickVersion = "3.3.0-SNAPSHOT"
   val binaryCompatSlickVersion = "3.3.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.11.8", "2.12.3")
+  val scalaVersions = Seq("2.11.8", "2.12.4")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
