@@ -45,6 +45,51 @@ class DataSourceTest {
     } finally db.close
   }
 
+  @Test def testDatabaseUrlDataSourceNoPassword: Unit = {
+    import slick.jdbc.H2Profile.api.actionBasedSQLInterpolation
+    MockDriver.reset
+    val db = JdbcBackend.Database.forConfig("databaseUrlNoPassword")
+    try {
+      assertEquals(Some(100), db.source.maxConnections)
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
+      assertEquals("jdbc:postgresql://host/dbname", url)
+      assertEquals("user", info.getProperty("user"))
+      assertEquals(null, info.getProperty("password"))
+      assertEquals("bar", info.getProperty("foo"))
+    } finally db.close
+  }
+
+  @Test def testDatabaseUrlDataSourceMySQL: Unit = {
+    import slick.jdbc.H2Profile.api.actionBasedSQLInterpolation
+    MockDriver.reset
+    val db = JdbcBackend.Database.forConfig("databaseUrlMySQL")
+    try {
+      assertEquals(Some(100), db.source.maxConnections)
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
+      assertEquals("jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci", url)
+      assertEquals("user", info.getProperty("user"))
+      assertEquals("pass", info.getProperty("password"))
+      assertEquals("bar", info.getProperty("foo"))
+    } finally db.close
+  }
+
+  @Test def testDatabaseUrlDataSourceMySQLNoPassword: Unit = {
+    import slick.jdbc.H2Profile.api.actionBasedSQLInterpolation
+    MockDriver.reset
+    val db = JdbcBackend.Database.forConfig("databaseUrlMySQLNoPassword")
+    try {
+      assertEquals(Some(100), db.source.maxConnections)
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
+      assertEquals("jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci", url)
+      assertEquals("user", info.getProperty("user"))
+      assertEquals(null, info.getProperty("password"))
+      assertEquals("bar", info.getProperty("foo"))
+    } finally db.close
+  }
+
   @Test def testAltDatabaseUrlDataSourceScheme: Unit = {
     import slick.jdbc.H2Profile.api.actionBasedSQLInterpolation
     MockDriver.reset
