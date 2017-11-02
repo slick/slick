@@ -150,9 +150,9 @@ class LoggingStatement(st: Statement) extends Statement {
   * to the appropriate [[JdbcBackend]] loggers. */
 class LoggingPreparedStatement(st: PreparedStatement) extends LoggingStatement(st) with PreparedStatement {
 
-  def execute(): Boolean = { pushParams; logged(null, "prepared statement") { st.execute() } }
+  def execute(): Boolean = { pushParams; logged(st.toString, "prepared statement") { st.execute() } }
   def executeQuery(): js.ResultSet = { pushParams; logged(null, "prepared query") { st.executeQuery() } }
-  def executeUpdate(): Int = { pushParams; logged(null, "prepared update") { st.executeUpdate() } }
+  def executeUpdate(): Int = { pushParams; logged(st.toString, "prepared update") { st.executeUpdate() } }
 
   def addBatch(): Unit = { pushParams; st.addBatch() }
   def clearParameters(): Unit = { clearParamss; st.clearParameters() }

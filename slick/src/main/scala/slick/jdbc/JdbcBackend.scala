@@ -331,16 +331,12 @@ trait JdbcBackend extends RelationalBackend {
     }
 
     final def prepareInsertStatement(sql: String, columnNames: Array[String] = new Array[String](0)): PreparedStatement = {
-      if(JdbcBackend.statementLogger.isDebugEnabled)
-        JdbcBackend.logStatement("Preparing insert statement (returning: "+columnNames.mkString(",")+")", sql)
       val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnNames)))
       if(fetchSize != 0) s.setFetchSize(fetchSize)
       s
     }
 
     final def prepareInsertStatement(sql: String, columnIndexes: Array[Int]): PreparedStatement = {
-      if(JdbcBackend.statementLogger.isDebugEnabled)
-        JdbcBackend.logStatement("Preparing insert statement (returning indexes: "+columnIndexes.mkString(",")+")", sql)
       val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnIndexes)))
       if(fetchSize != 0) s.setFetchSize(fetchSize)
       s
