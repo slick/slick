@@ -7,7 +7,6 @@ import java.util.UUID
 import java.time._
 import java.time.temporal.ChronoField
 import javax.sql.rowset.serial.SerialBlob
-import org.junit.Assert._
 
 import scala.concurrent.Future
 

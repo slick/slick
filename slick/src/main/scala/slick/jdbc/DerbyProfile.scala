@@ -7,10 +7,9 @@ import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.Capability
 import slick.dbio._
-import slick.compiler.{Phase, QueryCompiler, CompilerState}
+import slick.compiler.{Phase, CompilerState}
 import slick.jdbc.meta.MTable
 import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -169,6 +168,14 @@ trait DerbyProfile extends JdbcProfile {
         } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None, true)
+        if(all) b"\nunion all " else b"\nunion "
+        b"\["
+        buildFrom(right, None, true)
+        b"\]"
+        b"\}"
       case _ => super.expr(c, skipParens)
     }
   }

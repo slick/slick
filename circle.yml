@@ -1,4 +1,7 @@
 machine:
+  environment:
+    SBT_VERSION: 0.13.13
+    _JAVA_OPTIONS: "-Xms1g -Xmx2g"
   services:
     - postgresql
     - mysql
@@ -7,6 +10,13 @@ machine:
 
 dependencies:
   pre:
+    - wget --output-document=$HOME/bin/sbt-launch.jar
+          https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/"$SBT_VERSION"/sbt-launch.jar
+    - echo "java $SBT_OPTS -jar \`dirname \$0\`/sbt-launch.jar \"\$@\""
+      > $HOME/bin/sbt
+    - chmod u+x $HOME/bin/sbt
+    - which sbt
+    - sbt sbt-version
     - sudo apt-get update -qq
     - sudo apt-get install -y python-sphinx
 

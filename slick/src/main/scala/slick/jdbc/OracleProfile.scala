@@ -5,24 +5,23 @@ import java.time._
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
-import scala.language.implicitConversions
+
 import java.sql.{Array => _, _}
 import java.time.temporal.ChronoField
 
 import slick.SlickException
 import slick.ast._
-import slick.ast.Util._
-import slick.compiler.{CompilerState, Phase, QueryCompiler}
+import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
+import slick.model.ForeignKeyAction
+import slick.relational.{RelationalCapabilities, ResultConverter, RelationalProfile}
 import slick.model.{ForeignKeyAction, Model}
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.basic.Capability
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
-
-import scala.annotation.tailrec
 
 /** Slick profile for Oracle.
   *
@@ -334,7 +333,6 @@ trait OracleProfile extends JdbcProfile {
       override def updateValue(v: Time, r: ResultSet, idx: Int) = r.updateTimestamp(idx, new Timestamp(v.getTime))
       override def valueToSQLLiteral(value: Time) = "{ts '"+(new Timestamp(value.getTime).toString)+"'}"
     }
-
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "RAW(32)"

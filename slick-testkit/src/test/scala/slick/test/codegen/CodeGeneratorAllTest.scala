@@ -8,7 +8,7 @@ import slick.codegen.SourceCodeGenerator
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 
-object CodeGeneratorAllTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object CodeGeneratorAllTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerJTDS, SQLServerSQLJDBC)
 
 class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.api._

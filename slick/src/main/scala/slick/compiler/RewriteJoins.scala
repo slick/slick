@@ -1,7 +1,6 @@
 package slick.compiler
 
 import slick.util.{ConstArray, Ellipsis}
-import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
 import TypeUtil._
@@ -248,9 +247,6 @@ class RewriteJoins extends Phase {
       else j.copy(right = j2b) :@ j.nodeType
     case j => j
   }
-
-  // binary compatibility shim for 3.1
-  def rearrangeJoinConditions(j: Join): Join = rearrangeJoinConditions(j, Set.empty)
 
   /** Merge nested mapping operations of the form `Bind(_, Bind(_, _, Pure(StructNode(p1), _)), Pure(StructNode(p2), _))`
     * into a single Bind, provided that each element of either p1 or p2 contains not more than one path.

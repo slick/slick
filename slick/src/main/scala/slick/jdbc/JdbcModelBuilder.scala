@@ -1,8 +1,7 @@
 package slick.jdbc
 
-import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 
 import scala.util.{Failure, Success}
@@ -196,7 +195,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     def dbType: Option[String] = Some(meta.typeName)
     /** Column length of string types */
     def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
-    /** Indicates wether this should be a varchar in case of a string column.
+    /** Indicates whether this should be a varchar in case of a string column.
       * Currently defaults to true. Should be based on the value of dbType in the future. */
     def varying: Boolean =
       Seq(java.sql.Types.NVARCHAR, java.sql.Types.VARCHAR, java.sql.Types.LONGVARCHAR, java.sql.Types.LONGNVARCHAR) contains meta.sqlType
@@ -227,7 +226,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
               case 3 => v(1) // quoted character
             }
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
-          case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
+          case (v,"scala.math.BigDecimal") => BigDecimal(s"${v.trim}") // need the trim for Oracle trailing space
           case (StringPattern(str),"String") => str
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false

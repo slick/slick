@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
 
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 import scala.reflect.ClassTag
@@ -78,7 +77,6 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
   def testWideMappedEntity = {
     import slick.collection.heterogeneous._
-    import slick.collection.heterogeneous.syntax._
 
     case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
     case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
@@ -289,7 +287,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     case class Pair[A, B](a: A, b: B)
 
     // A Shape that maps Pair to a ProductNode
-    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
+    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
       def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
     }

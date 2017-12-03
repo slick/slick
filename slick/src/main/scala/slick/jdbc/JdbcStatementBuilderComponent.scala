@@ -1,18 +1,17 @@
 package slick.jdbc
 
-import scala.language.{existentials, implicitConversions, higherKinds}
+import scala.language.existentials
 import scala.collection.mutable.HashMap
 import slick.SlickException
 import slick.ast._
 import slick.ast.Util.nodeToNodeOps
 import slick.ast.TypeUtil._
-import slick.compiler.{RewriteBooleans, CodeGen, Phase, CompilerState, QueryCompiler}
+import slick.compiler.{RewriteBooleans, CodeGen, CompilerState, QueryCompiler}
 import slick.lifted._
 import slick.relational.{RelationalProfile, RelationalCapabilities, ResultConverter, CompiledMapping}
 import slick.sql.SqlProfile
 import slick.util._
 import slick.util.MacroSupport.macroSupportInterpolation
-import slick.util.SQLBuilder.Result
 
 trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
@@ -425,9 +424,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         b"\}"
       case Union(left, right, all) =>
         b"\{"
+        b"\["
         buildFrom(left, None, true)
+        b"\]"
         if(all) b"\nunion all " else b"\nunion "
+        b"\["
         buildFrom(right, None, true)
+        b"\]"
         b"\}"
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)
@@ -533,7 +536,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   /** Builder for upsert statements, builds standard SQL MERGE statements by default. */
   class UpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
-    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition(_.options.contains(ColumnOption.PrimaryKey))
+    /* NOTE: pk defined by using method `primaryKey` and pk defined with `PrimaryKey` can only have one,
+             here we let table ddl to help us ensure this. */
+    private lazy val funcDefinedPKs = table.profileTable.asInstanceOf[Table[_]].primaryKeys
+    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition { sym =>
+      sym.options.contains(ColumnOption.PrimaryKey) || funcDefinedPKs.exists(pk => pk.columns.collect {
+        case Select(_, f: FieldSymbol) => f
+      }.exists(_.name == sym.name)) }
     protected lazy val pkNames = pkSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val softNames = softSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val nonAutoIncSyms = syms.filter(s => !(s.options contains ColumnOption.AutoInc))

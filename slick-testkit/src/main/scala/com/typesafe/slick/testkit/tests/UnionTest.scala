@@ -1,6 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
+
+import scala.collection.mutable
 
 class UnionTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
@@ -24,9 +26,28 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
   }
   lazy val employees = TableQuery[Employees]
 
+  def managersQuery = for(m <- managers filter { _.department === "IT" }) yield (m.id, m.name)
+
+  def employeesQuery = for(e <- employees filter { _.departmentIs("IT") }) yield (e.id, e.name)
+
+  val managersData = Seq(
+    (1, "Peter", "HR"),
+    (2, "Amy", "IT"),
+    (3, "Steve", "IT")
+  )
+
+  val employeesData = Seq(
+    (4, "Jennifer", 1),
+    (5, "Tom", 1),
+    (6, "Leonard", 2),
+    (7, "Ben", 2),
+    (8, "Greg", 3)
+  )
+
   def testBasicUnions = {
-    val q1 = for(m <- managers filter { _.department === "IT" }) yield (m.id, m.name)
-    val q2 = for(e <- employees filter { _.departmentIs("IT") }) yield (e.id, e.name)
+
+    val q1 = managersQuery
+    val q2 = employeesQuery
     val q3 = (q1 union q2).sortBy(_._2.asc)
     val q4 = managers.map(_.id)
     val q4b = q4 union q4
@@ -35,18 +56,8 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
 
     (for {
       _ <- (managers.schema ++ employees.schema).create
-      _ <- managers ++= Seq(
-        (1, "Peter", "HR"),
-        (2, "Amy", "IT"),
-        (3, "Steve", "IT")
-      )
-      _ <- employees ++= Seq(
-        (4, "Jennifer", 1),
-        (5, "Tom", 1),
-        (6, "Leonard", 2),
-        (7, "Ben", 2),
-        (8, "Greg", 3)
-      )
+      _ <- managers ++= managersData
+      _ <- employees ++= employeesData
       _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set((2,"Amy"), (3,"Steve")))
       _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set((7,"Ben"), (8,"Greg"), (6,"Leonard")))
       _ <- mark("q3", q3.result).map(_ shouldBe List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")))
@@ -56,17 +67,26 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 
+  def testUnionWithLimit = {
+    val q1 = managersQuery
+    val q2 = employeesQuery.sortBy(_._2.asc)
+    val union = (q1 ++ q2.take(1)).sortBy(_._2.asc)
+
+    (for {
+      _ <- (managers.schema ++ employees.schema).create
+      _ <- managers ++= managersData
+      _ <- employees ++= employeesData
+      _ <- mark("union", union.result).map(_ shouldBe List((2,"Amy"),(7,"Ben"),(3,"Steve")))
+    } yield ()) andFinally (managers.schema ++ employees.schema).drop
+  }
+
   def testUnionWithoutProjection = {
     def f (s: String) = managers filter { _.name === s}
     val q = f("Peter") union f("Amy")
 
     seq(
       managers.schema.create,
-      managers ++= Seq(
-        (1, "Peter", "HR"),
-        (2, "Amy", "IT"),
-        (3, "Steve", "IT")
-      ),
+      managers ++= managersData,
       q.result.map(r => r.toSet shouldBe Set((1, "Peter", "HR"), (2, "Amy", "IT")))
     ) andFinally managers.schema.drop
   }
@@ -185,4 +205,22 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testMappedUnion = {
+    class T(tag: Tag) extends Table[(String, Int, String, Int)](tag, u"t") {
+      def a = column[String]("a")
+      def b = column[Int]("b")
+      def c = column[String]("c")
+      def d = column[Int]("d")
+      def e = column[String]("e")
+      def * = (a, b, c, d)
+      override def create_* = collectFieldSymbols((*, e).shaped.toNode)
+    }
+    val ts = TableQuery[T]
+    val q1 = ts.filter(_.a === "a") ++ ts.filter(_.e === "e")
+    DBIO.seq(
+      ts.schema.create,
+      ts.map(f => (f.a, f.b, f.c, f.d, f.e)) += (("a", 1, "c", 3, "e")),
+      q1.result.map(_ shouldBe Vector(("a",1,"c",3), ("a",1,"c",3)))
+    )
+  }
 }

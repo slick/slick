@@ -9,13 +9,10 @@ import java.sql.{PreparedStatement, ResultSet}
 import scala.concurrent.ExecutionContext
 
 import slick.ast._
-import slick.ast.Util._
 import slick.basic.Capability
 import slick.compiler.{Phase, CompilerState}
 import slick.dbio._
 import slick.jdbc.meta.{MIndexInfo, MColumn, MTable}
-import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalProfile
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -66,25 +63,52 @@ trait PostgresProfile extends JdbcProfile {
       override def schema = super.schema.filter(_ != "public") // remove default schema
     }
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
-      val VarCharPattern = "^'(.*)'::character varying$".r
-      val TextPattern = "^'(.*)'::text".r
-      val IntPattern = "^\\((-?[0-9]*)\\)$".r
+      /*
+      The default value for numeric type behave different with postgres version
+      PG9.5 - PG9.6:
+       positive default value in int boundary: 1
+       negative default value in int boundary: '-1'::integer
+       positive default value between int boundary and long boundary: '123123214232131312'::bitint
+       negative default value between int boundary and long boundary: '-123123214232131312'::bitint
+       positive default value beyond long boundary: '111111111111111111111111111'::numeric
+       negative default value beyond long boundary: '-111111111111111111111111111'::numeric
+       positive floating: '1.1'::numeric
+       negative floating: '-.1.1'::numeric
+
+      PGX.X to PG9.4:
+       positive default value in int boundary: 1
+       negative default value in int boundary: (-1)
+       positive default value between int boundary and long boundary: 123123214232131312::bitint
+       negative default value between int boundary and long boundary: (-123123214232131312)::bitint
+       positive default value beyond long boundary: 111111111111111111111111111::numeric
+       negative default value beyond long boundary: (-111111111111111111111111111)::numeric
+       positive floating: 1.1
+       negative floating: (-.1.1)
+
+
+       */
+      val NumericPattern = "^['(]?(-?[0-9]+\\.?[0-9]*)[')]?(?:::(?:numeric|bigint|integer))?".r
+      val TextPattern = "^'(.*)'::(?:bpchar|character varying|text)".r
+      val UUIDPattern = "^'(.*)'::uuid".r
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("true","Boolean")  => Some(Some(true))
         case ("false","Boolean") => Some(Some(false))
-        case (VarCharPattern(str),"String") => Some(Some(str))
         case (TextPattern(str),"String") => Some(Some(str))
-        case (IntPattern(v),"Int") => Some(Some(v.toInt))
-        case (IntPattern(v),"Long") => Some(Some(v.toLong))
-        case ("NULL::character varying","String") => Some(None)
-        case (v,"java.util.UUID") => {
-          if (v.matches("^['\"].*['\"](::uuid)?$")) {
-            val uuid = v.replaceAll("[\'\"]", "") //strip quotes
-                        .stripSuffix("::uuid") //strip suffix
-            Some(Some(java.util.UUID.fromString(uuid)))
-          } else
-            None // The UUID is generated through a function - treat it as if there was no default.
+        case ("NULL::bpchar", "String") => Some(None)
+        case (TextPattern(str),"Char") => str.length match {
+          case 0 => Some(Some(' ')) // Default to one space, as the char will be space padded anyway
+          case 1 => Some(Some(str.head))
+          case _ => None // This is invalid, so let's not supply any default
         }
+        case ("NULL::bpchar", "Char") => Some(None)
+        case (NumericPattern(v),"Short") => Some(Some(v.toShort))
+        case (NumericPattern(v),"Int") => Some(Some(v.toInt))
+        case (NumericPattern(v),"Long") => Some(Some(v.toLong))
+        case (NumericPattern(v),"Float") => Some(Some(v.toFloat))
+        case (NumericPattern(v),"Double") => Some(Some(v.toDouble))
+        case (NumericPattern(v), "scala.math.BigDecimal") => Some(Some(BigDecimal(s"$v")))
+        case (UUIDPattern(v),"java.util.UUID") => Some(Some(java.util.UUID.fromString(v)))
+        case (_,"java.util.UUID") => None // The UUID is generated through a function - treat it as if there was no default.
       }.getOrElse{
         val d = super.default
         if(meta.nullable == Some(true) && d == None){
@@ -170,6 +194,12 @@ trait PostgresProfile extends JdbcProfile {
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
       case Library.CurrentDate() => b"current_date"
       case Library.CurrentTime() => b"current_time"
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None)
+        if (all) b"\nunion all " else b"\nunion "
+        buildFrom(right, None)
+        b"\}"
       case _ => super.expr(n, skipParens)
     }
   }

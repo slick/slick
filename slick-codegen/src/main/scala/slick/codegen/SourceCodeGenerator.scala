@@ -2,13 +2,12 @@ package slick.codegen
 
 import java.net.URI
 
-import scala.concurrent.{ExecutionContext, Await}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration.Duration
-import scala.util.Try
-
 import slick.basic.DatabaseConfig
 import slick.{model => m}
 import slick.jdbc.JdbcProfile
+import slick.model.Model
 import slick.util.ConfigExtensionMethods.configExtensionMethods
 
 /**
@@ -60,8 +59,10 @@ class SourceCodeGenerator(model: m.Model)
 
 /** A runnable class to execute the code generator without further setup */
 object SourceCodeGenerator {
+  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean): Unit =
+    run(profile, jdbcDriver, url, outputDir, pkg, user, password, ignoreInvalidDefaults, None)
 
-  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean): Unit = {
+  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String]): Unit = {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
     val dbFactory = profileInstance.api.Database
@@ -69,7 +70,10 @@ object SourceCodeGenerator {
       user = user.getOrElse(null), password = password.getOrElse(null), keepAliveConnection = true)
     try {
       val m = Await.result(db.run(profileInstance.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
-      new SourceCodeGenerator(m).writeToFile(profile,outputDir,pkg)
+      val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
+      val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[_ <: SourceCodeGenerator]]
+      val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
+      generatorInstance.writeToFile(profile,outputDir, pkg)
     } finally db.close
   }
 
@@ -91,11 +95,13 @@ object SourceCodeGenerator {
       case uri :: outputDir :: Nil =>
         run(new URI(uri), Some(outputDir))
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, None, None, true)
+        run(profile, jdbcDriver, url, outputDir, pkg, None, None, true, None)
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), true)
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), true, None)
       case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean)
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, None)
+      case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: codeGeneratorClass :: Nil =>
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, Some(codeGeneratorClass))
       case _ => {
         println("""
             |Usage:
