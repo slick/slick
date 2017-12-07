@@ -24,7 +24,7 @@ object MColumn {
           case _ => None
         }, r.<<, r.<<, r.skip.skip.<<, r.<<, DatabaseMeta.yesNoOpt(r),
         if(r.hasMoreColumns) MQName.optionalFrom(r) else None,
-        r.nextObjectOption(),
+        if(r.hasMoreColumns) r.nextObjectOption() else None,
         if(r.hasMoreColumns) DatabaseMeta.yesNoOpt(r) else None)
   }
 }
