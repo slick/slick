@@ -126,8 +126,9 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   def testDate =
     roundtrip("date_t1", Date.valueOf("2012-12-24"))
 
-  def testLocalDate =
+  def testLocalDate = ifCap(jcap.javaTime) {
     roundtrip[LocalDate]("local_date_t1", LocalDate.now(ZoneOffset.UTC))
+  }
 
   def testTime =
     roundtrip("time_t1", Time.valueOf("17:53:48"))
@@ -149,156 +150,156 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       Timestamp.valueOf("2012-12-24 17:53:48.0")
     )
   }
-  def testLocalTime = {
+  def testLocalTime = ifCap(jcap.javaTime) {
     timeRoundTrip[LocalTime](
       "local_time_hour_gt_10",
       generateTestLocalDateTime().toLocalTime.withHour(14)
     )
   }
-  def testLocalTimeWithHourLesserThan10 = {
+  def testLocalTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
     timeRoundTrip[LocalTime](
       "local_time_hour_lt_10",
       generateTestLocalDateTime().toLocalTime.withHour(5)
     )
   }
-  def testInstant = {
+  def testInstant = ifCap(jcap.javaTime) {
     timeRoundTrip[Instant](
       "instant_t1",
       generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC)
     )
   }
-  def testInstantWithHourLesserThan10 = {
+  def testInstantWithHourLesserThan10 = ifCap(jcap.javaTime) {
     timeRoundTrip[Instant](
       "instant_with_hour_lt_10",
       generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)
     )
   }
-  def testLocalDateTimeWithHourLesserThan10 = {
+  def testLocalDateTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
     timeRoundTrip[LocalDateTime](
       "local_date_time_hour_lt_10",
       generateTestLocalDateTime().withHour(5)
     )
   }
-  def testLocalDateTimeWithHourGreaterThan10 = {
+  def testLocalDateTimeWithHourGreaterThan10 = ifCap(jcap.javaTime) {
     timeRoundTrip[LocalDateTime](
       "local_date_time_hour_gt_10",
       generateTestLocalDateTime().withHour(12)
     )
   }
-  def testOffsetTime = {
+  def testOffsetTime = ifCap(jcap.javaTime) {
     timeRoundTrip[OffsetTime](
       s"offset_time_tz_utc",
       generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime.withHour(15)
     )
   }
-  def testOffsetTimeHourLessThan10UTC = {
+  def testOffsetTimeHourLessThan10UTC = ifCap(jcap.javaTime) {
     timeRoundTrip[OffsetTime](
       s"offset_time_utc_hour_lt_10",
       generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime.withHour(5)
     )
   }
-  def testOffsetTimeNegativeOffsetGreaterThan10 = {
+  def testOffsetTimeNegativeOffsetGreaterThan10 = ifCap(jcap.javaTime) {
     // Offset -> -11:00 / -11:00
     timeRoundTrip[OffsetTime](
       s"offset_time_tz_ntz_gt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).toOffsetDateTime.toOffsetTime.withHour(15)
     )
   }
-  def testOffsetTimeNegativeOffsetLessThan10 = {
+  def testOffsetTimeNegativeOffsetLessThan10 = ifCap(jcap.javaTime) {
     // Offset -> -3:00 / -3:00
     timeRoundTrip[OffsetTime](
       s"offset_time_tz_ntz_lt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Antarctica/Rothera")).toOffsetDateTime.toOffsetTime
     )
   }
-  def testOffsetTimePositiveOffsetGreaterThan10 = {
+  def testOffsetTimePositiveOffsetGreaterThan10 = ifCap(jcap.javaTime) {
     // Offset -> +12:00 / +12:00
     timeRoundTrip[OffsetTime](
       s"offset_time_tz_ptz_gt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.toOffsetTime
     )
   }
-  def testOffsetTimePositiveOffsetLessThan10 = {
+  def testOffsetTimePositiveOffsetLessThan10 = ifCap(jcap.javaTime) {
     // Offset -> +2:00 / +2:00
     timeRoundTrip[OffsetTime](
       s"offset_time_tz_ptz_lt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.toOffsetTime
     )
   }
-  def testOffsetDateTime = {
+  def testOffsetDateTime = ifCap(jcap.javaTime) {
     timeRoundTrip[OffsetDateTime](
       s"offset_date_time_tz_utc",
       generateTestLocalDateTime().atOffset(ZoneOffset.UTC).withHour(15)
     )
   }
-  def testOffsetDateTimeWithHourLesserThan10 = {
+  def testOffsetDateTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
     timeRoundTrip[OffsetDateTime](
       s"offset_date_time_hour_lt_10",
       generateTestLocalDateTime().atOffset(ZoneOffset.UTC).withHour(5)
     )
   }
-  def testOffsetDateTimeNegativeGreaterThan10 = {
+  def testOffsetDateTimeNegativeGreaterThan10 = ifCap(jcap.javaTime) {
     // Offset -> -11:00 / -11:00
     timeRoundTrip[OffsetDateTime](
       s"offset_date_time_ntz_gt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).toOffsetDateTime.withHour(15)
     )
   }
-  def testOffsetDateTimeNegativeLessThan10 = {
+  def testOffsetDateTimeNegativeLessThan10 = ifCap(jcap.javaTime) {
     // Offset -> -3:00 / -3:00
     timeRoundTrip[OffsetDateTime](
       s"offset_date_time_ntz_lt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Africa/Addis_Ababa")).toOffsetDateTime.withHour(15)
     )
   }
-  def testOffsetDateTimePositiveGreaterThan10 = {
+  def testOffsetDateTimePositiveGreaterThan10 = ifCap(jcap.javaTime) {
     // Offset -> +12:00 / +12:00
     timeRoundTrip[OffsetDateTime](
       s"offset_date_time_ptz_gt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.withHour(15)
     )
   }
-  def testOffsetDateTimePositiveLessThan10 = {
+  def testOffsetDateTimePositiveLessThan10 = ifCap(jcap.javaTime) {
     // Offset -> +2:00 / +2:00
     timeRoundTrip[OffsetDateTime](
       s"offset_date_time_ptz_lt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.withHour(15)
     )
   }
-  def testZonedDateTime = {
+  def testZonedDateTime = ifCap(jcap.javaTime) {
     timeRoundTrip[ZonedDateTime](
       s"zoned_date_time_tz_utc",
       generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(14)
     )
   }
-  def testZonedDateTimeWithHourLesserThan10 = {
+  def testZonedDateTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
     timeRoundTrip[ZonedDateTime](
       s"zoned_date_time_hour_lt_10",
       generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(5)
     )
   }
-  def testZonedDateTimeNegativeGreaterThan10 = {
+  def testZonedDateTimeNegativeGreaterThan10 = ifCap(jcap.javaTime) {
     // Offset -> -11:00 / -11:00
     timeRoundTrip[ZonedDateTime](
       s"zoned_date_time_ntz_gt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).withHour(5)
     )
   }
-  def testZonedDateTimeNegativeLessThan10 = {
+  def testZonedDateTimeNegativeLessThan10 = ifCap(jcap.javaTime) {
     // Offset -> -3:00 / -3:00
     timeRoundTrip[ZonedDateTime](
       s"zoned_date_time_ntz_lt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5)
     )
   }
-  def testZonedDateTimePositiveGreaterThan10 = {
+  def testZonedDateTimePositiveGreaterThan10 = ifCap(jcap.javaTime) {
     // Offset -> +12:00 / +12:00
     timeRoundTrip[ZonedDateTime](
       s"zoned_date_time_ptz_gt_10",
       generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5)
     )
   }
-  def testZonedDateTimePositiveLessThan10 = {
+  def testZonedDateTimePositiveLessThan10 = ifCap(jcap.javaTime) {
     // Offset -> +2:00 / +2:00
     timeRoundTrip[ZonedDateTime](
       s"zoned_date_time_ptz_lt_10",
@@ -310,7 +311,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     * Generates a [[LocalDateTime]] used for the [[java.time]] type tests.
     * The generated test [[LocalDateTime]] will adapt to the database system being used.
     * If the SQL server driver `jtds` is used, there would be a 3 millisecond rounding, so
-    * this method will generate a [[LocalDateTime]], using [[LocalDateTime#now]] whose milleseconds
+    * this method will generate a [[LocalDateTime]], using [[LocalDateTime#now]] whose milliseconds
     * ends either 0, 3 or 7. It will just return [[LocalDateTime#now]] if any other driver or database
     * is being used.
     *

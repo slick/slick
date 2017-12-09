@@ -31,10 +31,12 @@ object JdbcCapabilities {
   val supportsByte = Capability("jdbc.supportsByte")
   /** Supports FOR UPDATE row level locking */
   val forUpdate = Capability("jdbc.forUpdate")
+  /** Supports mapping java.time classes to jdbc types */
+  val javaTime = Capability("jdbc.javaTime")
 
   /** Supports all JdbcProfile features which do not have separate capability values */
   val other = Capability("jdbc.other")
 
   /** All JDBC capabilities */
-  val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, distinguishesIntTypes, supportsByte, returnInsertOther, forUpdate)
+  val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, distinguishesIntTypes, supportsByte, returnInsertOther, forUpdate, javaTime)
 }

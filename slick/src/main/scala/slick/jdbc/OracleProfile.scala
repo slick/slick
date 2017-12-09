@@ -68,6 +68,7 @@ trait OracleProfile extends JdbcProfile {
     - JdbcCapabilities.booleanMetaData
     - JdbcCapabilities.distinguishesIntTypes
     - JdbcCapabilities.supportsByte
+    - JdbcCapabilities.javaTime
   )
 
   override protected lazy val useServerSideUpsert = true
