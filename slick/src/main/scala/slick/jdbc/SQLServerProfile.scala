@@ -286,22 +286,19 @@ trait SQLServerProfile extends JdbcProfile {
         r.getString(idx) match {
           case null => null
           case serializedTime =>
-            LocalTime.parse(serializedTime, formatter)
+
             val sep = serializedTime.indexOf('.')
             if (sep == -1) {
               Time.valueOf(serializedTime).toLocalTime
             } else {
-              val t: Time = Time.valueOf(serializedTime.substring(0, sep))
-              val millis = (s"0.${serializedTime.substring(sep + 1)}".toDouble * 1000.0).toInt
-              t.setTime(t.getTime + millis)
-              t.toLocalTime
+              LocalTime.parse(serializedTime, formatter)
             }
         }
       }
       override def valueToSQLLiteral(value: LocalTime) = {
         value match {
           case null => "NULL"
-          case _ => s"(convert(time(6), {t '$value'}))"
+          case _ => s"(convert(time(6), '$value'))"
         }
       }
     }
@@ -336,7 +333,7 @@ trait SQLServerProfile extends JdbcProfile {
           case null =>
             "NULL"
           case _ =>
-            s"(convert(datetime2(6), {ts '${formatter.format(value)}'}))"
+            s"(convert(datetime2(6), '${formatter.format(value)}'))"
         }
       }
     }
@@ -370,7 +367,7 @@ trait SQLServerProfile extends JdbcProfile {
           case null =>
             "NULL"
           case _ =>
-            s"(convert(datetime2(6), {ts '${serializeInstantValue(value)}'}))"
+            s"(convert(datetime2(6), '${serializeInstantValue(value)}'))"
         }
       }
     }
@@ -402,7 +399,7 @@ trait SQLServerProfile extends JdbcProfile {
           case null =>
             "NULL"
           case _ =>
-            s"(convert(DATETIMEOFFSET(6), {ts '${formatter.format(value)}'}))"
+            s"(convert(DATETIMEOFFSET(6), '${formatter.format(value)}')"
         }
       }
     }

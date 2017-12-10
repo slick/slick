@@ -49,6 +49,8 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     which is always mapped back to BigDecimal in model and generated code.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     Oracle does not have a BYTE type.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.javaTime]]:
+  *     The javaTime implementation for the OracleProfile is unfinished.</li>
   * </ul>
   *
   * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns
