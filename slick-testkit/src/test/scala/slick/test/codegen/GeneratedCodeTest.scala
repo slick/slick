@@ -85,10 +85,16 @@ object GeneratedCodeTest {
     import profile.api._
     val s = Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460")
     val m = Model(Some("key"), Some("1000"), Some("model"), Some("en"), Some("0.0.1"), None)
+    val mw = MultiwordType(0, 0, Some(0), Some("varchar"))
+    assertEquals("Int'" , MultiwordTypes.baseTableRow.smallintUnsigned.toNode.nodeType.toString)
+    assertEquals("Int'" , MultiwordTypes.baseTableRow.unsignedSmallint.toNode.nodeType.toString)
+    assertEquals("Option[Int']" , MultiwordTypes.baseTableRow.unsignedBigInt.toNode.nodeType.toString)
+    assertEquals("Option[String']" , MultiwordTypes.baseTableRow.varChar20.toNode.nodeType.toString)
     DBIO.seq(
       schema.create,
       Suppliers += s,
       Models += m,
+      MultiwordTypes += mw,
       Timestamps += new Timestamp(),
       Timestamps.result.head.map{r =>
 	val c = new Timestamp()
@@ -98,7 +104,8 @@ object GeneratedCodeTest {
 	}
       },
       Suppliers.result.map(assertEquals(List(s), _)),
-      Models.result.map(assertEquals(List(m), _))
+      Models.result.map(assertEquals(List(m), _)),
+      MultiwordTypes.result.map(assertEquals(List(mw), _))
     )
   }
 
