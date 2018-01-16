@@ -148,7 +148,8 @@ trait BasicBackend { self =>
         case AndThenAction(actions) =>
           val last = actions.length - 1
           def run(pos: Int, v: Any): Future[Any] = {
-            val f1 = runInContext(actions(pos), ctx, streaming && pos == last, pos == 0)
+            val f1 = runInContext(actions(pos), ctx, streaming && pos == last, topLevel && pos == 0)
+
             if(pos == last) f1
             else f1.flatMap(run(pos + 1, _))(DBIO.sameThreadExecutionContext)
           }
@@ -166,7 +167,7 @@ trait BasicBackend { self =>
               }
               b.result()
             }
-            else runInContext(actions(pos), ctx, false, pos == 0).flatMap { (v: Any) =>
+            else runInContext(actions(pos), ctx, false, topLevel && pos == 0).flatMap { (v: Any) =>
               results.set(pos, v)
               run(pos + 1)
             } (DBIO.sameThreadExecutionContext)
