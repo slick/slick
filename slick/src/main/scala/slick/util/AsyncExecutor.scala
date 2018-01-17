@@ -157,7 +157,7 @@ object AsyncExecutor extends Logging {
     def priority: Priority
     /** true if the JDBC connection was released */
     var connectionReleased = false
-    /** true if the inUseCounter of the ManagedArrayBlockQueue was already incremented */
+    /** true if the inUseCounter of the ManagedArrayBlockQueue was incremented */
     var inUseCounterSet = false
   }
 
