@@ -48,6 +48,9 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       val q1 = q0.map(_._2.length).sortBy(identity)
       db.run(mark("q1", q1.result)).map { r0t: Seq[Int] => r0t shouldBe Vector(2, 3, 3) }
     }.flatMap { _ =>
+      val q0 = ts.groupBy(_.a).map(_._1).length
+      db.run(mark("q0", q0.result)).map { r0t: Int => r0t shouldBe 3 }
+    }.flatMap { _ =>
       val q = (for {
         (k, v) <- ts.groupBy(t => t.a)
       } yield (k, v.length, v.map(_.a).sum, v.map(_.b).sum)).sortBy(_._1)
