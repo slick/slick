@@ -59,10 +59,14 @@ trait PostgresProfile extends JdbcProfile {
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
+    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta)
+
+    class TableNamer(mTable: MTable) extends super.TableNamer(mTable){
       override def schema = super.schema.filter(_ != "public") // remove default schema
     }
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
       /*
       The default value for numeric type behave different with postgres version
       PG9.5 - PG9.6:
@@ -130,7 +134,7 @@ trait PostgresProfile extends JdbcProfile {
         case _ => super.tpe
       }
     }
-    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta) {
+    class IndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]) extends super.IndexBuilder(tableBuilder, meta) {
       // FIXME: this needs a test
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
