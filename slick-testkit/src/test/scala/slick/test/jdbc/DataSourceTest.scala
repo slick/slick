@@ -35,7 +35,7 @@ class DataSourceTest {
     MockDriver.reset
     val db = JdbcBackend.Database.forConfig("databaseUrl")
     try {
-      assertEquals(Some(100), db.source.maxConnections)
+      assertEquals(Some(20), db.source.maxConnections)
       try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:postgresql://host/dbname", url)
@@ -50,7 +50,7 @@ class DataSourceTest {
     MockDriver.reset
     val db = JdbcBackend.Database.forConfig("databaseUrlNoPassword")
     try {
-      assertEquals(Some(100), db.source.maxConnections)
+      assertEquals(Some(20), db.source.maxConnections)
       try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:postgresql://host/dbname", url)
@@ -65,7 +65,7 @@ class DataSourceTest {
     MockDriver.reset
     val db = JdbcBackend.Database.forConfig("databaseUrlMySQL")
     try {
-      assertEquals(Some(100), db.source.maxConnections)
+      assertEquals(Some(20), db.source.maxConnections)
       try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci", url)
@@ -80,7 +80,7 @@ class DataSourceTest {
     MockDriver.reset
     val db = JdbcBackend.Database.forConfig("databaseUrlMySQLNoPassword")
     try {
-      assertEquals(Some(100), db.source.maxConnections)
+      assertEquals(Some(20), db.source.maxConnections)
       try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci", url)
@@ -95,7 +95,7 @@ class DataSourceTest {
     MockDriver.reset
     val db = JdbcBackend.Database.forConfig("altDatabaseUrl")
     try {
-      assertEquals(Some(100), db.source.maxConnections)
+      assertEquals(Some(20), db.source.maxConnections)
       try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:postgresql://host/dbname", url)
@@ -132,7 +132,7 @@ class DataSourceTest {
         |""".stripMargin
     ))
     try {
-      assertEquals("maxConnections should be numThreads * 5", Some(50), db.source.maxConnections)
+      assertEquals("maxConnections should be numThreads", Some(10), db.source.maxConnections)
     } finally db.close
   }
 
