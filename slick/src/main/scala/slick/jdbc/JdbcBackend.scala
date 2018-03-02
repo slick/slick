@@ -85,7 +85,7 @@ trait JdbcBackend extends RelationalBackend {
     /** Create a Database based on a DataSource.
       *
       * @param ds The DataSource to use.
-      * @param maxConnection The maximum number of connections that the DataSource can provide. This is necessary to
+      * @param maxConnections The maximum number of connections that the DataSource can provide. This is necessary to
       *                      prevent deadlocks when scheduling database actions. Use `None` if there is no hard limit.
       * @param executor The AsyncExecutor for scheduling database actions.
       * @param keepAliveConnection If this is set to true, one extra connection will be opened as soon as the database
@@ -97,18 +97,25 @@ trait JdbcBackend extends RelationalBackend {
 
     /** Create a Database based on the JNDI name of a DataSource.
       *
-      * @param ds The name of the DataSource to use.
-      * @param maxConnection The maximum number of connections that the DataSource can provide. This is necessary to
+      * @param name The name of the DataSource to use.
+      * @param maxConnections The maximum number of connections that the DataSource can provide. This is necessary to
       *                      prevent deadlocks when scheduling database actions. Use `None` if there is no hard limit.
       * @param executor The AsyncExecutor for scheduling database actions.
       */
-    def forName(name: String, maxConnections: Option[Int], executor: AsyncExecutor = null) = new InitialContext().lookup(name) match {
-      case ds: DataSource => forDataSource(ds, maxConnections, executor match {
-        case null => AsyncExecutor.default(name)
-        case e => e
-      })
-      case x => throw new SlickException("Expected a DataSource for JNDI name "+name+", but got "+x)
-    }
+    def forName(name: String, maxConnections: Option[Int], executor: AsyncExecutor = null) =
+      new InitialContext().lookup(name) match {
+
+        case ds: DataSource =>
+          val configuredExecutor =
+            (executor, maxConnections) match {
+              case (null, Some(maxConnec)) => AsyncExecutor.default(name, maxConnec)
+              case (null, None) => AsyncExecutor.default(name)
+              case (e, _) => e
+            }
+          forDataSource(ds, maxConnections, configuredExecutor)
+
+        case x => throw new SlickException("Expected a DataSource for JNDI name "+name+", but got "+x)
+      }
 
     /** Create a Database that uses the DriverManager to open new connections. */
     def forURL(url: String, user: String = null, password: String = null, prop: Properties = null, driver: String = null,
@@ -287,7 +294,7 @@ trait JdbcBackend extends RelationalBackend {
       val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
       val poolName = usedConfig.getStringOr("poolName", path)
       val numThreads = usedConfig.getIntOr("numThreads", 20)
-      val maxConnections = source.maxConnections.fold(numThreads)(identity)
+      val maxConnections = source.maxConnections.getOrElse(numThreads)
       val registerMbeans = usedConfig.getBooleanOr("registerMbeans", false)
       val executor = AsyncExecutor(poolName, numThreads, numThreads, usedConfig.getIntOr("queueSize", 1000),
         maxConnections, registerMbeans = registerMbeans)

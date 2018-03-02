@@ -49,6 +49,7 @@ object AsyncExecutor extends Logging {
     *        queue and thread pool workload. */
   def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int = Integer.MAX_VALUE, keepAliveTime: Duration = 1.minute,
             registerMbeans: Boolean = false): AsyncExecutor = new AsyncExecutor {
+    
     @volatile private[this] lazy val mbeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name");
 
     // Before init: 0, during init: 1, after init: 2, during/after shutdown: 3
@@ -183,6 +184,15 @@ object AsyncExecutor extends Logging {
         logger.warn("Abandoning ThreadPoolExecutor (not yet destroyed after 30 seconds)")
     }
   }
+
+  def default(name: String, maxConnections: Int): AsyncExecutor =
+    apply(
+      name,
+      minThreads = 20,
+      maxThreads = 20,
+      queueSize = 1000,
+      maxConnections = maxConnections
+    )
 
   def default(name: String = "AsyncExecutor.default"): AsyncExecutor =
     apply(name, 20, 1000)
