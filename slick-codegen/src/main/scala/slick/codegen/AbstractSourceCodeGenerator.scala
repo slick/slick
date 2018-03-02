@@ -81,7 +81,9 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
           (if(caseClassFinal) "final " else "") +
           s"""case class $name($args)$prns"""
         } else {
-          s"""
+          if(columns.size > 254)
+            s"type $name = $types" // constructor method would exceed JVM parameter limit
+          else s"""
 type $name = $types
 /** Constructor for $name providing default values if available in the database schema. */
 def $name($args): $name = {
