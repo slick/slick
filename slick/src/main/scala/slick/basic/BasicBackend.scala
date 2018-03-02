@@ -187,10 +187,14 @@ trait BasicBackend { self =>
               } (DBIO.sameThreadExecutionContext)
             } catch {
               case NonFatal(ex) =>
-                throw (t1 match {
+                val e = t1 match {
                   case Failure(t) if keepFailure => t
                   case _ => ex
-                })
+                }
+
+                if (!p.tryFailure(e)) {
+                  actionLogger.warn("Exception after promise completed", e)
+                }
             }
           } (ctx.getEC(ec))
           p.future
