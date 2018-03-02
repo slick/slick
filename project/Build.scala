@@ -12,8 +12,8 @@ import com.novocode.ornate.sbtplugin.OrnatePlugin.autoImport._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.3.0-SNAPSHOT"
-  val binaryCompatSlickVersion = "3.3.0" // Slick base version for binary compatibility checks
+  val slickVersion = "3.2.2"
+  val binaryCompatSlickVersion = "3.2.1" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.11.8", "2.12.4")
 
   /** Dependencies for reuse in different parts of the build */
