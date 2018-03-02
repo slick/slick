@@ -186,7 +186,7 @@ trait JdbcBackend extends RelationalBackend {
       *     the JDBC driver. This is preferred over using `driver`. Note that `url` is ignored when
       *     this key is set (You have to use `properties` to configure the database
       *     connection instead).</li>
-      *   <li>`maxConnections` (Int, optional, default: `numThreads` * 5): The maximum number of
+      *   <li>`maxConnections` (Int, optional, default: `numThreads`): The maximum number of
       *     connections in the pool.</li>
       *   <li>`minConnections` (Int, optional, default: same as `numThreads`): The minimum number
       *     of connections to keep in the pool.</li>
@@ -287,7 +287,7 @@ trait JdbcBackend extends RelationalBackend {
       val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
       val poolName = usedConfig.getStringOr("poolName", path)
       val numThreads = usedConfig.getIntOr("numThreads", 20)
-      val maxConnections = source.maxConnections.fold(numThreads*5)(identity)
+      val maxConnections = source.maxConnections.fold(numThreads)(identity)
       val registerMbeans = usedConfig.getBooleanOr("registerMbeans", false)
       val executor = AsyncExecutor(poolName, numThreads, numThreads, usedConfig.getIntOr("queueSize", 1000),
         maxConnections, registerMbeans = registerMbeans)
