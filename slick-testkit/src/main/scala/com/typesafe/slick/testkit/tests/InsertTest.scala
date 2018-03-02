@@ -162,6 +162,26 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()
   }
 
+  def testInsertOrUpdateNoPK = {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge_no_pk") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    val failed = try {
+      ts.insertOrUpdate((3, "c"))
+      false
+    }
+    catch {
+      case _: SlickException => true
+    }
+    if (!failed) throw new RuntimeException("Should fail since insertOrUpdate is not supported on a table without PK.")
+    DBIO.seq()
+  }
+
   def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, _, _] = {
     //FIXME remove this after fixed checkInsert issue
     if (tdb.profile.isInstanceOf[DerbyProfile]) return DBIO.successful(())

@@ -10,6 +10,7 @@ import scala.collection.mutable.Builder
 import scala.util.control.NonFatal
 
 import slick.SlickException
+import slick.ast.ColumnOption.PrimaryKey
 import slick.dbio._
 import slick.ast._
 import slick.ast.Util._
@@ -536,6 +537,17 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     class InsertOrUpdateAction(value: U) extends SimpleJdbcProfileAction[SingleInsertOrUpdateResult]("InsertOrUpdateAction",
       if(useServerSideUpsert) Vector(compiled.upsert.sql) else Vector(compiled.checkInsert.sql, compiled.updateInsert.sql, compiled.standardInsert.sql)) {
+
+      private def tableHasPrimaryKey: Boolean =
+        List(compiled.upsert, compiled.checkInsert, compiled.updateInsert)
+          .filter(_ != null)
+          .exists(artifacts =>
+            artifacts.ibr.table.profileTable.asInstanceOf[Table[_]].primaryKeys.nonEmpty
+              || artifacts.ibr.fields.exists(_.options.contains(PrimaryKey))
+          )
+
+      if (!tableHasPrimaryKey)
+        throw new SlickException("InsertOrUpdate is not supported on a table without PK.")
 
       def run(ctx: Backend#Context, sql: Vector[String]) = {
         def f: SingleInsertOrUpdateResult =
