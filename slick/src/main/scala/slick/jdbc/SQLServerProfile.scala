@@ -114,7 +114,7 @@ trait SQLServerProfile extends JdbcProfile {
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
-    MTable.getTables(None, None, None, Some(Seq("TABLE")))
+    MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(!_.name.schema.contains("sys")))
   }
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
