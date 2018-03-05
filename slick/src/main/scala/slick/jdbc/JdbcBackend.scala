@@ -97,12 +97,20 @@ trait JdbcBackend extends RelationalBackend {
 
     /** Create a Database based on the JNDI name of a DataSource.
       *
+      * NOTE: this method will return a Slick [[DatabaseDef]] configured to use the
+      * named [[DataSource]] and the passed [[AsyncExecutor]].
+      * Calling this method more then once for the same [[DataSource]] name, will
+      * result in different [[DatabaseDef]]s configured with different [[AsyncExecutor]]s
+      * but backed by the same [[DataSource]]. This is probably not what you want.
+      * Therefore, it's recommended to call it only once and re-use the returned [[DatabaseDef]] whenever needed.
+      * Each [[DataSource]] should be associated with only one [[AsyncExecutor]].
+      *
       * @param name The name of the DataSource to use.
       * @param maxConnections The maximum number of connections that the DataSource can provide. This is necessary to
       *                      prevent deadlocks when scheduling database actions. Use `None` if there is no hard limit.
       * @param executor The AsyncExecutor for scheduling database actions.
       */
-    def forName(name: String, maxConnections: Option[Int], executor: AsyncExecutor = null) =
+    def forName(name: String, maxConnections: Option[Int], executor: AsyncExecutor = null): DatabaseDef =
       new InitialContext().lookup(name) match {
 
         case ds: DataSource =>
