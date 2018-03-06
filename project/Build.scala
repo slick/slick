@@ -142,6 +142,12 @@ object SlickBuild extends Build {
           <timezone>+1</timezone>
           <url>https://github.com/cvogt/</url>
         </developer>
+        <developer>
+          <id>hvesalai</id>
+          <name>Heikki Vesalainen</name>
+          <timezone>+2</timezone>
+          <url>https://github.com/hvesalai/</url>
+        </developer>
       </developers>
         <scm>
           <url>git@github.com:slick/slick.git</url>
