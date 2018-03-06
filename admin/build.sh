@@ -23,8 +23,12 @@ if [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
   extraTarget="+publishSigned +makeSite"
   publish_docs=1
   cp admin/publish-settings.sbt ./
+  echo "Contents of secrets.tar:"
+  tar tvf secrets.tar
   tar xf secrets.tar
   chmod 400 admin/deploykey.pem
+  echo "sbt build files:"
+  ls -l *.sbt project/*.scala
 fi
 
 sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf "$publishVersion" +testAll $extraTarget
