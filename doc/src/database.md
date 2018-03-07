@@ -12,8 +12,20 @@ Using Typesafe Config
 The preferred way to configure database connections is through [Typesafe Config] in your
 `application.conf`, which is also used by [Play] and [Akka] for their configuration.
 
-```yaml src=../code/application.conf#mydb
+For Postgres: 
+```yaml src=../code/application.conf#postgres
 ```
+
+When specifying a dataSourceClass you will need to bring in the sbt dependency for that class. The following is an example for the `org.postgresql.ds.PGSimpleDataSource` data source class:
+
+```scala expandVars=true
+libraryDependencies ++= Seq(
+  "com.typesafe.slick" %% "slick" % "{{version}}",
+  "org.slf4j" % "slf4j-nop" % "1.6.4",
+  "com.typesafe.slick" %% "slick-hikaricp" % "{{version}}",
+  "org.postgresql" % "postgresql" % "9.4-1206-jdbc42" //org.postgresql.ds.PGSimpleDataSource dependency
+)
+``` 
 
 Such a configuration can be loaded with `Database.forConfig` (see the
 [API documentation](api:slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver,ClassLoader):Database)
