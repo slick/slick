@@ -5,13 +5,13 @@ import org.reactivestreams.Subscriber
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import slick.SlickException
-import slick.dbio._
-import slick.backend.{RelationalBackend, DatabaseComponent}
+import slick.relational.RelationalBackend
+import slick.basic.BasicBackend
 import slick.util.Logging
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Try}
 
-/** The backend for DistributedDriver */
+/** The backend for DistributedProfile. */
 trait DistributedBackend extends RelationalBackend with Logging {
   type This = DistributedBackend
   type Database = DatabaseDef
@@ -26,7 +26,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
   def createDatabase(config: Config, path: String): Database =
     throw new SlickException("DistributedBackend cannot be configured with an external config file")
 
-  class DatabaseDef(val dbs: Vector[DatabaseComponent#DatabaseDef], val executionContext: ExecutionContext) extends super.DatabaseDef {
+  class DatabaseDef(val dbs: Vector[BasicBackend#DatabaseDef], val executionContext: ExecutionContext) extends super.DatabaseDef {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new BasicActionContext { val useSameThread = _useSameThread }
 
@@ -34,7 +34,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
       new BasicStreamingActionContext(s, useSameThread, DatabaseDef.this)
 
     def createSession(): Session = {
-      val sessions = new ArrayBuffer[DatabaseComponent#Session]
+      val sessions = new ArrayBuffer[BasicBackend#Session]
       for(db <- dbs)
         sessions += Try(db.createSession()).recoverWith { case ex =>
           sessions.reverseIterator.foreach { s => Try(s.close()) }
@@ -57,11 +57,11 @@ trait DistributedBackend extends RelationalBackend with Logging {
   class DatabaseFactoryDef {
     /** Create a new distributed database instance that uses the supplied ExecutionContext for
       * asynchronous execution of database actions. */
-    def apply(dbs: TraversableOnce[DatabaseComponent#DatabaseDef], executionContext: ExecutionContext): Database =
+    def apply(dbs: TraversableOnce[BasicBackend#DatabaseDef], executionContext: ExecutionContext): Database =
       new DatabaseDef(dbs.toVector, executionContext)
   }
 
-  class SessionDef(val sessions: Vector[DatabaseComponent#Session]) extends super.SessionDef {
+  class SessionDef(val sessions: Vector[BasicBackend#Session]) extends super.SessionDef {
     def close() {
       sessions.map(s => Try(s.close())).collectFirst{ case Failure(t) => t }.foreach(throw _)
     }

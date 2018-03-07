@@ -1,5 +1,6 @@
 package slick.compiler
 
+import slick.SlickException
 import slick.ast._
 import Util._
 import TypeUtil._
@@ -9,13 +10,13 @@ import scala.collection.mutable
 
 /** Replace all occurrences of `Take` and `Drop` with row number computations based on
   * `zipWithIndex` operations. */
-class RemoveTakeDrop extends Phase {
+class RemoveTakeDrop(val translateTake: Boolean = true, val translateDrop: Boolean = true) extends Phase {
   val name = "removeTakeDrop"
 
   def apply(state: CompilerState) = state.map { n =>
     val invalid = mutable.Set[TypeSymbol]()
     def tr(n: Node): Node = n.replace {
-      case n @ TakeDrop(from, t, d) =>
+      case n @ TakeDrop(from, t, d) if (translateTake && t.isDefined) || (translateDrop && d.isDefined) =>
         logger.debug(s"""Translating "drop $d, then take $t" to zipWithIndex operation:""", n)
         val fromRetyped = tr(from).infer()
         val from2 = fromRetyped match {
@@ -36,13 +37,14 @@ class RemoveTakeDrop extends Phase {
               Library.>.typed[Boolean](Select(Ref(fs), ElementSymbol(2)), d),
               Library.<=.typed[Boolean](Select(Ref(fs), ElementSymbol(2)), constOp[Long]("+")(_ + _)(t, d))
             )
+          case _ => throw new SlickException("Unexpected empty Take/Drop")
         })
         val bs2 = new AnonSymbol
         val b2 = Bind(bs2, f, Pure(Select(Ref(bs2), ElementSymbol(1))))
         logger.debug(s"""Translated "drop $d, then take $t" to zipWithIndex operation:""", b2)
         val invalidate = fromRetyped.nodeType.collect { case NominalType(ts, _) => ts }
         logger.debug("Invalidating TypeSymbols: "+invalidate.mkString(", "))
-        invalid ++= invalidate
+        invalid ++= invalidate.toSeq
         b2
 
       case (n: Ref) if n.nodeType.containsSymbol(invalid) => n.untyped

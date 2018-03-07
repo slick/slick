@@ -1,9 +1,8 @@
 package slick.compiler
 
 import slick.ast._
-import scala.collection.mutable.ArrayBuffer
 import slick.{SlickTreeException, SlickException}
-import slick.util.SlickLogger
+import slick.util.{ConstArray, SlickLogger}
 import org.slf4j.LoggerFactory
 import Util._
 
@@ -21,7 +20,8 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
 
     var tableExpansion: TableExpansion = null
     var expansionRef: TermSymbol = null
-    val cols = new ArrayBuffer[Select]
+    val cols = ConstArray.newBuilder[Select]()
+    val allFields = ConstArray.newBuilder[FieldSymbol]()
     def setTable(te: TableExpansion) {
       if(tableExpansion eq null) {
         tableExpansion = te
@@ -34,15 +34,17 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
 
     def tr(n: Node): Node = n match {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.mapChildren(tr, keepType = true)
+      case OptionFold(from, _, Ref(s2), s1) if s1 == s2 => tr(GetOrElse(from, null).infer())
       case te @ TableExpansion(_, _, expansion) =>
         setTable(te)
         tr(expansion)
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
+        allFields += fs
         val ch =
           if(mode(fs)) {
             cols += Select(tref, fs) :@ sel.nodeType
-            IndexedSeq(Select(rref, ElementSymbol(cols.size)) :@ sel.nodeType)
-          } else IndexedSeq.empty[Node]
+            ConstArray(Select(rref, ElementSymbol(cols.length)) :@ sel.nodeType)
+          } else ConstArray.empty
         InsertColumn(ch, fs, sel.nodeType).infer()
       case Ref(s) if s == expansionRef =>
         tr(tableExpansion.columns)
@@ -53,7 +55,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
     }
     val tree2 = tr(tree).infer()
     if(tableExpansion eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).infer()
+    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols.result), allFields.result).infer()
     ResultSetMapping(linearSym, ins, tree2) :@ CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType)
   }
 }

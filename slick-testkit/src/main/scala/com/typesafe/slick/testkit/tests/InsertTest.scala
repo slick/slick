@@ -1,6 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import slick.jdbc.DerbyProfile
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
@@ -40,6 +41,45 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     ))
   }
 
+  def testEmptyInsert = {
+    class A(tag: Tag) extends Table[Int](tag, "A_EMPTYINSERT") {
+      def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
+      def * = id
+    }
+    val as = TableQuery[A]
+
+    DBIO.seq(
+      as.schema.create,
+      as += 42,
+      as.result.map(_ shouldBe Seq(1))
+    )
+  }
+
+  
+  def testUniqueInsert = {
+    case class ARow(email: String , id: Int = 0)
+    class A(tag: Tag) extends Table[ARow](tag , "A_UNIQUEINSERT"){
+      def id = column[Int]("id" , O.AutoInc , O.PrimaryKey)
+      def email = column[String]("email" , O.Unique , O.Length(254))
+
+      def * = (email , id)<>(ARow.tupled , ARow.unapply )
+    }
+    val atq = TableQuery[A]
+
+    import scala.util.{Success, Failure}
+    DBIO.seq(
+      atq.schema.create,
+      atq ++= Seq( ARow("unique@site.com") , ARow("user@site.com") ),
+      ( atq += ARow("unique@site.com") ).asTry.map{
+        case Failure(e:java.sql.SQLException) if e.getMessage.toLowerCase.contains("unique") => ()
+        case Failure(e:java.sql.BatchUpdateException) if e.getMessage.toLowerCase.contains("unique") => ()
+        case Failure( e ) => throw e
+        case Success(_) => throw new Exception("Should have failed with UNIQUE constraint violation")
+      },
+      atq.result.map( _.size shouldBe 2 )
+    )
+  }
+
   def testReturning = ifCap(jcap.returnInsertKey) {
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "A") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
@@ -71,29 +111,35 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testForced = {
-    class T(tname: String)(tag: Tag) extends Table[(Int, String)](tag, tname) {
+    class T(tname: String)(tag: Tag) extends Table[(Int, String, Int, Boolean, String, String, Int)](tag, tname) {
       def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
       def name = column[String]("name")
-      def * = (id, name)
-      def ins = (id, name)
+      def i1 = column[Int]("i1")
+      def b = column[Boolean]("b")
+      def s1 = column[String]("s1", O.Length(10,varying=true))
+      def s2 = column[String]("s2", O.Length(10,varying=true))
+      def i2 = column[Int]("i2")
+
+      def * = (id, name, i1, b, s1, s2, i2)
+      def ins = (id, name, i1, b, s1, s2, i2)
     }
     val ts = TableQuery(new T("t_forced")(_))
     val src = TableQuery(new T("src_forced")(_))
 
     seq(
       (ts.schema ++ src.schema).create,
-      ts += (101, "A"),
-      ts.map(_.ins) ++= Seq((102, "B"), (103, "C")),
+      ts += (101, "A", 1, false, "S1", "S2", 0),
+      ts.map(_.ins) ++= Seq((102, "B", 1, false, "S1", "S2", 0), (103, "C", 1, false, "S1", "S2", 0)),
       ts.filter(_.id > 100).length.result.map(_ shouldBe 0),
       ifCap(jcap.forceInsert)(seq(
-        ts.forceInsert(104, "A"),
-        ts.map(_.ins).forceInsertAll(Seq((105, "B"), (106, "C"))),
+        ts.forceInsert(104, "A", 1, false, "S1", "S2", 0),
+        ts.map(_.ins).forceInsertAll(Seq((105, "B", 1, false, "S1", "S2", 0), (106, "C", 1, false, "S1", "S2", 0))),
         ts.filter(_.id > 100).length.result.map(_ shouldBe 3),
-        ts.map(_.ins).forceInsertAll(Seq((111, "D"))),
+        ts.map(_.ins).forceInsertAll(Seq((111, "D", 1, false, "S1", "S2", 0))),
         ts.filter(_.id > 100).length.result.map(_ shouldBe 4),
-        src.forceInsert(90, "X"),
-        ts.forceInsertQuery(src).map(_ shouldBe 1),
-        ts.filter(_.id.between(90, 99)).map(_.name).result.map(_ shouldBe Seq("X"))
+        src.forceInsert(90, "X", 1, false, "S1", "S2", 0),
+        mark("forceInsertQuery", ts.forceInsertQuery(src)).map(_ shouldBe 1),
+        ts.filter(_.id.between(90, 99)).result.headOption.map(_ shouldBe Some((90, "X", 1, false, "S1", "S2", 0)))
       ))
     )
   }
@@ -104,6 +150,48 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def name = column[String]("name")
       def * = (id, name)
       def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    for {
+      _ <- ts.schema.create
+      _ <- ts ++= Seq((1, "a"), (2, "b"))
+      _ <- ts.insertOrUpdate((3, "c")).map(_ shouldBe 1)
+      _ <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
+      _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
+    } yield ()
+  }
+
+  def testInsertOrUpdateNoPK = {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge_no_pk") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    val failed = try {
+      ts.insertOrUpdate((3, "c"))
+      false
+    }
+    catch {
+      case _: SlickException => true
+    }
+    if (!failed) throw new RuntimeException("Should fail since insertOrUpdate is not supported on a table without PK.")
+    DBIO.seq()
+  }
+
+  def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, _, _] = {
+    //FIXME remove this after fixed checkInsert issue
+    if (tdb.profile.isInstanceOf[DerbyProfile]) return DBIO.successful(())
+
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge3") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+      def pk = primaryKey("t_merge_pk_a", id)
     }
     val ts = TableQuery[T]
 

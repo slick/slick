@@ -12,7 +12,8 @@ class TableDump(maxColumnWidth: Int = 20) {
   protected[this] val spaces = Iterator.fill(maxColumnWidth+2)(' ').mkString
 
   protected[this] def formatLine(line: IndexedSeq[Any]): IndexedSeq[String] = line.map { v =>
-    (if(v == null) "NULL" else v.toString).replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t")
+    val s = if(v == null) "NULL" else v.toString
+    if(s == null) "NULL" else s.replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t")
   }
 
   def apply(headers: IndexedSeq[IndexedSeq[String]], data: IndexedSeq[IndexedSeq[Any]]): IndexedSeq[String] = {

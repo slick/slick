@@ -1,28 +1,29 @@
 package slick.lifted
 
-import scala.language.{implicitConversions, higherKinds}
+import scala.language.higherKinds
 import scala.annotation.implicitNotFound
 import slick.ast.Node
-import slick.profile.BasicProfile
-import slick.compiler.QueryCompiler
+import slick.basic.BasicProfile
 
 /** A possibly parameterized query that will be cached for repeated efficient
   * execution without having to recompile it every time. The compiled state
   * is computed on demand the first time a `Cached` value is executed. It is
-  * always tied to a specific driver.
+  * always tied to a specific profile.
   *
   * `Cached` forms a limited monad which ensures that it can only contain
   * values that are `Compilable`. */
 sealed trait Compiled[T] {
-  /** The driver which is used for compiling the query. */
-  def driver: BasicProfile
+  /** The profile which is used for compiling the query. */
+  def profile: BasicProfile
+  @deprecated("Use `profile` instead of `driver`", "3.2")
+  final def driver: BasicProfile = profile
 
   /** Perform a transformation of the underlying value. The computed value must
     * be `Compilable`. The resulting `Compiled` instance will be recompiled when
     * needed. It does not benefit from this instance already containing the
     * compiled state. */
   def map[U, C <: Compiled[U]](f: T => U)(implicit ucompilable: Compilable[U, C]): C =
-    ucompilable.compiled(f(extract), driver)
+    ucompilable.compiled(f(extract), profile)
 
   /** Perform a transformation of the underlying value. The computed `Compiled`
     * value is returned unmodified. */
@@ -36,22 +37,22 @@ sealed trait Compiled[T] {
 
 object Compiled {
   /** Create a new `Compiled` value for a raw value that is `Compilable`. */
-  @inline def apply[V, C <: Compiled[V]](raw: V)(implicit compilable: Compilable[V, C], driver: BasicProfile): C =
-    compilable.compiled(raw, driver)
+  @inline def apply[V, C <: Compiled[V]](raw: V)(implicit compilable: Compilable[V, C], profile: BasicProfile): C =
+    compilable.compiled(raw, profile)
 }
 
 trait CompilersMixin { this: Compiled[_] =>
   def toNode: Node
-  lazy val compiledQuery = driver.queryCompiler.run(toNode).tree
-  lazy val compiledUpdate = driver.updateCompiler.run(toNode).tree
-  lazy val compiledDelete = driver.deleteCompiler.run(toNode).tree
-  lazy val compiledInsert = driver.compileInsert(toNode)
+  lazy val compiledQuery = profile.queryCompiler.run(toNode).tree
+  lazy val compiledUpdate = profile.updateCompiler.run(toNode).tree
+  lazy val compiledDelete = profile.deleteCompiler.run(toNode).tree
+  lazy val compiledInsert = profile.compileInsert(toNode)
 }
 
-class CompiledFunction[F, PT, PU, R <: Rep[_], RU](val extract: F, val tuple: F => PT => R, val pshape: Shape[ColumnsShapeLevel, PU, PU, PT], val driver: BasicProfile) extends Compiled[F] with CompilersMixin {
+class CompiledFunction[F, PT, PU, R <: Rep[_], RU](val extract: F, val tuple: F => PT => R, val pshape: Shape[ColumnsShapeLevel, PU, PU, PT], val profile: BasicProfile) extends Compiled[F] with CompilersMixin {
   /** Create an applied `Compiled` value for this compiled function. All applied
     * values share their compilation state with the original compiled function. */
-  def apply(p: PU) = new AppliedCompiledFunction[PU, R, RU](p, this, driver)
+  def apply(p: PU) = new AppliedCompiledFunction[PU, R, RU](p, this, profile)
 
   def toNode: Node = {
     val params: PT = pshape.buildParams(_.asInstanceOf[PU])
@@ -68,13 +69,13 @@ trait RunnableCompiled[R, RU] extends Compiled[R] {
   def compiledQuery: Node
   def compiledUpdate: Node
   def compiledDelete: Node
-  def compiledInsert: Any // Actually of the driver's CompiledInsert type
+  def compiledInsert: Any // Actually of the profile's CompiledInsert type
 }
 
 /** A compiled value that can be executed to obtain its result as a stream of data. */
 trait StreamableCompiled[R, RU, EU] extends RunnableCompiled[R, RU]
 
-class AppliedCompiledFunction[PU, R <: Rep[_], RU](val param: PU, function: CompiledFunction[_, _, PU, R, RU], val driver: BasicProfile) extends RunnableCompiled[R, RU] {
+class AppliedCompiledFunction[PU, R <: Rep[_], RU](val param: PU, function: CompiledFunction[_, _, PU, R, RU], val profile: BasicProfile) extends RunnableCompiled[R, RU] {
   lazy val extract: R = function.applied(param)
   def compiledQuery = function.compiledQuery
   def compiledUpdate = function.compiledUpdate
@@ -82,12 +83,12 @@ class AppliedCompiledFunction[PU, R <: Rep[_], RU](val param: PU, function: Comp
   def compiledInsert = function.compiledInsert
 }
 
-abstract class CompiledExecutable[R, RU](val extract: R, val driver: BasicProfile) extends RunnableCompiled[R, RU] with CompilersMixin {
+abstract class CompiledExecutable[R, RU](val extract: R, val profile: BasicProfile) extends RunnableCompiled[R, RU] with CompilersMixin {
   def param = ()
   def toNode: Node
 }
 
-abstract class CompiledStreamingExecutable[R, RU, EU](extract: R, driver: BasicProfile) extends CompiledExecutable[R, RU](extract, driver) with StreamableCompiled[R, RU, EU]
+abstract class CompiledStreamingExecutable[R, RU, EU](extract: R, profile: BasicProfile) extends CompiledExecutable[R, RU](extract, profile) with StreamableCompiled[R, RU, EU]
 
 /** Typeclass for types that can be executed as queries. This encompasses
   * collection-valued (`Query[_, _, _[_] ]`), scalar and record types. */
@@ -122,28 +123,28 @@ object StreamingExecutable extends StreamingExecutable[Rep[Any], Any, Any] {
   * flat, fully packed parameter types to an `Executable` result type. */
 @implicitNotFound("Computation of type ${T} cannot be compiled (as type ${C})")
 trait Compilable[T, C <: Compiled[T]] {
-  def compiled(raw: T, driver: BasicProfile): C
+  def compiled(raw: T, profile: BasicProfile): C
 }
 
 object Compilable extends CompilableFunctions {
   implicit def function1IsCompilable[A , B <: Rep[_], P, U](implicit ashape: Shape[ColumnsShapeLevel, A, P, A], pshape: Shape[ColumnsShapeLevel, P, P, _], bexe: Executable[B, U]): Compilable[A => B, CompiledFunction[A => B, A , P, B, U]] = new Compilable[A => B, CompiledFunction[A => B, A, P, B, U]] {
-    def compiled(raw: A => B, driver: BasicProfile) =
-      new CompiledFunction[A => B, A, P, B, U](raw, identity[A => B], pshape.asInstanceOf[Shape[ColumnsShapeLevel, P, P, A]], driver)
+    def compiled(raw: A => B, profile: BasicProfile) =
+      new CompiledFunction[A => B, A, P, B, U](raw, identity[A => B], pshape.asInstanceOf[Shape[ColumnsShapeLevel, P, P, A]], profile)
   }
   implicit def streamingExecutableIsCompilable[T, U, EU](implicit e: StreamingExecutable[T, U, EU]): Compilable[T, CompiledStreamingExecutable[T, U, EU]] = new Compilable[T, CompiledStreamingExecutable[T, U, EU]] {
-    def compiled(raw: T, driver: BasicProfile) = new CompiledStreamingExecutable[T, U, EU](raw, driver) { def toNode = e.toNode(raw) }
+    def compiled(raw: T, profile: BasicProfile) = new CompiledStreamingExecutable[T, U, EU](raw, profile) { def toNode = e.toNode(raw) }
   }
 }
 
 trait CompilableLowPriority {
   implicit def executableIsCompilable[T, U](implicit e: Executable[T, U]): Compilable[T, CompiledExecutable[T, U]] = new Compilable[T, CompiledExecutable[T, U]] {
-    def compiled(raw: T, driver: BasicProfile) = new CompiledExecutable[T, U](raw, driver) { def toNode = e.toNode(raw) }
+    def compiled(raw: T, profile: BasicProfile) = new CompiledExecutable[T, U](raw, profile) { def toNode = e.toNode(raw) }
   }
 }
 
 final class Parameters[PU, PP](pshape: Shape[ColumnsShapeLevel, PU, PU, _]) {
-  def flatMap[R <: Rep[_], RU](f: PP => R)(implicit rexe: Executable[R, RU], driver: BasicProfile): CompiledFunction[PP => R, PP, PU, R, RU] =
-    new CompiledFunction[PP => R, PP, PU, R, RU](f, identity[PP => R], pshape.asInstanceOf[Shape[ColumnsShapeLevel, PU, PU, PP]], driver)
+  def flatMap[R <: Rep[_], RU](f: PP => R)(implicit rexe: Executable[R, RU], profile: BasicProfile): CompiledFunction[PP => R, PP, PU, R, RU] =
+    new CompiledFunction[PP => R, PP, PU, R, RU](f, identity[PP => R], pshape.asInstanceOf[Shape[ColumnsShapeLevel, PU, PU, PP]], profile)
 
   @inline def withFilter(f: PP => Boolean): Parameters[PU, PP] = this
 }

@@ -1,8 +1,8 @@
 package slick.test.compile
 
 import com.typesafe.slick.testkit.util.ShouldNotTypecheck
-import slick.driver.H2Driver.api._
-import slick.lifted.{Shape, ShapeLevel}
+import slick.jdbc.H2Profile.api._
+import slick.lifted.Shape
 
 class NestedShapesTest {
   def legal = {

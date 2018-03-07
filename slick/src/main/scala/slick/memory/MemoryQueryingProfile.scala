@@ -1,19 +1,16 @@
 package slick.memory
 
-import scala.concurrent.Future
-import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.ArrayBuffer
 import slick.SlickException
 import slick.ast._
+import slick.basic.BasicProfile
 import slick.compiler._
-import slick.lifted._
 import slick.relational._
-import slick.profile.{BasicDriver, BasicProfile}
-import slick.util.??
+import slick.util.{??, ConstArray}
 import TypeUtil._
 
-/** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
-trait MemoryQueryingProfile extends BasicProfile { driver: MemoryQueryingDriver =>
+/** The querying (read-only) part that can be shared between MemoryProfile and DistributedProfile. */
+trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =>
 
   type ColumnType[T] = ScalaType[T]
   type BaseColumnType[T] = ScalaType[T] with BaseTypedType[T]
@@ -36,11 +33,10 @@ trait MemoryQueryingProfile extends BasicProfile { driver: MemoryQueryingDriver 
     implicit def shortColumnType = ScalaBaseType.shortType
     implicit def stringColumnType = ScalaBaseType.stringType
   }
-}
 
-trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driver =>
+  /* internal: */
 
-  /** The driver-specific representation of types */
+  /** The profile-specific representation of types */
   def typeInfoFor(t: Type): ScalaType[Any] = ((t.structural match {
     case t: ScalaType[_] => t
     case t: TypedType[_] => t.scalaType
@@ -63,11 +59,12 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
       case Bind(gen, g: GroupBy, p @ Pure((_: ProductNode | _: StructNode), _)) =>
         val p2 = transformCountAll(gen, p)
         if(p2 eq p) n else Bind(gen, g, p2).infer(typeChildren = true)
+      case Library.SilentCast(n :@ tpe1) :@ tpe2 if tpe1 == tpe2 => n
       case n => n
     }
 
     def transformCountAll(gen: TermSymbol, n: Node): Node = n match {
-      case Apply(Library.CountAll, ch @ Seq(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _)))) if s == gen && s2 == gen2 =>
+      case Apply(Library.CountAll, ch @ ConstArray(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _)))) if s == gen && s2 == gen2 =>
         Apply(Library.Count, ch)(n.nodeType)
       case n => n.mapChildren(ch => transformCountAll(gen, ch), keepType = true)
     }
@@ -106,7 +103,7 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
 
   object ProductOfCommonPaths {
     def unapply(n: ProductNode): Option[(TermSymbol, Vector[List[TermSymbol]])] = if(n.children.isEmpty) None else
-      n.children.foldLeft(null: Option[(TermSymbol, Vector[List[TermSymbol]])]) {
+      n.children.iterator.foldLeft(null: Option[(TermSymbol, Vector[List[TermSymbol]])]) {
         case (None, _) => None
         case (null, FwdPath(sym :: rest)) => Some((sym, Vector(rest)))
         case (Some((sym0, v)), FwdPath(sym :: rest)) if sym == sym0 => Some((sym, v :+ rest))

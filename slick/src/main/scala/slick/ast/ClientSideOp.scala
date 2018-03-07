@@ -1,8 +1,8 @@
 package slick.ast
 
-import slick.ast.Util._
 import slick.ast.TypeUtil._
 import slick.SlickException
+import slick.util.ConstArray
 
 /**
  * An operation which is expected to be run on the client side.
@@ -30,7 +30,7 @@ object ClientSideOp {
 final case class First(val child: Node) extends UnaryNode with SimplyTypedNode with ClientSideOp {
   type Self = First
   protected[this] def rebuild(ch: Node) = copy(child = ch)
-  protected def buildType = children.head.nodeType.asCollectionType.elementType
+  protected def buildType = child.nodeType.asCollectionType.elementType
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
 }
 
@@ -46,9 +46,9 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
   def right = map
   override def childNames = Seq("from "+generator, "map")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, map = right)
-  def generators = Seq((generator, from))
+  def generators = ConstArray((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
-  protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
+  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val (map2, newType) = from2.nodeType match {
@@ -59,7 +59,7 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
         val map2 = map.infer(scope + (generator -> t), typeChildren)
         (map2, map2.nodeType)
     }
-    withChildren(Vector(from2, map2)) :@ (if(!hasType) newType else nodeType)
+    withChildren(ConstArray[Node](from2, map2)) :@ (if(!hasType) newType else nodeType)
   }
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = {
     val this2 = mapScopedChildren {
@@ -73,15 +73,17 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
 
 /** A switch for special-cased parameters that needs to be interpreted in order
   * to find the correct query string for the query arguments. */
-final case class ParameterSwitch(cases: Seq[((Any => Boolean), Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
+final case class ParameterSwitch(cases: ConstArray[((Any => Boolean), Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
   type Self = ParameterSwitch
   def children = cases.map(_._2) :+ default
-  override def childNames = cases.map("[" + _._1 + "]") :+ "default"
-  protected[this] def rebuild(ch: IndexedSeq[Node]): Self =
-    copy(cases = (cases, ch).zipped.map { (c, n) => (c._1, n) }, default = ch.last)
+  override def childNames = cases.map("[" + _._1 + "]").toSeq :+ "default"
+  protected[this] def rebuild(ch: ConstArray[Node]): Self =
+    copy(cases = cases.zip(ch).map { case (c, n) => (c._1, n) }, default = ch.last)
   protected def buildType = default.nodeType
   def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
-    val this2 = mapOrNone(children)(r).map(rebuild).getOrElse(this)
+    val ch = children
+    val ch2 = ch.endoMap(r)
+    val this2 = if(ch2 eq ch) this else rebuild(ch2)
     if(keepType && hasType) this2 :@ nodeType
     else this2
   }

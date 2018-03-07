@@ -1,5 +1,7 @@
 package slick.ast
 
+import slick.util.ConstArray
+
 /**
  * The standard library for query operators.
  */
@@ -99,20 +101,14 @@ object Library {
 /** A Symbol that represents a library function or operator */
 class FunctionSymbol(val name: String) extends TermSymbol {
 
-  /** Create an untyped Apply of this Symbol */
-  //def apply(ch: Node*): Apply = Apply(this, ch)
-
   /** Match an Apply of this Symbol */
-  def unapplySeq(n: Node) = n match {
-    case Apply(sym, ch) if sym eq this => Some(ch)
-    case _ => None
-  }
+  def unapplySeq(a: Apply) = if(a.sym eq this) Some(a.children.toSeq) else None
 
   /** Create a typed Apply of this Symbol */
-  def typed(tpe: Type, ch: Node*): Apply = Apply(this, ch)(tpe)
+  def typed(tpe: Type, ch: Node*): Apply = Apply(this, ConstArray.from(ch))(tpe)
 
   /** Create a typed Apply of this Symbol */
-  def typed[T : ScalaBaseType](ch: Node*): Apply = Apply(this, ch)(implicitly[ScalaBaseType[T]])
+  def typed[T : ScalaBaseType](ch: Node*): Apply = Apply(this, ConstArray.from(ch))(implicitly[ScalaBaseType[T]])
 
   override def toString = "Function "+name
 }

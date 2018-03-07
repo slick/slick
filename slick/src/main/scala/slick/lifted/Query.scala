@@ -1,9 +1,11 @@
 package slick.lifted
 
+import slick.util.ConstArray
+
 import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
-import scala.reflect.macros.Context
+import scala.reflect.macros.blackbox.Context
 import slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
@@ -46,7 +48,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   }
   /** Select all elements of this query which satisfy a predicate. Unlike
     * `withFilter, this method only allows `Rep`-valued predicates, so it
-    * guards against the accidental use use plain Booleans. */
+    * guards against the accidental use plain Booleans. */
   def filter[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
     withFilter(f)
   def filterNot[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
@@ -133,10 +135,10 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
 
   /** Sort this query according to a function which extracts the ordering
     * criteria from the query's elements. */
-  def sortBy[T <% Ordered](f: E => T): Query[E, U, C] = {
+  def sortBy[T](f: E => T)(implicit ev: T => Ordered): Query[E, U, C] = {
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator))
-    new WrappingQuery[E, U, C](SortBy(generator, toNode, f(aliased.value).columns), shaped)
+    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(f(aliased.value).columns)), shaped)
   }
 
   /** Sort this query according to a the ordering of its elements. */
@@ -153,6 +155,11 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
 
+  /** Specify part of a select statement for update and marked for row level locking */
+  def forUpdate: Query[E, U, C] = {
+    val generator = new AnonSymbol
+    new WrappingQuery[E, U, C](ForUpdate(generator, toNode), shaped)
+  }
   def encodeRef(path: Node): Query[E, U, C] = new Query[E, U, C] {
     val shaped = self.shaped.encodeRef(path)
     def toNode = path
@@ -178,6 +185,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def size = length
 
   /** The number of distinct elements of the query. */
+  @deprecated("Use `length` on `distinct` or `distinctOn` instead of `countDistinct`", "3.2")
   def countDistinct: Rep[Int] = Library.CountDistinct.column(toNode)
 
   /** Test whether this query is non-empty. */
@@ -203,10 +211,30 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   /** Select all elements except the first `num` ones. */
   def drop(num: Int): Query[E, U, C] = drop(num.toLong)
 
+  /** Remove duplicate elements. When used on an ordered Query, there is no guarantee in which
+    * order duplicates are removed. This method is equivalent to `distinctOn(identity)`. */
+  def distinct: Query[E, U, C] =
+    distinctOn[E, U](identity)(shaped.shape.asInstanceOf[Shape[FlatShapeLevel, E, U, _]])
+  /** Remove duplicate elements which are the same in the given projection. When used on an
+    * ordered Query, there is no guarantee in which order duplicates are removed. */
+  def distinctOn[F, T](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, _]): Query[E, U, C] = {
+    val generator = new AnonSymbol
+    val aliased = shaped.encodeRef(Ref(generator)).value
+    val fv = f(aliased)
+    new WrappingQuery[E, U, C](Distinct(generator, toNode, shape.toNode(fv)), shaped)
+  }
+
+  /** Change the collection type to build when executing the query. */
   def to[D[_]](implicit ctc: TypedCollectionTypeConstructor[D]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped
     def toNode = CollectionCast(self.toNode, ctc)
   }
+
+  /** Force a subquery to be created when using this Query as part of a larger Query. This method
+    * should never be necessary for correctness. If a query works with an explicit `.subquery` call
+    * but fails without, this should be considered a bug in Slick. The method is exposed in the API
+    * to enable workarounds to be written in such cases. */
+  def subquery: Query[E, U, C] = new WrappingQuery[E, U, C](Subquery(toNode, Subquery.Default), shaped)
 }
 
 /** The companion object for Query contains factory methods for creating queries. */
@@ -232,7 +260,7 @@ trait CanBeQueryCondition[-T] extends (T => Rep[_])
 
 object CanBeQueryCondition {
   // Using implicits with explicit type annotation here (instead of previously implicit objects)
-  // because otherwise they would not be found in this file above this line. 
+  // because otherwise they would not be found in this file above this line.
   // See https://github.com/slick/slick/pull/217
   implicit val BooleanColumnCanBeQueryCondition : CanBeQueryCondition[Rep[Boolean]] =
     new CanBeQueryCondition[Rep[Boolean]] {
@@ -293,10 +321,10 @@ object TableQueryMacroImpl {
   def apply[E <: AbstractTable[_]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
     import c.universe._
     val cons = c.Expr[Tag => E](Function(
-      List(ValDef(Modifiers(Flag.PARAM), newTermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),
+      List(ValDef(Modifiers(Flag.PARAM), TermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),
       Apply(
-        Select(New(TypeTree(e.tpe)), nme.CONSTRUCTOR),
-        List(Ident(newTermName("tag")))
+        Select(New(TypeTree(e.tpe)), termNames.CONSTRUCTOR),
+        List(Ident(TermName("tag")))
       )
     ))
     reify { TableQuery.apply[E](cons.splice) }

@@ -1,12 +1,10 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert
-import org.junit.Assert._
 import slick.jdbc.GetResult
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class PlainSQLTest extends AsyncTest[JdbcTestDB] {
-  import tdb.driver.api._
+  import tdb.profile.api._
 
   implicit val getUserResult = GetResult(r => new User(r.<<, r.<<))
 
@@ -115,13 +113,13 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
       create.map(_ shouldBe 0),
       DBIO.fold((for {
         (id, name) <- List((1, "szeiger"), (0, "admin"), (2, "guest"), (3, "foo"))
-      } yield sqlu"insert into USERS values ($id, $name)"), 0)(_ + _).map(_ shouldBe 4),
-      sql"select id from USERS".as[Int].map(_.toSet shouldBe Set(0,1,2,3)), //TODO Support `to` in Plain SQL Actions
-      userForID(2).map(_.head shouldBe User(2,"guest")), //TODO Support `head` and `headOption` in Plain SQL Actions
-      s1.map(_ shouldBe List(1)),
-      s2.map(_ shouldBe List(2)),
-      userForIdAndName(2, "guest").map(_.head shouldBe User(2,"guest")), //TODO Support `head` and `headOption` in Plain SQL Actions
-      userForIdAndName(2, "foo").map(_.headOption shouldBe None) //TODO Support `head` and `headOption` in Plain SQL Actions
+      } yield sqlu"insert into USERS values ($id, $name)"), 0)(_ + _) shouldYield(4),
+      sql"select id from USERS".as[Int] shouldYield Set(0,1,2,3), //TODO Support `to` in Plain SQL Actions
+      userForID(2).head shouldYield User(2,"guest"), //TODO Support `head` and `headOption` in Plain SQL Actions
+      s1 shouldYield List(1),
+      s2 shouldYield List(2),
+      userForIdAndName(2, "guest").head shouldYield User(2,"guest"), //TODO Support `head` and `headOption` in Plain SQL Actions
+      userForIdAndName(2, "foo").headOption shouldYield None //TODO Support `head` and `headOption` in Plain SQL Actions
     )
   }
 }

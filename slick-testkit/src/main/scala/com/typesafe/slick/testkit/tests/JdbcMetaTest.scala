@@ -1,9 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.{Test, Assert}
-import org.junit.Assert._
 import slick.jdbc.meta._
-import com.typesafe.slick.testkit.util.{TestDB, JdbcTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
@@ -45,7 +43,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
       DBIO.sequence(ps.map(_.getProcedureColumns()))
     }.named("Procedures from DatabaseMetaData"),
 
-    MTable.getTables(None, None, None, None).flatMap { ts =>
+    tdb.profile.defaultTables.flatMap { ts =>
       DBIO.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
         DBIO.seq(
           t.getColumns.flatMap { cs =>
@@ -68,7 +66,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     ifCap(tcap.jdbcMetaGetClientInfoProperties)(MClientInfoProperty.getClientInfoProperties)
       .named("Client Info Properties from DatabaseMetaData"),
 
-    MTable.getTables(None, None, None, None).map(_.should(ts =>
+    tdb.profile.defaultTables.map(_.should(ts =>
       Set("orders_xx", "users_xx") subsetOf ts.map(_.name.name).toSet
     )).named("Tables before deleting")
 
@@ -76,7 +74,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     if(tdb.canGetLocalTables) {
 
       for (t <- tdb.getLocalTables.sorted) {
-        val st = "drop table " + tdb.driver.quoteIdentifier(t)
+        val st = "drop table " + tdb.profile.quoteIdentifier(t)
         println("Executing statement: " + st)
         StaticQuery.updateNA(st).execute
       }

@@ -10,5 +10,5 @@ final class FunctionSymbolExtensionMethods(val fs: FunctionSymbol) /*extends Any
 }
 
 object FunctionSymbolExtensionMethods {
-  implicit def functionSymbolExtensionMethods(fs: FunctionSymbol) = new FunctionSymbolExtensionMethods(fs)
+  implicit def functionSymbolExtensionMethods(fs: FunctionSymbol): FunctionSymbolExtensionMethods = new FunctionSymbolExtensionMethods(fs)
 }

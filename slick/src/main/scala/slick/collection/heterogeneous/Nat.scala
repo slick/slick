@@ -2,7 +2,7 @@ package slick.collection.heterogeneous
 
 import scala.language.higherKinds
 import scala.language.experimental.macros
-import scala.reflect.macros.Context
+import scala.reflect.macros.whitebox.Context
 
 /** Natural numbers for indexing in HLists.
   *
@@ -140,7 +140,7 @@ object Nat {
   def apply(i: Int): Nat = macro Nat.applyImpl
   def applyImpl(ctx: Context)(i: ctx.Expr[Int]): ctx.Expr[Nat] = {
     import ctx.universe._
-    val _Nat = typeOf[Nat.type].typeSymbol.companionSymbol
+    val _Nat = typeOf[Nat].typeSymbol.companion
     val _Succ = typeOf[Succ[_]].typeSymbol
     val _Zero = reify(Zero).tree
 
@@ -152,7 +152,7 @@ object Nat {
         ctx.Expr(
           Apply(
             TypeApply(
-              Select(Ident(_Nat), newTermName("_unsafe")),
+              Select(Ident(_Nat), TermName("_unsafe")),
               List(tt)),
             List(Literal(Constant(v)))))
       case _ => reify(Nat._unsafe[Nat](i.splice))

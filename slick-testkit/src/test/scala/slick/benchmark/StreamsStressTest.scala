@@ -5,10 +5,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.reactivestreams.tck.TestEnvironment
 
 object StreamsStressTest extends App {
-  /*import slick.driver.DerbyDriver.api._
+  /*import slick.jdbc.DerbyProfile.api._
   val url = "jdbc:derby:memory:StreamsStressTest;create=true"
   val driver = "org.apache.derby.jdbc.EmbeddedDriver"*/
-  import slick.driver.H2Driver.api._
+  import slick.jdbc.H2Profile.api._
   val url = "jdbc:h2:mem:StreamsStressTest"
   val driver = "org.h2.Driver"
 

@@ -1,25 +1,20 @@
 package slick.jdbc
 
 import java.net.URI
+import java.sql.PreparedStatement
 
 import com.typesafe.config.ConfigException
-import slick.util.ClassLoaderUtil
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
-import scala.language.implicitConversions
-import scala.reflect.ClassTag
-import scala.reflect.macros.Context
-import scala.collection.mutable.ArrayBuffer
-
-import java.sql.PreparedStatement
+import scala.reflect.macros.{blackbox, whitebox}
 
 import slick.SlickException
-import slick.backend.{DatabaseConfig, StaticDatabaseConfigMacros, StaticDatabaseConfig}
+import slick.basic.{DatabaseConfig, StaticDatabaseConfigMacros}
 import slick.dbio.{NoStream, Effect}
-import slick.driver.JdbcProfile
-import slick.profile.{SqlAction, SqlStreamingAction}
+import slick.sql.{SqlAction, SqlStreamingAction}
+import slick.util.ClassLoaderUtil
 
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   import ActionBasedSQLInterpolation._
@@ -33,7 +28,7 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
 }
 
 object ActionBasedSQLInterpolation {
-  def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
+  def sqlImpl(ctxt: blackbox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
@@ -44,7 +39,7 @@ object ActionBasedSQLInterpolation {
     }
   }
 
-  def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlAction[Int, NoStream, Effect]] = {
+  def sqluImpl(ctxt: blackbox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlAction[Int, NoStream, Effect]] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
@@ -55,7 +50,7 @@ object ActionBasedSQLInterpolation {
       res.asUpdate
     }
   }
-  def tsqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Vector[Any], Any, Effect]] = {
+  def tsqlImpl(ctxt: whitebox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Vector[Any], Any, Effect]] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
 
@@ -72,8 +67,8 @@ object ActionBasedSQLInterpolation {
           _.getMetaData match {
             case null => Vector()
             case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
-              val modelBuilder = dc.driver.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
-              modelBuilder.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+              val modelBuilder = dc.profile.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
+              modelBuilder.jdbcTypeToScala(resultMeta.getColumnType(i + 1), resultMeta.getColumnTypeName(i + 1))
             }
           }
         }
@@ -108,4 +103,7 @@ case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit])
     }
   }
   def asUpdate = as[Int](GetResult.GetUpdateValue).head
+  def stripMargin(marginChar: Char): SQLActionBuilder =
+    copy(queryParts.map(_.asInstanceOf[String].stripMargin(marginChar)))
+  def stripMargin: SQLActionBuilder = copy(queryParts.map(_.asInstanceOf[String].stripMargin))
 }

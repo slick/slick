@@ -1,6 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
+import slick.jdbc.{PostgresProfile, H2Profile}
 
 class AggregateTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
@@ -13,13 +14,15 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     }
     val ts = TableQuery[T]
     def q1(i: Int) = for { t <- ts if t.a === i } yield t
-    def q2(i: Int) = (q1(i).length, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
-    val q2_0 = q2(0).shaped
-    val q2_1 = q2(1).shaped
+    def q2(i: Int) = (q1(i).length, q1(i).map(_.b).length, q1(i).map(_.b).countDefined, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
+    val q2_0 = q2(0)
+    val q2_1 = q2(1)
     ts.schema.create >>
-      (ts ++= Seq((1, Some(1)), (1, Some(2)), (1, Some(3)))) >>
-      q2_0.result.map(_ shouldBe (0, None, None, None)) >>
-      q2_1.result.map(_ shouldBe (3, Some(3), Some(6), Some(2)))
+      (ts ++= Seq((1, Some(1)), (1, Some(3)), (1, None))) >>
+      q2_0.result.map(_ shouldBe (0, 0, 0, None, None, None)) >>
+      q2_1.result.map(_ shouldBe (3, 3, 2, Some(3), Some(4), Some(2))) >>
+      q2_0._1.result >>
+      q2_0._1.shaped.result
   }
 
   def testGroupBy = {
@@ -44,6 +47,9 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       val q0 = ts.groupBy(_.a)
       val q1 = q0.map(_._2.length).sortBy(identity)
       db.run(mark("q1", q1.result)).map { r0t: Seq[Int] => r0t shouldBe Vector(2, 3, 3) }
+    }.flatMap { _ =>
+      val q0 = ts.groupBy(_.a).map(_._1).length
+      db.run(mark("q0", q0.result)).map { r0t: Int => r0t shouldBe 3 }
     }.flatMap { _ =>
       val q = (for {
         (k, v) <- ts.groupBy(t => t.a)
@@ -96,9 +102,9 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       val q6 = ((for {
         (u, t) <- us joinLeft ts on (_.id === _.a)
       } yield (u, t)).groupBy(_._1.id).map {
-        case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length)
+        case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length, q.map(_._2.map(_.a)).length, q.map(_._2.map(_.a)).countDefined)
       }).to[Set]
-      db.run(mark("q6", q6.result)).map(_ shouldBe Set((1, 3, 3, 3), (2, 3, 3, 3), (3, 2, 2, 2), (4, 1, 1, 0)))
+      db.run(mark("q6", q6.result)).map(_ shouldBe Set((1, 3, 3, 3, 3, 3), (2, 3, 3, 3, 3, 3), (3, 2, 2, 2, 2, 2), (4, 1, 1, 1, 1, 0)))
     }.flatMap { _ =>
       val q7 = ts.groupBy(_.a).map { case (a, ts) =>
         (a, ts.map(_.b).sum, ts.map(_.b).min, ts.map(_.b).max, ts.map(_.b).avg)
@@ -146,7 +152,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       class T4(tag: Tag) extends Table[Pair](tag, "t4") {
         def a = column[Int]("a")
         def b = column[Option[Int]]("b")
-        def * = (a, b) <> (Pair.tupled,Pair.unapply)
+        def * = (a, b).mapTo[Pair]
       }
       val t4s = TableQuery[T4]
       db.run(t4s.schema.create >>
@@ -183,7 +189,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     DBIO.seq(
       as.schema.create,
       as += 1,
-      q1.result
+      q1.result.map(_ shouldBe Seq((Some(1), 1)))
     )
   }
 
@@ -197,7 +203,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       def col4 = column[Int]("COL4")
       def col5 = column[Int]("COL5")
 
-      def * = (col1, col2, col3, col4, col5) <> (Tab.tupled, Tab.unapply)
+      def * = (col1, col2, col3, col4, col5).mapTo[Tab]
     }
     val Tabs = TableQuery[Tabs]
 
@@ -279,5 +285,90 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       }
       _ <- q4.result.map(_ shouldBe Nil)
     } yield ()
+  }
+
+  def testFusedGroupBy = {
+    class A(tag: Tag) extends Table[(Int, Int)](tag, "A_FUSEDGROUPBY") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def value = column[Int]("value")
+      def * = (id, value)
+    }
+    val as = TableQuery[A]
+    val q1 = as.map(t => t.value + LiteralColumn(1).bind).groupBy(identity).map(_._1)
+    val q2 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._2)
+    val q3 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._1)
+
+    if(tdb.profile == H2Profile) {
+      assertNesting(q1, 2)
+      assertNesting(q2, 2)
+      assertNesting(q3, 1)
+    }
+
+    DBIO.seq(
+      as.schema.create,
+      as ++= Seq((1, 10), (2, 20), (3, 20)),
+      mark("q1", q1.result).map(_.toSet shouldBe Set(11, 21)),
+      mark("q2", q2.result).map(_.toSet shouldBe Set(11, 21)),
+      mark("q3", q3.result).map(_.toSet shouldBe Set(10, 20))
+    )
+  }
+
+  def testDistinct = {
+    class A(tag: Tag) extends Table[String](tag, "A_DISTINCT") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def a = column[String]("a")
+      def b = column[String]("b")
+      def * = a
+      override def create_* = collectFieldSymbols((id, a, b).shaped.toNode)
+    }
+    val as = TableQuery[A]
+
+    val data = Set((1, "a", "a"), (2, "a", "b"), (3, "c", "b"))
+
+    val q1a = as.map(_.a).distinct
+    val q1b = as.distinct.map(_.a)
+    val q2 = as.distinct.map(a => (a.a, 5))
+    val q3a = as.distinct.map(_.id).filter(_ === 1) unionAll as.distinct.map(_.id).filter(_ === 2)
+    val q4 = as.map(a => (a.a, a.b)).distinct.map(_._1)
+    val q5a = as.groupBy(_.a).map(_._2.map(_.id).min.get)
+    val q5b = as.distinct.map(_.id)
+    val q5c = as.distinct.map(a => (a.id, a.a))
+    val q6 = as.distinct.length
+    val q7 = as.map(a => (a.a, a.b)).distinct.take(10)
+
+    if(tdb.profile == H2Profile) {
+      assertNesting(q1a, 1)
+      assertNesting(q1b, 1)
+      assertNesting(q3a, 2)
+      assertNesting(q4, 2)
+      assertNesting(q5a, 1)
+      assertNesting(q5b, 1)
+      assertNesting(q5c, 1)
+      assertNesting(q7, 1)
+    } else if(tdb.profile == PostgresProfile) {
+      assertNesting(q1a, 1)
+      assertNesting(q1b, 1)
+      assertNesting(q3a, 4)
+      assertNesting(q4, 1)
+      assertNesting(q5a, 1)
+      assertNesting(q5b, 1)
+      assertNesting(q5c, 1)
+      assertNesting(q7, 1)
+    }
+
+    DBIO.seq(
+      as.schema.create,
+      as.map(a => (a.id, a.a, a.b)) ++= data,
+      mark("q1a", q1a.result).map(_.sortBy(identity) shouldBe Seq("a", "c")),
+      mark("q1b", q1b.result).map(_.sortBy(identity) shouldBe Seq("a", "c")),
+      mark("q2", q2.result).map(_.sortBy(identity) shouldBe Seq(("a", 5), ("c", 5))),
+      mark("q3a", q3a.result).map(_ should (r => r == Seq(1) || r == Seq(2))),
+      mark("q4", q4.result).map(_.sortBy(identity) shouldBe Seq("a", "a", "c")),
+      mark("q5a", q5a.result).map(_.sortBy(identity) shouldBe Seq(1, 3)),
+      mark("q5b", q5b.result).map(_.sortBy(identity) should (r => r == Seq(1, 3) || r == Seq(2, 3))),
+      mark("q5c", q5c.result).map(_.sortBy(identity) should (r => r == Seq((1, "a"), (3, "c")) || r == Seq((2, "a"), (3, "c")))),
+      mark("q6", q6.result).map(_ shouldBe 2),
+      mark("q7", q7.result).map(_.sortBy(identity) shouldBe Seq(("a", "a"), ("a", "b"), ("c", "b")))
+    )
   }
 }

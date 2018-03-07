@@ -15,13 +15,13 @@ class CountTest extends AsyncTest[RelationalTestDB] {
       _ <- testTable.schema.create
       _ <- testTable ++= Seq(1, 2, 3, 4, 5)
       q1 = Query(testTable.length)
-      _ <- q1.result.map(_ shouldBe Vector(5))
+      _ <- mark("q1", q1.result).map(_ shouldBe Vector(5))
       q2 = testTable.length
-      _ <- q2.result.map(_ shouldBe 5)
+      _ <- mark("q2", q2.result).map(_ shouldBe 5)
       q3 = testTable.filter(_.id < 3).length
-      _ <- q3.result.map(_ shouldBe 2)
+      _ <- mark("q3", q3.result).map(_ shouldBe 2)
       q4 = testTable.take(2).length
-      _ <- q4.result.map(_ shouldBe 2)
+      _ <- mark("q4", q4.result).map(_ shouldBe 2)
     } yield ()
   }
 
@@ -88,5 +88,23 @@ class CountTest extends AsyncTest[RelationalTestDB] {
         (a, b) <- as joinLeft bs on (_.id === _.aId)
       } yield (a.id, b.map(_.data))).length.result.named("outerJoinLength").map(_ shouldBe 3)
     )
+  }
+
+  def testTableCount = {
+    class T(tag: Tag) extends Table[(Long, String, Long, Option[Long], Option[Long])](tag, "TABLECOUNT_T") {
+      def a = column[Long]("ID")
+      def b = column[String]("B")
+      def c = column[Long]("C")
+      def d = column[Option[Long]]("DISCONTINUED")
+      def e = column[Option[Long]]("E")
+      def * = (a, b, c, d, e)
+    }
+    val ts = TableQuery[T]
+
+    DBIO.seq(
+      ts.schema.create,
+      ts += (1L, "a", 1L, None, None),
+      ts.length.result.map(_ shouldBe 1)
+    ).withPinnedSession
   }
 }

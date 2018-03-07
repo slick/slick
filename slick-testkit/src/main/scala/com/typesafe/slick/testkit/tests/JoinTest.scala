@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
 class JoinTest extends AsyncTest[RelationalTestDB] {
@@ -18,6 +17,7 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")
+      def withCategory = Query(this) join categories
       def * = (id, title, category)
     }
     val posts = TableQuery[Posts]
@@ -48,6 +48,20 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
         (c,p) <- categories join posts on (_.id === _.category)
       } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
+      q3 = posts.flatMap(_.withCategory)
+      _ <- mark("q3", q3.result).map(_ should (_.length == 20))
+      q4 = (for {
+        a1 <- categories
+        a2 <- categories
+        a3 <- categories
+        a4 <- categories
+        if a1.id === a4.id
+      } yield a1.id).to[Set]
+      _ <- mark("q4", q4.result).map(_ shouldBe Set(1, 2, 3, 4))
+      q5 = (for {
+        c <- categories
+      } yield (c, Rep.None[Int])).sortBy(_._1.id)
+      _ <- mark("q5", q5.result.map(_.map(_._1._1))).map(_ shouldBe List(1,2,3,4))
     } yield ()
   }
 
@@ -304,6 +318,33 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       q1.result.named("q1").map(_.toSet shouldBe Set((1, Some(1)), (2, Some(2)), (3, None))),
       q2.result.named("q2").map(_.toSet shouldBe Set((1,1), (2,2))),
       q3.result.named("q3").map(_.toSet shouldBe Set((1,1), (2,2)))
+    )
+  }
+
+  def testDiscriminatorCheck = {
+    class A(tag: Tag) extends Table[Int](tag, "a_joinfiltering") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    lazy val as = TableQuery[A]
+
+    class B(tag: Tag) extends Table[Option[Int]](tag, "b_joinfiltering") {
+      def id = column[Option[Int]]("id")
+      def * = id
+    }
+    lazy val bs = TableQuery[B]
+
+    val q1 = for {
+      (a, b) <- as joinLeft bs on (_.id.? === _.id) if (b.isEmpty)
+    } yield (a.id)
+    val q2 = bs.joinLeft(as).on(_.id === _.id).filter(_._2.isEmpty).map(_._1.id)
+
+    DBIO.seq(
+      (as.schema ++ bs.schema).create,
+      as ++= Seq(1,2,3),
+      bs ++= Seq(1,2,4,5).map(Some.apply _),
+      q1.result.map(_.toSet shouldBe Set(3)),
+      q2.result.map(_.toSet shouldBe Set(Some(4), Some(5)))
     )
   }
 }

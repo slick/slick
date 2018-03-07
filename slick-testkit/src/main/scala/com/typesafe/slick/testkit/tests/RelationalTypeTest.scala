@@ -40,21 +40,25 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
   }
 
   private def roundtrip[T : BaseColumnType](tn: String, v: T) = {
-    class T1(tag: Tag) extends Table[(Int, T)](tag, tn) {
+    class T1(tag: Tag) extends Table[(Int, T, Option[T])](tag, tn) {
       def id = column[Int]("id")
       def data = column[T]("data")
-      def * = (id, data)
+      def dataOpt = column[Option[T]]("opt")
+      def * = (id, data, dataOpt)
     }
     val t1 = TableQuery[T1]
 
     seq(
       t1.schema.create,
-      t1 += (1, v),
+      t1 += (1, v, Some(v)),
       t1.map(_.data).result.map(_ shouldBe Seq(v)),
       t1.filter(_.data === v).map(_.id).result.map(_ shouldBe Seq(1)),
       t1.filter(_.data =!= v).map(_.id).result.map(_ shouldBe Nil),
       t1.filter(_.data === v.bind).map(_.id).result.map(_ shouldBe Seq(1)),
-      t1.filter(_.data =!= v.bind).map(_.id).result.map(_ shouldBe Nil)
+      t1.filter(_.data =!= v.bind).map(_.id).result.map(_ shouldBe Nil),
+      t1 += (2, v, None),
+      t1.filter(_.dataOpt.isDefined).map(_.id).result.map(_ shouldBe Seq(1)),
+      t1.filter(_.dataOpt.isEmpty).map(_.id).result.map(_ shouldBe Seq(2))
     )
   }
 

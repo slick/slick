@@ -7,8 +7,8 @@
     <root level="${log.root:-info}">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="slick.backend.DatabaseComponent.action"   level="${log.action:-info}" />
-    <logger name="slick.backend.DatabaseComponent.stream"   level="${log.stream:-info}" />
+    <logger name="slick.basic.BasicBackend.action"          level="${log.action:-info}" />
+    <logger name="slick.basic.BasicBackend.stream"          level="${log.stream:-info}" />
     <logger name="slick.compiler"                           level="${log.qcomp:-info}" />
     <logger name="slick.compiler.QueryCompiler"             level="${log.qcomp.phases:-inherited}" />
     <logger name="slick.compiler.QueryCompilerBenchmark"    level="${log.qcomp.bench:-inherited}" />
@@ -31,8 +31,10 @@
     <logger name="slick.compiler.HoistClientOps"            level="${log.qcomp.hoistClientOps:-inherited}" />
     <logger name="slick.compiler.ReorderOperations"         level="${log.qcomp.reorderOperations:-inherited}" />
     <logger name="slick.compiler.MergeToComprehensions"     level="${log.qcomp.mergeToComprehensions:-inherited}" />
+    <logger name="slick.compiler.OptimizeScalar"            level="${log.qcomp.optimizeScalar:-inherited}" />
     <logger name="slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
     <logger name="slick.compiler.PruneProjections"          level="${log.qcomp.pruneProjections:-inherited}" />
+    <logger name="slick.compiler.RewriteDistinct"           level="${log.qcomp.rewriteDistinct:-inherited}" />
     <logger name="slick.compiler.RewriteBooleans"           level="${log.qcomp.rewriteBooleans:-inherited}" />
     <logger name="slick.compiler.SpecializeParameters"      level="${log.qcomp.specializeParameters:-inherited}" />
     <logger name="slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />

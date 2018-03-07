@@ -3,8 +3,8 @@
 Slick uses the standard Typesafe Project & Developer Guidelines below for contributions. Some Slick-specific clarifications/additions:
 
 - External contributions are generally reviewed by one core developer.
-- There are no CI builds for Slick at the moment. Contributions are merged and tested manually.
-- We have a [project plan](https://www.assembla.com/spaces/typesafe-slick/tickets) in Assembla tickets plus the standard Github [issue tracker](https://github.com/slick/slick/issues?state=open) for bug reports. We expect to merge these two in the future. For now, when you're referencing a (github) issue or (Assembla) ticket number in a commit, please prefix it with "issue #", or "ticket ", respectively.
+- We have Circle CI and Travis CI for continuous integration tests.
+- We have the standard Github [issue tracker](https://github.com/slick/slick/issues?state=open) for bug reports. When you're referencing an issue number in a commit, please prefix it with "issue #".
 - Branches starting with "tmp/" or "wip/" on the official repo are considered unstable and should not be used as a basis for your work. Their history may be rewritten at any time without notice.
 
 # Typesafe Project & Developer Guidelines
@@ -17,7 +17,7 @@ These guidelines mainly applies to Typesafe’s “mature” projects - not nece
 
 This is the process for committing code into master. There are of course exceptions to these rules, for example minor changes to comments and documentation, fixing a broken build etc.
 
-1. Make sure you have signed the [Typesafe CLA](http://www.typesafe.com/contribute/cla), if not, sign it online.
+1. Make sure you have signed the [Typesafe CLA](http://www.lightbend.com/contribute/cla), if not, sign it online.
 2. Before starting to work on a feature or a fix, you have to make sure that:
     1. There is a ticket for your work in the project's issue tracker. If not, create it first.
     2. The ticket has been scheduled for the current milestone.

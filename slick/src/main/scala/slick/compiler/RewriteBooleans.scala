@@ -1,7 +1,6 @@
 package slick.compiler
 
 import slick.ast._
-import Util.nodeToNodeOps
 import TypeUtil._
 
 /** For SQL back-ends which do not support real boolean types for fields and general expressions
@@ -9,7 +8,7 @@ import TypeUtil._
   * between fake and real boolean values.
   *
   * The default for booleans in the AST is to use the fake type (mapped to a numeric type by the
-  * driver). There are specific places where a real boolean (that can be used in boolean
+  * profile). There are specific places where a real boolean (that can be used in boolean
   * expressions) is required or produced, so we inject a call to ToRealBoolean or ToFakeBoolean as
   * needed. */
 class RewriteBooleans extends Phase {
@@ -36,7 +35,7 @@ class RewriteBooleans extends Phase {
     case Apply(sym, ch) :@ tpe if isBooleanLike(tpe) =>
       toFake(Apply(sym, ch)(n.nodeType).infer())
     // Where clauses, join conditions and case clauses need real boolean predicates
-    case n @ Comprehension(_, _, _, where, _, _, having, _, _) =>
+    case n @ Comprehension(_, _, _, where, _, _, having, _, _, _, _) =>
       n.copy(where = where.map(toReal), having = having.map(toReal)) :@ n.nodeType
     case n @ Join(_, _, _, _, _, on) =>
       n.copy(on = toReal(on)) :@ n.nodeType

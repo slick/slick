@@ -1,8 +1,8 @@
 package slick.jdbc.meta
 
 import slick.dbio.Effect
-import slick.jdbc.{ResultSetAction, Invoker}
-import slick.profile.BasicStreamingAction
+import slick.jdbc.ResultSetAction
+import slick.basic.BasicStreamingAction
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTables(). */
 case class MTable(

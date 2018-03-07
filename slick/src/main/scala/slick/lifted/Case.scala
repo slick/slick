@@ -1,7 +1,7 @@
 package slick.lifted
 
-import slick.ast.{LiteralNode, IfThenElse, Node, BaseTypedType, OptionTypedType, TypedType}
-import slick.SlickException
+import slick.ast.{LiteralNode, IfThenElse, Node, BaseTypedType, OptionType, TypedType, OptionApply}
+import slick.util.ConstArray
 
 /** `Case` provides a DSL for conditional statements in the query language.
   * An arbitrary number of `If`...`Then` expressions can be chained, optionally
@@ -18,16 +18,21 @@ object Case {
 
   final class UntypedWhen(cond: Node) {
     def Then[P, B](res: Rep[P])(implicit om: OptionMapperDSL.arg[B, P]#to[B, P], bType: BaseTypedType[B]) =
-      new TypedCase[B, P](Vector(cond, res.toNode))(bType, om.liftedType(bType))
+      new TypedCase[B, P](ConstArray(cond, res.toNode))(bType, om.liftedType(bType))
   }
 
-  final class TypedCase[B : TypedType, T : TypedType](clauses: Vector[Node]) extends Rep.TypedRep[Option[B]] {
-    def toNode = IfThenElse(clauses :+ LiteralNode(null)).nullExtend
+  final class TypedCase[B : TypedType, T : TypedType](clauses: ConstArray[Node]) extends Rep.TypedRep[Option[B]] {
+    def toNode: IfThenElse = {
+      val cl =
+        if(implicitly[TypedType[T]].isInstanceOf[OptionType]) clauses
+        else clauses.zipWithIndex.map { case (n, i) => if(i % 2 == 0) n else OptionApply(n) }
+      IfThenElse(cl :+ LiteralNode(null))
+    }
     def If[C <: Rep[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond.toNode, clauses)
-    def Else(res: Rep[T]): Rep[T] = Rep.forNode(IfThenElse(clauses :+ res.toNode).nullExtend)
+    def Else(res: Rep[T]): Rep[T] = Rep.forNode(IfThenElse(clauses :+ res.toNode))
   }
 
-  final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: Vector[Node]) {
-    def Then(res: Rep[T]) = new TypedCase[B,T](parentClauses ++ Vector(cond, res.toNode))
+  final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: ConstArray[Node]) {
+    def Then(res: Rep[T]) = new TypedCase[B,T](parentClauses ++ ConstArray(cond, res.toNode))
   }
 }

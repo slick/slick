@@ -58,7 +58,7 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testSorting = {
-    import slick.lifted.{Shape, ShapeLevel, Ordered}
+    import slick.lifted.{Shape, Ordered}
 
     class T1(tag: Tag) extends Table[(String, String, String)](tag, "t1_3") {
       def a = column[String]("a")
@@ -87,15 +87,16 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testConditional = {
-    class T1(tag: Tag) extends Table[Int](tag, "t1_conditional") {
+    class T1(tag: Tag) extends Table[(Int, Option[Int])](tag, "t1_conditional") {
       def a = column[Int]("a")
-      def * = a
+      def b = column[Option[Int]]("b")
+      def * = (a, b)
     }
     val t1s = TableQuery[T1]
 
     for {
       _ <- t1s.schema.create
-      _ <- t1s ++= Seq(1, 2, 3, 4)
+      _ <- t1s ++= Seq((1, Some(11)), (2, None), (3, Some(33)), (4, None))
 
       q1 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 Else 0) }
       _ <- q1.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 0), (4, 0)))
@@ -105,23 +106,29 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
 
       q3 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 If(t1.a < 4) Then 2 Else 0) }
       _ <- q3.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 2), (4, 0)))
+
+      q4 = t1s.map { t1 => Case.If(t1.a < 3) Then t1.b Else t1.a.? }.to[Set]
+      _ <- mark("q4", q4.result).map(_ shouldBe Set(Some(11), None, Some(3), Some(4)))
     } yield ()
   }
 
   def testCast = {
-    class T1(tag: Tag) extends Table[(String, Int)](tag, "t1_4") {
+    class T1(tag: Tag) extends Table[(String, Int, Double)](tag, "t1_4") {
       def a = column[String]("a")
       def b = column[Int]("b")
-      def * = (a, b)
+      def c = column[Double]("c")
+      def * = (a, b, c)
     }
     val t1s = TableQuery[T1]
 
     for {
       _ <- t1s.schema.create
-      _ <- t1s ++= Seq(("foo", 1), ("bar", 2))
+      _ <- t1s ++= Seq(("foo", 1, 2.0), ("bar", 2, 2.0))
 
       q1 = t1s.map(t1 => t1.a ++ t1.b.asColumnOf[String])
       _ <- q1.to[Set].result.map(_ shouldBe Set("foo1", "bar2"))
+      q2 = t1s.map(t1 => t1.c * t1.b.asColumnOf[Double])
+      _ <- q2.to[Set].result.map(_ shouldBe Set(2.0, 4.0))
     } yield ()
   }
 
@@ -159,7 +166,7 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
     class A(tag: Tag) extends Table[Customer](tag, "INIT_A") {
       def id = column[Id]("ID", O.PrimaryKey, O.AutoInc)(Tables.idMapper)
       import Tables.idMapper
-      def * = id.<>(Customer.apply, Customer.unapply)
+      def * = id.mapTo[Customer]
     }
     Tables.as.schema
 

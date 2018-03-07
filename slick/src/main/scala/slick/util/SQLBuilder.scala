@@ -24,6 +24,15 @@ final class SQLBuilder { self =>
     }
   }
 
+  def sep[T](sequence: ConstArray[T], separator: String)(f: T => Unit) {
+    var i = 0
+    while(i < sequence.length) {
+      if(i != 0) self += separator
+      f(sequence(i))
+      i += 1
+    }
+  }
+
   def build = Result(sb.toString, { (p: PreparedStatement, idx: Int, param: Any) =>
     var i = idx
     for(s <- setters) {

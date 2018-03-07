@@ -1,6 +1,6 @@
 package slick.lifted
 
-import slick.driver.JdbcStatementBuilderComponent
+import slick.jdbc.JdbcStatementBuilderComponent
 import slick.ast._
 import slick.util._
 
@@ -22,8 +22,8 @@ object SimpleFunction {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleFunction {
       val name = fname
       override val scalar = fn
-      def children = params
-      protected[this] def rebuild(ch: IndexedSeq[Node]): Self = build(ch)
+      def children = ConstArray.from(params)
+      protected[this] def rebuild(ch: ConstArray[Node]): Self = build(ch.toSeq)
     }
     { paramsC: Seq[Rep[_] ] => Rep.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }
@@ -78,9 +78,9 @@ trait SimpleExpression extends Node {
 object SimpleExpression {
   def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Rep[_]] => Rep[T]) = {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleExpression {
-      def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(children, qb)
-      def children = params
-      protected[this] def rebuild(ch: IndexedSeq[Node]) = build(ch)
+      def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(children.toSeq, qb)
+      def children = ConstArray.from(params)
+      protected[this] def rebuild(ch: ConstArray[Node]) = build(ch.toSeq)
     }
     { paramsC: Seq[Rep[_] ] => Rep.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }

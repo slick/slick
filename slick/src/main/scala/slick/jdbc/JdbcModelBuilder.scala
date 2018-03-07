@@ -1,18 +1,19 @@
 package slick.jdbc
 
-import org.slf4j.LoggerFactory
 
+import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
-import scala.concurrent.{ExecutionContext, Future}
-import slick.profile.{RelationalProfile, SqlProfile}
+
 import scala.util.{Failure, Success}
 import java.sql.DatabaseMetaData
 
 import slick.SlickException
-import slick.dbio._
 import slick.ast.ColumnOption
+import slick.dbio._
 import slick.jdbc.meta._
 import slick.{model => m}
+import slick.relational.RelationalProfile
+import slick.sql.SqlProfile
 import slick.util.Logging
 
 /** Build a Slick model from introspecting the JDBC metadata.
@@ -97,9 +98,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
 
   class Builders(val tablesByQName: Map[MQName, TableBuilder])
 
-  /** Converts from java.sql.Types to the corresponding Java class name (with fully qualified path). */
-  /** Converts from java.sql.Types to the corresponding Java class name (with fully qualified path). */
-  def jdbcTypeToScala(jdbcType: Int): ClassTag[_] = {
+  /** Converts from java.sql.Types w/ type name to the corresponding Java class name (with fully qualified path). */
+  def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
     import java.sql.Types._
     import scala.reflect.classTag
     // see TABLE B-1 of JSR-000221 JBDCTM API Specification 4.1 Maintenance Release
@@ -177,7 +177,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     /** Regex matcher to extract string out ouf surrounding '' */
     final val StringPattern = """^'(.*)'$""".r
     /** Scala type this column is mapped to */
-    def tpe = jdbcTypeToScala(meta.sqlType).toString match {
+    def tpe = jdbcTypeToScala(meta.sqlType, meta.typeName).toString match {
       case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
       case t => t
     }
@@ -195,7 +195,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     def dbType: Option[String] = Some(meta.typeName)
     /** Column length of string types */
     def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
-    /** Indicates wether this should be a varchar in case of a string column.
+    /** Indicates whether this should be a varchar in case of a string column.
       * Currently defaults to true. Should be based on the value of dbType in the future. */
     def varying: Boolean =
       Seq(java.sql.Types.NVARCHAR, java.sql.Types.VARCHAR, java.sql.Types.LONGVARCHAR, java.sql.Types.LONGNVARCHAR) contains meta.sqlType
@@ -224,10 +224,9 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
             v.length match {
               case 1 => v(0)
               case 3 => v(1) // quoted character
-              case n => throw new SlickException(s"""Default value "$v" for Char column "$name" has wrong size""")
             }
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
-          case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
+          case (v,"scala.math.BigDecimal") => BigDecimal(s"${v.trim}") // need the trim for Oracle trailing space
           case (StringPattern(str),"String") => str
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false

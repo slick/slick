@@ -2,7 +2,7 @@ package slick.compiler
 
 import scala.collection.immutable.HashMap
 import slick.SlickException
-import slick.util.{GlobalConfig, SlickLogger, Logging}
+import slick.util._
 import slick.ast.{SymbolNamer, Node}
 import org.slf4j.LoggerFactory
 
@@ -78,12 +78,26 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
   protected[this] def runPhase(p: Phase, state: CompilerState): CompilerState = state.symbolNamer.use {
     val s2 = p(state)
     if(s2.tree ne state.tree) {
-      logger.debug("After phase "+p.name+":", s2.tree)
+      if(logger.isDebugEnabled) {
+        if(GlobalConfig.detectRebuild && s2.tree == state.tree) {
+          val rebuilt = detectRebuiltLeafs(state.tree, s2.tree)
+          logger.debug("After phase "+p.name+": (no change but not identical)", s2.tree, (d => rebuilt.contains(RefId(d))))
+        } else
+          logger.debug("After phase "+p.name+":", s2.tree)
+      }
       if(GlobalConfig.verifyTypes && s2.wellTyped)
         (new VerifyTypes(after = Some(p))).apply(s2)
     }
     else logger.debug("After phase "+p.name+": (no change)")
     s2
+  }
+
+  protected[this] def detectRebuiltLeafs(n1: Node, n2: Node): Set[RefId[Dumpable]] = {
+    if(n1 eq n2) Set.empty else {
+      val chres =
+        n1.children.iterator.zip(n2.children.iterator).map { case (n1, n2) => detectRebuiltLeafs(n1, n2) }.foldLeft(Set.empty[RefId[Dumpable]])(_ ++ _)
+      if(chres.isEmpty) Set(RefId(n2)) else chres
+    }
   }
 }
 
@@ -92,6 +106,7 @@ object QueryCompiler {
   val standardPhases = Vector(
     /* Clean up trees from the lifted embedding */
     Phase.assignUniqueSymbols,
+    Phase.unrollTailBinds,
     /* Distribute and normalize */
     Phase.inferTypes,
     Phase.expandTables,
@@ -101,7 +116,6 @@ object QueryCompiler {
     Phase.expandSums,
     // optional removeTakeDrop goes here
     // optional emulateOuterJoins goes here
-    Phase.expandConditionals,
     Phase.expandRecords,
     Phase.flattenProjections,
     /* Optimize for SQL */
@@ -116,10 +130,12 @@ object QueryCompiler {
     Phase.createAggregates,
     Phase.resolveZipJoins,
     Phase.pruneProjections,
+    Phase.rewriteDistinct,
     Phase.createResultSetMapping,
     Phase.hoistClientOps,
     Phase.reorderOperations,
     Phase.mergeToComprehensions,
+    Phase.optimizeScalar,
     Phase.fixRowNumberOrdering,
     Phase.removeFieldNames
     // optional rewriteBooleans goes here
@@ -156,13 +172,13 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
   * the standard phases of the query compiler */
 object Phase {
   /* The standard phases of the query compiler */
+  val unrollTailBinds = new UnrollTailBinds
   val assignUniqueSymbols = new AssignUniqueSymbols
   val inferTypes = new InferTypes
   val expandTables = new ExpandTables
   val forceOuterBinds = new ForceOuterBinds
   val removeMappedTypes = new RemoveMappedTypes
   val expandSums = new ExpandSums
-  val expandConditionals = new ExpandConditionals
   val expandRecords = new ExpandRecords
   val flattenProjections = new FlattenProjections
   val createAggregates = new CreateAggregates
@@ -174,8 +190,10 @@ object Phase {
   val reorderOperations = new ReorderOperations
   val relabelUnions = new RelabelUnions
   val mergeToComprehensions = new MergeToComprehensions
+  val optimizeScalar = new OptimizeScalar
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val pruneProjections = new PruneProjections
+  val rewriteDistinct = new RewriteDistinct
   val removeFieldNames = new RemoveFieldNames
 
   /* Extra phases that are not enabled by default */

@@ -1,10 +1,8 @@
 package slick.jdbc
 
-import scala.language.existentials
 import java.sql.{PreparedStatement, ResultSet}
 import slick.relational._
 import slick.SlickException
-import slick.ast.ScalaBaseType
 
 /** Specialized JDBC ResultConverter for non-`Option` values. */
 class BaseResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](val ti: JdbcType[T], val name: String, val idx: Int) extends ResultConverter[JdbcResultConverterDomain, T] {
@@ -40,14 +38,15 @@ class OptionResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Do
   def getOrElse(default: () => T): DefaultingResultConverter[T] =
     if(ti.scalaType.isPrimitive) new DefaultingResultConverter[T](ti, default, idx)
     else new DefaultingResultConverter[T](ti, default, idx) {
-        override def read(pr: ResultSet) = {
-          val v = ti.getValue(pr, idx)
-          if(v.asInstanceOf[AnyRef] eq null) default() else v
-        }
+      override def read(pr: ResultSet) = {
+        val v = ti.getValue(pr, idx)
+        if(v.asInstanceOf[AnyRef] eq null) default() else v
       }
+    }
+  def isDefined = new IsDefinedResultConverter[T](ti, idx)
 }
 
-/** Specialized JDBC ResultConverter for handling non-`Option`values with a default.
+/** Specialized JDBC ResultConverter for handling non-`Option` values with a default.
   * A (possibly specialized) function for the default value is used to translate SQL `NULL` values. */
 class DefaultingResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](val ti: JdbcType[T], val default: () => T, val idx: Int) extends ResultConverter[JdbcResultConverterDomain, T] {
   def read(pr: ResultSet) = {
@@ -62,24 +61,16 @@ class DefaultingResultConverter[@specialized(Byte, Short, Int, Long, Char, Float
   def width = 1
 }
 
-/** A `ResultConverter` that simplifies the implementation of fast path
-  * converters for `JdbcProfile`. It always wraps a `TypeMappingResultConverter`
-  * on top of a `ProductResultConverter`, allowing direct access to the product
-  * elements. */
-abstract class JdbcFastPath[T](protected[this] val rc: TypeMappingResultConverter[JdbcResultConverterDomain, T, _]) extends ResultConverter[JdbcResultConverterDomain, T] {
-  private[this] val ch = rc.child.asInstanceOf[ProductResultConverter[JdbcResultConverterDomain, _]].elementConverters
-  private[this] var idx = -1
-
-  /** Return the next specialized child `ResultConverter` for the specified type. */
-  protected[this] def next[C] = {
-    idx += 1
-    ch(idx).asInstanceOf[ResultConverter[JdbcResultConverterDomain, C]]
+/** Specialized JDBC ResultConverter for handling `isDefined` checks for `Option` values. */
+class IsDefinedResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](val ti: JdbcType[T], val idx: Int) extends ResultConverter[JdbcResultConverterDomain, Boolean] {
+  def read(pr: ResultSet) = {
+    ti.getValue(pr, idx)
+    !ti.wasNull(pr, idx)
   }
-
-  def read(pr: Reader) = rc.read(pr)
-  def update(value: T, pr: Updater) = rc.update(value, pr)
-  def set(value: T, pp: Writer) = rc.set(value, pp)
-
-  override def getDumpInfo = super.getDumpInfo.copy(name = "JdbcFastPath", mainInfo = "", children = Vector(("rc", rc)))
-  def width = rc.width
+  def update(value: Boolean, pr: ResultSet) =
+    throw new SlickException("Cannot insert/update IsDefined check")
+  def set(value: Boolean, pp: PreparedStatement) =
+    throw new SlickException("Cannot insert/update IsDefined check")
+  def width = 1
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
 }

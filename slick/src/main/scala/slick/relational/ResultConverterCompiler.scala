@@ -13,23 +13,23 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
   def compile(n: Node): ResultConverter[Domain, _] = n match {
     case InsertColumn(paths, fs, _) =>
       val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
-      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs.toSeq: _*)
     case OptionApply(InsertColumn(paths, fs, _)) =>
       val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
-      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs.toSeq: _*)
     case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, None)
     case cast @ Library.SilentCast(sel @ Select(_, ElementSymbol(idx))) =>
       createColumnConverter(sel :@ cast.nodeType, idx, None)
     case OptionApply(Select(_, ElementSymbol(idx))) => createColumnConverter(n, idx, None)
     case ProductNode(ch) =>
       if(ch.isEmpty) new UnitResultConverter
-      else new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
+      else new ProductResultConverter(ch.map(n => compile(n)).toSeq: _*)
     case GetOrElse(ch, default) =>
       createGetOrElseResultConverter(compile(ch).asInstanceOf[ResultConverter[Domain, Option[Any]]], default)
     case TypeMapping(ch, mapper, _) =>
       createTypeMappingResultConverter(compile(ch).asInstanceOf[ResultConverter[Domain, Any]], mapper)
     case RebuildOption(disc, data) =>
-      val discConv = createGetOrElseResultConverter(compile(disc).asInstanceOf[ResultConverter[Domain, Option[Int]]], () => 0)
+      val discConv = createIsDefinedResultConverter(compile(disc).asInstanceOf[ResultConverter[Domain, Option[Any]]])
       val dataConv = compile(data).asInstanceOf[ResultConverter[Domain, Any]]
       createOptionRebuildingConverter(discConv, dataConv)
     case n =>
@@ -39,10 +39,13 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
   def createGetOrElseResultConverter[T](rc: ResultConverter[Domain, Option[T]], default: () => T): ResultConverter[Domain, T] =
     new GetOrElseResultConverter[Domain, T](rc, default)
 
+  def createIsDefinedResultConverter[T](rc: ResultConverter[Domain, Option[T]]): ResultConverter[Domain, Boolean] =
+    new IsDefinedResultConverter[Domain](rc.asInstanceOf[ResultConverter[Domain, Option[_]]])
+
   def createTypeMappingResultConverter(rc: ResultConverter[Domain, Any], mapper: MappedScalaType.Mapper): ResultConverter[Domain, Any] =
     new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
 
-  def createOptionRebuildingConverter(discriminator: ResultConverter[Domain, Int], data: ResultConverter[Domain, Any]): ResultConverter[Domain, Option[Any]] =
+  def createOptionRebuildingConverter(discriminator: ResultConverter[Domain, Boolean], data: ResultConverter[Domain, Any]): ResultConverter[Domain, Option[Any]] =
     new OptionRebuildingResultConverter(discriminator, data)
 
   def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[Domain, _]

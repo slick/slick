@@ -16,7 +16,7 @@ abstract class RefTag(val path: Node) extends Tag
 /** A Tag marking the base table instance itself */
 trait BaseTag extends Tag
 
-/** The driver-independent superclass of all table row objects.
+/** The profile-independent superclass of all table row objects.
   * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
 abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends Rep[T] {
   /** The client-side type of the table as defined by its * projection */
@@ -24,7 +24,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   def tableIdentitySymbol: TableIdentitySymbol
 
-  lazy val tableNode = TableNode(schemaName, tableName, tableIdentitySymbol, this, tableIdentitySymbol)
+  lazy val tableNode = TableNode(schemaName, tableName, tableIdentitySymbol, tableIdentitySymbol)(this)
 
   def encodeRef(path: Node) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 

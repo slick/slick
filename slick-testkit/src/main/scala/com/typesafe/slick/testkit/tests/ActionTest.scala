@@ -1,8 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB, StandardTestDBs}
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 
 class ActionTest extends AsyncTest[RelationalTestDB] {
@@ -94,15 +93,130 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
-  def testDeepRecursion = {
+  def testDeepRecursion = if(tdb == StandardTestDBs.H2Disk) {
     val a1 = DBIO.sequence((1 to 5000).toSeq.map(i => LiteralColumn(i).result))
     val a2 = DBIO.sequence((1 to 20).toSeq.map(i => if(i%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
     val a3 = DBIO.sequence((1 to 20).toSeq.map(i => if((i/4)%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
+    val a4 = DBIO.seq((1 to 50000).toSeq.map(i => DBIO.successful("a4")): _*)
+    val a5 = (1 to 50000).toSeq.map(i => DBIO.successful("a5")).reduceLeft(_ andThen _)
+    val a6 = DBIO.fold((1 to 50000).toSeq.map(i => LiteralColumn(i).result), 0)(_ + _)
+    val a7 = (1 to 10000).map(_ => DBIO.successful("a7")).reduceLeft((a, b) => a flatMap (_ => b) andThen b)
 
     DBIO.seq(
       a1.map(_ shouldBe (1 to 5000).toSeq),
       a2.map(_ shouldBe (1 to 20).toSeq),
-      a3.map(_ shouldBe (1 to 20).toSeq)
+      a3.map(_ shouldBe (1 to 20).toSeq),
+      a4.map(_ shouldBe (())),
+      a5.map(_ shouldBe "a5"),
+      a6.map(_ shouldBe (1 to 50000).sum),
+      a7.map(_ shouldBe "a7")
     )
+  } else DBIO.successful(())
+
+  def testOptionSequence = {
+    class T(tag: Tag) extends Table[Option[Int]](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a.?
+    }
+    val ts = TableQuery[T]
+
+    val aSetup = ts.schema.create
+
+    val a1 = LiteralColumn(Option(1)).result
+    val a2 = DBIO.sequenceOption(Option(LiteralColumn(1).result))
+    val a3 = DBIO.sequenceOption(Option.empty[DBIO[Int]])
+
+    for {
+      _ <- aSetup
+      b1 <- a1
+      b2 <- a2
+      b3 <- a3
+    } yield {
+      b1 shouldBe b2
+      b2 shouldNotBe b3
+    }
+  }
+
+  def testFlatten = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+    for {
+      _ <- db.run {
+        ts.schema.create >>
+          (ts ++= Seq(2, 3, 1, 5, 4))
+      }
+      needFlatten = for (_ <- ts.result) yield ts.result
+      result <- db.run(needFlatten.flatten)
+      _ = result shouldBe Seq(2, 3, 1, 5, 4)
+    } yield ()
+  }
+
+  def testZipWith = {
+      class T(tag: Tag) extends Table[Int](tag, u"t") {
+        def a = column[Int]("a")
+        def * = a
+      }
+      val ts = TableQuery[T]
+
+      for {
+        _ <- db.run {
+          ts.schema.create >>
+            (ts ++= Seq(2, 3, 1, 5, 4))
+        }
+        q1 = ts.sortBy(_.a).map(_.a).take(1)
+        result <- db.run(q1.result.head.zipWith(q1.result.head)({ case (a, b) => a + b }))
+        _ = result shouldBe 2
+      } yield ()
+    }
+
+  def testCollect = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+
+      def * = a
+    }
+    val ts = TableQuery[T]
+    for {
+      _ <- db.run {
+        ts.schema.create >>
+          (ts ++= Seq(2, 3, 1, 5, 4))
+      }
+      q1 = ts.sortBy(_.a).map(_.a).take(1)
+      result <- db.run(q1.result.headOption.collect {
+        case Some(a) => a
+      })
+      _ = result shouldBe 1
+      _ = result shouldFail { _ =>
+        val future = db.run(q1.result.headOption.collect {
+          case None => ()
+        })
+        import scala.concurrent.duration.Duration
+        import scala.concurrent.Await
+        Await.result(future, Duration.Inf)
+      }
+    } yield ()
+  }
+
+  def testTruncate = {
+    class T(_tag: Tag) extends Table[Int](_tag , "truncate_test"){
+      def a = column[Int]("a")
+      def * = a
+    }
+
+    val ts = TableQuery[T]
+    for{
+      _ <- ts.schema.create
+      initial <- ts.result
+      _ = assert(initial.toSet == Set())
+      res <- (ts ++= Seq(2, 3, 1, 5, 4)) >>
+             ts.result
+      _ = assert(res.toSet == Set(2, 3, 1, 5, 4))
+      newRes <- ts.schema.truncate >>
+                ts.result
+      _ = assert(newRes.toSet == Set())
+    } yield ()
   }
 }

@@ -1,22 +1,25 @@
 package com.typesafe.slick.testkit.util
 
+
+import com.typesafe.config.Config
+
+
 import java.io._
 import java.net.{URL, URLClassLoader}
 import java.sql.{Connection, Driver}
 import java.util.Properties
 import java.util.concurrent.ExecutionException
 import java.util.zip.GZIPInputStream
+
 import scala.collection.mutable
 import scala.concurrent.{Await, Future, ExecutionContext}
-import slick.SlickException
-import slick.dbio.{NoStream, DBIOAction, DBIO}
-import slick.jdbc.{ResultSetAction, JdbcDataSource, SimpleJdbcAction}
-import slick.jdbc.GetResult._
-import slick.driver._
-import slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
-import org.junit.Assert
-import com.typesafe.config.Config
 
+import slick.basic.{BasicProfile, Capability}
+import slick.dbio.{NoStream, DBIOAction, DBIO}
+import slick.jdbc.{JdbcProfile, ResultSetAction, JdbcDataSource}
+import slick.jdbc.GetResult._
+import slick.relational.RelationalProfile
+import slick.sql.SqlProfile
 import slick.util.AsyncExecutor
 
 object TestDB {
@@ -33,8 +36,11 @@ object TestDB {
     val jdbcMetaGetIndexInfo = new Capability("test.jdbcMetaGetIndexInfo")
     /** Supports all tested transaction isolation levels */
     val transactionIsolation = new Capability("test.transactionIsolation")
+    /** Supports select for update row locking */
+    val selectForUpdateRowLocking = new Capability("test.selectForUpdateRowLocking")
 
-    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo, transactionIsolation)
+    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo,
+      transactionIsolation, selectForUpdateRowLocking)
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */
@@ -86,7 +92,7 @@ object TestDB {
  * removing DB files left over by a test run, etc.
  */
 trait TestDB {
-  type Driver <: BasicDriver
+  type Profile <: BasicProfile
 
   /** The test database name */
   val confName: String
@@ -104,11 +110,8 @@ trait TestDB {
     * defaults to cleanUpBefore(). */
   def cleanUpAfter() = cleanUpBefore()
 
-  /** The Slick driver for the database */
-  val driver: Driver
-
-  /** The Slick driver for the database */
-  lazy val profile: driver.profile.type = driver.asInstanceOf[driver.profile.type]
+  /** The profile for the database */
+  val profile: Profile
 
   /** Indicates whether the database persists after closing the last connection */
   def isPersistent = true
@@ -125,7 +128,7 @@ trait TestDB {
     * to make it persistent. */
   def isShared = true
 
-  /** The capabilities of the Slick driver, possibly modified for this
+  /** The capabilities of the Slick profile, possibly modified for this
     * test configuration. */
   def capabilities: Set[Capability] = profile.capabilities ++ TestDB.capabilities.all
 
@@ -138,18 +141,18 @@ trait TestDB {
 }
 
 trait RelationalTestDB extends TestDB {
-  type Driver <: RelationalDriver
+  type Profile <: RelationalProfile
 
   def assertTablesExist(tables: String*): DBIO[Unit]
   def assertNotTablesExist(tables: String*): DBIO[Unit]
 }
 
-trait SqlTestDB extends RelationalTestDB { type Driver <: SqlDriver }
+trait SqlTestDB extends RelationalTestDB { type Profile <: SqlProfile }
 
 abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
-  import driver.api.actionBasedSQLInterpolation
+  import profile.api.actionBasedSQLInterpolation
 
-  type Driver = JdbcDriver
+  type Profile = JdbcProfile
   lazy val database = profile.backend.Database
   val jdbcDriver: String
   final def getLocalTables(implicit session: profile.Backend#Session) = blockingRunOnSession(ec => localTables(ec))
@@ -167,14 +170,14 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     for {
       tables <- localTables
       sequences <- localSequences
-      _ <- DBIO.seq((tables.map(t => sqlu"""drop table if exists #${driver.quoteIdentifier(t)} cascade""") ++
-        sequences.map(t => sqlu"""drop sequence if exists #${driver.quoteIdentifier(t)} cascade""")): _*)
+      _ <- DBIO.seq((tables.map(t => sqlu"""drop table if exists #${profile.quoteIdentifier(t)} cascade""") ++
+        sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)} cascade""")): _*)
     } yield ()
   }
   def assertTablesExist(tables: String*) =
-    DBIO.seq(tables.map(t => sql"""select 1 from #${driver.quoteIdentifier(t)} where 1 < 0""".as[Int]): _*)
+    DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int]): _*)
   def assertNotTablesExist(tables: String*) =
-    DBIO.seq(tables.map(t => sql"""select 1 from #${driver.quoteIdentifier(t)} where 1 < 0""".as[Int].failed): _*)
+    DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int].failed): _*)
   def createSingleSessionDatabase(implicit session: profile.Backend#Session, executor: AsyncExecutor = AsyncExecutor.default()): profile.Backend#Database = {
     val wrappedConn = new DelegateConnection(session.conn) {
       override def close(): Unit = ()
@@ -182,6 +185,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     profile.backend.Database.forSource(new JdbcDataSource {
       def createConnection(): Connection = wrappedConn
       def close(): Unit = ()
+      val maxConnections: Option[Int] = Some(1)
     }, executor)
   }
   final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])(implicit session: profile.Backend#Session): R = {
@@ -207,7 +211,7 @@ abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
 }
 
 abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) {
-  import driver.api.actionBasedSQLInterpolation
+  import profile.api.actionBasedSQLInterpolation
 
   val jdbcDriver = confString("driver")
   val testDB = confString("testDB")
@@ -261,7 +265,21 @@ object ExternalTestDB {
   // A cache for custom drivers to avoid excessive reloading and memory leaks
   private[this] val driverCache = new mutable.HashMap[(String, String), Driver]()
 
-  def getCustomDriver(url: String, driverClass: String): Driver = synchronized {
+  def getCustomDriver(url: String, driverClass: String) = synchronized {
+    val sysloader = java.lang.ClassLoader.getSystemClassLoader
+    val sysclass = classOf[URLClassLoader]
+
+    // Add the supplied jar onto the system classpath
+    // Doing this allows Hikari to initialise the driver, if needed
+    try {
+        val method = sysclass.getDeclaredMethod("addURL", classOf[URL])
+        method.setAccessible(true)
+        method.invoke(sysloader, new URL(url))
+    } catch {
+      case t: Throwable =>
+        t.printStackTrace()
+        throw new IOException(s"Error, could not add URL $url to system classloader");
+    }
     driverCache.getOrElseUpdate((url, driverClass),
       new URLClassLoader(Array(new URL(url)), getClass.getClassLoader).loadClass(driverClass).newInstance.asInstanceOf[Driver]
     )

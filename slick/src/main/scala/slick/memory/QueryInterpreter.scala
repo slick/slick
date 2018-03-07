@@ -2,13 +2,14 @@ package slick.memory
 
 import java.util.regex.Pattern
 import org.slf4j.LoggerFactory
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import slick.ast._
 import slick.SlickException
-import slick.util.{SlickLogger, Logging}
+import slick.util.{ConstArray, SlickLogger, Logging}
 import TypeUtil.typeToTypeUtil
 
-/** A query interpreter for the MemoryDriver and for client-side operations
+/** A query interpreter for MemoryProfile and for client-side operations
   * that need to be run as part of distributed queries against multiple
   * backends.
   *
@@ -45,9 +46,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case (_: AnonSymbol | _: FieldSymbol) => v.asInstanceOf[StructValue].getBySymbol(field)
         }
       case n: StructNode =>
-        new StructValue(n.children.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
+        new StructValue(n.children.toSeq.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
       case ProductNode(ch) =>
-        new ProductValue(ch.map(run).toIndexedSeq)
+        new ProductValue(ch.map(run).toSeq)
       case Pure(n, _) => Vector(run(n))
       case t: TableNode =>
         val dbt = db.getTable(t.tableName)
@@ -144,15 +145,29 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         scope.remove(gen)
         res
       case First(ch) => run(ch).asInstanceOf[Coll].toIterator.next()
+      case Distinct(gen, from, on) =>
+        val fromV = run(from).asInstanceOf[Coll]
+        val seen = mutable.HashSet[Any]()
+        val res = fromV.filter { v =>
+          scope(gen) = v
+          val onV = run(on)
+          if(seen contains onV) false
+          else {
+            seen += onV
+            true
+          }
+        }
+        scope.remove(gen)
+        res
       case SortBy(gen, from, by) =>
         val fromV = run(from).asInstanceOf[Coll]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        val ords: IndexedSeq[scala.math.Ordering[Any]] = by.map { case (b, o) =>
+        val ords: IndexedSeq[scala.math.Ordering[Any]] = by.toSeq.map { case (b, o) =>
           b.nodeType.asInstanceOf[ScalaType[Any]].scalaOrderingFor(o)
-        }(collection.breakOut)
+        }
         b ++= fromV.toSeq.sortBy { v =>
           scope(gen) = v
-          by.map { case (b, _) => run(b) }(collection.breakOut): IndexedSeq[Any]
+          by.toSeq.map { case (b, _) => run(b) }: IndexedSeq[Any]
         }(new scala.math.Ordering[IndexedSeq[Any]] {
           def compare(x: IndexedSeq[Any], y: IndexedSeq[Any]): Int = {
             var i = 0
@@ -214,7 +229,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
             if(opt && !c.elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
             else res
         }
-      case QueryParameter(extractor, _) =>
+      case QueryParameter(extractor, _, _) =>
         extractor(params)
       case Library.SilentCast(ch) =>
         val chV = run(ch)
@@ -267,7 +282,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
           case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
         }
-        reduceOptionIt(it, opt, (a, b) => num.plus(a, b))
+        reduceOptionIt[Any](it, opt, identity, (a, b) => num.plus(a, b))
       case Library.Avg(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
@@ -275,9 +290,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
           case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
         }
-        reduceOptionIt(it, opt, (a, b) => num.plus(a, b)).map { sum =>
-          if(num.isInstanceOf[Fractional[_]]) num.asInstanceOf[Fractional[Any]].div(sum, num.fromInt(coll.size))
-          else num.fromInt(num.toInt(sum) / coll.size)
+        reduceOptionIt[(Int, Any)](it, opt, (1, _), { case ((ai, a), (bi, b)) => (ai + bi, num.plus(a, b)) }).map { case (count, sum) =>
+          if(num.isInstanceOf[Fractional[_]]) num.asInstanceOf[Fractional[Any]].div(sum, num.fromInt(count))
+          else num.fromInt(num.toInt(sum) / count)
         }
       case Library.Min(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
@@ -286,7 +301,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
           case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
-        reduceOptionIt(it, opt, (a, b) => if(ord.lt(b, a)) b else a)
+        reduceOptionIt[Any](it, opt, identity, (a, b) => if(ord.lt(b, a)) b else a)
       case Library.Max(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
@@ -294,7 +309,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
           case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
-        reduceOptionIt(it, opt, (a, b) => if(ord.gt(b, a)) b else a)
+        reduceOptionIt[Any](it, opt, identity, (a, b) => if(ord.gt(b, a)) b else a)
       case Library.==(ch, LiteralNode(null)) =>
         val chV = run(ch)
         chV == null || chV.asInstanceOf[Option[_]].isEmpty
@@ -309,12 +324,13 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
               case other => other
             }
             logDebug("[chPlainV: "+chPlainV.mkString(", ")+"]")
-            Some(evalFunction(sym, chPlainV, n.nodeType.asOptionType.elementType))
+            Some(evalFunction(sym, chPlainV.toSeq, n.nodeType.asOptionType.elementType))
           }
-        } else evalFunction(sym, chV, n.nodeType)
+        } else evalFunction(sym, chV.toSeq, n.nodeType)
       //case Library.CountAll(ch) => run(ch).asInstanceOf[Coll].size
       case l: LiteralNode => l.value
       case CollectionCast(ch, _) => run(ch)
+      case Subquery(ch, _) => run(ch)
     }
     indent -= 1
     if(logger.isDebugEnabled) logDebug("Result: "+res)
@@ -355,13 +371,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       val CollectionType(_, elType) = args(0)._1
       val coll = args(0)._2.asInstanceOf[Coll]
       (elType match {
-        case ProductType(_) =>
-          coll.iterator.filter { p =>
-            val v = p.asInstanceOf[ProductValue].apply(0)
-            v != null && v != None
-          }
-        case _ =>
-          coll.iterator.filter(v => v != null && v != None)
+        case ProductType(_) => coll
+        case _ => coll.iterator.filter(v => v != null && v != None)
       }).size
     case Library.Database => ""
     case Library.Degrees =>
@@ -407,29 +418,39 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       replace(args(1)._2.asInstanceOf[String], args(2)._2.asInstanceOf[String])
     case Library.Reverse => args(0)._2.asInstanceOf[String].reverse
     case Library.IndexOf => args(0)._2.asInstanceOf[String].indexOf(args(1)._2.asInstanceOf[String])
+    case Library.StartsWith => args(0)._2.asInstanceOf[String].startsWith(args(1)._2.asInstanceOf[String])
+    case Library.EndsWith => args(0)._2.asInstanceOf[String].endsWith(args(1)._2.asInstanceOf[String])
   }
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
-    case ProductType(Seq(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
-    case StructType(Seq((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
+    case ProductType(ConstArray(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
+    case StructType(ConstArray((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
     case t => (coll.iterator, t)
   }
 
-  def reduceOptionIt(it: Iterator[Any], opt: Boolean, f: (Any, Any) => Any): Option[Any] = {
+  def reduceOptionIt[T](it: Iterator[Any], opt: Boolean, map: Any => T, reduce: (T, T) => T): Option[T] = {
     if(!it.hasNext) None
-    else if(opt) it.reduceLeft { (z, b) =>
-      for(z <- z.asInstanceOf[Option[Any]]; b <- b.asInstanceOf[Option[Any]]) yield f(z, b)
-    }.asInstanceOf[Option[Any]]
-    else Some(it.reduceLeft { (z, b) => f(z, b) })
+    else {
+      val it2 = if(opt) it.collect { case Some(b) => b} else it
+      var res: T = null.asInstanceOf[T]
+      var first = true
+      it2.foreach { b =>
+        if(first) {
+          first = false
+          res = map(b)
+        } else res = reduce(res, map(b))
+      }
+      if(first) None else Some(res)
+    }
   }
 
   def createNullRow(tpe: Type): Any = tpe match {
     case t: ScalaType[_] => if(t.nullable) None else null
     case StructType(el) =>
-      new StructValue(el.map{ case (_, tpe) => createNullRow(tpe) }(collection.breakOut),
-        el.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
+      new StructValue(el.toSeq.map{ case (_, tpe) => createNullRow(tpe) },
+        el.toSeq.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
     case ProductType(el) =>
-      new ProductValue(el.map(tpe => createNullRow(tpe))(collection.breakOut))
+      new ProductValue(el.toSeq.map(tpe => createNullRow(tpe)))
   }
 
   def asBoolean(v: Any) = v match {

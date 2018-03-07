@@ -1,7 +1,8 @@
 package slick.ast
 
-import Util._
+import slick.util.ConstArray
 import scala.collection.mutable.HashMap
+import scala.reflect.ClassTag
 import scala.util.DynamicVariable
 
 /** A symbol which can be used in the AST. It can be either a TypeSymbol or a TermSymbol. */
@@ -17,7 +18,10 @@ trait TypeSymbol extends Symbol
 trait TermSymbol extends Symbol
 
 /** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol {
+  def findColumnOption[T <: ColumnOption[_]](implicit ct: ClassTag[T]): Option[T] =
+    options.find(ct.runtimeClass.isInstance _).asInstanceOf[Option[T]]
+}
 
 /** An element of a ProductNode (using a 1-based index) */
 case class ElementSymbol(idx: Int) extends TermSymbol {
@@ -47,20 +51,32 @@ class AnonSymbol extends TermSymbol {
   def name = "@"+System.identityHashCode(this)
 }
 
+/** A Node which introduces a NominalType. */
+trait TypeGenerator {
+  def identity: TypeSymbol
+}
+
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
-  def generators: Seq[(TermSymbol, Node)]
-  protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]): Node
+  def generators: ConstArray[(TermSymbol, Node)]
+  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Node
 
   final def mapScopedChildren(f: (Option[TermSymbol], Node) => Node): Self with DefNode = {
-    val all = (generators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
-      children.drop(generators.length).iterator.map{ n => (None, n) }).toIndexedSeq
+    val gens = generators
+    val ch = children
+    val all = ch.zipWithIndex.map[(Option[TermSymbol], Node)] { case (ch, idx) =>
+      val o = if(idx < gens.length) Some(gens(idx)._1) else None
+      (o, ch)
+    }
     val mapped = all.map(f.tupled)
-    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) rebuild(mapped).asInstanceOf[Self with DefNode]
+    if(ch.zip(mapped).force.exists { case (n1, n2) => n1 ne n2 }) rebuild(mapped).asInstanceOf[Self with DefNode]
     else this
   }
-  final def mapSymbols(f: TermSymbol => TermSymbol): Node =
-    mapOrNone(generators.map(_._1))(f).fold[Node](this) { s => rebuildWithSymbols(s.toIndexedSeq) }
+  final def mapSymbols(f: TermSymbol => TermSymbol): Node = {
+    val s = generators.map(_._1)
+    val s2 = s.endoMap(f)
+    if(s2 eq s) this else rebuildWithSymbols(s2)
+  }
 }
 
 /** Provides names for symbols */

@@ -5,19 +5,20 @@ import slick.SlickException
 import scala.collection.generic.CanBuild
 import scala.collection.mutable.{Builder, ArrayBuilder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
-import Util._
-import scala.collection.mutable.ArrayBuffer
 import scala.annotation.implicitNotFound
-import slick.util.{DumpInfo, Dumpable, TupleSupport}
+import slick.util.{DumpInfo, Dumpable, TupleSupport, ConstArray}
 
 /** Super-trait for all types */
 trait Type extends Dumpable {
   /** All children of this Type. */
-  def children: Seq[Type]
+  def children: ConstArray[Type]
   /** Apply a transformation to all type children and reconstruct this
     * type with the new children, or return the original object if no
     * child is changed. */
   def mapChildren(f: Type => Type): Type
+  /** Apply a side-effecting function to all children. */
+  def childrenForeach[R](f: Type => R): Unit =
+    children.foreach(f)
   def select(sym: TermSymbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
   /** The structural view of this type */
   def structural: Type = this
@@ -26,7 +27,7 @@ trait Type extends Dumpable {
   /** A ClassTag for the erased type of this type's Scala values */
   def classTag: ClassTag[_]
   def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), toString, "",
-    children.zipWithIndex.map { case (ch, i) => (i.toString, ch) })
+    children.zipWithIndex.map { case (ch, i) => (i.toString, ch) }.toSeq)
 }
 
 object Type {
@@ -42,36 +43,41 @@ object Type {
 /** An atomic type (i.e. a type which does not contain other types) */
 trait AtomicType extends Type {
   final def mapChildren(f: Type => Type): this.type = this
-  def children: Seq[Type] = Seq.empty
+  def children = ConstArray.empty
+  override final def childrenForeach[R](f: Type => R): Unit = ()
 }
 
-final case class StructType(elements: IndexedSeq[(TermSymbol, Type)]) extends Type {
+final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[TermSymbol, Int] =
-    elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
-  def children: IndexedSeq[Type] = elements.map(_._2)
-  def mapChildren(f: Type => Type): StructType =
-    mapOrNone(elements.map(_._2))(f) match {
-      case Some(types2) => StructType((elements, types2).zipped.map((e, t) => (e._1, t)))
-      case None => this
-    }
+    elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }.toMap
+  def children: ConstArray[Type] = elements.map(_._2)
+  def mapChildren(f: Type => Type): StructType = {
+    val ch = elements.map(_._2)
+    val ch2 = ch.endoMap(f)
+    if(ch2 eq ch) this else StructType(elements.zip(ch2).map { case (e, t) => (e._1, t) })
+  }
   override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(idx) => elements(idx-1)._2
-    case _ => elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
+    case _ =>
+      val i = elements.indexWhere(_._1 == sym)
+      if(i >= 0) elements(i)._2 else super.select(sym)
   }
-  def classTag = TupleSupport.classTagForArity(elements.size)
+  def classTag = TupleSupport.classTagForArity(elements.length)
+  override final def childrenForeach[R](f: Type => R): Unit = elements.foreach(t => f(t._2))
 }
 
 trait OptionType extends Type {
   override def toString = "Option[" + elementType + "]"
   def elementType: Type
-  def children: Seq[Type] = Seq(elementType)
+  def children: ConstArray[Type] = ConstArray(elementType)
   def classTag = OptionType.classTag
   override def hashCode = elementType.hashCode() + 100
   override def equals(o: Any) = o match {
     case OptionType(elem) if elementType == elem => true
     case _ => false
   }
+  override final def childrenForeach[R](f: Type => R): Unit = f(elementType)
 }
 
 object OptionType {
@@ -93,7 +99,7 @@ object OptionType {
   /** An extractor for a non-nested Option type of a single column */
   object Primitive {
     def unapply(tpe: Type): Option[Type] = tpe.structural match {
-      case o: OptionType if o.elementType.structural.children.isEmpty => Some(o.elementType)
+      case o: OptionType if o.elementType.structural.isInstanceOf[AtomicType] => Some(o.elementType)
       case _ => None
     }
   }
@@ -101,27 +107,24 @@ object OptionType {
   /** An extractor for a nested or multi-column Option type */
   object NonPrimitive {
     def unapply(tpe: Type): Option[Type] = tpe.structural match {
-      case o: OptionType if o.elementType.structural.children.nonEmpty => Some(o.elementType)
+      case o: OptionType if !o.elementType.structural.isInstanceOf[AtomicType] => Some(o.elementType)
       case _ => None
     }
   }
 }
 
-final case class ProductType(elements: IndexedSeq[Type]) extends Type {
+final case class ProductType(elements: ConstArray[Type]) extends Type {
   override def toString = "(" + elements.mkString(", ") + ")"
-  def mapChildren(f: Type => Type): ProductType =
-    mapOrNone(elements)(f) match {
-      case Some(e2) => ProductType(e2)
-      case None => this
-    }
+  def mapChildren(f: Type => Type): ProductType = {
+    val ch2 = elements.endoMap(f)
+    if(ch2 eq elements) this else ProductType(ch2)
+  }
   override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(i) if i <= elements.length => elements(i-1)
     case _ => super.select(sym)
   }
-  def children: Seq[Type] = elements
-  def numberedElements: Iterator[(ElementSymbol, Type)] =
-    elements.iterator.zipWithIndex.map { case (t, i) => (new ElementSymbol(i+1), t) }
-  def classTag = TupleSupport.classTagForArity(elements.size)
+  def children: ConstArray[Type] = elements
+  def classTag = TupleSupport.classTagForArity(elements.length)
 }
 
 final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
@@ -131,7 +134,8 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
     if(e2 eq elementType) this
     else CollectionType(cons, e2)
   }
-  def children: Seq[Type] = Seq(elementType)
+  override final def childrenForeach[R](f: Type => R): Unit = f(elementType)
+  def children: ConstArray[Type] = ConstArray(elementType)
   def classTag = cons.classTag
 }
 
@@ -200,7 +204,8 @@ final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapp
     if(e2 eq baseType) this
     else new MappedScalaType(e2, mapper, classTag)
   }
-  def children: Seq[Type] = Seq(baseType)
+  override final def childrenForeach[R](f: Type => R): Unit = f(baseType)
+  def children: ConstArray[Type] = ConstArray(baseType)
   override def select(sym: TermSymbol) = baseType.select(sym)
   override def hashCode = baseType.hashCode() + mapper.hashCode() + classTag.hashCode()
   override def equals(o: Any) = o match {
@@ -210,7 +215,7 @@ final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapp
 }
 
 object MappedScalaType {
-  case class Mapper(toBase: Any => Any, toMapped: Any => Any, fastPath: Option[PartialFunction[Any, Any]])
+  case class Mapper(toBase: Any => Any, toMapped: Any => Any, fastPath: Option[Any => Any])
 }
 
 /** The standard type for freshly constructed nodes without an explicit type. */
@@ -235,7 +240,8 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
     if(struct2 eq structuralView) this
     else new NominalType(sym, struct2)
   }
-  def children: Seq[Type] = Seq(structuralView)
+  override final def childrenForeach[R](f: Type => R): Unit = f(structuralView)
+  def children: ConstArray[Type] = ConstArray(structuralView)
   def sourceNominalType: NominalType = structuralView match {
     case n: NominalType => n.sourceNominalType
     case _ => this
@@ -285,24 +291,30 @@ class TypeUtil(val tpe: Type) extends AnyVal {
   def replace(f: PartialFunction[Type, Type]): Type =
     f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
 
-  def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = {
-    val b = new ArrayBuffer[T]
-    def g(n: Type) {
-      pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () }.apply(n)
-      n.children.foreach(g)
+  def collect[T](pf: PartialFunction[Type, T]): ConstArray[T] = {
+    val retNull: (Type => T) = (_ => null.asInstanceOf[T])
+    val b = ConstArray.newBuilder[T]()
+    def f(n: Type): Unit = {
+      val r = pf.applyOrElse(n, retNull)
+      if(r.asInstanceOf[AnyRef] ne null) b += r
+      n.childrenForeach(f)
     }
-    g(tpe)
-    b
+    f(tpe)
+    b.result
   }
 
-  def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
+  def existsType(f: Type => Boolean): Boolean =
+    if(f(tpe)) true else tpe match {
+      case t: AtomicType => false
+      case t => t.children.exists(_.existsType(f))
+    }
 
-  def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean = {
+  def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean =
     if(tss.isEmpty) false else tpe match {
       case NominalType(ts, exp) => tss.contains(ts) || exp.containsSymbol(tss)
+      case t: AtomicType => false
       case t => t.children.exists(_.containsSymbol(tss))
     }
-  }
 }
 
 object TypeUtil {
@@ -316,10 +328,10 @@ object TypeUtil {
 
 /** A Slick Type encoding of plain Scala types.
   *
-  * This is used by QueryInterpreter and MemoryDriver. Values stored in
+  * This is used by QueryInterpreter and MemoryProfile. Values stored in
   * HeapBackend columns are also expected to use these types.
   *
-  * All drivers should support the following types which are used internally
+  * All profiles should support the following types which are used internally
   * by the lifted embedding and the query compiler: Boolean, Char, Int, Long,
   * Null, String. */
 trait ScalaType[T] extends TypedType[T] {

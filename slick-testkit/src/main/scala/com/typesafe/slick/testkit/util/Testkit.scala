@@ -1,42 +1,45 @@
 package com.typesafe.slick.testkit.util
 
-import org.slf4j.MDC
-
 import scala.language.existentials
-
-import scala.concurrent.{Promise, ExecutionContext, Await, Future, blocking}
-import scala.concurrent.duration.Duration
-import scala.reflect.ClassTag
-import scala.util.{Failure, Success}
-import scala.util.control.NonFatal
 
 import java.lang.reflect.Method
 import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.concurrent.{Promise, ExecutionContext, Await, Future}
+import scala.concurrent.duration.Duration
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
+
+import slick.SlickTreeException
+import slick.basic.Capability
 import slick.dbio._
-import slick.jdbc.JdbcBackend
+import slick.jdbc.{JdbcCapabilities, JdbcBackend}
+import slick.lifted.Rep
 import slick.util.DumpInfo
-import slick.profile.{RelationalProfile, SqlProfile, Capability}
-import slick.driver.JdbcProfile
+import slick.relational.RelationalCapabilities
+import slick.sql.SqlCapabilities
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert
 
+import org.slf4j.MDC
+
 import org.reactivestreams.{Subscription, Subscriber, Publisher}
 
 /** JUnit runner for the Slick driver test kit. */
-class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
+class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
 
-  val driverTest = clazz.newInstance
-  var tdb: TestDB = driverTest.tdb
+  val profileTest = clazz.newInstance
+  var tdb: TestDB = profileTest.tdb
 
   def describeChild(ch: TestMethod) = ch.desc
 
   def getChildren = if(tdb.isEnabled) {
-    driverTest.tests.flatMap { t =>
+    profileTest.tests.flatMap { t =>
       val ms = t.getMethods.filter { m =>
         m.getName.startsWith("test") && m.getParameterTypes.length == 0
       }
@@ -78,7 +81,7 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
   }
 }
 
-abstract class DriverTest(val tdb: TestDB) {
+abstract class ProfileTest(val tdb: TestDB) {
   def tests = tdb.testClasses
 }
 
@@ -159,9 +162,21 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
   final def mark[R, S <: NoStream, E <: Effect](id: String, f: => DBIOAction[R, S, E]): DBIOAction[R, S, E] =
     mark[DBIOAction[R, S, E]](id, f.named(id))
 
-  def rcap = RelationalProfile.capabilities
-  def scap = SqlProfile.capabilities
-  def jcap = JdbcProfile.capabilities
+  def assertNesting(q: Rep[_], exp: Int): Unit = {
+    import slick.compiler.QueryCompiler
+    import slick.ast._
+    import slick.ast.Util._
+    val qc = new QueryCompiler(tdb.profile.queryCompiler.phases.takeWhile(_.name != "codeGen"))
+    val cs = qc.run(q.toNode)
+    val found = cs.tree.collect { case c: Comprehension => c }.length
+    if(found != exp)
+      throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
+        cs.tree, mark = (_.isInstanceOf[Comprehension]), removeUnmarked = false))
+  }
+
+  def rcap = RelationalCapabilities
+  def scap = SqlCapabilities
+  def jcap = JdbcCapabilities
   def tcap = TestDB.capabilities
 }
 
@@ -199,14 +214,14 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   protected implicit def asyncTestExecutionContext = ExecutionContext.global
 
   /** Test Action: Get the current database session */
-  object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend#Session, NoStream, TDB#Driver#Backend, Effect] {
-    def run(context: TDB#Driver#Backend#Context) = context.session
+  object GetSession extends SynchronousDatabaseAction[TDB#Profile#Backend#Session, NoStream, TDB#Profile#Backend, Effect] {
+    def run(context: TDB#Profile#Backend#Context) = context.session
     def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
 
   /** Test Action: Check if the current database session is pinned */
-  object IsPinned extends SynchronousDatabaseAction[Boolean, NoStream, TDB#Driver#Backend, Effect] {
-    def run(context: TDB#Driver#Backend#Context) = context.isPinned
+  object IsPinned extends SynchronousDatabaseAction[Boolean, NoStream, TDB#Profile#Backend, Effect] {
+    def run(context: TDB#Profile#Backend#Context) = context.isPinned
     def getDumpInfo = DumpInfo(name = "<IsPinned>")
   }
 
@@ -325,7 +340,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
     def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
 
-    def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue(f(v)))
+    def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue("'should' assertion failed for value: "+v, f(v)))
 
     def shouldFail(f: T => Unit): Unit = {
       var ok = false
@@ -350,5 +365,15 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def shouldAllMatch(f: PartialFunction[T, _]) = v.foreach { x =>
       if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
     }
+  }
+
+  implicit class DBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[T, S, E]) {
+    @inline def shouldYield(t: T) = action.map(_.shouldBe(t))
+  }
+
+  implicit class CollectionDBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[Vector[T], S, E]) {
+    @inline def shouldYield(t: Set[T]) = action.map(_.toSet.shouldBe(t))
+    @inline def shouldYield(t: Seq[T]) = action.map(_.toSeq.shouldBe(t))
+    @inline def shouldYield(t: List[T]) = action.map(_.toList.shouldBe(t))
   }
 }

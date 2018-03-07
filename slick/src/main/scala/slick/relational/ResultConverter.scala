@@ -1,10 +1,7 @@
 package slick.relational
 
-import scala.language.existentials
 import slick.SlickException
-import slick.ast._
 import slick.util.{Dumpable, DumpInfo, TupleSupport}
-import java.io.{StringWriter, OutputStreamWriter, PrintWriter}
 
 /** A `ResultConverter` is used to read data from a result, update a result,
   * and set parameters of a query. */
@@ -34,7 +31,7 @@ trait ResultConverter[M <: ResultConverterDomain, @specialized T] extends Dumpab
 
 /** The domain of a `ResultConverter` and associated classes. It defines the
   * `Reader`, `Writer` and `Updater` types that are needed at the lowest
-  * level of ResultConverters for accessing the underlying driver-specific
+  * level of ResultConverters for accessing the underlying profile-specific
   * data structures. */
 trait ResultConverterDomain {
   type Reader
@@ -121,6 +118,17 @@ final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: Resul
     super.getDumpInfo.copy(mainInfo = (try default().toString catch { case e: Throwable => "["+e.getClass.getName+"]" }), children = Vector(("child", child)))
 }
 
+final class IsDefinedResultConverter[M <: ResultConverterDomain](child: ResultConverter[M, Option[_]]) extends ResultConverter[M, Boolean] {
+  def read(pr: Reader) = child.read(pr).isDefined
+  def update(value: Boolean, pr: Updater) =
+    throw new SlickException("Cannot insert/update IsDefined check")
+  def set(value: Boolean, pp: Writer) =
+    throw new SlickException("Cannot insert/update IsDefined check")
+  def width = child.width
+  override def getDumpInfo =
+    super.getDumpInfo.copy(children = Vector(("child", child)))
+}
+
 final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C], toBase: T => C, toMapped: C => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = toMapped(child.read(pr))
   def update(value: T, pr: Updater) = child.update(toBase(value), pr)
@@ -129,21 +137,35 @@ final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](ch
   override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("child", child)))
 }
 
-final case class OptionRebuildingResultConverter[M <: ResultConverterDomain, T](discriminator: ResultConverter[M, Int], data: ResultConverter[M, T]) extends ResultConverter[M, Option[T]] {
-  def read(pr: Reader): Option[T] = discriminator.read(pr) match {
-    case 1 => Some(data.read(pr))
-    case _ => None
-  }
+final case class OptionRebuildingResultConverter[M <: ResultConverterDomain, T](discriminator: ResultConverter[M, Boolean], data: ResultConverter[M, T]) extends ResultConverter[M, Option[T]] {
+  def read(pr: Reader): Option[T] =
+    if(discriminator.read(pr)) Some(data.read(pr)) else None
   def update(value: Option[T], pr: Updater) =
-    value.fold(throw new SlickException("Cannot insert/update non-primitive Option value None")) { v =>
-      discriminator.update(1, pr)
-      data.update(v, pr)
-    }
+    throw new SlickException("Cannot insert/update non-primitive Option value")
   def set(value: Option[T], pp: Writer) =
-    value.fold(throw new SlickException("Cannot insert/update non-primitive Option value None")) { v =>
-      discriminator.set(1, pp)
-      data.set(v, pp)
-    }
+    throw new SlickException("Cannot insert/update non-primitive Option value")
   def width = discriminator.width + data.width
   override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("discriminator", discriminator), ("data", data)))
+}
+
+/** A `ResultConverter` that simplifies the implementation of fast path
+  * converters. It always wraps a `TypeMappingResultConverter`
+  * on top of a `ProductResultConverter`, allowing direct access to the product
+  * elements. */
+abstract class SimpleFastPathResultConverter[M <: ResultConverterDomain, T](protected[this] val rc: TypeMappingResultConverter[M, T, _]) extends ResultConverter[M, T] {
+  private[this] val ch = rc.child.asInstanceOf[ProductResultConverter[M, _]].elementConverters
+  private[this] var idx = -1
+
+  /** Return the next specialized child `ResultConverter` for the specified type. */
+  protected[this] def next[C] = {
+    idx += 1
+    ch(idx).asInstanceOf[ResultConverter[M, C]]
+  }
+
+  def read(pr: Reader) = rc.read(pr)
+  def update(value: T, pr: Updater) = rc.update(value, pr)
+  def set(value: T, pp: Writer) = rc.set(value, pp)
+
+  override def getDumpInfo = super.getDumpInfo.copy(name = "SimpleFastPathResultConverter", mainInfo = "", children = Vector(("rc", rc)))
+  def width = rc.width
 }

@@ -7,7 +7,7 @@ import org.junit.Assert._
 class SchemaSupportTest {
 
   @Test def testSchemaSupport {
-    import slick.driver.H2Driver.api._
+    import slick.jdbc.H2Profile.api._
 
     class T(tag: Tag) extends Table[Int](tag, Some("myschema"), "mytable") {
       def id = column[Int]("id")
@@ -30,11 +30,11 @@ class SchemaSupportTest {
     println(s4)
     assertTrue("delete uses schema name", s4 contains """delete from "myschema"."mytable"""")
 
-    val s5 = ts.schema.createStatements
+    val s5 = ts.schema.createStatements.toList
     s5.foreach(println)
     s5.foreach(s => assertTrue("DDL (create) uses schema name", s contains """ "myschema"."mytable""""))
 
-    val s6 = ts.schema.dropStatements
+    val s6 = ts.schema.dropStatements.toList
     s6.foreach(println)
     s6.foreach(s => assertTrue("DDL (drop) uses schema name", s contains """ "myschema"."mytable""""))
   }

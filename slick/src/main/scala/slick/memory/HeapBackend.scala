@@ -1,17 +1,18 @@
 package slick.memory
 
 import java.util.concurrent.atomic.AtomicLong
+
 import com.typesafe.config.Config
+
 import org.reactivestreams.Subscriber
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.{Future, ExecutionContext}
+
 import slick.SlickException
-import slick.dbio._
 import slick.ast._
-import slick.backend.{DatabaseComponent, RelationalBackend}
 import slick.lifted.{PrimaryKey, Constraint, Index}
-import slick.profile.RelationalProfile
+import slick.relational.{RelationalProfile, RelationalBackend}
 import slick.util.Logging
 
 /** A simple database engine that stores data in heap data structures. */
@@ -53,6 +54,9 @@ trait HeapBackend extends RelationalBackend with Logging {
       if(!tables.remove(name).isDefined)
         throw new SlickException(s"Table $name does not exist")
     }
+    def truncateTable(name: String): Unit = synchronized{
+      getTable(name).data.clear
+    }
     def getTables: IndexedSeq[HeapTable] = synchronized {
       tables.values.toVector
     }
@@ -91,7 +95,7 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   class HeapTable(val name: String, val columns: IndexedSeq[HeapBackend.Column],
                   indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]) {
-    protected val data: ArrayBuffer[Row] = new ArrayBuffer[Row]
+    protected[HeapBackend] val data: ArrayBuffer[Row] = new ArrayBuffer[Row]
 
     def rows: Iterable[Row] = data
 

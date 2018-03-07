@@ -1,9 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.SlickTreeException
-import slick.driver.H2Driver
+import slick.jdbc.H2Profile
 
-import scala.language.higherKinds
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
 class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
@@ -469,7 +467,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
 
   def testNewFusion = {
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "A_NEWFUSION") {
-      def id = column[Int]("id")
+      def id = column[Int]("id", O.PrimaryKey)
       def a = column[String]("a")
       def b = column[String]("b")
       def * = (id, a, b)
@@ -503,8 +501,11 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val q15 = (as.map(a => a.id.?).filter(_ < 2) unionAll as.map(a => a.id.?).filter(_ > 2)).map(_.get).to[Set]
     val q16 = (as.map(a => a.id.?).filter(_ < 2) unionAll as.map(a => a.id.?).filter(_ > 2)).map(_.getOrElse(-1)).to[Set].filter(_ =!= 42)
     val q17 = as.sortBy(_.id).zipWithIndex.filter(_._2 < 2L).map { case (a, i) => (a.id, i) }
+    val q18 = as.joinLeft(as).on { case (a1, a2) => a1.id === a2.id }.filter { case (a1, a2) => a1.id === 3 }.map { case (a1, a2) => a2 }
+    val q19 = as.joinLeft(as).on { case (a1, a2) => a1.id === a2.id }.joinLeft(as).on { case ((_, a2), a3) => a2.map(_.b) === a3.b }.map(_._2)
+    val q19b = as.joinLeft(as).on { case (a1, a2) => a1.id === a2.id }.joinLeft(as).on { case ((_, a2), a3) => a2.map(_.b) === a3.b }.subquery.map(_._2)
 
-    if(tdb.driver == H2Driver) {
+    if(tdb.profile == H2Profile) {
       assertNesting(q1, 1)
       assertNesting(q2, 1)
       assertNesting(q3, 1)
@@ -530,6 +531,9 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       assertNesting(q15, 2)
       assertNesting(q16, 2)
       assertNesting(q17, 2)
+      assertNesting(q18, 1)
+      assertNesting(q19, 1)
+      assertNesting(q19b, 2)
     }
 
     for {
@@ -561,18 +565,9 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       _ <- mark("q15", q15.result).map(_ shouldBe Set(1, 3))
       _ <- mark("q16", q16.result).map(_ shouldBe Set(1, 3))
       _ <- ifCap(rcap.zip)(mark("q17", q17.result).map(_ shouldBe Seq((1,0), (2,1))))
+      _ <- mark("q18", q18.result).map(_ shouldBe Seq(Some((3, "c", "b"))))
+      _ <- mark("q19", q19.result).map(_.toSet shouldBe Set(Some((1,"a","a")), Some((2,"a","b")), Some((3,"c","b"))))
+      _ <- mark("q19b", q19b.result).map(_.toSet shouldBe Set(Some((1,"a","a")), Some((2,"a","b")), Some((3,"c","b"))))
     } yield ()
-  }
-
-  def assertNesting(q: Rep[_], exp: Int): Unit = {
-    import slick.compiler.QueryCompiler
-    import slick.ast._
-    import slick.ast.Util._
-    val qc = new QueryCompiler(tdb.driver.queryCompiler.phases.takeWhile(_.name != "codeGen"))
-    val cs = qc.run(q.toNode)
-    val found = cs.tree.collect { case c: Comprehension => c }.size
-    if(found != exp)
-      throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
-        cs.tree, mark = (_.isInstanceOf[Comprehension]), removeUnmarked = false))
   }
 }
