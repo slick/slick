@@ -161,16 +161,20 @@ object LiftedEmbedding extends App {
   //#ddl
     db.run(DBIO.seq(
       schema.create,
+      schema.createIfNotExists,
       //...
-      schema.drop
+      schema.drop,
+      schema.dropIfExists
     ))
   //#ddl
     , Duration.Inf)
 
   //#ddl2
     schema.create.statements.foreach(println)
+    schema.createIfNotExists.statements.foreach(println)
     schema.truncate.statements.foreach(println)
     schema.drop.statements.foreach(println)
+    schema.dropIfExists.statements.foreach(println)
   //#ddl2
     TableQuery[A].schema.create.statements.foreach(println)
 

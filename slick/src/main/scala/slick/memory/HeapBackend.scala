@@ -50,9 +50,19 @@ trait HeapBackend extends RelationalBackend with Logging {
       tables += ((name, t))
       t
     }
+    def createTableIfNotExists(name: String, columns: IndexedSeq[HeapBackend.Column],
+                    indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable = synchronized {
+      val t = new HeapTable(name, columns, indexes, constraints)
+      if(!tables.contains(name)) tables += ((name, t))
+      t
+    }
     def dropTable(name: String): Unit = synchronized {
       if(!tables.remove(name).isDefined)
         throw new SlickException(s"Table $name does not exist")
+    }
+    def dropTableIfExists(name: String): Unit = try dropTable(name) catch{
+      case e: SlickException => ()
+      case e: Throwable => throw e
     }
     def truncateTable(name: String): Unit = synchronized{
       getTable(name).data.clear

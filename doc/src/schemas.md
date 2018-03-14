@@ -162,7 +162,7 @@ Data Definition Language {index="DDL;create;drop"}
 DDL statements for a table can be created with its `TableQuery`'s `schema` method. Multiple
 `DDL` objects can be concatenated with `++` to get a compound `DDL` object which can create
 and drop all entities in the correct order, even in the presence of cyclic dependencies between
-tables. The `create`, `drop` and `truncate` methods produce the Actions for executing the DDL statements:
+tables. The `create`, `createIfNotExists`, `dropIfExists`, `drop` and `truncate` methods produce the Actions for executing the DDL statements. To safely create and drop tables use the methods `createIfNotExists` and `dropIfExists` :
 
 ```scala src=../code/LiftedEmbedding.scala#ddl
 ```

@@ -598,17 +598,19 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       if(primaryKeys.size > 1)
         throw new SlickException("Table "+tableNode.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
-      DDL(createPhase1, createPhase2, dropPhase1, dropPhase2 , truncatePhase)
+      DDL(createPhase1, createIfNotExistsPhase, createPhase2, dropPhase1, dropIfExistsPhase, dropPhase2 , truncatePhase)
     }
 
-    protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createPhase1 = Iterable(createTable(false)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
-    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
+    protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(true))
+    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable(false))
     protected def truncatePhase = Iterable(truncateTable)
 
-    protected def createTable: String = {
-      val b = new StringBuilder append "create table " append quoteTableName(tableNode) append " ("
+    protected def createTable(checkNotExists: Boolean): String = {
+      val b = new StringBuilder append "create table " append (if(checkNotExists) "if not exists " else "") append quoteTableName(tableNode) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -621,7 +623,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     protected def addTableOptions(b: StringBuilder) {}
 
-    protected def dropTable: String = "drop table "+quoteTableName(tableNode)
+    protected def dropTable(ifExists: Boolean): String = "drop table "+(if(ifExists) "if exists " else "")+quoteTableName(tableNode)
 
     protected def truncateTable: String = "truncate table "+ quoteTableName(tableNode)
 

@@ -213,6 +213,36 @@ trait SQLServerProfile extends JdbcProfile {
       sb append ") on update " append (if(updateAction == "RESTRICT") "NO ACTION" else updateAction)
       sb append " on delete " append (if(deleteAction == "RESTRICT") "NO ACTION" else deleteAction)
     }
+
+    override def dropIfExistsPhase = {
+      //http://stackoverflow.com/questions/7887011/how-to-drop-a-table-if-it-exists-in-sql-server
+      Iterable(
+      "IF EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'"
+      + (tableNode.schemaName match{
+        case Some(s)=>s+"."
+        case None=>""
+      })
+      + tableNode.tableName
+      + "') AND type in (N'U'))\n"
+      + "begin\n"
+      + dropPhase1.mkString("\n") + dropPhase2.mkString("\n")
+      + "\nend")
+    }
+
+    override def createIfNotExistsPhase = {
+      //http://stackoverflow.com/questions/5952006/how-to-check-if-table-exist-and-if-it-doesnt-exist-create-table-in-sql-server-2
+      Iterable(
+      "IF  NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'"
+      + (tableNode.schemaName match{
+        case Some(s)=>s+"."
+        case None=>""
+      })
+      + tableNode.tableName
+      + "') AND type in (N'U'))\n"
+      + "begin\n"
+      + createPhase1.mkString("\n") + createPhase2.mkString("\n")
+      + "\nend")
+    }
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {

@@ -102,6 +102,35 @@ trait DerbyProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
+  override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
+    new SchemaActionExtensionMethodsImpl(schema){
+      override def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
+          import java.sql.SQLException
+          for(s <- sql) try{
+            ctx.session.withPreparedStatement(s)(_.execute)
+          }catch{
+            //<value> '<value>' already exists in <value> '<value>'.
+            case e: SQLException if e.getSQLState().equals("X0Y32") =>  ()
+            case e: Throwable => throw e
+          }
+        }
+      }
+
+      override def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
+          import java.sql.SQLException
+          for(s <- sql) try{
+            ctx.session.withPreparedStatement(s)(_.execute)
+          }catch{
+            //'<value>' cannot be performed on '<value>' because it does not exist.
+            case e: SQLException if e.getSQLState().equals("42Y55") =>  ()
+            case e: Throwable => throw e
+          }
+        }
+      }
+    }
+
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
@@ -194,6 +223,10 @@ trait DerbyProfile extends JdbcProfile {
         sb.toString
       } else super.createIndex(idx)
     }
+
+    override def dropIfExistsPhase = dropPhase1 ++ dropPhase2
+
+    override def createIfNotExistsPhase = createPhase1 ++ createPhase2
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
