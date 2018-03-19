@@ -55,7 +55,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     inUseCount -= 1
     if (inUseCount == maximumInUse - 1) {
       logger.debug("resuming")
-        paused = false
+      paused = false
       if (counts > 0) notEmpty.signalAll()
     }
   }
@@ -96,7 +96,6 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
         nanos = itemQueueNotFull.awaitNanos(nanos)
       }
       insert(e)
-      return true
     }
   }
 
@@ -190,7 +189,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
       (highPrioItemQueue.iterator.asScala ++ itemQueue.iterator.asScala).toList.toIterator
     }
 
-    return new util.Iterator[E] {
+    new util.Iterator[E] {
       override def hasNext: Boolean = items.hasNext
       override def next: E = items.next
       override def remove(): Unit = throw new UnsupportedOperationException
