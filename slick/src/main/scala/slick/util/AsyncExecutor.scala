@@ -83,10 +83,10 @@ object AsyncExecutor extends Logging {
 
           new LinkedBlockingQueue[Runnable]
         case n =>
-          // NOTE: The current implementation of ManagedArrayBlockingQueue is flawned. It makes the assumption that all
+          // NOTE: The current implementation of ManagedArrayBlockingQueue is flawed. It makes the assumption that all
           // tasks go through the queue (which is responsible for scheduling high-priority tasks first). However, that
           // assumption is wrong since the ThreadPoolExecutor bypasses the queue when it creates new threads. This
-          // happens when ever it creates a new thread to run a task, i.e. when minThreads < maxThreads and the number
+          // happens whenever it creates a new thread to run a task, i.e. when minThreads < maxThreads and the number
           // of existing threads is < maxThreads.
           //
           // The only way to prevent problems is to have minThreads == maxThreads when using the
