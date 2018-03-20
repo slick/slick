@@ -107,6 +107,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
       import java.sql.Types._
       jdbcType match{
+        case TINYINT if typeName.contains("UNSIGNED")  =>  classTag[Short]
         case SMALLINT                                  =>  classTag[Int]
         case INTEGER if typeName.contains("UNSIGNED")  =>  classTag[Long]
           /**
