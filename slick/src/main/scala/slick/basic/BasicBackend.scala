@@ -306,7 +306,7 @@ trait BasicBackend { self =>
             ctx.priority(continuation)
           }
 
-          def run: Unit =
+          def run(): Unit =
             try {
               val debug = streamLogger.isDebugEnabled
               var state = initialState
@@ -328,7 +328,7 @@ trait BasicBackend { self =>
                       state = null
                       a.cancelStream(ctx, oldState)
                     }
-                  } else if((realDemand > 0 || (state eq null))) {
+                  } else if(realDemand > 0 || (state eq null)) {
                     val oldState = state
                     state = null
                     state = a.emitStream(ctx, realDemand, oldState)
