@@ -369,6 +369,7 @@ trait BasicBackend { self =>
               case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex)
             } finally {
               if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
+              ctx.sync = 0
             }
         })
       } catch { case NonFatal(ex) =>
