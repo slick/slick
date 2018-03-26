@@ -236,10 +236,14 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+    def buildInsertIgnoreStart: String = allNames.iterator.mkString(s"insert ignore into $tableName (", ",", ") ")
     override def buildInsert: InsertBuilderResult = {
-      val start = buildInsertStart
-      val update = softNames.map(n => s"$n=VALUES($n)").mkString(", ")
-      new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
+      val start = buildInsertIgnoreStart
+      if (softNames.isEmpty) new InsertBuilderResult(table, s"$start values $allVars", syms)
+      else {
+        val update = softNames.map(n => s"$n=VALUES($n)").mkString(", ")
+        new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
+      }
     }
   }
 
