@@ -85,7 +85,7 @@ class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Bool
 object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): DataSourceJdbcDataSource = {
     val (ds, maxConnections) =
-      c.getStringOpt("dataSourceClass") match {
+      c.getStringOpt("dataSourceClassName").orElse(c.getStringOpt("dataSourceClass")) match {
 
         case Some(dsClass) =>
           val propsO = c.getPropertiesOpt("properties")

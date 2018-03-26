@@ -80,6 +80,7 @@ class ConfigExtensionMethods(val c: Config) extends AnyVal {
 
   def getBooleanOpt(path: String): Option[Boolean] = if(c.hasPath(path)) Some(c.getBoolean(path)) else None
   def getIntOpt(path: String): Option[Int] = if(c.hasPath(path)) Some(c.getInt(path)) else None
+  def getLongOpt(path: String): Option[Long] = if(c.hasPath(path)) Some(c.getLong(path)) else None
   def getStringOpt(path: String) = Option(getStringOr(path))
   def getPropertiesOpt(path: String) = Option(getPropertiesOr(path))
 }

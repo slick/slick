@@ -26,7 +26,6 @@ These are the databases and driver versions that have explicit automated tests.
 |HSQLDB/HyperSQL|hsqldb:2.2.8|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
 |H2|com.h2database.h2:1.4.187|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
 
-
 Accessing other database systems is possible, with a reduced feature set.
 
 The [manual and scaladocs](http://slick.lightbend.com/docs/) for Slick can be
