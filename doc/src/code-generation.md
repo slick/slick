@@ -67,6 +67,7 @@ and provide the following values
 * `pkg`: Scala package the generated code should be places in
 * `user`: database connection user name
 * `password`: database connection password
+* `outputToMultipleFiles`: Boolean indicating if the generated output should be one big file or one file per table. Default is false.
 
 Integrated into sbt
 -------------------
@@ -79,6 +80,9 @@ By default, the code generator places a file `Tables.scala` in the given folder 
 to the package. The file contains an `object Tables` from which the code
 can be imported for use right away. Make sure you use the same profile.
 The file also contains a `trait Tables` which can be used in the cake pattern.
+
+If `outputToMultipleFiles` is set to true, the code generator will instead create a `trait` per table.
+`Tables.scala` then stacks all the generated tables. The advantage of this, is that you avoid a potentially huge file
 
 > {.warning}
 > When using the generated code, be careful *not* to mix different profiles accidentally. The

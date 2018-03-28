@@ -59,10 +59,10 @@ class SourceCodeGenerator(model: m.Model)
 
 /** A runnable class to execute the code generator without further setup */
 object SourceCodeGenerator {
-  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean): Unit =
-    run(profile, jdbcDriver, url, outputDir, pkg, user, password, ignoreInvalidDefaults, None)
+  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, outputToMultipleFiles: Boolean): Unit =
+    run(profile, jdbcDriver, url, outputDir, pkg, user, password, ignoreInvalidDefaults, None, outputToMultipleFiles)
 
-  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String]): Unit = {
+  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String], outputToMultipleFiles: Boolean): Unit = {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
     val dbFactory = profileInstance.api.Database
@@ -73,18 +73,25 @@ object SourceCodeGenerator {
       val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
       val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[_ <: SourceCodeGenerator]]
       val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
-      generatorInstance.writeToFile(profile,outputDir, pkg)
+      if(outputToMultipleFiles)
+        generatorInstance.writeToMultipleFiles(profile, outputDir, pkg)
+      else
+        generatorInstance.writeToFile(profile, outputDir, pkg)
     } finally db.close
   }
 
-  def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = true): Unit = {
+  def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = true, outputToMultipleFiles: Boolean = false): Unit = {
     val dc = DatabaseConfig.forURI[JdbcProfile](uri)
     val pkg = dc.config.getString("codegen.package")
     val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
     val profile = if(dc.profileIsObject) dc.profileName else "new " + dc.profileName
     try {
       val m = Await.result(dc.db.run(dc.profile.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
-      new SourceCodeGenerator(m).writeToFile(profile, out, pkg)
+      val generator = new SourceCodeGenerator(m)
+      if(outputToMultipleFiles)
+        generator.writeToMultipleFiles(profile, out, pkg)
+      else
+        generator.writeToFile(profile, out, pkg)
     } finally dc.db.close
   }
 
@@ -95,13 +102,13 @@ object SourceCodeGenerator {
       case uri :: outputDir :: Nil =>
         run(new URI(uri), Some(outputDir))
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, None, None, true, None)
+        run(profile, jdbcDriver, url, outputDir, pkg, None, None, true, None, false)
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), true, None)
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), true, None, false)
       case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, None)
-      case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: codeGeneratorClass :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, Some(codeGeneratorClass))
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, None, false)
+      case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: codeGeneratorClass :: outputToMultipleFiles:: Nil =>
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, Some(codeGeneratorClass), outputToMultipleFiles.toBoolean)
       case _ => {
         println("""
             |Usage:
