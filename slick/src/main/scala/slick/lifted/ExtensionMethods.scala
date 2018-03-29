@@ -232,6 +232,8 @@ trait ExtensionMethodConversions {
   implicit def numericOptionColumnExtensionMethods[B1](c: Rep[Option[B1]])(implicit tm: BaseTypedType[B1] with NumericTypedType): OptionNumericColumnExtensionMethods[B1] = new OptionNumericColumnExtensionMethods[B1](c)
   implicit def stringColumnExtensionMethods(c: Rep[String]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c)
   implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c)
+  implicit def mappedToStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[B1]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c.asInstanceOf[Rep[String]])
+  implicit def mappedToOptionStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[Option[B1]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c.asInstanceOf[Rep[Option[String]]])
   implicit def booleanColumnExtensionMethods(c: Rep[Boolean]): BooleanColumnExtensionMethods[Boolean] = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]): BooleanColumnExtensionMethods[Option[Boolean]] = new BooleanColumnExtensionMethods[Option[Boolean]](c)
 
