@@ -79,7 +79,7 @@ class FlattenProjections extends Phase {
     val defs = new ArrayBuffer[(TermSymbol, Node)]
     val defsM = new HashMap[Node, TermSymbol]
     val paths = new HashMap[List[TermSymbol], TermSymbol]
-    def flatten(n: Node, path: List[TermSymbol]) {
+    def flatten(n: Node, path: List[TermSymbol]): Unit = {
       logger.debug("Flattening node at "+Path.toString(path), n)
       n match {
         case StructNode(ch) => ch.foreach { case (s, n) => flatten(n, s :: path) }

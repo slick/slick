@@ -7,7 +7,7 @@ import org.junit.Assert._
 class MysqlDDLTest {
   import slick.jdbc.MySQLProfile.api._
 
-  @Test def testTablenameEscaped {
+  @Test def testTablenameEscaped: Unit = {
     class T(tag: Tag) extends Table[Int](tag, "mytable") {
       def id = column[Int]("id", O.PrimaryKey)
 

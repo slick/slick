@@ -448,7 +448,7 @@ trait JdbcBackend extends RelationalBackend {
 
     def close(): Unit
 
-    def force() { conn }
+    def force(): Unit = { conn }
 
     private[slick] final def internalForParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
                       rsHoldability: ResultSetHoldability, statementInit: Statement => Unit, _fetchSize: Int): Session = new Session {
@@ -502,7 +502,7 @@ trait JdbcBackend extends RelationalBackend {
       }
     }
 
-    def close() { conn.close() }
+    def close(): Unit = { conn.close() }
 
     private[slick] def startInTransaction: Unit = {
       if(!isInTransaction) conn.setAutoCommit(false)

@@ -44,7 +44,7 @@ object TestDB {
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */
-  def copy(src: File, dest: File) {
+  def copy(src: File, dest: File): Unit = {
     dest.createNewFile()
     val out = new FileOutputStream(dest)
     try {
@@ -63,7 +63,7 @@ object TestDB {
   }
 
   /** Delete files in the testDB directory */
-  def deleteDBFiles(prefix: String) {
+  def deleteDBFiles(prefix: String): Unit = {
     assert(!prefix.isEmpty, "prefix must not be empty")
     def deleteRec(f: File): Boolean = {
       if(f.isDirectory()) f.listFiles.forall(deleteRec _) && f.delete()
@@ -104,7 +104,7 @@ trait TestDB {
   def isEnabled = TestkitConfig.testDBs.map(_.contains(confName)).getOrElse(true)
 
   /** This method is called to clean up before running all tests. */
-  def cleanUpBefore() {}
+  def cleanUpBefore(): Unit = {}
 
   /** This method is called to clean up after running all tests. It
     * defaults to cleanUpBefore(). */
@@ -233,7 +233,7 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
 
   override def createDB() = databaseFor("testConn")
 
-  override def cleanUpBefore() {
+  override def cleanUpBefore(): Unit = {
     if(!drop.isEmpty || !create.isEmpty) {
       println("[Creating test database "+this+"]")
       await(databaseFor("adminConn").run(
@@ -247,7 +247,7 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
     }
   }
 
-  override def cleanUpAfter() {
+  override def cleanUpAfter(): Unit = {
     if(!drop.isEmpty) {
       println("[Dropping test database "+this+"]")
       await(databaseFor("adminConn").run(

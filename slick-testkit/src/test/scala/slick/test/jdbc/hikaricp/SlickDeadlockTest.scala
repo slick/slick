@@ -45,7 +45,7 @@ class SlickDeadlockTest extends AsyncTest[JdbcTestDB] {
   }
 
 
-  @Test def slickDoesNotDeadlock() {
+  @Test def slickDoesNotDeadlock(): Unit = {
 
     val tasks = 1 to 51 map { i =>
       val action = { testTable += i }
@@ -67,7 +67,7 @@ class SlickDeadlockTest extends AsyncTest[JdbcTestDB] {
 
   }
 
-  @Test def slickDoesNotDeadlockWithIo() {
+  @Test def slickDoesNotDeadlockWithIo(): Unit = {
 
     Await.result(database.run((
         (blobTable += (1, new SerialBlob(Array[Byte](1,2,3)))) >>

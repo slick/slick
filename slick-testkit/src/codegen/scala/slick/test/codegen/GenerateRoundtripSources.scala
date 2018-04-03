@@ -13,7 +13,7 @@ import slick.jdbc.JdbcProfile
   * it would fail in derby and hsqldb. The code is tested using all enabled profiles. We should also
   * diversify generation as well at some point. */
 object GenerateRoundtripSources {
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val profile = slick.jdbc.H2Profile
     val url = "jdbc:h2:mem:test4"
     val jdbcDriver = "org.h2.Driver"
