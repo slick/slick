@@ -140,7 +140,7 @@ trait SQLServerProfile extends JdbcProfile {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
 
-    override protected def buildSelectModifiers(c: Comprehension) {
+    override protected def buildSelectModifiers(c: Comprehension): Unit = {
       super.buildSelectModifiers(c)
       (c.fetch, c.offset) match {
         case (Some(t), Some(d)) => b"top (${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}) "
@@ -151,7 +151,7 @@ trait SQLServerProfile extends JdbcProfile {
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = ()
 
-    override protected def buildOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       if(o.nulls.last && !o.direction.desc)
         b"case when ($n) is null then 1 else 0 end,"
       else if(o.nulls.first && o.direction.desc)
@@ -202,7 +202,7 @@ trait SQLServerProfile extends JdbcProfile {
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
-    override protected def addForeignKey(fk: ForeignKey, sb: StringBuilder) {
+    override protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit = {
       val updateAction = fk.onUpdate.action
       val deleteAction = fk.onDelete.action
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
@@ -246,7 +246,7 @@ trait SQLServerProfile extends JdbcProfile {
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override protected def appendOptions(sb: StringBuilder) {
+    override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"

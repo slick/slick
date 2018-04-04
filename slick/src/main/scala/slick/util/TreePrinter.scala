@@ -14,8 +14,8 @@ case class TreePrinter(name: String = "", prefix: String = "", firstPrefix: Stri
     buf.getBuffer.toString
   }
 
-  def print(n: Dumpable, out: PrintWriter = new PrintWriter(new OutputStreamWriter(System.out))) {
-    def dump(baseValue: Dumpable, prefix1: String, prefix2: String, name: String, level: Int) {
+  def print(n: Dumpable, out: PrintWriter = new PrintWriter(new OutputStreamWriter(System.out))): Unit = {
+    def dump(baseValue: Dumpable, prefix1: String, prefix2: String, name: String, level: Int): Unit = {
       val value = narrow(baseValue)
       val di =
         if(value eq null) DumpInfo("<error: narrowed to null>", "baseValue = "+baseValue)

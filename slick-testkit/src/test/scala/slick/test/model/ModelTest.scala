@@ -6,7 +6,7 @@ import slick.model._
 /** Test case for the SQL schema support in table definitions */
 class ModelTest {
 
-  @Test def testConsistencyCheck {
+  @Test def testConsistencyCheck: Unit = {
     Model(Seq()).assertConsistency
 
     val A = QualifiedName("A")

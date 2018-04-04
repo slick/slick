@@ -14,7 +14,7 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.api._
 
   @Test
-  def test {
+  def test: Unit = {
     case class Category(id: Int, name: String)
     class Categories(tag: Tag) extends Table[Category](tag, "categories") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)

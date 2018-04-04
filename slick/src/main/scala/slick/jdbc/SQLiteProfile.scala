@@ -165,7 +165,7 @@ trait SQLiteProfile extends JdbcProfile {
     override protected val alwaysAliasSubqueries = false
     override protected val quotedJdbcFns = Some(Nil)
 
-    override protected def buildOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       if(o.nulls.last && !o.direction.desc)
         b"($n) is null,"
       else if(o.nulls.first && o.direction.desc)
@@ -225,7 +225,7 @@ trait SQLiteProfile extends JdbcProfile {
     override protected val foreignKeys = Nil // handled directly in addTableOptions
     override protected val primaryKeys = Nil // handled directly in addTableOptions
 
-    override protected def addTableOptions(b: StringBuilder) {
+    override protected def addTableOptions(b: StringBuilder): Unit = {
       for(pk <- table.primaryKeys) {
         b append ","
         addPrimaryKey(pk, b)
@@ -240,7 +240,7 @@ trait SQLiteProfile extends JdbcProfile {
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override protected def appendOptions(sb: StringBuilder) {
+    override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
       else if(primaryKey) sb append " PRIMARY KEY"

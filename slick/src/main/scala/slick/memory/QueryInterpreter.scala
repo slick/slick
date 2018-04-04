@@ -29,7 +29,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   var indent = 0
   type Coll = Iterable[Any]
 
-  def logDebug(msg: String) {
+  def logDebug(msg: String): Unit = {
     logger.debug(Iterator.fill(indent)("  ").mkString("", "", msg))
   }
 

@@ -89,7 +89,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
 
-    def += (value: T)(implicit session: Backend#Session) {
+    def += (value: T)(implicit session: Backend#Session): Unit = {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
       converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf)

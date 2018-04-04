@@ -92,7 +92,7 @@ trait DB2Profile extends JdbcProfile {
       case _ => super.expr(c, skipParens)
     }
 
-    override protected def buildOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       /* DB2 does not have explicit NULLS FIST/LAST clauses. Nulls are
        * sorted after non-null values by default. */
       if(o.nulls.first && !o.direction.desc) {
@@ -159,7 +159,7 @@ trait DB2Profile extends JdbcProfile {
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override def appendColumn(sb: StringBuilder) {
+    override def appendColumn(sb: StringBuilder): Unit = {
       val qname = quoteIdentifier(column.name)
       sb append qname append ' '
       appendType(sb)
