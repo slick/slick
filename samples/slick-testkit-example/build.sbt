@@ -5,7 +5,7 @@ libraryDependencies ++= List(
   "com.typesafe.slick" %% "slick-testkit" % "3.2.3" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "ch.qos.logback" % "logback-classic" % "1.2.3" % "test",
-  "postgresql" % "postgresql" % "42.1.4" % "test"
+  "org.postgresql" % "postgresql" % "42.1.4" % "test"
 )
 
 scalacOptions += "-deprecation"
