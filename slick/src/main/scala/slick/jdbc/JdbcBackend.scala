@@ -334,9 +334,10 @@ trait JdbcBackend extends RelationalBackend {
       * @param classLoader The ClassLoader to use to load any custom classes from. The default is to
       *                    try the context ClassLoader first and fall back to Slick's ClassLoader.
       */
-    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null,
+    def forConfig(path: String, config: Config = null, driver: Driver = null,
                   classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Database = {
-      val usedConfig = if(path.isEmpty) config else config.getConfig(path)
+      val initializedConfig = if(config eq null) ConfigFactory.load(classLoader) else config
+      val usedConfig = if(path.isEmpty) initializedConfig else initializedConfig.getConfig(path)
       val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
       val poolName = usedConfig.getStringOr("poolName", path)
       val numThreads = usedConfig.getIntOr("numThreads", 20)
