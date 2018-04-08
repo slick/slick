@@ -188,7 +188,7 @@ object SlickBuild extends Build {
       packageDoc in Compile in slickCodegenProject,
       packageDoc in Compile in slickHikariCPProject,
       packageDoc in Compile in slickTestkitProject,
-      mimaReportBinaryIssues in Compile in slickProject,
+      // mimaReportBinaryIssues in Compile in slickProject, // enable for minor versions
       testSamples in aRootProject
     )
     val withSdlc =
