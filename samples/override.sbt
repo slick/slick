@@ -11,8 +11,8 @@ crossScalaVersions := (crossScalaVersions in LocalProject("slick")).value
 scalaVersion := (scalaVersion in LocalProject("slick")).value
 
 libraryDependencies := libraryDependencies.value.map { m =>
-  if(m.organization == (organization in LocalProject("slick")).value) m.copy(revision = slickVersion)
-  else m
+  if(m.organization != (organization in LocalProject("slick")).value) m
+  else m.copy(revision = (version in ThisBuild).value)
 }
 
 unmanagedClasspath in Compile :=
