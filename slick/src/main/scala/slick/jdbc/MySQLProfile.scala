@@ -1,5 +1,8 @@
 package slick.jdbc
 
+import java.sql.{ResultSet, PreparedStatement}
+import java.time.{Instant, LocalDateTime, LocalTime}
+
 import com.typesafe.config.Config
 
 import scala.concurrent.ExecutionContext
@@ -299,24 +302,34 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class JdbcTypes extends super.JdbcTypes {
+
+    @inline
+    private[this] def stringToMySqlString(value : String) : String = {
+      value match {
+        case null => "NULL"
+        case _ =>
+          val sb = new StringBuilder
+          sb append '\''
+          for(c <- value) c match {
+            case '\'' => sb append "\\'"
+            case '"' => sb append "\\\""
+            case 0 => sb append "\\0"
+            case 26 => sb append "\\Z"
+            case '\b' => sb append "\\b"
+            case '\n' => sb append "\\n"
+            case '\r' => sb append "\\r"
+            case '\t' => sb append "\\t"
+            case '\\' => sb append "\\\\"
+            case _ => sb append c
+          }
+          sb append '\''
+          sb.toString
+      }
+    }
+
     override val stringJdbcType = new StringJdbcType {
-      override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
-        val sb = new StringBuilder
-        sb append '\''
-        for(c <- value) c match {
-          case '\'' => sb append "\\'"
-          case '"' => sb append "\\\""
-          case 0 => sb append "\\0"
-          case 26 => sb append "\\Z"
-          case '\b' => sb append "\\b"
-          case '\n' => sb append "\\n"
-          case '\r' => sb append "\\r"
-          case '\t' => sb append "\\t"
-          case '\\' => sb append "\\\\"
-          case _ => sb append c
-        }
-        sb append '\''
-        sb.toString
+      override def valueToSQLLiteral(value: String) : String = {
+        stringToMySqlString(value)
       }
     }
 
@@ -328,6 +341,58 @@ trait MySQLProfile extends JdbcProfile { profile =>
 
       override def valueToSQLLiteral(value: UUID): String =
         "x'"+value.toString.replace("-", "")+"'"
+    }
+
+    override val instantType : InstantJdbcType = new InstantJdbcType {
+      override def sqlType : Int = {
+        /**
+         * [[Instant]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
+         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
+         * second precision, while [[Instant]] stores it with a millisecond one.
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, if (v == null) null else v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : Instant = {
+        r.getString(idx) match {
+          case null => null
+          case iso8601String => Instant.parse(iso8601String)
+        }
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
+        r.updateString(idx, if (v == null) null else v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) : String = {
+        stringToMySqlString(value.toString)
+      }
+    }
+
+    override val localDateTimeType : LocalDateTimeJdbcType = new LocalDateTimeJdbcType {
+      override def sqlType : Int = {
+        /**
+         * [[LocalDateTime]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
+         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
+         * second precision, while [[LocalDateTime]] stores it with a millisecond one.
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, if (v == null) null else v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
+        r.getString(idx) match {
+          case null => null
+          case iso8601String => LocalDateTime.parse(iso8601String)
+        }
+      }
+      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) = {
+        r.updateString(idx, if (v == null) null else v.toString)
+      }
+      override def valueToSQLLiteral(value: LocalDateTime) : String = {
+        stringToMySqlString(value.toString)
+      }
     }
   }
 }

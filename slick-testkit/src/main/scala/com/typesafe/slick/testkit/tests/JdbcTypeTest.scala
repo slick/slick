@@ -4,6 +4,8 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
 import java.util.UUID
+import java.time._
+import java.time.temporal.ChronoField
 import javax.sql.rowset.serial.SerialBlob
 
 import scala.concurrent.Future
@@ -118,16 +120,23 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  def testUUID =
+    roundtrip[UUID]("uuid_t1", UUID.randomUUID())
+
   def testDate =
     roundtrip("date_t1", Date.valueOf("2012-12-24"))
+
+  def testLocalDate = ifCap(jcap.javaTime) {
+    roundtrip[LocalDate]("local_date_t1", LocalDate.now(ZoneOffset.UTC))
+  }
 
   def testTime =
     roundtrip("time_t1", Time.valueOf("17:53:48"))
 
-  def testTimestamp = {
-    roundtrip[Timestamp]("timestamp_t1", Timestamp.valueOf("2012-12-24 17:53:48.0")) >> {
-      class T2(tag: Tag) extends Table[Option[Timestamp]](tag, "timestamp_t2") {
-        def t = column[Option[Timestamp]]("t")
+  private[this] def timeRoundTrip[T : BaseColumnType](tn: String, v: T) = {
+    roundtrip(tn, v) >> {
+      class T2(tag: Tag) extends Table[Option[T]](tag, s"${tn}_t2") {
+        def t = column[Option[T]]("t")
         def * = t
       }
       val t2 = TableQuery[T2]
@@ -135,8 +144,192 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     }
   }
 
-  def testUUID =
-    roundtrip[UUID]("uuid_t1", UUID.randomUUID())
+  def testTimestamp = {
+    timeRoundTrip[Timestamp](
+      "timestamp_t1",
+      Timestamp.valueOf("2012-12-24 17:53:48.0")
+    )
+  }
+  def testLocalTime = ifCap(jcap.javaTime) {
+    timeRoundTrip[LocalTime](
+      "local_time_hour_gt_10",
+      generateTestLocalDateTime().toLocalTime.withHour(14)
+    )
+  }
+  def testLocalTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
+    timeRoundTrip[LocalTime](
+      "local_time_hour_lt_10",
+      generateTestLocalDateTime().toLocalTime.withHour(5)
+    )
+  }
+  def testInstant = ifCap(jcap.javaTime) {
+    timeRoundTrip[Instant](
+      "instant_t1",
+      generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC)
+    )
+  }
+  def testInstantWithHourLesserThan10 = ifCap(jcap.javaTime) {
+    timeRoundTrip[Instant](
+      "instant_with_hour_lt_10",
+      generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)
+    )
+  }
+  def testLocalDateTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
+    timeRoundTrip[LocalDateTime](
+      "local_date_time_hour_lt_10",
+      generateTestLocalDateTime().withHour(5)
+    )
+  }
+  def testLocalDateTimeWithHourGreaterThan10 = ifCap(jcap.javaTime) {
+    timeRoundTrip[LocalDateTime](
+      "local_date_time_hour_gt_10",
+      generateTestLocalDateTime().withHour(12)
+    )
+  }
+  def testOffsetTime = ifCap(jcap.javaTime) {
+    timeRoundTrip[OffsetTime](
+      s"offset_time_tz_utc",
+      generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime.withHour(15)
+    )
+  }
+  def testOffsetTimeHourLessThan10UTC = ifCap(jcap.javaTime) {
+    timeRoundTrip[OffsetTime](
+      s"offset_time_utc_hour_lt_10",
+      generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime.withHour(5)
+    )
+  }
+  def testOffsetTimeNegativeOffsetGreaterThan10 = ifCap(jcap.javaTime) {
+    // Offset -> -11:00 / -11:00
+    timeRoundTrip[OffsetTime](
+      s"offset_time_tz_ntz_gt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).toOffsetDateTime.toOffsetTime.withHour(15)
+    )
+  }
+  def testOffsetTimeNegativeOffsetLessThan10 = ifCap(jcap.javaTime) {
+    // Offset -> -3:00 / -3:00
+    timeRoundTrip[OffsetTime](
+      s"offset_time_tz_ntz_lt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Antarctica/Rothera")).toOffsetDateTime.toOffsetTime
+    )
+  }
+  def testOffsetTimePositiveOffsetGreaterThan10 = ifCap(jcap.javaTime) {
+    // Offset -> +12:00 / +12:00
+    timeRoundTrip[OffsetTime](
+      s"offset_time_tz_ptz_gt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.toOffsetTime
+    )
+  }
+  def testOffsetTimePositiveOffsetLessThan10 = ifCap(jcap.javaTime) {
+    // Offset -> +2:00 / +2:00
+    timeRoundTrip[OffsetTime](
+      s"offset_time_tz_ptz_lt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.toOffsetTime
+    )
+  }
+  def testOffsetDateTime = ifCap(jcap.javaTime) {
+    timeRoundTrip[OffsetDateTime](
+      s"offset_date_time_tz_utc",
+      generateTestLocalDateTime().atOffset(ZoneOffset.UTC).withHour(15)
+    )
+  }
+  def testOffsetDateTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
+    timeRoundTrip[OffsetDateTime](
+      s"offset_date_time_hour_lt_10",
+      generateTestLocalDateTime().atOffset(ZoneOffset.UTC).withHour(5)
+    )
+  }
+  def testOffsetDateTimeNegativeGreaterThan10 = ifCap(jcap.javaTime) {
+    // Offset -> -11:00 / -11:00
+    timeRoundTrip[OffsetDateTime](
+      s"offset_date_time_ntz_gt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).toOffsetDateTime.withHour(15)
+    )
+  }
+  def testOffsetDateTimeNegativeLessThan10 = ifCap(jcap.javaTime) {
+    // Offset -> -3:00 / -3:00
+    timeRoundTrip[OffsetDateTime](
+      s"offset_date_time_ntz_lt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Africa/Addis_Ababa")).toOffsetDateTime.withHour(15)
+    )
+  }
+  def testOffsetDateTimePositiveGreaterThan10 = ifCap(jcap.javaTime) {
+    // Offset -> +12:00 / +12:00
+    timeRoundTrip[OffsetDateTime](
+      s"offset_date_time_ptz_gt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.withHour(15)
+    )
+  }
+  def testOffsetDateTimePositiveLessThan10 = ifCap(jcap.javaTime) {
+    // Offset -> +2:00 / +2:00
+    timeRoundTrip[OffsetDateTime](
+      s"offset_date_time_ptz_lt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.withHour(15)
+    )
+  }
+  def testZonedDateTime = ifCap(jcap.javaTime) {
+    timeRoundTrip[ZonedDateTime](
+      s"zoned_date_time_tz_utc",
+      generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(14)
+    )
+  }
+  def testZonedDateTimeWithHourLesserThan10 = ifCap(jcap.javaTime) {
+    timeRoundTrip[ZonedDateTime](
+      s"zoned_date_time_hour_lt_10",
+      generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(5)
+    )
+  }
+  def testZonedDateTimeNegativeGreaterThan10 = ifCap(jcap.javaTime) {
+    // Offset -> -11:00 / -11:00
+    timeRoundTrip[ZonedDateTime](
+      s"zoned_date_time_ntz_gt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).withHour(5)
+    )
+  }
+  def testZonedDateTimeNegativeLessThan10 = ifCap(jcap.javaTime) {
+    // Offset -> -3:00 / -3:00
+    timeRoundTrip[ZonedDateTime](
+      s"zoned_date_time_ntz_lt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5)
+    )
+  }
+  def testZonedDateTimePositiveGreaterThan10 = ifCap(jcap.javaTime) {
+    // Offset -> +12:00 / +12:00
+    timeRoundTrip[ZonedDateTime](
+      s"zoned_date_time_ptz_gt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5)
+    )
+  }
+  def testZonedDateTimePositiveLessThan10 = ifCap(jcap.javaTime) {
+    // Offset -> +2:00 / +2:00
+    timeRoundTrip[ZonedDateTime](
+      s"zoned_date_time_ptz_lt_10",
+      generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).withHour(5)
+    )
+  }
+
+  /**
+    * Generates a [[LocalDateTime]] used for the [[java.time]] type tests.
+    * The generated test [[LocalDateTime]] will adapt to the database system being used.
+    * If the SQL server driver `jtds` is used, there would be a 3 millisecond rounding, so
+    * this method will generate a [[LocalDateTime]], using [[LocalDateTime#now]] whose milliseconds
+    * ends either 0, 3 or 7. It will just return [[LocalDateTime#now]] if any other driver or database
+    * is being used.
+    *
+    * For more information about the MsSQL issue: https://sourceforge.net/p/jtds/feature-requests/73/
+    */
+  private[this] def generateTestLocalDateTime() : LocalDateTime = {
+    if (tdb.confName.contains("jtds")) {
+      val now = Instant.now
+      val offset = now.get(ChronoField.MILLI_OF_SECOND) % 10 match {
+        case (1|4|8) => -1
+        case (2|5|9) => -2
+        case 6 => 1
+        case _ => 0
+      }
+      LocalDateTime.ofInstant(now.plusMillis(offset), ZoneOffset.UTC)
+    } else
+      LocalDateTime.now(ZoneOffset.UTC)
+  }
 
   def testOverrideIdentityType = {
     class T1(tag: Tag) extends Table[Int](tag, "t1") {
