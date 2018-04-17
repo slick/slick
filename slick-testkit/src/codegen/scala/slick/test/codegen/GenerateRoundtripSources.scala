@@ -81,7 +81,7 @@ class Tables(val profile: JdbcProfile){
   class X(tag: Tag) extends Table[(Int,Int,Option[Int],Int,Double,String,Option[Int],Option[Int],Option[String],Option[String],Option[String])](tag, "X") {
     def pk = column[Int]("pk")
     def pk2 = column[Int]("pk2")
-    def pkpk = primaryKey( "", (pk,pk2) ) // pk column collision
+    def pkpk = primaryKey( "primary_key2", (pk,pk2) ) // pk column collision
     def i1 = column[Option[Int]]("index_1") // scala keyword collision
     def c = column[Int]("column") // slick Table method with args collision
     def p = column[Option[Int]]("posts")
