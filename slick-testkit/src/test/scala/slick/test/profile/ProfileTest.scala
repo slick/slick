@@ -55,6 +55,9 @@ class SQLServer2012JTDSTest extends ProfileTest(StandardTestDBs.SQLServer2012JTD
 class SQLServer2014JTDSTest extends ProfileTest(StandardTestDBs.SQLServer2014JTDS)
 
 @RunWith(classOf[Testkit])
+class SQLServer2017JTDSTest extends ProfileTest(StandardTestDBs.SQLServer2017JTDS)
+
+@RunWith(classOf[Testkit])
 class SQLServerSQLJDBCTest extends ProfileTest(StandardTestDBs.SQLServerSQLJDBC)
 
 @RunWith(classOf[Testkit])
@@ -62,3 +65,6 @@ class SQLServer2012SQLJDBCTest extends ProfileTest(StandardTestDBs.SQLServer2012
 
 @RunWith(classOf[Testkit])
 class SQLServer2014SQLJDBCTest extends ProfileTest(StandardTestDBs.SQLServer2014SQLJDBC)
+
+@RunWith(classOf[Testkit])
+class SQLServer2017SQLJDBCTest extends ProfileTest(StandardTestDBs.SQLServer2017SQLJDBC)

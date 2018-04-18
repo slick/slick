@@ -1,13 +1,15 @@
 package slick.jdbc
 
-import scala.concurrent.ExecutionContext
+import java.sql.{PreparedStatement, ResultSet, Timestamp}
+import java.time.Instant
 
+import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.Capability
 import slick.dbio._
-import slick.compiler.{Phase, CompilerState}
+import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.MTable
 import slick.lifted._
 import slick.relational.RelationalCapabilities
@@ -262,6 +264,7 @@ trait DerbyProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val uuidJdbcType = new UUIDJdbcType
+    override val instantType = new InstantJdbcType
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */
@@ -272,6 +275,27 @@ trait DerbyProfile extends JdbcProfile {
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
+    }
+
+    class InstantJdbcType extends super.InstantJdbcType {
+      // Derby has no timestamp with timezone type and so using strings as timestamps are
+      // susceptible to DST gaps twice a year
+      override def sqlType: Int = java.sql.Types.VARCHAR
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int): Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int): Instant = {
+        r.getString(idx) match {
+          case null => null
+          case instantString => Instant.parse(instantString)
+        }
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int): Unit = {
+        r.updateString(idx, v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) = {
+        s"'${value.toString}'"
+      }
     }
   }
 }

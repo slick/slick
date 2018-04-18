@@ -31,6 +31,7 @@ individual database profiles):
 - *Numeric types*: Byte, Short, Int, Long, BigDecimal, Float, Double
 - *LOB types*: java.sql.Blob, java.sql.Clob, Array[Byte]
 - *Date types*: java.sql.Date, java.sql.Time, java.sql.Timestamp
+- Java 8 date and time types: java.time.*
 - Boolean
 - String
 - Unit
@@ -77,6 +78,7 @@ name for a table in front of the table name, wrapped in `Some()`:
 
 ```scala src=../code/LiftedEmbedding.scala#schemaname
 ```
+[See notes here on the java.time.* types](datetimetypes.md)
 
 Table Query {index=TableQuery}
 -----------
