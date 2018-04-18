@@ -1,10 +1,13 @@
 package slick.jdbc
 
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time._
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 
 import java.sql.{Array => _, _}
+import java.time.temporal.ChronoField
 
 import slick.SlickException
 import slick.ast._
@@ -14,6 +17,8 @@ import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, ResultConverter, RelationalProfile}
+import slick.model.{ForeignKeyAction, Model}
+import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.basic.Capability
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -301,6 +306,12 @@ END;
     override val stringJdbcType = new StringJdbcType
     override val timeJdbcType = new TimeJdbcType
     override val uuidJdbcType = new UUIDJdbcType
+    override val localDateType = new LocalDateJdbcType
+    override val localDateTimeType = new LocalDateTimeJdbcType
+    override val instantType = new InstantJdbcType
+    override val offsetTimeType = new OffsetTimeJdbcType
+    override val offsetDateTimeType = new OffsetDateTimeJdbcType
+    override val zonedDateType = new ZonedDateTimeJdbcType
 
     /* Oracle does not have a proper BOOLEAN type. The suggested workaround is
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
@@ -363,12 +374,133 @@ END;
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
+      override def sqlType = java.sql.Types.VARBINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "RAW(32)"
       override def valueToSQLLiteral(value: UUID) = {
         val hex = value.toString.replace("-", "").toUpperCase
         s"hextoraw('$hex')"
       }
       override def hasLiteralForm = true
+    }
+
+    class LocalDateJdbcType extends super.LocalDateJdbcType {
+      override def hasLiteralForm: Boolean = true
+      override def valueToSQLLiteral(value: LocalDate) : String = {
+        s"TO_DATE('${value.toString}', 'SYYYY-MM-DD')"
+      }
+      override def getValue(r: ResultSet, idx: Int): LocalDate = {
+        r.getString(idx) match {
+          case null => null
+          case dateStr => LocalDate.parse(dateStr.substring(0, 10))
+        }
+      }
+    }
+
+    class LocalTimeJdbcType extends super.LocalTimeJdbcType {
+      @inline private[this] def timestampFromLocalTime(localTime : LocalTime) : Timestamp = {
+        Timestamp.valueOf(LocalDateTime.of(LocalDate.MIN, localTime))
+      }
+      override def sqlType = java.sql.Types.TIMESTAMP
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
+
+      override def getValue(r: ResultSet, idx: Int) : LocalTime = {
+        r.getTimestamp(idx) match {
+          case null => null
+          case timestamp => timestamp.toLocalDateTime.toLocalTime
+        }
+      }
+    }
+
+    // LocalDateTime and Instant are the 2 types which have no TZ component
+    // So, store them at UTC timestamps, otherwise the JDBC layer might attempt to map them
+    // and with DST changes, there are some times which will be unrepresentable during the switchover
+    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+      override def valueToSQLLiteral(value: LocalDateTime) = {
+        s"TO_TIMESTAMP(${super.valueToSQLLiteral(value)}, 'YYYY-MM-DD HH24:MI:SS.FF3')"
+      }
+    }
+
+    class InstantJdbcType extends super.InstantJdbcType {
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
+      private[this] def serializeTime(v: Instant) : String = formatter.format(instantToUTC(v))
+      private[this] def instantToUTC(v: Instant): OffsetDateTime = v.atOffset(ZoneOffset.UTC)
+
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(instantToUTC(v)), -101)
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(instantToUTC(v)), -101)
+      }
+      override def getValue(r: ResultSet, idx: Int): Instant = {
+        r.getObject(idx) match {
+          case null => null
+          case timestamptz => Instant.from(TimestamptzConverter.timestamptzToOffsetDateTime(timestamptz))
+
+        }
+      }
+      override def hasLiteralForm: Boolean = true
+      override def valueToSQLLiteral(value: Instant) = {
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')"
+      }
+    }
+
+    // No Oracle time type without date component. Add LocalDate.ofEpochDay(0), but ignore it.
+    class OffsetTimeJdbcType extends super.OffsetTimeJdbcType {
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
+      private[this] def serializeTime(v : OffsetTime) : String = formatter.format(v.atDate(LocalDate.ofEpochDay(0)))
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
+      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, TimestamptzConverter.offsetTimeToTimestamptz(v), -101)
+      }
+      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, TimestamptzConverter.offsetTimeToTimestamptz(v), -101)
+      }
+      override def getValue(r: ResultSet, idx: Int): OffsetTime = {
+        TimestamptzConverter.timestamptzToOffsetTime(r.getObject(idx))
+      }
+      override def hasLiteralForm: Boolean = true
+      override def valueToSQLLiteral(value: OffsetTime) = {
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')"
+      }
+    }
+
+    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
+      private[this] def serializeTime(v : OffsetDateTime) : String = formatter.format(v)
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
+      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(v), -101)
+      }
+      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(v), -101)
+      }
+      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
+        TimestamptzConverter.timestamptzToOffsetDateTime(r.getObject(idx))
+      }
+      override def hasLiteralForm: Boolean = true
+      override def valueToSQLLiteral(value: OffsetDateTime) = {
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')"
+      }
+    }
+
+    class ZonedDateTimeJdbcType extends super.ZonedDateTimeJdbcType {
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV")
+      private[this] def serializeTime(v : ZonedDateTime) : String = formatter.format(v)
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
+      override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int) = {
+        p.setObject(idx, TimestamptzConverter.zonedDateTimeToTimestamptz(v), -101)
+      }
+      override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = {
+        r.updateObject(idx, TimestamptzConverter.zonedDateTimeToTimestamptz(v), -101)
+      }
+      override def getValue(r: ResultSet, idx: Int): ZonedDateTime = {
+        TimestamptzConverter.timestamptzToZonedDateTime(r.getObject(idx))
+      }
+      override def hasLiteralForm: Boolean = true
+      override def valueToSQLLiteral(value: ZonedDateTime) = {
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZR')"
+      }
     }
   }
 
@@ -441,5 +573,179 @@ object OracleProfile extends OracleProfile {
 
     /** Name of the trigger which is generated for an AutoInc column. */
     case class AutoIncTriggerName(name: String) extends ColumnOption[Nothing]
+  }
+}
+
+
+/**
+  * Converts between {@link TIMESTAMPTZ} and java.time times and back.
+  * Oracle jar not on path at compile time (but must be a run time)
+  * Use reflection to get access to TIMESTAMPTZ class
+  */
+object TimestamptzConverter {
+  val timestampTZClass = Class.forName("oracle.sql.TIMESTAMPTZ")
+  val timestampTZCtor = timestampTZClass.getConstructor(classOf[Array[Byte]])
+  val timestampTZToBytes = timestampTZClass.getMethod("toBytes")
+  val zoneIdClass = Class.forName("oracle.sql.ZONEIDMAP")
+  val zoneIdgetId = zoneIdClass.getMethod("getID", classOf[String])
+  val zoneIdgetRegion = zoneIdClass.getMethod("getRegion", classOf[Int])
+
+  val REGIONIDBIT = Integer.parseInt("10000000",2)
+
+  // Byte 0: Century, offset is 100 (value - 100 is century)
+  // Byte 1: Decade, offset is 100 (value - 100 is decade)
+  // Byte 2: Month UTC
+  // Byte 3: Day UTC
+  // Byte 4: Hour UTC, offset is 1 (value-1 is UTC hour)
+  // Byte 5: Minute UTC, offset is 1 (value-1 is UTC Minute)
+  // Byte 6: Second, offset is 1 (value-1 is seconds)
+  // Byte 7: nanoseconds (most significant bit)
+  // Byte 8: nanoseconds
+  // Byte 9: nanoseconds
+  // Byte 10: nanoseconds (least significant bit)
+  // Byte 11: Hour UTC-offset of Timezone, offset is 20 (value-20 is UTC-hour offset)
+  // Byte 12: Minute UTC-offset of Timezone, offset is 60 (value-60 is UTC-minute offset)
+
+  def offsetDateTimeToTimestamptz(attribute: OffsetDateTime ) = {
+    val bytes = newTIMESTAMPTZBuffer()
+    val utc = attribute.atZoneSameInstant(java.time.ZoneOffset.UTC)
+    writeDateTime(bytes, utc)
+    val offset = attribute.getOffset
+    writeZoneOffset(bytes, offset)
+
+    timestampTZCtor.newInstance(bytes)
+  }
+
+  def timestamptzToOffsetDateTime(dbData: Object) = {
+    if (dbData == null)
+      null
+    else {
+      val bytes = timestampTZToBytes.invoke(dbData).asInstanceOf[Array[Byte]]
+      val utc = extractUtc(bytes)
+      if (isFixedOffset(bytes)) {
+        val offset = extractOffset(bytes)
+        utc.withOffsetSameInstant(offset)
+      } else {
+        val zoneId = extractZoneId(bytes)
+        utc.atZoneSameInstant(zoneId).toOffsetDateTime
+      }
+    }
+  }
+
+  def offsetTimeToTimestamptz(attribute: OffsetTime ) = {
+    val bytes = newTIMESTAMPTZBuffer()
+    val utc = attribute.atDate(LocalDate.ofEpochDay(0)).atZoneSameInstant(java.time.ZoneOffset.UTC)
+    writeDateTime(bytes, utc)
+    val offset = attribute.getOffset
+    writeZoneOffset(bytes, offset)
+
+    timestampTZCtor.newInstance(bytes)
+  }
+
+  def timestamptzToOffsetTime(dbData: Object) = {
+    if (dbData == null)
+      null
+    else {
+      val bytes = timestampTZToBytes.invoke(dbData).asInstanceOf[Array[Byte]]
+      val utc = extractUtc(bytes)
+      if (isFixedOffset(bytes)) {
+        val offset = extractOffset(bytes)
+        utc.withOffsetSameInstant(offset).toOffsetTime
+      } else {
+        val zoneId = extractZoneId(bytes)
+        utc.atZoneSameInstant(zoneId).toOffsetDateTime.toOffsetTime
+      }
+    }
+  }
+
+  def zonedDateTimeToTimestamptz(attribute: ZonedDateTime) = {
+    val bytes = newTIMESTAMPTZBuffer()
+    val utc = attribute.withZoneSameInstant(java.time.ZoneOffset.UTC)
+    writeDateTime(bytes, utc)
+
+    val zoneId = attribute.getZone().getId
+    val regionCode = zoneIdgetId.invoke(null, zoneId).asInstanceOf[Integer]
+
+    if (regionCode != -1) {
+      // -1 is invalid
+      writeZoneId(bytes, regionCode)
+    } else {
+      writeZoneOffset(bytes, attribute.getOffset)
+    }
+    timestampTZCtor.newInstance(bytes)
+  }
+
+  def timestamptzToZonedDateTime(dbData: Object) = {
+    if (dbData == null)
+      null
+    else {
+      val bytes = timestampTZToBytes.invoke(dbData).asInstanceOf[Array[Byte]]
+      val utc = extractUtc(bytes)
+      if (isFixedOffset(bytes)) {
+        val offset = extractOffset(bytes)
+        utc.atZoneSameInstant(offset)
+      } else {
+        val zoneId = extractZoneId(bytes)
+        utc.atZoneSameInstant(zoneId)
+      }
+    }
+  }
+
+  def extractUtc(bytes: Array[Byte]) = {
+    val year = ((bytes(0).toInt - 100) * 100) + (bytes(1).toInt - 100)
+    val month = bytes(2)
+    val dayOfMonth = bytes(3)
+    val hour = bytes(4) - 1
+    val minute = bytes(5) - 1
+    val second = bytes(6) - 1
+    val nanoOfSecond = ((bytes(7) & 0xFF) << 24) |
+      ((bytes(8) & 0xFF) << 16) |
+      ((bytes(9) & 0xFF) << 8) |
+      bytes(10) & 0xFF
+    OffsetDateTime.of(year, month, dayOfMonth, hour, minute, second, nanoOfSecond, java.time.ZoneOffset.UTC)
+  }
+
+  def isFixedOffset(bytes: Array[Byte]) = (bytes(11) & REGIONIDBIT) == 0
+
+  def newTIMESTAMPTZBuffer() = new Array[Byte](13)
+
+  def writeDateTime(bytes: Array[Byte], utc: ZonedDateTime ): Unit = {
+    val year = utc.getYear
+    bytes(0) = (year / 100 + 100).toByte
+    bytes(1) = (year % 100 + 100).toByte
+
+    bytes(2) = utc.getMonthValue.toByte
+    bytes(3) = utc.getDayOfMonth.toByte
+    bytes(4) = (utc.getHour + 1).toByte
+    bytes(5) = (utc.getMinute + 1).toByte
+    bytes(6) = (utc.getSecond + 1).toByte
+
+    val nano = utc.getNano
+    val ba = BigInt(nano).toByteArray
+    ba.zipWithIndex.foreach{ case (b,i) => bytes(11-ba.length + i) = b }
+  }
+
+  val OFFSET_HOUR = 20
+  val OFFSET_MINUTE = 60
+  def extractOffset(bytes: Array[Byte]) = ZoneOffset.ofHoursMinutes(bytes(11) - OFFSET_HOUR, bytes(12) - OFFSET_MINUTE)
+  def writeZoneOffset(bytes: Array[Byte], offset: ZoneOffset ): Unit = {
+    val totalMinutes = offset.getTotalSeconds / 60
+    bytes(11) = ((totalMinutes / 60) + OFFSET_HOUR).toByte
+    bytes(12) = ((totalMinutes % 60) + OFFSET_MINUTE).toByte
+  }
+
+  val highBits = Integer.parseInt("1111111", 2)
+  val lowBits = Integer.parseInt("11111100", 2)
+  def extractZoneId(bytes: Array[Byte]) = {
+    // high order bits
+    val regionCode: Integer = ((bytes(11) & highBits) << 6) + ((bytes(12) & lowBits) >> 2)
+    val regionName = zoneIdgetRegion.invoke(null, regionCode).asInstanceOf[String]
+    ZoneId.of(regionName)
+  }
+  val msb = Integer.parseInt("1111111000000", 2)
+  val lsb = Integer.parseInt("111111", 2)
+  def writeZoneId(bytes: Array[Byte], regionCode: Int): Unit = {
+    bytes(11) = (REGIONIDBIT | ((regionCode & msb) >>> 6)).toByte
+    bytes(12) = ((regionCode & lsb) << 2).toByte
   }
 }

@@ -1,7 +1,11 @@
 package slick.jdbc
 
-import scala.concurrent.ExecutionContext
+import java.sql.{PreparedStatement, ResultSet}
+import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneOffset, OffsetTime}
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.temporal.ChronoField
 
+import scala.concurrent.ExecutionContext
 import slick.ast._
 import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
@@ -186,6 +190,7 @@ trait DB2Profile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val uuidJdbcType = new UUIDJdbcType
+    override val instantType = new InstantJdbcType
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.CHAR
@@ -198,6 +203,30 @@ trait DB2Profile extends JdbcProfile {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
+
+    class InstantJdbcType extends super.InstantJdbcType {
+      // Can't use Timestamp as the type here as subject to 2 hours DST loss each year
+      override def sqlType : Int = {
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : Instant = {
+        r.getString(idx) match {
+          case null => null
+          case instantStr => Instant.parse(instantStr)
+        }
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) = {
+        s"'${value.toString}'"
+      }
+    }
+
+
   }
 }
 

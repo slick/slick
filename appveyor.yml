@@ -13,12 +13,12 @@ install:
   - cmd: SET JAVA_HOME=C:\Program Files\Java\jdk1.8.0
   - cmd: SET PATH=C:\sbt\sbt-launcher-packaging-0.13.13\bin;%JDK_HOME%\bin;%PATH%
   - cmd: SET SBT_OPTS=-Xmx4g -Xss2m -Dslick.testkit-config=test-dbs/testkit-appveyor.conf
-# Start up sqlservers: 2008 on port 1433, 2012 on 1533, 2014 on 1633. Enable tcp connections
+# Start up sqlservers: 2008 on port 1433, 2012 on 1533, 2014 on 1633, 2017 on 1733. Enable tcp connections
   - ps: |
       [reflection.assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") | Out-Null;
       [reflection.assembly]::LoadWithPartialName("Microsoft.SqlServer.SqlWmiManagement") | Out-Null;
       $port = 1433
-      foreach($instancename in @('SQL2008R2SP2', 'SQL2012SP1', 'SQL2014'))
+      foreach($instancename in @('SQL2008R2SP2', 'SQL2012SP1', 'SQL2014', 'SQL2017'))
       {
           $wmi = New-Object('Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer');
           $tcp = $wmi.GetSmoObject("ManagedComputer[@Name='${env:computername}']/ServerInstance[@Name='${instancename}']/ServerProtocol[@Name='Tcp']");

@@ -1,15 +1,19 @@
 package slick.jdbc
 
-import scala.concurrent.ExecutionContext
+import java.sql.{PreparedStatement, ResultSet}
+import java.time._
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.temporal.ChronoField
 
-import java.util.UUID
+import scala.concurrent.ExecutionContext
+import java.util.{TimeZone, UUID}
 
 import slick.basic.Capability
-import slick.relational.{RelationalProfile, RelationalCapabilities}
+import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
 import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
-import slick.compiler.{Phase, CompilerState}
+import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.{MColumn, MTable}
 
 /** Slick profile for H2.
@@ -122,6 +126,33 @@ trait H2Profile extends JdbcProfile {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UUID"
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
       override def hasLiteralForm = true
+    }
+    override val instantType : InstantJdbcType = new InstantJdbcType {
+      // H2 doesn't use ISO-8601 format strings and so can't use Instant.parse and needs its own formatter
+      val formatter = new DateTimeFormatterBuilder()
+                      .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                      .optionalStart()
+                      .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                      .optionalEnd()
+                      .appendOffset("+HH", "")
+                      .toFormatter()
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
+
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, if (v == null) null else v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : Instant = {
+        r.getString(idx) match {
+          case null => null
+          case utcString => LocalDateTime.parse(utcString, formatter).toInstant(ZoneOffset.UTC)
+        }
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
+        r.updateString(idx, if (v == null) null else v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) : String = {
+        s"'${value.toString}'"
+      }
     }
   }
 
