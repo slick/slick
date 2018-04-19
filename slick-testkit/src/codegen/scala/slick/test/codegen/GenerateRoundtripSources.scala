@@ -22,6 +22,10 @@ object GenerateRoundtripSources {
     import Tables.profile.api._
     val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+      override def Table = new Table(_)
+      {
+        override def hlistEnabled = columns.size > 22 // hlist type instead of case classes (old default before Slick 3.3)
+      }
       override def tableName = {
         case n if n.toLowerCase == "null" => "null" // testing null as table name
         case n => super.tableName(n)
@@ -35,11 +39,13 @@ object GenerateRoundtripSources {
         }
       }
     })
+    val a3 = profile.createModel(ignoreInvalidDefaults = false).map(m => new SourceCodeGenerator(m))
     val db = Database.forURL(url=url, driver=jdbcDriver, keepAliveConnection=true)
-    val (gen,gen2) = try Await.result(db.run(ddl.create >> (a1 zip a2)), Duration.Inf) finally db.close
+    val ((gen,gen2),gen3) = try Await.result(db.run(ddl.create >> ((a1 zip a2) zip a3)), Duration.Inf) finally db.close
     val pkg = "slick.test.codegen.roundtrip"
     gen.writeToFile( "slick.jdbc.H2Profile", args(0), pkg )
     gen2.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"2" )
+    gen3.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"3" )
     gen.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles" )
     gen2.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles2" )
   }
