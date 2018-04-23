@@ -52,8 +52,6 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       _ <- (categories.schema ++ posts.schema).drop
       _ <- tdb.assertNotTablesExist("categories", "posts")
-      _ <- (posts.schema ++ categories.schema).drop
-      _ <- tdb.assertNotTablesExist("categories", "posts")
     } yield ()
   }
 
