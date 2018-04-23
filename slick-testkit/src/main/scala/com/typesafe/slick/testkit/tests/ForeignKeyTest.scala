@@ -2,18 +2,18 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
-class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
+abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def testSimple = {
-    class Categories(tag: Tag) extends Table[(Int, String)](tag, "categories") {
+    class Categories(tag: Tag) extends Table[(Int, String)](tag, schema,"categories") {
       def id = column[Int]("id", O.PrimaryKey)
       def name = column[String]("name")
       def * = (id, name)
     }
     val categories = TableQuery[Categories]
 
-    class Posts(tag: Tag) extends Table[(Int, String, Option[Int])](tag, "posts") {
+    class Posts(tag: Tag) extends Table[(Int, String, Option[Int])](tag, schema, "posts") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
       def category = column[Option[Int]]("category")
@@ -56,7 +56,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testMultiColumn = {
-    class A(tag: Tag) extends Table[(Int, Int, String)](tag, "a") {
+    class A(tag: Tag) extends Table[(Int, Int, String)](tag, schema, "a") {
       def k1 = column[Int]("k1")
       def k2 = column[Int]("k2")
       def s = column[String]("s")
@@ -65,7 +65,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
     }
     lazy val as = TableQuery[A]
 
-    class B(tag: Tag) extends Table[(Int, Int, String)](tag, "b") {
+    class B(tag: Tag) extends Table[(Int, Int, String)](tag, schema,"b") {
       def f1 = column[Int]("f1")
       def f2 = column[Int]("f2")
       def s = column[String]("s")
@@ -97,13 +97,13 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testCombinedJoin = {
-    class A(tag: Tag) extends Table[(Int, String)](tag, "a2") {
+    class A(tag: Tag) extends Table[(Int, String)](tag, schema, "a2") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
       def * = (id, s)
     }
     val as = TableQuery[A]
-    class Dep(tag: Tag, n: String) extends Table[(Int, Int)](tag, n) {
+    class Dep(tag: Tag, n: String) extends Table[(Int, Int)](tag, schema,n) {
       def id = column[Int]("id", O.PrimaryKey)
       def aRef = column[Int]("aRef")
       def * = (id, aRef)
@@ -138,7 +138,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testManyToMany = {
-    class A(tag: Tag) extends Table[(Int, String)](tag, "a3") {
+    class A(tag: Tag) extends Table[(Int, String)](tag, schema,"a3") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
       def * = (id, s)
@@ -146,7 +146,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
     }
     lazy val as = TableQuery[A]
 
-    class B(tag: Tag) extends Table[(Int, String)](tag, "b3") {
+    class B(tag: Tag) extends Table[(Int, String)](tag, schema,"b3") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
       def * = (id, s)
@@ -154,7 +154,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
     }
     lazy val bs = TableQuery[B]
 
-    class AToB(tag: Tag) extends Table[(Int, Int)](tag, "a3_to_b3") {
+    class AToB(tag: Tag) extends Table[(Int, Int)](tag, schema,"a3_to_b3") {
       def aId = column[Int]("a")
       def bId = column[Int]("b")
       def * = (aId, bId)
@@ -177,3 +177,9 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
     )
   }
 }
+
+class QualifiedForeignKeyTest extends ForeignKeyTest(Some("slick_test"))
+
+class UnqualifiedForeignKeyTest extends ForeignKeyTest(None)
+
+
