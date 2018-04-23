@@ -245,10 +245,16 @@ trait MySQLProfile extends JdbcProfile { profile =>
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected def dropForeignKey(fk: ForeignKey) = {
-      "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
+      // Fix #1898
+      //"ALTER TABLE " + quoteTableName(table.tableNode) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
+      // Original: This should fail the new MySQLQualifiedExtraTests
+      "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
     }
     override protected def dropPrimaryKey(pk: PrimaryKey): String = {
-      "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP PRIMARY KEY"
+      // Fix #1898
+      //"ALTER TABLE " + quoteTableName(table.tableNode) + " DROP PRIMARY KEY"
+      // Original: This should fail the new MySQLQualifiedExtraTests
+      "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP PRIMARY KEY"
     }
   }
 

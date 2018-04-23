@@ -52,6 +52,8 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       _ <- (categories.schema ++ posts.schema).drop
       _ <- tdb.assertNotTablesExist("categories", "posts")
+      _ <- (posts.schema ++ categories.schema).drop
+      _ <- tdb.assertNotTablesExist("categories", "posts")
     } yield ()
   }
 
@@ -92,6 +94,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
         b <- a.bFK
       } yield (a.s, b.s)).to[Set]
       _ <- q1.result.map(_ shouldBe Set(("a12","b12"), ("a34","b34")))
+      _ <- (as.schema ++ bs.schema).drop
     } yield ()
   }
 
@@ -132,6 +135,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
         a <- b.a & c.a
       } yield a.s).sorted
       _ <- q3.result.map(_ shouldBe List("a", "a"))
+      _ <- (as.schema ++ bs.schema ++ cs.schema).drop
     } yield ()
   }
 
@@ -170,7 +174,8 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
           a <- as if a.id >= 2
           b <- a.bs
         } yield (a.s, b.s)).to[Set]
-        q1.result.map(_ shouldBe Set(("b","y"), ("b","z"))) }
+        q1.result.map(_ shouldBe Set(("b","y"), ("b","z"))) },
+      (as.schema ++ bs.schema ++ aToB.schema).drop
     )
   }
 }
