@@ -12,14 +12,14 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
   def createSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    val action = sql"create schema ${tdb.profile.quoteIdentifier(s)};"
+    val action = sql"create database ${tdb.profile.quoteIdentifier(s)};"
     DBIO.seq(action.as[Unit])
   }
 
   def dropSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    val action = sql"drop schema ${tdb.profile.quoteIdentifier(s)};"
+    val action = sql"drop database ${tdb.profile.quoteIdentifier(s)};"
     DBIO.seq(action.as[Unit])
   }
 
