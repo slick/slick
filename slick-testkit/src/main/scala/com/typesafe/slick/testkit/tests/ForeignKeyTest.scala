@@ -12,18 +12,14 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
   def createSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    // It should be possible to write instead: sql"create schema `${s}`;"
-    // Unfortunately, this results in: "create schema `?`;"
-    val action = SQLActionBuilder(s"create schema `${s}`;", SetParameter.SetUnit)
+    val action = sql"create schema ${tdb.profile.quoteIdentifier(s)};"
     DBIO.seq(action.as[Unit])
   }
 
   def dropSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    // It should be possible to write instead: sql"drop schema `${s}`;"
-    // Unfortunately, this results in: "drop schema `?`;"
-    val action = SQLActionBuilder(s"drop schema `${s}`;", SetParameter.SetUnit)
+    val action = sql"drop schema ${tdb.profile.quoteIdentifier(s)};"
     DBIO.seq(action.as[Unit])
   }
 
@@ -208,7 +204,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
   }
 }
 
-class QualifiedForeignKeyTest extends ForeignKeyTest(Some("slick_test"))
+class QualifiedForeignKeyTest extends ForeignKeyTest(Some("slick_test_fk"))
 
 class UnqualifiedForeignKeyTest extends ForeignKeyTest(None)
 
