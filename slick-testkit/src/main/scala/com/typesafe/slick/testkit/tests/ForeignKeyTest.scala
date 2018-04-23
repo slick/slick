@@ -1,9 +1,25 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import slick.jdbc.GetResult
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import slick.dbio.SuccessAction
 
-abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[RelationalTestDB] {
+abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
+
+  implicit val getResultUnit: GetResult[Unit] = GetResult[Unit](pr => ())
+
+  def createSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
+    SuccessAction(())
+  } { s =>
+    DBIO.seq(sql"create schema '${s}'".as[Unit])
+  }
+
+  def dropSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
+    SuccessAction(())
+  } { s =>
+    DBIO.seq(sql"drop schema '${s}'".as[Unit])
+  }
 
   def testSimple = {
     class Categories(tag: Tag) extends Table[(Int, String)](tag, schema,"categories") {
@@ -24,6 +40,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
     val posts = TableQuery[Posts]
 
     for {
+      _ <- createSchemaIfQualified()
       _ <- tdb.assertNotTablesExist("categories", "posts")
       _ <- (posts.schema ++ categories.schema).create
       _ <- tdb.assertTablesExist("categories", "posts")
@@ -52,6 +69,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       _ <- (categories.schema ++ posts.schema).drop
       _ <- tdb.assertNotTablesExist("categories", "posts")
+      _ <- dropSchemaIfQualified()
     } yield ()
   }
 
@@ -77,6 +95,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
     as.baseTableRow.foreignKeys.map(_.name).toSet shouldBe Set("b_fk")
 
     for {
+      _ <- createSchemaIfQualified()
       _ <- (as.schema ++ bs.schema).create
       _ <- bs ++= Seq(
         (1, 2, "b12"),
@@ -93,6 +112,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
       } yield (a.s, b.s)).to[Set]
       _ <- q1.result.map(_ shouldBe Set(("a12","b12"), ("a34","b34")))
       _ <- (as.schema ++ bs.schema).drop
+      _ <- dropSchemaIfQualified()
     } yield ()
   }
 
@@ -113,6 +133,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
     val cs = TableQuery(new Dep(_, "c2"))
 
     for {
+      _ <- createSchemaIfQualified()
       _ <- (as.schema ++ bs.schema ++ cs.schema).create
       _ <- as ++= Seq((1, "a"), (2, "b"), (3, "c"), (4, "d"))
       _ <- bs ++= Seq((1, 1), (2, 1), (3, 2))
@@ -134,6 +155,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
       } yield a.s).sorted
       _ <- q3.result.map(_ shouldBe List("a", "a"))
       _ <- (as.schema ++ bs.schema ++ cs.schema).drop
+      _ <- dropSchemaIfQualified()
     } yield ()
   }
 
@@ -164,6 +186,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
     lazy val aToB = TableQuery[AToB]
 
     seq(
+      createSchemaIfQualified(),
       (as.schema ++ bs.schema ++ aToB.schema).create,
       as ++= Seq(1 -> "a", 2 -> "b", 3 -> "c"),
       bs ++= Seq(1 -> "x", 2 -> "y", 3 -> "z"),
@@ -173,7 +196,8 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[Relation
           b <- a.bs
         } yield (a.s, b.s)).to[Set]
         q1.result.map(_ shouldBe Set(("b","y"), ("b","z"))) },
-      (as.schema ++ bs.schema ++ aToB.schema).drop
+      (as.schema ++ bs.schema ++ aToB.schema).drop,
+      dropSchemaIfQualified()
     )
   }
 }
