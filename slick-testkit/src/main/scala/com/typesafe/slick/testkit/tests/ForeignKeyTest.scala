@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.GetResult
+import slick.jdbc.{GetResult, SQLActionBuilder, SetParameter}
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import slick.dbio.SuccessAction
 
@@ -12,13 +12,19 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
   def createSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    DBIO.seq(sql"create schema '${s}'".as[Unit])
+    // It should be possible to write instead: sql"create schema `${s}`;"
+    // Unfortunately, this results in: "create schema `?`;"
+    val action = SQLActionBuilder(s"create schema `${s}`;", SetParameter.SetUnit)
+    DBIO.seq(action.as[Unit])
   }
 
   def dropSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    DBIO.seq(sql"drop schema '${s}'".as[Unit])
+    // It should be possible to write instead: sql"drop schema `${s}`;"
+    // Unfortunately, this results in: "drop schema `?`;"
+    val action = SQLActionBuilder(s"drop schema `${s}`;", SetParameter.SetUnit)
+    DBIO.seq(action.as[Unit])
   }
 
   def testSimple = {
