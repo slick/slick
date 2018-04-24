@@ -9,17 +9,17 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
 
   implicit val getResultUnit: GetResult[Unit] = GetResult[Unit](pr => ())
 
-  def createSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
+  def createSchemaIfQualified(suffix:String): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    val action = sqlu"create database #${tdb.profile.quoteIdentifier(s)};"
+    val action = sqlu"CREATE SCHEMA #${tdb.profile.quoteIdentifier(s+suffix)};"
     DBIO.seq(action)
   }
 
-  def dropSchemaIfQualified(): DBIO[Unit] = schema.fold[DBIO[Unit]] {
+  def dropSchemaIfQualified(suffix:String): DBIO[Unit] = schema.fold[DBIO[Unit]] {
     SuccessAction(())
   } { s =>
-    val action = sqlu"drop database #${tdb.profile.quoteIdentifier(s)};"
+    val action = sqlu"DROP SCHEMA #${tdb.profile.quoteIdentifier(s+suffix)};"
     DBIO.seq(action)
   }
 
@@ -42,7 +42,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
     val posts = TableQuery[Posts]
 
     for {
-      _ <- createSchemaIfQualified()
+      _ <- createSchemaIfQualified("_testSimple")
       _ <- tdb.assertNotTablesExist("categories", "posts")
       _ <- (posts.schema ++ categories.schema).create
       _ <- tdb.assertTablesExist("categories", "posts")
@@ -71,7 +71,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       _ <- (categories.schema ++ posts.schema).drop
       _ <- tdb.assertNotTablesExist("categories", "posts")
-      _ <- dropSchemaIfQualified()
+      _ <- dropSchemaIfQualified("_testSimple")
     } yield ()
   }
 
@@ -97,7 +97,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
     as.baseTableRow.foreignKeys.map(_.name).toSet shouldBe Set("b_fk")
 
     for {
-      _ <- createSchemaIfQualified()
+      _ <- createSchemaIfQualified("_testMultiColumn")
       _ <- (as.schema ++ bs.schema).create
       _ <- bs ++= Seq(
         (1, 2, "b12"),
@@ -114,7 +114,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
       } yield (a.s, b.s)).to[Set]
       _ <- q1.result.map(_ shouldBe Set(("a12","b12"), ("a34","b34")))
       _ <- (as.schema ++ bs.schema).drop
-      _ <- dropSchemaIfQualified()
+      _ <- dropSchemaIfQualified("_testMultiColumn")
     } yield ()
   }
 
@@ -135,7 +135,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
     val cs = TableQuery(new Dep(_, "c2"))
 
     for {
-      _ <- createSchemaIfQualified()
+      _ <- createSchemaIfQualified("_testCombinedJoin")
       _ <- (as.schema ++ bs.schema ++ cs.schema).create
       _ <- as ++= Seq((1, "a"), (2, "b"), (3, "c"), (4, "d"))
       _ <- bs ++= Seq((1, 1), (2, 1), (3, 2))
@@ -157,7 +157,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
       } yield a.s).sorted
       _ <- q3.result.map(_ shouldBe List("a", "a"))
       _ <- (as.schema ++ bs.schema ++ cs.schema).drop
-      _ <- dropSchemaIfQualified()
+      _ <- dropSchemaIfQualified("_testCombinedJoin")
     } yield ()
   }
 
@@ -188,7 +188,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
     lazy val aToB = TableQuery[AToB]
 
     seq(
-      createSchemaIfQualified(),
+      createSchemaIfQualified("_testManyToMany"),
       (as.schema ++ bs.schema ++ aToB.schema).create,
       as ++= Seq(1 -> "a", 2 -> "b", 3 -> "c"),
       bs ++= Seq(1 -> "x", 2 -> "y", 3 -> "z"),
@@ -199,7 +199,7 @@ abstract class ForeignKeyTest(schema: Option[String]) extends AsyncTest[JdbcTest
         } yield (a.s, b.s)).to[Set]
         q1.result.map(_ shouldBe Set(("b","y"), ("b","z"))) },
       (as.schema ++ bs.schema ++ aToB.schema).drop,
-      dropSchemaIfQualified()
+      dropSchemaIfQualified("_testManyToMany")
     )
   }
 }
