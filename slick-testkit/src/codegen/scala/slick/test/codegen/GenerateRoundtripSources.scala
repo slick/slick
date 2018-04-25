@@ -24,7 +24,7 @@ object GenerateRoundtripSources {
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def Table = new Table(_)
       {
-        override def hlistEnabled = columns.size > 22 // hlist type instead of case classes (old default before Slick 3.3)
+        override def hugeClassEnabled = false // HList type instead of case classes (like with Slick before 3.3)
       }
       override def tableName = {
         case n if n.toLowerCase == "null" => "null" // testing null as table name

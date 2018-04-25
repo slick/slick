@@ -85,11 +85,14 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
      *  Uses HList if hlistEnabled else tuple.
      */
     def compoundValue(values: Seq[Code]): Code
-    /** If HList should be used as a compound type instead of tuples.
-     * override with "hlistEnabled = columns.size > 22" to get old behavior
+    /** If HList should be used as a compound type instead of tuples. Only if hugeClassEnabled is false.
         @group Basic customization now overrides */
-    @deprecated("HLists are now used internally when needed.", "3.3.0")
-    def hlistEnabled = false;
+    def hlistEnabled = !hugeClassEnabled && columns.size > 22;
+    /**
+       Default is true, i.e. a case class will be generated even if column.size > 22.
+       Override to false to get the code as before Slick 3.3, i.e. a HList based type will be generated instead.
+       @group Basic customization now overrides */
+    def hugeClassEnabled = true
     /** Indicates whether auto increment columns should be put last and made an Option with a None default.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
@@ -104,7 +107,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def mappingEnabled = !hlistEnabled
     /** Indicates if table has more than 22 columns but still has to be mapped to a case class.
       */
-    final def isMappedToHugeClass = !hlistEnabled && mappingEnabled && EntityType.classEnabled && columns.size > 22
+    final def isMappedToHugeClass = hugeClassEnabled && mappingEnabled && EntityType.classEnabled && columns.size > 22
     /** Function that constructs an entity object from the unmapped values
         @group Basic customization overrides */
     def factory: Code
