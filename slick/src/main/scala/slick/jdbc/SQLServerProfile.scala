@@ -394,12 +394,16 @@ trait SQLServerProfile extends JdbcProfile {
       private[this] val formatter: DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-          .optionalStart()
           .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-          .optionalEnd()
-          .appendLiteral(' ')
-          .appendOffsetId()
+          .appendPattern(" ")
+          .appendOffset("+HH:MM", "")
           .toFormatter()
+      }
+      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, formatter.format(v))
+      }
+      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, formatter.format(v))
       }
       override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
         r.getString(idx) match {
@@ -408,6 +412,9 @@ trait SQLServerProfile extends JdbcProfile {
           case timestamp =>
             OffsetDateTime.parse(timestamp, formatter)
         }
+      }
+      override def valueToSQLLiteral(value: OffsetDateTime) = {
+        s"(convert(datetimeoffset(6), '${formatter.format(value)}'))"
       }
     }
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
