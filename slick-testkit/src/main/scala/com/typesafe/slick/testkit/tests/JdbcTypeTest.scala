@@ -296,6 +296,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   def testInstant = 
     roundTrip[Instant](
       List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
+        Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
         generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
         generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
@@ -324,6 +325,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   def testOffsetDateTime =
     roundTrip[OffsetDateTime](
       List(
+        OffsetDateTime.parse("2015-06-05T09:43:00+00:00"), // time has zero seconds and milliseconds
         generateTestLocalDateTime().atOffset(ZoneOffset.UTC).withHour(15),
         generateTestLocalDateTime().atOffset(ZoneOffset.UTC).withHour(5),
         generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).toOffsetDateTime.withHour(15),
