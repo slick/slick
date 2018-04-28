@@ -16,7 +16,6 @@ When using Scala instead of raw SQL for your queries you benefit from compile-ti
 and compositionality. Slick can generate queries for different back-end databases including
 your own, using its extensible query compiler.
 
-Get started learning Slick in minutes using the [Hello Slick template] in [Activator].
 See [here](supported-databases.md) for an overview of the supported database systems for which
 Slick can generate code.
 
@@ -108,7 +107,7 @@ blocking database APIs, Slick gives you:
 * [Reactive Streams] for asynchronous streaming.
 
 * Efficient utilization of database resources: Slick can be tuned easily and precisely for the
-  parallelism (number of concurrent active jobs) and resource ussage (number of currently
+  parallelism (number of concurrent active jobs) and resource usage (number of currently
   suspended database sessions) of your database server.
 
 ## Plain SQL Support

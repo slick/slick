@@ -16,7 +16,7 @@ final class SQLBuilder { self =>
 
   def +?=(f: Setter) = { setters append f; sb append '?'; this }
 
-  def sep[T](sequence: Traversable[T], separator: String)(f: T => Unit) {
+  def sep[T](sequence: Traversable[T], separator: String)(f: T => Unit): Unit = {
     var first = true
     for(x <- sequence) {
       if(first) first = false else self += separator
@@ -24,7 +24,7 @@ final class SQLBuilder { self =>
     }
   }
 
-  def sep[T](sequence: ConstArray[T], separator: String)(f: T => Unit) {
+  def sep[T](sequence: ConstArray[T], separator: String)(f: T => Unit): Unit = {
     var i = 0
     while(i < sequence.length) {
       if(i != 0) self += separator

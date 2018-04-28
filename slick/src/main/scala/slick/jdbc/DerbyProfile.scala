@@ -1,13 +1,15 @@
 package slick.jdbc
 
-import scala.concurrent.ExecutionContext
+import java.sql.{PreparedStatement, ResultSet, Timestamp}
+import java.time.Instant
 
+import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.Capability
 import slick.dbio._
-import slick.compiler.{Phase, CompilerState}
+import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.MTable
 import slick.lifted._
 import slick.relational.RelationalCapabilities
@@ -102,6 +104,35 @@ trait DerbyProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
+  override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
+    new SchemaActionExtensionMethodsImpl(schema){
+      override def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
+          import java.sql.SQLException
+          for(s <- sql) try{
+            ctx.session.withPreparedStatement(s)(_.execute)
+          }catch{
+            //<value> '<value>' already exists in <value> '<value>'.
+            case e: SQLException if e.getSQLState().equals("X0Y32") =>  ()
+            case e: Throwable => throw e
+          }
+        }
+      }
+
+      override def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
+          import java.sql.SQLException
+          for(s <- sql) try{
+            ctx.session.withPreparedStatement(s)(_.execute)
+          }catch{
+            //'<value>' cannot be performed on '<value>' because it does not exist.
+            case e: SQLException if e.getSQLState().equals("42Y55") =>  ()
+            case e: Throwable => throw e
+          }
+        }
+      }
+    }
+
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
@@ -194,10 +225,14 @@ trait DerbyProfile extends JdbcProfile {
         sb.toString
       } else super.createIndex(idx)
     }
+
+    override def dropIfExistsPhase = dropPhase1 ++ dropPhase2
+
+    override def createIfNotExistsPhase = createPhase1 ++ createPhase2
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override protected def appendOptions(sb: StringBuilder) {
+    override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
@@ -229,6 +264,7 @@ trait DerbyProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val uuidJdbcType = new UUIDJdbcType
+    override val instantType = new InstantJdbcType
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */
@@ -239,6 +275,27 @@ trait DerbyProfile extends JdbcProfile {
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
+    }
+
+    class InstantJdbcType extends super.InstantJdbcType {
+      // Derby has no timestamp with timezone type and so using strings as timestamps are
+      // susceptible to DST gaps twice a year
+      override def sqlType: Int = java.sql.Types.VARCHAR
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int): Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int): Instant = {
+        r.getString(idx) match {
+          case null => null
+          case instantString => Instant.parse(instantString)
+        }
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int): Unit = {
+        r.updateString(idx, v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) = {
+        s"'${value.toString}'"
+      }
     }
   }
 }

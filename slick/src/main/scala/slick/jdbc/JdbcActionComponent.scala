@@ -10,6 +10,7 @@ import scala.collection.mutable.Builder
 import scala.util.control.NonFatal
 
 import slick.SlickException
+import slick.ast.ColumnOption.PrimaryKey
 import slick.dbio._
 import slick.ast._
 import slick.ast.Util._
@@ -288,12 +289,22 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
 
+    def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+    }
+
     def truncate: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.truncate" , schema.truncateStatements.toVector ){
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
 
     def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+    }
+
+    def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
@@ -536,6 +547,17 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     class InsertOrUpdateAction(value: U) extends SimpleJdbcProfileAction[SingleInsertOrUpdateResult]("InsertOrUpdateAction",
       if(useServerSideUpsert) Vector(compiled.upsert.sql) else Vector(compiled.checkInsert.sql, compiled.updateInsert.sql, compiled.standardInsert.sql)) {
+
+      private def tableHasPrimaryKey: Boolean =
+        List(compiled.upsert, compiled.checkInsert, compiled.updateInsert)
+          .filter(_ != null)
+          .exists(artifacts =>
+            artifacts.ibr.table.profileTable.asInstanceOf[Table[_]].primaryKeys.nonEmpty
+              || artifacts.ibr.fields.exists(_.options.contains(PrimaryKey))
+          )
+
+      if (!tableHasPrimaryKey)
+        throw new SlickException("InsertOrUpdate is not supported on a table without PK.")
 
       def run(ctx: Backend#Context, sql: Vector[String]) = {
         def f: SingleInsertOrUpdateResult =

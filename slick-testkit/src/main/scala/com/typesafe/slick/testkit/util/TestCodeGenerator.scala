@@ -24,6 +24,8 @@ trait TestCodeGenerator {
     new OutputHelpers {
       def indent(code: String): String = code
       def code: String = ""
+      def codePerTable:Map[String,String] = Map()
+      def codeForContainer:String = ""
     }.writeStringToFile(
       s"""
          |package $packageName

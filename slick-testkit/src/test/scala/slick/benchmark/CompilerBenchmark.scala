@@ -13,7 +13,7 @@ object CompilerBenchmark {
   val COUNT_TONODE = 1000
   val COUNT_COMPILE = 10
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     System.setProperty("slick.verifyTypes", "false")
     System.setProperty("slick.detectRebuild", "false")
     println("Number of queries: "+allQueries.length)

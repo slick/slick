@@ -7,7 +7,7 @@ import org.junit.Assert._
 
 class HListTest {
   @Test
-  def testHList {
+  def testHList: Unit = {
     val l1 = 42 :: "foo" :: Some(1.0) :: "bar" :: HNil
     val l1a = l1.head
     val l1b = l1.tail.head

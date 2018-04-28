@@ -24,36 +24,67 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
     val hconf = new HikariConfig()
 
-    // Connection settings
-    if (c.hasPath("dataSourceClass")) {
-      hconf.setDataSourceClassName(c.getString("dataSourceClass"))
-    } else {
-      Option(c.getStringOr("driverClassName", c.getStringOr("driver"))).map(hconf.setDriverClassName _)
+    // Essential settings
+
+    // Use HikariCP `dataSourceClassName` as the main configuration and fallback to
+    // `dataSourceClass`, `driverClassName` and finally `drive`.
+    c.getStringOpt("dataSourceClassName").orElse(c.getStringOpt("dataSourceClass")) match {
+      case Some(className) => hconf.setDataSourceClassName(className)
+      case None => c.getStringOpt("driverClassName").orElse(c.getStringOpt("driver")).foreach(hconf.setDriverClassName)
     }
-    hconf.setJdbcUrl(c.getStringOr("url", null))
-    c.getStringOpt("user").foreach(hconf.setUsername)
+
+    // Use `jdbcUrl` an then `url` to configure the pool. According to HikariCP docs, when
+    // using this property with "old" drivers, you may also need to set the driverClassName
+    // property.
+    c.getStringOpt("jdbcUrl").orElse(c.getStringOpt("url")).foreach(hconf.setJdbcUrl)
+    c.getStringOpt("username").orElse(c.getStringOpt("user")).foreach(hconf.setUsername)
     c.getStringOpt("password").foreach(hconf.setPassword)
+
     c.getPropertiesOpt("properties").foreach(hconf.setDataSourceProperties)
 
-    // Pool configuration
+    // Frequently used pool configuration
+    c.getBooleanOpt("autoCommit").foreach(hconf.setAutoCommit)
+
+    val numThreads = c.getIntOr("numThreads", 20)
+
     hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 1000))
-    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 1000))
     hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
     hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
-    hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
-    hconf.setInitializationFailFast(c.getBooleanOr("initializationFailFast", false))
     c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
     c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
-    val numThreads = c.getIntOr("numThreads", 20)
-    hconf.setMaximumPoolSize(c.getIntOr("maxConnections", numThreads * 5))
-    hconf.setMinimumIdle(c.getIntOr("minConnections", numThreads))
+    hconf.setMaximumPoolSize(c.getIntOpt("maximumPoolSize").orElse(c.getIntOpt("maxConnections")).getOrElse(numThreads))
+    hconf.setMinimumIdle(c.getIntOpt("minimumIdle").orElse(c.getIntOpt("minConnections")).getOrElse(numThreads))
     hconf.setPoolName(c.getStringOr("poolName", name))
-    hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
 
-    // Equivalent of ConnectionPreparer
-    hconf.setReadOnly(c.getBooleanOr("readOnly", false))
-    c.getStringOpt("isolation").map("TRANSACTION_" + _).foreach(hconf.setTransactionIsolation)
-    hconf.setCatalog(c.getStringOr("catalog", null))
+    // Infrequently used
+
+    // `initializationFailFast` is deprecated and should be replaced by
+    // `initializationFailTimeout`. See HikariCP docs for more information:
+    // https://github.com/brettwooldridge/HikariCP#infrequently-used
+    // But we still respect the value if it configured.
+    c.getBooleanOpt("initializationFailFast").foreach(hconf.setInitializationFailFast)
+
+    // The default value for `initializationFailFast` was false, which means the pool
+    // will not fail to start if there is a problem when connecting to the database.
+    // To keep this behavior, we need to set `initializationFailTimeout` to -1 as
+    // documented by HikariCP.
+    hconf.setInitializationFailTimeout(c.getMillisecondsOr("initializationFailTimeout", -1))
+
+    c.getBooleanOpt("isolateInternalQueries").foreach(hconf.setIsolateInternalQueries)
+    c.getBooleanOpt("allowPoolSuspension").foreach(hconf.setAllowPoolSuspension)
+    c.getBooleanOpt("readOnly").foreach(hconf.setReadOnly)
+    c.getBooleanOpt("registerMbeans").foreach(hconf.setRegisterMbeans)
+    c.getStringOpt("catalog").foreach(hconf.setCatalog)
+    c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
+    c.getStringOpt("transactionIsolation")
+      .orElse(c.getStringOpt("isolation"))
+      .map("TRANSACTION_" + _)
+      .foreach(hconf.setTransactionIsolation)
+
+    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 1000))
+    hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
+
+    c.getStringOpt("schema").foreach(hconf.setSchema)
 
     val ds = new HikariDataSource(hconf)
     new HikariCPJdbcDataSource(ds, hconf)

@@ -150,8 +150,13 @@ class MergeToComprehensions extends Phase {
         (c2, replacements)
 
       case n @ Pure(Aggregate(s1, f1, str1), ts) =>
-        val (c1, replacements1) = mergeFilterWhere(f1, true)
         logger.debug("Merging Aggregate source into Comprehension:", Ellipsis(n, List(0, 0)))
+        val (c1, replacements1) = {
+          val (c, r) = mergeFilterWhere(f1, true)
+          if(c.groupBy.isDefined || c.distinct.isDefined || c.fetch.isDefined || c.offset.isDefined) toSubquery(c, r)
+          else (c, r)
+        }
+        logger.debug("New source at this point is:", c1)
         val str2 = applyReplacements(str1, replacements1, c1)
         val c2 = c1.copy(select = Pure(str2, ts)).infer()
         logger.debug("Merged Aggregate source into Comprehension:", c2)

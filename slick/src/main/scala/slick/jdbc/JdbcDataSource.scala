@@ -84,22 +84,26 @@ class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Bool
 
 object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): DataSourceJdbcDataSource = {
-    val ds = c.getStringOpt("dataSourceClass") match {
-      case Some(dsClass) =>
-        val propsO = c.getPropertiesOpt("properties")
-        try {
-          val ds = Class.forName(dsClass).newInstance.asInstanceOf[DataSource]
-          propsO.foreach(BeanConfigurator.configure(ds, _))
-          ds
-        } catch { case ex: Exception => throw new SlickException("Error configuring DataSource "+dsClass, ex) }
-      case None =>
-        val ds = new DriverDataSource
-        ds.classLoader = classLoader
-        ds.driverObject = driver
-        BeanConfigurator.configure(ds, c.toProperties, Set("url", "user", "password", "properties", "driver", "driverClassName"))
-        ds
-    }
-    new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), None, new ConnectionPreparer(c))
+    val (ds, maxConnections) =
+      c.getStringOpt("dataSourceClassName").orElse(c.getStringOpt("dataSourceClass")) match {
+
+        case Some(dsClass) =>
+          val propsO = c.getPropertiesOpt("properties")
+          try {
+            val ds = Class.forName(dsClass).newInstance.asInstanceOf[DataSource]
+            propsO.foreach(BeanConfigurator.configure(ds, _))
+            val maxConnections = c.getIntOpt("maxConnections")
+            (ds, maxConnections)
+          } catch { case ex: Exception => throw new SlickException("Error configuring DataSource " + dsClass, ex) }
+
+        case None =>
+          val ds = new DriverDataSource
+          ds.classLoader = classLoader
+          ds.driverObject = driver
+          BeanConfigurator.configure(ds, c.toProperties, Set("url", "user", "password", "properties", "driver", "driverClassName"))
+          (ds, None)
+      }
+    new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), maxConnections, new ConnectionPreparer(c))
   }
 }
 

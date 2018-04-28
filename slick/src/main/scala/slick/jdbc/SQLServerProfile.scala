@@ -1,11 +1,13 @@
 package slick.jdbc
 
 import scala.concurrent.ExecutionContext
-import scala.reflect.{ClassTag,classTag}
-import java.sql.{Timestamp, Date, Time, ResultSet}
+import java.time._
+import java.sql.{Date, PreparedStatement, ResultSet, Time, Timestamp}
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.temporal.ChronoField
 
+import scala.reflect.{ClassTag, classTag}
 import com.typesafe.config.Config
-
 import slick.ast._
 import slick.ast.Util._
 import slick.basic.Capability
@@ -15,7 +17,7 @@ import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
-import slick.util.{SlickLogger, ConstArray, GlobalConfig}
+import slick.util.{ConstArray, GlobalConfig, SlickLogger}
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.util.ConfigExtensionMethods._
 
@@ -90,6 +92,7 @@ trait SQLServerProfile extends JdbcProfile {
       override def tpe = dbType match {
         case Some("date") => "java.sql.Date"
         case Some("time") => "java.sql.Time"
+        case Some("datetime2") => "java.sql.Timestamp"
         case _ => super.tpe
       }
       override def rawDefault = super.rawDefault.map(_.stripPrefix("(") // jtds
@@ -114,11 +117,7 @@ trait SQLServerProfile extends JdbcProfile {
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
-    import api._
-    for {
-      schema <- Functions.user.result
-      mtables <- MTable.getTables(None, Some(schema), None, Some(Seq("TABLE")))
-    } yield mtables
+    MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(!_.name.schema.contains("sys")))
   }
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
@@ -144,7 +143,7 @@ trait SQLServerProfile extends JdbcProfile {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
 
-    override protected def buildSelectModifiers(c: Comprehension) {
+    override protected def buildSelectModifiers(c: Comprehension): Unit = {
       super.buildSelectModifiers(c)
       (c.fetch, c.offset) match {
         case (Some(t), Some(d)) => b"top (${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}) "
@@ -155,7 +154,7 @@ trait SQLServerProfile extends JdbcProfile {
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = ()
 
-    override protected def buildOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       if(o.nulls.last && !o.direction.desc)
         b"case when ($n) is null then 1 else 0 end,"
       else if(o.nulls.first && o.direction.desc)
@@ -206,7 +205,7 @@ trait SQLServerProfile extends JdbcProfile {
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
-    override protected def addForeignKey(fk: ForeignKey, sb: StringBuilder) {
+    override protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit = {
       val updateAction = fk.onUpdate.action
       val deleteAction = fk.onDelete.action
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
@@ -217,10 +216,40 @@ trait SQLServerProfile extends JdbcProfile {
       sb append ") on update " append (if(updateAction == "RESTRICT") "NO ACTION" else updateAction)
       sb append " on delete " append (if(deleteAction == "RESTRICT") "NO ACTION" else deleteAction)
     }
+
+    override def dropIfExistsPhase = {
+      //http://stackoverflow.com/questions/7887011/how-to-drop-a-table-if-it-exists-in-sql-server
+      Iterable(
+      "IF EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'"
+      + (tableNode.schemaName match{
+        case Some(s)=>s+"."
+        case None=>""
+      })
+      + tableNode.tableName
+      + "') AND type in (N'U'))\n"
+      + "begin\n"
+      + dropPhase1.mkString("\n") + dropPhase2.mkString("\n")
+      + "\nend")
+    }
+
+    override def createIfNotExistsPhase = {
+      //http://stackoverflow.com/questions/5952006/how-to-check-if-table-exist-and-if-it-doesnt-exist-create-table-in-sql-server-2
+      Iterable(
+      "IF  NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'"
+      + (tableNode.schemaName match{
+        case Some(s)=>s+"."
+        case None=>""
+      })
+      + tableNode.tableName
+      + "') AND type in (N'U'))\n"
+      + "begin\n"
+      + createPhase1.mkString("\n") + createPhase2.mkString("\n")
+      + "\nend")
+    }
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override protected def appendOptions(sb: StringBuilder) {
+    override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
@@ -235,7 +264,11 @@ trait SQLServerProfile extends JdbcProfile {
     override val byteArrayJdbcType = new ByteArrayJdbcType
     override val dateJdbcType = new DateJdbcType
     override val timeJdbcType = new TimeJdbcType
+    override val localTimeType = new LocalTimeJdbcType
     override val timestampJdbcType = new TimestampJdbcType
+    override val localDateTimeType = new LocalDateTimeJdbcType
+    override val instantType = new InstantJdbcType
+    override val offsetDateTimeType = new OffsetDateTimeJdbcType
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UNIQUEIDENTIFIER"
     }
@@ -248,28 +281,141 @@ trait SQLServerProfile extends JdbcProfile {
      * because the type information gets lost along the way), so we cast all Date
      * and Timestamp values to the proper type. This work-around does not seem to
      * be required for Time values. */
+    /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
+     * want is DATETIME2. */
     class DateJdbcType extends super.DateJdbcType {
       override def valueToSQLLiteral(value: Date) = "(convert(date, {d '" + value + "'}))"
     }
     class TimeJdbcType extends super.TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = "(convert(time, {t '" + value + "'}))"
       override def getValue(r: ResultSet, idx: Int) = {
-        val s = r.getString(idx)
-        val sep = s.indexOf('.')
-        if(sep == -1) Time.valueOf(s)
-        else {
-          val t = Time.valueOf(s.substring(0, sep))
-          val millis = (("0."+s.substring(sep+1)).toDouble * 1000.0).toInt
-          t.setTime(t.getTime + millis)
-          t
+        r.getString(idx) match {
+          case null => null
+          case serializedTime =>
+            val sep = serializedTime.indexOf('.')
+            if (sep == -1) Time.valueOf(serializedTime)
+            else {
+              val t = Time.valueOf(serializedTime.substring(0, sep))
+              val millis = (("0." + serializedTime.substring(sep + 1)).toDouble * 1000.0).toInt
+              t.setTime(t.getTime + millis)
+              t
+            }
         }
       }
     }
+
+    class LocalTimeJdbcType extends super.LocalTimeJdbcType {
+      private[this] val formatter : DateTimeFormatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("HH:mm:ss"))
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+          .optionalEnd()
+          .toFormatter()
+      }
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(6)"
+      override def getValue(r: ResultSet, idx: Int) = {
+        r.getString(idx) match {
+          case null => null
+          case serializedTime =>
+
+            val sep = serializedTime.indexOf('.')
+            if (sep == -1) {
+              Time.valueOf(serializedTime).toLocalTime
+            } else {
+              LocalTime.parse(serializedTime, formatter)
+            }
+        }
+      }
+      override def valueToSQLLiteral(value: LocalTime) = {
+        s"(convert(time(6), '$value'))"
+      }
+    }
     class TimestampJdbcType extends super.TimestampJdbcType {
-      /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
-       * want here is DATETIME. */
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def valueToSQLLiteral(value: Timestamp) = "(convert(datetime, {ts '" + value + "'}))"
+    }
+    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+      private[this] val formatter : DateTimeFormatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+          .optionalEnd()
+          .toFormatter()
+      }
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
+      override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
+        r.getTimestamp(idx) match {
+          case null =>
+            null
+          case timestamp =>
+            timestamp.toLocalDateTime
+        }
+      }
+    }
+    class InstantJdbcType extends super.InstantJdbcType {
+      private[this] val formatter : DateTimeFormatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+          .appendPattern(" ")
+          .appendOffset("+HH:MM", "")
+          .toFormatter()
+      }
+      private[this] def serializeInstantValue(value : Instant) : String = {
+        formatter.format(
+          OffsetDateTime.ofInstant(value, ZoneOffset.UTC)
+        )
+      }
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, serializeInstantValue(v))
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, serializeInstantValue(v))
+      }
+
+      override def getValue(r: ResultSet, idx: Int): Instant = {
+        r.getString(idx) match {
+          case null =>
+            null
+          case dateStr =>
+            OffsetDateTime.parse(dateStr, formatter).toInstant()
+        }
+      }
+      override def valueToSQLLiteral(value: Instant) = {
+        s"(convert(datetimeoffset(6), '${serializeInstantValue(value)}'))"
+      }
+    }
+    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
+
+      private[this] val formatter: DateTimeFormatter = {
+        new DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+          .appendPattern(" ")
+          .appendOffset("+HH:MM", "")
+          .toFormatter()
+      }
+      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, formatter.format(v))
+      }
+      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, formatter.format(v))
+      }
+      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
+        r.getString(idx) match {
+          case null =>
+            null
+          case timestamp =>
+            OffsetDateTime.parse(timestamp, formatter)
+        }
+      }
+      override def valueToSQLLiteral(value: OffsetDateTime) = {
+        s"(convert(datetimeoffset(6), '${formatter.format(value)}'))"
+      }
     }
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result

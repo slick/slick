@@ -6,7 +6,7 @@ import org.junit.Assert._
 /** Test case for the SQL schema support in table definitions */
 class SchemaSupportTest {
 
-  @Test def testSchemaSupport {
+  @Test def testSchemaSupport: Unit = {
     import slick.jdbc.H2Profile.api._
 
     class T(tag: Tag) extends Table[Int](tag, Some("myschema"), "mytable") {
@@ -37,5 +37,13 @@ class SchemaSupportTest {
     val s6 = ts.schema.dropStatements.toList
     s6.foreach(println)
     s6.foreach(s => assertTrue("DDL (drop) uses schema name", s contains """ "myschema"."mytable""""))
+
+    val s7 = ts.schema.dropIfExistsStatements.toList
+    s7.foreach(println)
+    s7.foreach(s => assertTrue("DDL (dropIfExists) uses schema name", s contains """ "myschema"."mytable""""))
+
+    val s8 = ts.schema.createIfNotExistsStatements.toList
+    s6.foreach(println)
+    s6.foreach(s => assertTrue("DDL (createIfNotExists) uses schema name", s contains """ "myschema"."mytable""""))
   }
 }

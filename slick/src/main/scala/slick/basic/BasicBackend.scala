@@ -138,73 +138,106 @@ trait BasicBackend { self =>
       *                  completed with `null` or failed after streaming has finished. This
       *                  method should not call any `Subscriber` method other than `onNext`. */
     protected[this] def runInContext[R](a: DBIOAction[R, NoStream, Nothing], ctx: Context, streaming: Boolean, topLevel: Boolean): Future[R] = {
+      runInContextSafe(a, ctx, streaming, topLevel, stackLevel = 0)
+    }
+
+    // If recursion has reached the limit then run next batch in trampoline
+    private[this] def runInContextSafe[R](a: DBIOAction[R, NoStream, Nothing], ctx: Context, streaming: Boolean, topLevel: Boolean, stackLevel: Int): Future[R] = {
+      if (stackLevel < 100) {
+        runInContextInline(a, ctx, streaming, topLevel, stackLevel + 1)
+      } else {
+        val promise = Promise[R]
+        val runnable = new Runnable {
+          override def run() = {
+            try {
+              promise.completeWith(runInContextInline(a, ctx, streaming, topLevel, stackLevel = 1))
+            } catch {
+              case NonFatal(ex) => promise.failure(ex)
+            }
+          }
+        }
+        DBIO.sameThreadExecutionContext.execute(runnable)
+        promise.future
+      }
+    }
+
+    private[this] def runInContextInline[R](a: DBIOAction[R, NoStream, Nothing], ctx: Context, streaming: Boolean, topLevel: Boolean, stackLevel: Int): Future[R] = {
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
         case FailureAction(t) => Future.failed(t)
         case FutureAction(f) => f
         case FlatMapAction(base, f, ec) =>
-          runInContext(base, ctx, false, topLevel).flatMap(v => runInContext(f(v), ctx, streaming, false))(ctx.getEC(ec))
+          runInContextSafe(base, ctx, false, topLevel, stackLevel).flatMap(v => runInContext(f(v), ctx, streaming, false))(ctx.getEC(ec))
         case AndThenAction(actions) =>
           val last = actions.length - 1
+
           def run(pos: Int, v: Any): Future[Any] = {
-            val f1 = runInContext(actions(pos), ctx, streaming && pos == last, pos == 0)
+            val f1 = runInContextSafe(actions(pos), ctx, streaming && pos == last, topLevel && pos == 0, stackLevel)
+
             if(pos == last) f1
             else f1.flatMap(run(pos + 1, _))(DBIO.sameThreadExecutionContext)
           }
+
           run(0, null).asInstanceOf[Future[R]]
-        case sa @ SequenceAction(actions) =>
+        case sa@SequenceAction(actions) =>
           val len = actions.length
           val results = new AtomicReferenceArray[Any](len)
+
           def run(pos: Int): Future[Any] = {
-            if(pos == len) Future.successful {
+            if (pos == len) Future.successful {
               val b = sa.cbf()
               var i = 0
-              while(i < len) {
+              while (i < len) {
                 b += results.get(i)
                 i += 1
               }
               b.result()
             }
-            else runInContext(actions(pos), ctx, false, pos == 0).flatMap { (v: Any) =>
+            else runInContextSafe(actions(pos), ctx, false, topLevel && pos == 0, stackLevel).flatMap { (v: Any) =>
               results.set(pos, v)
               run(pos + 1)
-            } (DBIO.sameThreadExecutionContext)
+            }(DBIO.sameThreadExecutionContext)
           }
+
           run(0).asInstanceOf[Future[R]]
         case CleanUpAction(base, f, keepFailure, ec) =>
           val p = Promise[R]()
-          runInContext(base, ctx, streaming, topLevel).onComplete { t1 =>
+          runInContextSafe(base, ctx, streaming, topLevel, stackLevel).onComplete { t1 =>
             try {
               val a2 = f(t1 match {
                 case Success(_) => None
                 case Failure(t) => Some(t)
               })
               runInContext(a2, ctx, false, false).onComplete { t2 =>
-                if(t2.isFailure && (t1.isSuccess || !keepFailure)) p.complete(t2.asInstanceOf[Failure[R]])
+                if (t2.isFailure && (t1.isSuccess || !keepFailure)) p.complete(t2.asInstanceOf[Failure[R]])
                 else p.complete(t1)
-              } (DBIO.sameThreadExecutionContext)
+              }(DBIO.sameThreadExecutionContext)
             } catch {
               case NonFatal(ex) =>
-                throw (t1 match {
+                val e = t1 match {
                   case Failure(t) if keepFailure => t
                   case _ => ex
-                })
+                }
+
+                if (!p.tryFailure(e)) {
+                  actionLogger.warn("Exception after promise completed", e)
+                }
             }
-          } (ctx.getEC(ec))
+          }(ctx.getEC(ec))
           p.future
         case FailedAction(a) =>
-          runInContext(a, ctx, false, topLevel).failed.asInstanceOf[Future[R]]
+          runInContextSafe(a, ctx, false, topLevel, stackLevel).failed.asInstanceOf[Future[R]]
         case AsTryAction(a) =>
           val p = Promise[R]()
-          runInContext(a, ctx, false, topLevel).onComplete(v => p.success(v.asInstanceOf[R]))(DBIO.sameThreadExecutionContext)
+          runInContextSafe(a, ctx, false, topLevel, stackLevel).onComplete(v => p.success(v.asInstanceOf[R]))(DBIO.sameThreadExecutionContext)
           p.future
         case NamedAction(a, _) =>
-          runInContext(a, ctx, streaming, topLevel)
+          runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
         case a: SynchronousDatabaseAction[_, _, _, _] =>
-          if(streaming) {
-            if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]], ctx.asInstanceOf[StreamingContext], !topLevel).asInstanceOf[Future[R]]
-            else runInContext(CleanUpAction(AndThenAction(Vector(DBIO.Pin, a.nonFusedEquivalentAction)), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming, topLevel)
+          if (streaming) {
+            if (a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]], ctx.asInstanceOf[StreamingContext], !topLevel).asInstanceOf[Future[R]]
+            else runInContextSafe(CleanUpAction(AndThenAction(Vector(DBIO.Pin, a.nonFusedEquivalentAction)), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming, topLevel, stackLevel)
           } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, _]], ctx, !topLevel)
         case a: DatabaseAction[_, _, _] =>
           throw new SlickException(s"Unsupported database action $a for $this")
@@ -263,68 +296,86 @@ trait BasicBackend { self =>
     }
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean)(initialState: a.StreamState): Unit = try {
-      ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
-        private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
+    protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean)(initialState: a.StreamState): Unit =
+      try {
+        ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
+          private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
 
-        def priority = {
-          ctx.readSync
-          ctx.priority(continuation)
-        }
+          def priority = {
+            ctx.readSync
+            ctx.priority(continuation)
+          }
 
-        def run: Unit = try {
-          val debug = streamLogger.isDebugEnabled
-          var state = initialState
-          ctx.readSync
-          if(state eq null) acquireSession(ctx)
-          var demand = ctx.demandBatch
-          var realDemand = if(demand < 0) demand - Long.MinValue else demand
-          do {
+          def run(): Unit =
             try {
-              if(debug)
-                streamLogger.debug((if(state eq null) "Starting initial" else "Restarting ") + " streaming action, realDemand = " + str(realDemand))
-              if(ctx.cancelled) {
-                if(ctx.deferredError ne null) throw ctx.deferredError
-                if(state ne null) { // streaming cancelled before finishing
-                  val oldState = state
-                  state = null
-                  a.cancelStream(ctx, oldState)
+              val debug = streamLogger.isDebugEnabled
+              var state = initialState
+              ctx.readSync
+
+              if(state eq null) acquireSession(ctx)
+              var demand = ctx.demandBatch
+              var realDemand = if(demand < 0) demand - Long.MinValue else demand
+
+              do {
+                try {
+                  if(debug)
+                    streamLogger.debug((if(state eq null) "Starting initial" else "Restarting ") + " streaming action, realDemand = " + str(realDemand))
+
+                  if(ctx.cancelled) {
+                    if(ctx.deferredError ne null) throw ctx.deferredError
+                    if(state ne null) { // streaming cancelled before finishing
+                      val oldState = state
+                      state = null
+                      a.cancelStream(ctx, oldState)
+                    }
+                  } else if(realDemand > 0 || (state eq null)) {
+                    val oldState = state
+                    state = null
+                    state = a.emitStream(ctx, realDemand, oldState)
+                  }
+
+                  if(state eq null) { // streaming finished and cleaned up
+                    releaseSession(ctx, true)
+                    ctx.streamingResultPromise.trySuccess(null)
+                  }
+
+                } catch { case NonFatal(ex) =>
+                  if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
+                  releaseSession(ctx, true)
+                  throw ex
+
+                } finally {
+                  ctx.streamState = state
+                  if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
+                  ctx.sync = 0
                 }
-              } else if((realDemand > 0 || (state eq null))) {
-                val oldState = state
-                state = null
-                state = a.emitStream(ctx, realDemand, oldState)
+
+                if(debug) {
+                  if(state eq null) streamLogger.debug(s"Sent up to ${str(realDemand)} elements - Stream " + (if(ctx.cancelled) "cancelled" else "completely delivered"))
+                  else streamLogger.debug(s"Sent ${str(realDemand)} elements, more available - Performing atomic state transition")
+                }
+
+                demand = ctx.delivered(demand)
+                realDemand = if(demand < 0) demand - Long.MinValue else demand
+
+              } while ((state ne null) && realDemand > 0)
+
+              if(debug) {
+                if(state ne null) streamLogger.debug("Suspending streaming action with continuation (more data available)")
+                else streamLogger.debug("Finished streaming action")
               }
-              if(state eq null) { // streaming finished and cleaned up
-                releaseSession(ctx, true)
-                ctx.streamingResultPromise.trySuccess(null)
-              }
-            } catch { case NonFatal(ex) =>
-              if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
-              releaseSession(ctx, true)
-              throw ex
+
+            } catch {
+              case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex)
             } finally {
-              ctx.streamState = state
               if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
               ctx.sync = 0
             }
-            if(debug) {
-              if(state eq null) streamLogger.debug(s"Sent up to ${str(realDemand)} elements - Stream " + (if(ctx.cancelled) "cancelled" else "completely delivered"))
-              else streamLogger.debug(s"Sent ${str(realDemand)} elements, more available - Performing atomic state transition")
-            }
-            demand = ctx.delivered(demand)
-            realDemand = if(demand < 0) demand - Long.MinValue else demand
-          } while ((state ne null) && realDemand > 0)
-          if(debug) {
-            if(state ne null) streamLogger.debug("Suspending streaming action with continuation (more data available)")
-            else streamLogger.debug("Finished streaming action")
-          }
-        } catch { case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex) }
-      })
-    } catch { case NonFatal(ex) =>
-      streamLogger.warn("Error scheduling synchronous streaming", ex)
-      throw ex
-    }
+        })
+      } catch { case NonFatal(ex) =>
+        streamLogger.warn("Error scheduling synchronous streaming", ex)
+        throw ex
+      }
 
 
 

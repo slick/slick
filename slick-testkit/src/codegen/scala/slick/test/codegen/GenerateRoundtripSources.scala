@@ -13,7 +13,7 @@ import slick.jdbc.JdbcProfile
   * it would fail in derby and hsqldb. The code is tested using all enabled profiles. We should also
   * diversify generation as well at some point. */
 object GenerateRoundtripSources {
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val profile = slick.jdbc.H2Profile
     val url = "jdbc:h2:mem:test4"
     val jdbcDriver = "org.h2.Driver"
@@ -40,6 +40,8 @@ object GenerateRoundtripSources {
     val pkg = "slick.test.codegen.roundtrip"
     gen.writeToFile( "slick.jdbc.H2Profile", args(0), pkg )
     gen2.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"2" )
+    gen.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles" )
+    gen2.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles2" )
   }
 }
 
@@ -79,7 +81,7 @@ class Tables(val profile: JdbcProfile){
   class X(tag: Tag) extends Table[(Int,Int,Option[Int],Int,Double,String,Option[Int],Option[Int],Option[String],Option[String],Option[String])](tag, "X") {
     def pk = column[Int]("pk")
     def pk2 = column[Int]("pk2")
-    def pkpk = primaryKey( "", (pk,pk2) ) // pk column collision
+    def pkpk = primaryKey( "primary_key2", (pk,pk2) ) // pk column collision
     def i1 = column[Option[Int]]("index_1") // scala keyword collision
     def c = column[Int]("column") // slick Table method with args collision
     def p = column[Option[Int]]("posts")

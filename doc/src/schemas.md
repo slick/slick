@@ -31,6 +31,7 @@ individual database profiles):
 - *Numeric types*: Byte, Short, Int, Long, BigDecimal, Float, Double
 - *LOB types*: java.sql.Blob, java.sql.Clob, Array[Byte]
 - *Date types*: java.sql.Date, java.sql.Time, java.sql.Timestamp
+- Java 8 date and time types: java.time.*
 - Boolean
 - String
 - Unit
@@ -77,6 +78,7 @@ name for a table in front of the table name, wrapped in `Some()`:
 
 ```scala src=../code/LiftedEmbedding.scala#schemaname
 ```
+[See notes here on the java.time.* types](datetimetypes.md)
 
 Table Query {index=TableQuery}
 -----------
@@ -162,7 +164,7 @@ Data Definition Language {index="DDL;create;drop"}
 DDL statements for a table can be created with its `TableQuery`'s `schema` method. Multiple
 `DDL` objects can be concatenated with `++` to get a compound `DDL` object which can create
 and drop all entities in the correct order, even in the presence of cyclic dependencies between
-tables. The `create`, `drop` and `truncate` methods produce the Actions for executing the DDL statements:
+tables. The `create`, `createIfNotExists`, `dropIfExists`, `drop` and `truncate` methods produce the Actions for executing the DDL statements. To safely create and drop tables use the methods `createIfNotExists` and `dropIfExists` :
 
 ```scala src=../code/LiftedEmbedding.scala#ddl
 ```

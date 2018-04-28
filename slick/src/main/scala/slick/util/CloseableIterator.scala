@@ -48,7 +48,7 @@ object CloseableIterator {
   val empty: CloseableIterator[Nothing] = new CloseableIterator[Nothing] {
     def hasNext = false
     def next() = noNext
-    def close() {}
+    def close(): Unit = {}
   }
 
   /**
@@ -58,7 +58,7 @@ object CloseableIterator {
     private var more = true
     def hasNext = more
     def next() = if(more) { more = false; item } else noNext
-    def close {}
+    def close: Unit = {}
   }
 
   /**

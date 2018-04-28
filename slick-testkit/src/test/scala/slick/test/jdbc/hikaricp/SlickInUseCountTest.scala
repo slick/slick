@@ -47,8 +47,8 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
     database.close()
   }
 
-  @Test def slickInUseCount() {
-    val loops = 1000
+  @Test def slickInUseCount(): Unit = {
+    val loops = 10 // 1000
     val count = 100
     1 to loops foreach { _ =>
       val tasks = 1 to count map { i =>

@@ -194,7 +194,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       }
     }
 
-    protected def scanJoins(from: ConstArray[(TermSymbol, Node)]) {
+    protected def scanJoins(from: ConstArray[(TermSymbol, Node)]): Unit = {
       for((sym, j: Join) <- from) {
         joins += sym -> j
         scanJoins(j.generators)
@@ -438,7 +438,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       case n => throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
 
-    protected def buildOrdering(n: Node, o: Ordering) {
+    protected def buildOrdering(n: Node, o: Ordering): Unit = {
       expr(n)
       if(o.direction.desc) b" desc"
       if(o.nulls.first) b" nulls first"
@@ -598,17 +598,19 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       if(primaryKeys.size > 1)
         throw new SlickException("Table "+tableNode.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
-      DDL(createPhase1, createPhase2, dropPhase1, dropPhase2 , truncatePhase)
+      DDL(createPhase1, createIfNotExistsPhase, createPhase2, dropPhase1, dropIfExistsPhase, dropPhase2 , truncatePhase)
     }
 
-    protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createPhase1 = Iterable(createTable(false)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
-    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
+    protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(true))
+    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable(false))
     protected def truncatePhase = Iterable(truncateTable)
 
-    protected def createTable: String = {
-      val b = new StringBuilder append "create table " append quoteTableName(tableNode) append " ("
+    protected def createTable(checkNotExists: Boolean): String = {
+      val b = new StringBuilder append "create table " append (if(checkNotExists) "if not exists " else "") append quoteTableName(tableNode) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -619,9 +621,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b.toString
     }
 
-    protected def addTableOptions(b: StringBuilder) {}
+    protected def addTableOptions(b: StringBuilder): Unit = {}
 
-    protected def dropTable: String = "drop table "+quoteTableName(tableNode)
+    protected def dropTable(ifExists: Boolean): String = "drop table "+(if(ifExists) "if exists " else "")+quoteTableName(tableNode)
 
     protected def truncateTable: String = "truncate table "+ quoteTableName(tableNode)
 
@@ -640,7 +642,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       sb.toString
     }
 
-    protected def addForeignKey(fk: ForeignKey, sb: StringBuilder) {
+    protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit = {
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, tableNode.tableName)
       sb append ") references " append quoteTableName(fk.targetTable) append "("
@@ -655,7 +657,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       sb.toString
     }
 
-    protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder) {
+    protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder): Unit = {
       sb append "constraint " append quoteIdentifier(pk.name) append " primary key("
       addPrimaryKeyColumnList(pk.columns, sb, tableNode.tableName)
       sb append ")"
@@ -676,7 +678,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def addPrimaryKeyColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "foreign key constraint")
 
-    protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) {
+    protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String): Unit = {
       var first = true
       for(c <- columns) c match {
         case Select(t: TableNode, field: FieldSymbol) =>
@@ -704,7 +706,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected var defaultLiteral: String = null
     init()
 
-    protected def init() {
+    protected def init(): Unit = {
       for(o <- column.options) handleColumnOption(o)
       if(sqlType ne null) {
         size.foreach(l => sqlType += s"($l)")
@@ -727,13 +729,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     def appendType(sb: StringBuilder): Unit = sb append sqlType
 
-    def appendColumn(sb: StringBuilder) {
+    def appendColumn(sb: StringBuilder): Unit = {
       sb append quoteIdentifier(column.name) append ' '
       appendType(sb)
       appendOptions(sb)
     }
 
-    protected def appendOptions(sb: StringBuilder) {
+    protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(autoIncrement) sb append " GENERATED BY DEFAULT AS IDENTITY(START WITH 1)"
       if(notNull) sb append " NOT NULL"

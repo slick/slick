@@ -95,7 +95,7 @@ sealed abstract class HList extends Product {
   final def apply(n: Int): Any = macro HListMacros.applyImpl
 
   /** Evaluate a function for each element of this HList. */
-  final def foreach(f: Any => Unit) {
+  final def foreach(f: Any => Unit): Unit = {
     var h = this
     while(h.nonEmpty) {
       f(h.head)

@@ -39,7 +39,7 @@ class MBeansTest {
       Await.result(db.run(sqlu"""create alias sleep for "java.lang.Thread.sleep""""), Duration(10, TimeUnit.SECONDS))
 
       assertEquals(1, mbeanServer.getAttribute(aeBeanName, "MaxThreads"))
-      mbeanServer.getAttribute(aeBeanName, "ActiveThreads") // we expect 0 but the returned number is only an estimate
+      mbeanServer.getAttribute(aeBeanName, "ActiveThreads") // we expect 1, since minThreads == maxThreads
       assertEquals(1000, mbeanServer.getAttribute(aeBeanName, "MaxQueueSize"))
       assertEquals(0, mbeanServer.getAttribute(aeBeanName, "QueueSize"))
 

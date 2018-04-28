@@ -50,9 +50,19 @@ trait HeapBackend extends RelationalBackend with Logging {
       tables += ((name, t))
       t
     }
+    def createTableIfNotExists(name: String, columns: IndexedSeq[HeapBackend.Column],
+                    indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable = synchronized {
+      val t = new HeapTable(name, columns, indexes, constraints)
+      if(!tables.contains(name)) tables += ((name, t))
+      t
+    }
     def dropTable(name: String): Unit = synchronized {
       if(!tables.remove(name).isDefined)
         throw new SlickException(s"Table $name does not exist")
+    }
+    def dropTableIfExists(name: String): Unit = try dropTable(name) catch{
+      case e: SlickException => ()
+      case e: Throwable => throw e
     }
     def truncateTable(name: String): Unit = synchronized{
       getTable(name).data.clear
@@ -80,12 +90,12 @@ trait HeapBackend extends RelationalBackend with Logging {
   }
 
   class SessionDef(val database: Database) extends super.SessionDef {
-    def close() {}
+    def close(): Unit = {}
 
     def rollback() =
       throw new SlickException("HeapBackend does not currently support transactions")
 
-    def force() {}
+    def force(): Unit = {}
 
     def withTransaction[T](f: => T) =
       throw new SlickException("HeapBackend does not currently support transactions")
@@ -137,12 +147,12 @@ trait HeapBackend extends RelationalBackend with Logging {
         else (r: Row) => columns.map(r)
       val hash = new HashSet[Any]()
       new Verifier {
-        def verify(row: Row) {
+        def verify(row: Row): Unit = {
           val e = extract(row)
           if(hash contains e)
             throw new SlickException("Uniqueness constraint "+name+" violated. Duplicate data: "+e)
         }
-        def inserted(row: Row) { hash += extract(row) }
+        def inserted(row: Row): Unit = { hash += extract(row) }
       }
     }
   }
@@ -158,8 +168,8 @@ trait HeapBackend extends RelationalBackend with Logging {
       if(this eq Verifier.empty) other
       else if(other eq Verifier.empty) this
       else new Verifier {
-        def verify(row: Row) { self.verify(row); other.verify(row) }
-        def inserted(row: Row) { self.inserted(row); other.inserted(row) }
+        def verify(row: Row): Unit = { self.verify(row); other.verify(row) }
+        def inserted(row: Row): Unit = { self.inserted(row); other.inserted(row) }
       }
   }
 

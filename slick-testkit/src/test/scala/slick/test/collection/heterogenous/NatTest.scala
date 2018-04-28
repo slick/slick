@@ -6,7 +6,7 @@ import slick.collection.heterogeneous.Nat
 
 class NatTest {
   @Test
-  def testNat {
+  def testNat: Unit = {
     import Nat._
     println( (_2 + _2): _4 )
     println( (_3 + _0): _3 )
@@ -26,7 +26,7 @@ class NatTest {
   }
 
   @Test
-  def testMacro {
+  def testMacro: Unit = {
     val _0 = Nat(0)
     val _1: Nat._1 = Nat(1)
     val _2 = Nat(2)

@@ -50,7 +50,7 @@ class ForceOuterBinds extends Phase {
   }
 
   def maybewrap(n: Node): Node = n match {
-    case _: Join | _: Pure | _: Union | _: FilteredQuery | _:TableNode => wrap(n)
+    case _: Join | _: Pure | _: Union | _: FilteredQuery | _:TableNode | _: GroupBy => wrap(n)
     case _ => nowrap(n)
   }
 }

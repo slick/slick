@@ -25,6 +25,32 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         "import slick.jdbc.{GetResult => GR}\n"
       } else ""
     ) +
+    codeForDDL +
+    tables.map(_.code.mkString("\n")).mkString("\n\n")
+  }
+
+  /** Generates code for the container class (not wrapped in a package yet)
+     @group Basic customization overrides */
+  def codeForContainer = {
+    "import slick.model.ForeignKeyAction\n" +
+      ( if(tables.exists(_.hlistEnabled)){
+            "import slick.collection.heterogeneous._\n"+
+              "import slick.collection.heterogeneous.syntax._\n"
+          } else ""
+        ) +
+      ( if(tables.exists(_.PlainSqlMapper.enabled)){
+            "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"+
+              "import slick.jdbc.{GetResult => GR}\n"
+          } else ""
+        ) +
+      codeForDDL
+  }
+
+  /**
+   * Generates code for the DDL statement.
+   * @group Basic customization overrides
+   */
+  def codeForDDL: String = {
     (if(ddlEnabled){
       "\n/** DDL for all tables. Call .create to execute. */" +
       (
@@ -38,9 +64,30 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")"+
       "\ndef ddl = schema" +
       "\n\n"
-    } else "") +
-    tables.map(_.code.mkString("\n")).mkString("\n\n")
+    } else "")
   }
+
+  /** Generates a map that associates the table name with its generated code (not wrapped in a package yet).
+   *  @group Basic customization overrides
+   */
+  def codePerTable: Map[String,String] = {
+    tables.map(table => {
+      val before="import slick.model.ForeignKeyAction\n" +
+        (if (table.hlistEnabled) {
+          "import slick.collection.heterogeneous._\n" +
+            "import slick.collection.heterogeneous.syntax._\n"
+        }
+        else "") +
+        (if (table.PlainSqlMapper.enabled) {
+          "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n" +
+            "import slick.jdbc.{GetResult => GR}\n"
+        }
+        else "")
+
+      (table.TableValue.name,table.code.mkString(before,"\n",""))
+    }).toMap
+  }
+
 
   protected def tuple(i: Int) = termName(s"_${i+1}")
 
@@ -81,7 +128,9 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
           (if(caseClassFinal) "final " else "") +
           s"""case class $name($args)$prns"""
         } else {
-          s"""
+          if(columns.size > 254)
+            s"type $name = $types" // constructor method would exceed JVM parameter limit
+          else s"""
 type $name = $types
 /** Constructor for $name providing default values if available in the database schema. */
 def $name($args): $name = {
