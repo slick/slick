@@ -146,7 +146,7 @@ data:
 An implicit conversion of ``TableQuery`` gives us an ``TableQueryExtensionMethods``
 object with profile-specific extension methods.
 
-One of the methods is the ``schema`` method which returns a
+One of the methods is called ``schema`` which returns a
 ``SchemaDescription`` object with the database-specific code for
 creating and dropping tables and other database entities.
 Multiple ``SchemaDescription`` values can be combined with ``++`` to
