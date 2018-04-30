@@ -117,8 +117,8 @@ Please see the [api documentation](codegenapi:slick.codegen.SourceCodeGenerator)
 on all of the methods that can be overridden for customization.
 
 Here is an example for customizing the generator. Noteworthy, the line `override def hugeClassEnabled = false` 
-prevents generation of case classes for tables with more than 22 columns. A `HList` based type
-will be generated instead. This was also the default behaviour before the advent of Slick 3.3.
+disables generation of case classes for tables with more than 22 columns. A `HList` based type
+will be generated instead. So this way you get back the default behavior before the advent of Slick 3.3.
 
 ```scala src=../code/CodeGenerator.scala#customization
 ```
