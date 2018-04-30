@@ -10,8 +10,7 @@ Overview
 --------
 By default, the code generator generates `Table` classes, corresponding `TableQuery` values, which
 can be used in a collection-like manner, as well as case classes for holding complete
-rows of values. For tables with more than 22 columns the generator automatically switches
-to Slick's experimental `HList` implementation for overcoming Scala's tuple size limit.
+rows of values. 
 
 Parts of the generator are also explained in our
 [talk at Scala eXchange 2013](http://slick.typesafe.com/docs/#20131203_patterns_for_slick_database_applications_at_scala_exchange_2013).
@@ -117,7 +116,9 @@ be accessed to drive the code generation.
 Please see the [api documentation](codegenapi:slick.codegen.SourceCodeGenerator) for info
 on all of the methods that can be overridden for customization.
 
-Here is an example for customizing the generator:
+Here is an example for customizing the generator. Noteworthy, the line `override def hugeClassEnabled = false` 
+prevents generation of case classes for tables with more than 22 columns. A `HList` based type
+will be generated instead. This was also the default behaviour before the advent of Slick 3.3.
 
 ```scala src=../code/CodeGenerator.scala#customization
 ```
