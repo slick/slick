@@ -9,24 +9,24 @@ import slick.sql.SqlProfile
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)
-                   extends AbstractGenerator[String,String,String](model)
-                   with StringGeneratorHelpers{
+  extends AbstractGenerator[String,String,String](model)
+    with StringGeneratorHelpers{
   /** Generates code for the complete model (not wrapped in a package yet)
       @group Basic customization overrides */
   def code = {
     "import slick.model.ForeignKeyAction\n" +
-    ( if(tables.exists(_.hlistEnabled)){
+      ( if(tables.exists(table => table.hlistEnabled  || table.isMappedToHugeClass)){
         "import slick.collection.heterogeneous._\n"+
-        "import slick.collection.heterogeneous.syntax._\n"
+          "import slick.collection.heterogeneous.syntax._\n"
       } else ""
-    ) +
-    ( if(tables.exists(_.PlainSqlMapper.enabled)){
+        ) +
+      ( if(tables.exists(_.PlainSqlMapper.enabled)){
         "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"+
-        "import slick.jdbc.{GetResult => GR}\n"
+          "import slick.jdbc.{GetResult => GR}\n"
       } else ""
-    ) +
-    codeForDDL +
-    tables.map(_.code.mkString("\n")).mkString("\n\n")
+        ) +
+      codeForDDL +
+      tables.map(_.code.mkString("\n")).mkString("\n\n")
   }
 
   /** Generates code for the container class (not wrapped in a package yet)
@@ -34,14 +34,14 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
   def codeForContainer = {
     "import slick.model.ForeignKeyAction\n" +
       ( if(tables.exists(_.hlistEnabled)){
-            "import slick.collection.heterogeneous._\n"+
-              "import slick.collection.heterogeneous.syntax._\n"
-          } else ""
+        "import slick.collection.heterogeneous._\n"+
+          "import slick.collection.heterogeneous.syntax._\n"
+      } else ""
         ) +
       ( if(tables.exists(_.PlainSqlMapper.enabled)){
-            "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"+
-              "import slick.jdbc.{GetResult => GR}\n"
-          } else ""
+        "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"+
+          "import slick.jdbc.{GetResult => GR}\n"
+      } else ""
         ) +
       codeForDDL
   }
@@ -60,7 +60,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
           "\nlazy val schema: profile.SchemaDescription = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ")
         else
           "\nlazy val schema: profile.SchemaDescription = profile.DDL(Nil, Nil)"
-      ) +
+        ) +
       "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")"+
       "\ndef ddl = schema" +
       "\n\n"
@@ -73,7 +73,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
   def codePerTable: Map[String,String] = {
     tables.map(table => {
       val before="import slick.model.ForeignKeyAction\n" +
-        (if (table.hlistEnabled) {
+        (if (table.hlistEnabled || table.isMappedToHugeClass) {
           "import slick.collection.heterogeneous._\n" +
             "import slick.collection.heterogeneous.syntax._\n"
         }
@@ -105,13 +105,13 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     }
 
     def compoundValue(values: Seq[String]): String = {
-      if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
+      if(hlistEnabled || isMappedToHugeClass) values.mkString(" :: ") + " :: HNil"
       else if (values.size == 1) values.head
       else if(values.size <= 22) s"""(${values.mkString(", ")})"""
       else throw new Exception("Cannot generate tuple for > 22 columns, please set hlistEnable=true or override compound.")
     }
 
-    def factory   = if(columns.size == 1) TableClass.elementType else s"${TableClass.elementType}.tupled"
+    def factory   = if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType else s"${TableClass.elementType}.tupled"
     def extractor = s"${TableClass.elementType}.unapply"
 
     trait EntityTypeDef extends super.EntityTypeDef{
@@ -126,7 +126,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         if(classEnabled){
           val prns = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
           (if(caseClassFinal) "final " else "") +
-          s"""case class $name($args)$prns"""
+            s"""case class $name($args)$prns"""
         } else {
           if(columns.size > 254)
             s"type $name = $types" // constructor method would exceed JVM parameter limit
@@ -143,19 +143,23 @@ def $name($args): $name = {
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
-        val positional = compoundValue(columnsPositional.map(c => (if(c.asOption || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
+        val types = columnsPositional.map(c => (if(c.asOption || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]"))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
-        val rearranged = compoundValue(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
         def result(args: String) = if(mappingEnabled) s"$factory($args)" else args
         val body =
           if(autoIncLast && columns.size > 1){
+            val rearranged = {
+              val r = desiredColumnOrder.map(i => if(hlistEnabled || isMappedToHugeClass) s"r($i)" else tuple(i))
+              if (isMappedToHugeClass) r.mkString(", ") else compoundValue(r)
+            }
             s"""
-val r = $positional
+val r = ${compoundValue(types)}
 import r._
 ${result(rearranged)} // putting AutoInc last
             """.trim
           } else
-           result(positional)
+            result(if (isMappedToHugeClass) types.mkString(", ") else compoundValue(types))
+
         s"""
 implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR{
   prs => import prs._
@@ -168,23 +172,29 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
     trait TableClassDef extends super.TableClassDef{
       def star = {
         val struct = compoundValue(columns.map(c=>if(c.asOption)s"Rep.Some(${c.name})" else s"${c.name}"))
-        val rhs = if(mappingEnabled) s"$struct <> ($factory, $extractor)" else struct
+        val rhs = if (isMappedToHugeClass) s"($struct).mapTo[${typeName(entityName(model.name.table))}]" else if(mappingEnabled) s"$struct <> ($factory, $extractor)" else struct
         s"def * = $rhs"
       }
       def option = {
         val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"Rep.Some(${c.name})"))
-        val rhs = if(mappingEnabled) s"""$struct.shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
+        val rhs = if(mappingEnabled) s"""($struct).shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
         s"def ? = $rhs"
       }
       def optionFactory = {
         val accessors = columns.zipWithIndex.map{ case(c,i) =>
-          val accessor = if(columns.size > 1) tuple(i) else "r"
+          val accessor = if (isMappedToHugeClass) {
+            s"r($i).asInstanceOf[${optionType(c.rawType)}]"
+          } else if(columns.size > 1) tuple(i) else "r"
           if(c.asOption || c.model.nullable) accessor else s"$accessor.get"
         }
-        val fac = s"$factory(${compoundValue(accessors)})"
-        val discriminator = columns.zipWithIndex.collect{ case (c,i) if !c.model.nullable => if(columns.size > 1) tuple(i) else "r" }.headOption
-        val expr = discriminator.map(d => s"$d.map(_=> $fac)").getOrElse(s"None")
-        if(columns.size > 1)
+        val expr = if (isMappedToHugeClass)
+          s"$factory(" + accessors.mkString(", ") + ")"
+        else {
+          val fac = s"$factory(${compoundValue(accessors)})"
+          val discriminator = columns.zipWithIndex.collect{ case (c,i) if !c.model.nullable => if(columns.size > 1 && !isMappedToHugeClass) tuple(i) else "r" }.headOption
+          discriminator.map(d => s"$d.map(_=> $fac)").getOrElse(s"None")
+        }
+        if(columns.size > 1 && !isMappedToHugeClass)
           s"{r=>import r._; $expr}"
         else
           s"r => $expr"
@@ -232,7 +242,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
         case v:Short   => s"$v"
         case v:Char   => s"'$v'"
         case v:BigDecimal => s"""scala.math.BigDecimal(\"$v\")"""
-	case v: java.sql.Timestamp => s"""java.sql.Timestamp.valueOf("${v}")"""
+        case v: java.sql.Timestamp => s"""java.sql.Timestamp.valueOf("${v}")"""
         case v => throw new SlickException( s"Dont' know how to generate code for default value $v of ${v.getClass}. Override def defaultCode to render the value." )
       }
       // Explicit type to allow overloading existing Slick method names.
