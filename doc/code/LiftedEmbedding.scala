@@ -201,7 +201,7 @@ object LiftedEmbedding extends App {
       // building criteria using a "dynamic filter" e.g. from a webform.
       val criteriaColombian = Option("Colombian")
       val criteriaEspresso = Option("Espresso")
-      val criteriaRoast:Option[String] = None
+      val criteriaRoast: Option[String] = None
 
       val q4 = coffees.filter { coffee =>
         List(
@@ -215,11 +215,37 @@ object LiftedEmbedding extends App {
       //     from "COFFEES"
       //     where ("COF_NAME" = 'Colombian' or "COF_NAME" = 'Espresso')
 
+      // Conditional filtering with option e.g. from a webform.
+      val optionFromPrice = Option(20.0)
+      val optionToPrice: Option[Double]  = None
+
+      val q5 = coffees
+        .filterOpt(optionFromPrice)(_.price > _)
+        .filterOpt(optionToPrice)(_.price < _) // won't be added as a condition as `optionToPrice` evaluates to `None`
+      // compiles to SQL (simplified):
+      //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
+      //     from "COFFEES"
+      //     where "PRICE" > 20.0
+
+      // Conditional filtering with boolean e.g. from a webform.
+      val isRoast = true
+      val isEspresso = false
+
+      val q6 = coffees
+        .filterIf(isRoast)(_.price > 11.0)
+        .filterIf(isEspresso)(_.price > 11.0) // won't be added as a condition as `isEspresso` evaluates to `false`
+      // compiles to SQL (simplified):
+      //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
+      //     from "COFFEES"
+      //     where "PRICE" > 11.0
+
       //#filtering
       println(q1.result.statements.head)
       println(q2.result.statements.head)
       println(q3.result.statements.head)
       println(q4.result.statements.head)
+      println(q5.result.statements.head)
+      println(q6.result.statements.head)
     }
 
     ;{
