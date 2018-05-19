@@ -115,6 +115,8 @@ trait PostgresProfile extends JdbcProfile {
           Some(None)
         } else d
       }
+      override def varying: Boolean =
+        dbType.contains("citext") || super.varying
       override def length: Option[Int] = {
         val l = super.length
         if(tpe == "String" && varying && l == Some(2147483647)) None
@@ -124,6 +126,7 @@ trait PostgresProfile extends JdbcProfile {
         case "bytea" => "Array[Byte]"
         case "lo" if meta.sqlType == java.sql.Types.DISTINCT => "java.sql.Blob"
         case "uuid" => "java.util.UUID"
+        case "citext" => "String"
         case _ => super.tpe
       }
     }
