@@ -5,6 +5,7 @@ import java.time._
 import java.sql.{Date, PreparedStatement, ResultSet, Time, Timestamp}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
+import java.util.UUID
 
 import scala.reflect.{ClassTag, classTag}
 import com.typesafe.config.Config
@@ -271,6 +272,7 @@ trait SQLServerProfile extends JdbcProfile {
     override val offsetDateTimeType = new OffsetDateTimeJdbcType
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UNIQUEIDENTIFIER"
+      override def valueToSQLLiteral(uuid: UUID) = s"'${uuid.toString}'"
     }
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
@@ -333,7 +335,7 @@ trait SQLServerProfile extends JdbcProfile {
     }
     class TimestampJdbcType extends super.TimestampJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
-      override def valueToSQLLiteral(value: Timestamp) = "(convert(datetime, {ts '" + value + "'}))"
+      override def valueToSQLLiteral(value: Timestamp) = s"'$value'"
     }
     class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
       private[this] val formatter : DateTimeFormatter = {
