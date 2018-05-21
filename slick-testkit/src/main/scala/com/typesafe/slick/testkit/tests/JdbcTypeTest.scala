@@ -124,11 +124,12 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     val rows = (1 to testValuesSize).map(i => (i, Some(dataCreateFn())))
     val updateValue = dataCreateFn()
     val insertValue = dataCreateFn()
+    val defaultValue = dataCreateFn()
 
     val tableName = "Data_" + values.headOption.getOrElse(dataCreateFn()).getClass.getSimpleName
     class DataTable(tag: Tag) extends Table[(Int, Option[T])](tag, tableName) {
       def id = column[Int]("ID", O.PrimaryKey)
-      def data = column[Option[T]]("DATA")
+      def data = column[Option[T]]("DATA", O Default Some(defaultValue))
       def * = (id, data)
     }
     val dateTable = TableQuery[DataTable]
@@ -157,6 +158,12 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       db.run(seq(
         dateTable += (values.size + 1, None),
         dateTable.filter(_.id === values.size + 1).map(_.data).result.head.map(_ shouldBe None)
+      ))
+    }.flatMap { _ =>
+      // filter on a LiteralColumn value
+      db.run(seq(
+        dateTable += (values.size + 2, Some(defaultValue)),
+        dateTable.filter(_.data === LiteralColumn(defaultValue)).map(_.data).result.head.map(_ shouldBe Some(defaultValue))
       ))
     }.flatMap { _ =>
       ifCapF(jcap.mutable) {
@@ -293,7 +300,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       () => randomLocalDateTime().toLocalTime
     )
 
-  def testInstant = 
+  def testInstant =
     roundTrip[Instant](
       List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
         Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
@@ -303,8 +310,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     )
 
   private def randomZoneOffset = {
-    // offset could be +-18 in java.time context, but postgres is stricter
-    val hours = random.nextInt(26)-13
+    // offset could be +-18 in java.time context, but postgres and oracle are stricter
+    val hours = random.nextInt(25)-12
     val mins = math.signum(hours) * random.nextInt(2) * 30
     ZoneOffset.ofHoursMinutes(hours, mins)
   }

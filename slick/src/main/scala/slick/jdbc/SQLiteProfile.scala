@@ -1,7 +1,9 @@
 package slick.jdbc
 
-import java.sql.{Timestamp, Time, Date}
-import java.time.{LocalDate, LocalDateTime, Instant}
+import java.sql.{Date, Time, Timestamp}
+import java.time.{Instant, LocalDate, LocalDateTime}
+import java.util.UUID
+
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 
@@ -12,7 +14,7 @@ import slick.dbio._
 import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.compiler.CompilerState
-import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
+import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 
 /** Slick profile for SQLite.
   *
@@ -309,6 +311,8 @@ trait SQLiteProfile extends JdbcProfile {
     }
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB
+      override def valueToSQLLiteral(value: UUID): String =
+        "x'" + value.toString.replace("-", "") + "'"
     }
   }
 }

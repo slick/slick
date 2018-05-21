@@ -447,7 +447,7 @@ END;
 
     // No Oracle time type without date component. Add LocalDate.ofEpochDay(0), but ignore it.
     class OffsetTimeJdbcType extends super.OffsetTimeJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
       private[this] def serializeTime(v : OffsetTime) : String = formatter.format(v.atDate(LocalDate.ofEpochDay(0)))
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
       override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
@@ -461,12 +461,12 @@ END;
       }
       override def hasLiteralForm: Boolean = true
       override def valueToSQLLiteral(value: OffsetTime) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')"
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')"
       }
     }
 
     class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
       private[this] def serializeTime(v : OffsetDateTime) : String = formatter.format(v)
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
       override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) = {
@@ -480,7 +480,7 @@ END;
       }
       override def hasLiteralForm: Boolean = true
       override def valueToSQLLiteral(value: OffsetDateTime) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')"
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')"
       }
     }
 

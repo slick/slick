@@ -5,12 +5,13 @@ import java.sql.{PreparedStatement, ResultSet, Types}
 import java.time._
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
+import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.ast._
 import slick.basic.Capability
-import slick.compiler.{Phase, CompilerState}
+import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
@@ -128,8 +129,8 @@ trait HsqldbProfile extends JdbcProfile {
     }
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
-
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
+      override def valueToSQLLiteral(value: UUID) = s"x'${value.toString.replace("-", "")}'"
     }
     override val localTimeType = new LocalTimeJdbcType {
       override def sqlType = java.sql.Types.TIME
@@ -228,6 +229,9 @@ trait HsqldbProfile extends JdbcProfile {
                 normalizedIsoString, timeFormatter)
         }
       }
+
+      override def valueToSQLLiteral(v: OffsetTime): String =
+        s"'${offsetConvertISOToHsqldb(v.format(timeFormatter))}'"
     }
 
     class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
@@ -256,6 +260,9 @@ trait HsqldbProfile extends JdbcProfile {
             OffsetDateTime.parse(normalizedIsoString,datetimeFormatter)
         }
       }
+
+      override def valueToSQLLiteral(v: OffsetDateTime): String =
+        s"'${offsetConvertISOToHsqldb(v.format(datetimeFormatter))}'"
     }
     class InstantJdbcType extends super.InstantJdbcType with HsqldbTimeJdbcTypeWithOffset {
       override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE

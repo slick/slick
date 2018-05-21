@@ -1,9 +1,10 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneOffset, OffsetTime}
+import java.time.{Instant, LocalDateTime, OffsetDateTime, OffsetTime, ZoneOffset}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
+import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 import slick.ast._
@@ -193,8 +194,11 @@ trait DB2Profile extends JdbcProfile {
     override val instantType = new InstantJdbcType
 
     class UUIDJdbcType extends super.UUIDJdbcType {
-      override def sqlType = java.sql.Types.CHAR
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
+      override def hasLiteralForm = true
+      override def valueToSQLLiteral(value: UUID): String =
+        "x'" + value.toString.replace("-", "") + "'"
+      override def sqlType = java.sql.Types.VARBINARY
     }
 
     /* DB2 does not have a proper BOOLEAN type. The suggested workaround is

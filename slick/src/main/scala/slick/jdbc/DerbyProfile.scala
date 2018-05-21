@@ -2,6 +2,7 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet, Timestamp}
 import java.time.Instant
+import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 import slick.SlickException
@@ -275,6 +276,8 @@ trait DerbyProfile extends JdbcProfile {
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
+      override def valueToSQLLiteral(value: UUID): String =
+        "x'" + value.toString.replace("-", "") + "'"
     }
 
     class InstantJdbcType extends super.InstantJdbcType {
