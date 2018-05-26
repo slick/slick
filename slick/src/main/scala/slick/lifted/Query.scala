@@ -54,13 +54,13 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def filterNot[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
     filterHelper(f, node => Library.Not.typed(node.nodeType, node) )
 
-  /** Applies the given predicate, if the optional value is present,
-    * if the value is not present, the predicate will not be part of the query. */
+  /** Applies the given filter, if the Option value is defined.
+    * If the value is None, the filter will not be part of the query. */
   def filterOpt[V, T <: Rep[_] : CanBeQueryCondition](optValue: Option[V])(f: (E, V) => T): Query[E, U, C] =
     optValue.map(v => withFilter(a => f(a, v))).getOrElse(this)
 
-  /** Applies the given predicate, if the given boolean parameter evaluates to true,
-    * if the value is not present, the predicate will not be part of the query. */
+  /** Applies the given filter function, if the boolean parameter `p` evaluates to true. 
+    * If not, the filter will not be part of the query. */
   def filterIf(p: Boolean)(f: E => Rep[Boolean]): Query[E, U, C] =
     if (p) withFilter(f) else this
 
