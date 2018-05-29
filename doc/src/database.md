@@ -12,7 +12,16 @@ Using Typesafe Config
 The preferred way to configure database connections is through [Typesafe Config] in your
 `application.conf`, which is also used by [Play] and [Akka] for their configuration.
 
-For Postgres: 
+Such a configuration can be loaded with `Database.forConfig` (see the
+[API documentation](api:slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver,ClassLoader):Database)
+of this method for details on the configuration parameters).
+
+```scala src=../code/Connection.scala#forConfig
+```
+
+#### Examples
+
+##### PostgreSQL
 ```yaml src=../code/application.conf#postgres
 ```
 
@@ -27,11 +36,17 @@ libraryDependencies ++= Seq(
 )
 ``` 
 
-Such a configuration can be loaded with `Database.forConfig` (see the
-[API documentation](api:slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver,ClassLoader):Database)
-of this method for details on the configuration parameters).
+##### MySQL
 
-```scala src=../code/Connection.scala#forConfig
+Very simple example without a connection pool and using the driver directly:
+
+```yaml src=../code/application.conf#mysql
+```
+
+To use the MySQL driver, the following library dependency needs to be configured via SBT:
+
+```scala expandVars=true
+libraryDependencies += "mysql" % "mysql-connector-java" % "6.0.6"
 ```
 
 Using a JDBC URL {index=URL}
