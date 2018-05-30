@@ -344,6 +344,7 @@ trait BasicBackend { self =>
                   if(state eq null) { // streaming finished and cleaned up
                     releaseSession(ctx, true)
                     if (!ctx.isPinned) connectionReleased = true
+                    ctx.sync = 0
                     ctx.streamingResultPromise.trySuccess(null)
                   }
 
@@ -351,6 +352,7 @@ trait BasicBackend { self =>
                   if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
                   releaseSession(ctx, true)
                   if (!ctx.isPinned) connectionReleased = true
+                  ctx.sync = 0
                   throw ex
 
                 } finally {
@@ -375,8 +377,6 @@ trait BasicBackend { self =>
 
             } catch {
               case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex)
-            } finally {
-              ctx.sync = 0
             }
         })
       } catch { case NonFatal(ex) =>
