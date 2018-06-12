@@ -140,7 +140,7 @@ trait PostgresProfile extends JdbcProfile {
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
-    MTable.getTables(None, None, None, Some(Seq("TABLE")))
+    MTable.getTables(None, None, Some("%"), Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override protected def computeQueryCompiler = super.computeQueryCompiler - Phase.rewriteDistinct

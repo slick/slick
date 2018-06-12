@@ -14,6 +14,7 @@ import slick.ast.TypeUtil._
 import slick.basic.Capability
 import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
 import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
+import slick.dbio.DBIO
 import slick.lifted._
 import slick.relational.{RelationalProfile, RelationalCapabilities}
 import slick.sql.SqlCapabilities
@@ -124,6 +125,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] ={
+    for {
+      catalog <- SimpleJdbcAction(_.session.conn.getCatalog)
+      mtables <- MTable.getTables(Some(catalog), None, Some("%"), Some(Seq("TABLE")))
+    } yield mtables
+  }
 
   override val columnTypes = new JdbcTypes
   override protected def computeQueryCompiler = super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering

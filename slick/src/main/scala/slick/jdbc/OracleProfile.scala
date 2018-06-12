@@ -99,7 +99,7 @@ trait OracleProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     for {
       user <- SimpleJdbcAction(_.session.metaData.getUserName)
-      mtables <- MTable.getTables(None, Some(user), None, Some(Seq("TABLE")))
+      mtables <- MTable.getTables(None, Some(user), Some("%"), Some(Seq("TABLE")))
     } yield mtables
   }
 
