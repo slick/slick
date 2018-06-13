@@ -349,7 +349,6 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     "America/Argentina/Cordoba",
     "America/Argentina/Salta",
     "Etc/GMT+7",
-    "Europe/Kaliningrad",
     "Antarctica/Davis",
     "Mexico/BajaSur",
     "Australia/ACT",
