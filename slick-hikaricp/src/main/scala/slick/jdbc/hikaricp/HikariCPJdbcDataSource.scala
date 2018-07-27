@@ -68,9 +68,9 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
       // https://github.com/brettwooldridge/HikariCP#infrequently-used
       // But for backwards compatibility we check for it if initializationFailTimeout is missing
       c.getBooleanOpt("initializationFailFast").map { failFast =>
-        if (failFast) 1
-        else 0
-      }.getOrElse(-1)
+        if (failFast) 1L
+        else 0L
+      }.getOrElse(-1L)
     }))
 
     c.getBooleanOpt("isolateInternalQueries").foreach(hconf.setIsolateInternalQueries)
