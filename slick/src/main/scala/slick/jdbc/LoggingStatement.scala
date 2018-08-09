@@ -16,6 +16,7 @@ class LoggingStatement(st: Statement) extends Statement {
   private[this] val doStatement = JdbcBackend.statementLogger.isDebugEnabled
   private[this] val doBenchmark = JdbcBackend.benchmarkLogger.isDebugEnabled
   private[this] val doParameter = JdbcBackend.parameterLogger.isDebugEnabled
+  private[this] val doStatementAndParameter = JdbcBackend.statementAndParameterLogger.isDebugEnabled
 
   private[this] var params: ArrayBuffer[(Any, Any)] = null
   private[this] var paramss: ArrayBuffer[ArrayBuffer[(Any, Any)]] = null
@@ -45,6 +46,7 @@ class LoggingStatement(st: Statement) extends Statement {
 
   protected[this] def logged[T](sql: String, what: String = "statement")(f: =>T) = {
     if(doStatement && (sql ne null)) JdbcBackend.statementLogger.debug("Executing "+what+": "+sql)
+    if(doStatementAndParameter && (sql ne null)) JdbcBackend.statementAndParameterLogger.debug("Executing "+what+": "+sql)
     if(doParameter && (paramss ne null) && paramss.nonEmpty) {
       // like s.groupBy but only group adjacent elements and keep the ordering
       def groupBy[T](s: TraversableOnce[T])(f: T => AnyRef): IndexedSeq[IndexedSeq[T]] = {
@@ -96,6 +98,7 @@ class LoggingStatement(st: Statement) extends Statement {
 
   def addBatch(sql: String) = {
     if(doStatement) JdbcBackend.statementLogger.debug("Adding to batch: "+sql)
+    if(doStatementAndParameter) JdbcBackend.statementAndParameterLogger.debug("Adding to batch: "+sql)
     st.addBatch(sql)
   }
   def execute(sql: String, columnNames: Array[String]): Boolean = logged(sql) { st.execute(sql, columnNames) }
@@ -150,9 +153,24 @@ class LoggingStatement(st: Statement) extends Statement {
   * to the appropriate [[JdbcBackend]] loggers. */
 class LoggingPreparedStatement(st: PreparedStatement) extends LoggingStatement(st) with PreparedStatement {
 
-  def execute(): Boolean = { pushParams; logged(null, "prepared statement") { st.execute() } }
+  def execute(): Boolean = {
+    pushParams
+    if (JdbcBackend.statementAndParameterLogger.isDebugEnabled) {
+      logged(st.toString, "prepared statement") { st.execute() }
+    } else {
+      logged(null, "prepared statement") { st.execute() }
+    }
+  }
   def executeQuery(): js.ResultSet = { pushParams; logged(null, "prepared query") { st.executeQuery() } }
-  def executeUpdate(): Int = { pushParams; logged(null, "prepared update") { st.executeUpdate() } }
+
+  def executeUpdate(): Int = {
+    pushParams
+    if (JdbcBackend.statementAndParameterLogger.isDebugEnabled) {
+      logged(st.toString, "prepared update") { st.executeUpdate() }
+    } else {
+      logged(null, "prepared update") { st.executeUpdate() }
+    }
+  }
 
   def addBatch(): Unit = { pushParams; st.addBatch() }
   def clearParameters(): Unit = { clearParamss; st.clearParameters() }

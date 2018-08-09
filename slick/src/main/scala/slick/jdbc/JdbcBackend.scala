@@ -471,11 +471,13 @@ trait JdbcBackend extends RelationalBackend {
     }
 
     protected def loggingStatement(st: Statement): Statement =
-      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled)
+      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled ||
+        JdbcBackend.statementAndParameterLogger.isDebugEnabled)
         new LoggingStatement(st) else st
 
     protected def loggingPreparedStatement(st: PreparedStatement): PreparedStatement =
-      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled || JdbcBackend.parameterLogger.isDebugEnabled)
+      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled ||
+        JdbcBackend.parameterLogger.isDebugEnabled || JdbcBackend.statementAndParameterLogger.isDebugEnabled)
         new LoggingPreparedStatement(st) else st
 
     /** Start a `transactionally` block */
@@ -575,6 +577,7 @@ object JdbcBackend extends JdbcBackend {
   protected[jdbc] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
   protected[jdbc] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))
   protected[jdbc] lazy val parameterLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".parameter"))
+  protected[jdbc] lazy val statementAndParameterLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statementAndParameter"))
 
   protected[jdbc] def logStatement(msg: String, stmt: String) = if(statementLogger.isDebugEnabled) {
     val s = if(GlobalConfig.sqlIndent) msg + ":\n" + LogUtil.multilineBorder(stmt) else msg + ": " + stmt
