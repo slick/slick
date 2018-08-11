@@ -95,12 +95,24 @@ trait SQLiteProfile extends JdbcProfile {
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
-      /** Regex matcher to extract name and length out of a db type name with length ascription */
-      final val TypePattern = "^([A-Z\\s]+)(\\(([0-9]+)\\))?$".r
-      private val (_dbType,_size) = meta.typeName match {
-        case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
-        case "" => ("TEXT", None)
+      /** Regex matcher 
+        * to extract name and length 
+        * out of a db type name with length ascription 
+        */
+      def extractTypeProps( 
+        s: String = "NUMERIC(18,2)"
+      , pattern: scala.util.matching.Regex = "^([A-Z\\s]+)(\\(([0-9]+),?([0-9]+)?\\))?$".r
+      ): ( String, Option[ Int ] ) = s match {
+        case pattern( 
+          name, numericProps, precision, scale 
+        ) => ( name, Option( precision ).map( _.toInt ) )
+        case "" => ( "TEXT", None )
       }
+      private 
+      val ( _dbType, _size ) = extractTypeProps( 
+        s = meta.typeName
+      , pattern = "^([A-Z\\s]+)(\\(\\s?([0-9]+)\\s?,?\\s?([0-9]+)?\\s?\\))?$".r 
+      )  
       override def dbType = Some(_dbType)
       override def length = _size
       override def varying = dbType == Some("VARCHAR")
