@@ -90,7 +90,7 @@ object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
         case Some(dsClass) =>
           val propsO = c.getPropertiesOpt("properties")
           try {
-            val ds = Class.forName(dsClass).newInstance.asInstanceOf[DataSource]
+            val ds = Class.forName(dsClass).getConstructor().newInstance().asInstanceOf[DataSource]
             propsO.foreach(BeanConfigurator.configure(ds, _))
             val maxConnections = c.getIntOpt("maxConnections")
             (ds, maxConnections)
