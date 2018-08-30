@@ -30,6 +30,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
 
   final def << [T](implicit f: GetResult[T]): T = f(this)
   final def <<? [T](implicit f: GetResult[Option[T]]): Option[T] = if(hasMoreColumns) this.<< else None
+  final def <<?! [T](implicit f: GetResult[T]): Option[T] = if(hasMoreColumns) { val r = this.<<(f); if(wasNull()) None else Some(r) } else None
 
   final def nextBoolean()    = { val npos = pos + 1; val r = rs getBoolean    npos; pos = npos; r }
   final def nextBigDecimal() = { val npos = pos + 1; val r = rs getBigDecimal npos; pos = npos; if(r eq null) null else BigDecimal(r) }
