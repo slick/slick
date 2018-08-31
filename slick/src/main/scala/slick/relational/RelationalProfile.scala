@@ -7,7 +7,7 @@ import slick.dbio._
 import slick.lifted.FunctionSymbolExtensionMethods._
 import slick.lifted._
 
-import scala.language.{existentials, higherKinds, implicitConversions}
+import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.ClassTag
 
 /** A profile for relational databases that does not assume the existence
@@ -245,8 +245,14 @@ trait RelationalActionComponent extends BasicActionComponent { self: RelationalP
     /** Create an Action that creates the entities described by this schema description. */
     def create: ProfileAction[Unit, NoStream, Effect.Schema]
 
+    /** Create an Action that creates the entities described by this schema description if the entities do not exist. */
+    def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema]
+
     /** Create an Action that drops the entities described by this schema description. */
     def drop: ProfileAction[Unit, NoStream, Effect.Schema]
+
+    /** Create an Action that drops the entities described by this schema description only if the entities exist. */
+    def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema]
 
     /** Create an Action that truncates entries described by this schema description */
     def truncate: ProfileAction[Unit, NoStream, Effect.Schema]

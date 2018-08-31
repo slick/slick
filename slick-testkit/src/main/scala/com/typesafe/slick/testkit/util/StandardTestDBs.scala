@@ -1,18 +1,16 @@
 package com.typesafe.slick.testkit.util
 
-import java.io.File
 import java.util.logging.{Level, Logger}
-import java.sql.SQLException
+import java.sql.{DriverManager, SQLException}
+
 import slick.compiler.Phase
 import slick.dbio._
-import slick.driver.JdbcProfile
 import slick.memory.MemoryProfile
 import slick.jdbc._
 import slick.jdbc.GetResult._
 import slick.jdbc.meta.MTable
 import org.junit.Assert
 import slick.util.ConfigExtensionMethods._
-
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
@@ -81,6 +79,7 @@ object StandardTestDBs {
     val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
+      super.cleanUpBefore()
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
       try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
       catch { case e: SQLException => }
@@ -91,6 +90,7 @@ object StandardTestDBs {
     val dbName = "derby-"+confName
     val url = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
+      super.cleanUpBefore()
       val dropUrl = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";shutdown=true"
       try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
       catch { case e: SQLException => }
@@ -125,7 +125,7 @@ object StandardTestDBs {
     val profile: Profile = MemoryProfile
     val confName: String = "heap"
     def createDB: profile.Backend#Database = profile.backend.Database(ExecutionContext.global)
-    def dropUserArtifacts(implicit session: profile.Backend#Session) {
+    def dropUserArtifacts(implicit session: profile.Backend#Session): Unit = {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))
     }
@@ -171,9 +171,6 @@ object StandardTestDBs {
       } yield ()))
     }
 
-    override def cleanUpAfter(): Unit =
-      await(databaseFor("adminConn").run(dropSchema))
-
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
       session.close()
       cleanUpBefore()
@@ -212,6 +209,9 @@ object StandardTestDBs {
   lazy val SQLServer2014JTDS = new SQLServerDB("sqlserver2014-jtds") {
     override def capabilities = super.capabilities - TestDB.capabilities.plainSql
   }
+  lazy val SQLServer2017JTDS = new SQLServerDB("sqlserver2017-jtds") {
+    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
+  }
   lazy val SQLServerSQLJDBC = new SQLServerDB("sqlserver-sqljdbc") {
     override def capabilities = profile.capabilities - JdbcCapabilities.createModel
   }
@@ -219,6 +219,9 @@ object StandardTestDBs {
     override def capabilities = profile.capabilities - JdbcCapabilities.createModel
   }
   lazy val SQLServer2014SQLJDBC = new SQLServerDB("sqlserver2014-sqljdbc") {
+    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
+  }
+  lazy val SQLServer2017SQLJDBC = new SQLServerDB("sqlserver2017-sqljdbc") {
     override def capabilities = profile.capabilities - JdbcCapabilities.createModel
   }
 
@@ -282,8 +285,13 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
   val profile = DerbyProfile
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
+  override def cleanUpBefore() = {
+    // The default seems to be 1s, and the CI environments can be a bit slow. So, set a conservative timeout, so
+    // tests don't fail intermittently
+    DriverManager.setLoginTimeout(30)
+  }
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-    ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "APP", null, null)).map { ts =>
+    ResultSetAction[(String, String, String, String)](_.conn.getMetaData().getTables(null, "APP", null, null)).map { ts =>
       ts.map(_._3).sorted
     }
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = try {
@@ -311,7 +319,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
 }
 
 object DerbyDB {
-  val DEV_NULL = new java.io.OutputStream { def write(b: Int) {} };
+  val DEV_NULL = new java.io.OutputStream { def write(b: Int): Unit = {} };
 }
 
 abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {

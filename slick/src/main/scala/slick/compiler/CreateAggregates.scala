@@ -4,7 +4,7 @@ import slick.ast.Library.AggregateFunctionSymbol
 import slick.ast.TypeUtil._
 import slick.ast.Util._
 import slick.ast._
-import slick.util.{ConstArray, Ellipsis, ??}
+import slick.util.ConstArray
 
 /** Rewrite aggregation function calls to Aggregate nodes. */
 class CreateAggregates extends Phase {
@@ -62,7 +62,7 @@ class CreateAggregates extends Phase {
 
   /** Recursively inline mapping Bind calls under an Aggregate */
   def inlineMap(a: Aggregate): Aggregate = a.from match {
-    case Bind(s1, f1, Pure(StructNode(defs1), ts1)) =>
+    case Bind(s1, f1, Pure(StructNode(defs1), ts1)) if !f1.isInstanceOf[GroupBy] => // mergeToComprehensions always needs a Bind around a GroupBy
       logger.debug("Inlining mapping Bind under Aggregate", a)
       val defs1M = defs1.iterator.toMap
       val sel = a.select.replace({

@@ -4,8 +4,10 @@
 # The password in the Oracle image can expire. When this happens, you need to remove the cached image, so
 # docker can create a new one: docker stop oracleslick && docker rm oracleslick: then re-run this script
 
+set -x
+
 if [ $# -eq 0 ]; then
-  echo "Need to specify container to start. One or both of oracle, db2"
+  echo "Need to specify container to start. Any combintation of oracle, db2, sqlserver"
   exit 1
 fi
 
@@ -15,6 +17,8 @@ while [ $# -ge 1 ]
 do
   if [ "${1}" = "oracle" ]; then
     CONTAINER_NAMES="${CONTAINER_NAMES} oracleslick"
+  elif [ "${1}" = "sqlserver" ]; then
+    CONTAINER_NAMES="${CONTAINER_NAMES} mssqlslicktest"
   elif [ "${1}" = "db2" ]; then
     CONTAINER_NAMES="${CONTAINER_NAMES} db2slick"
     DB2NAME=SLICKTST
@@ -43,6 +47,8 @@ do
     if [ $? -eq 1 ]; then
       if [ "${CONTAINER_NAME}" = "oracleslick" ]; then
 	RESULT=$(docker run -d -p 49160:22 -p 49161:1521 --name ${CONTAINER_NAME} wnameless/oracle-xe-11g && echo -e "\n${SUCCESS_TOKEN}")
+      elif [ "${CONTAINER_NAME}" = "mssqlslicktest" ]; then
+	RESULT=$(docker run -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD=Freeslick18' -p 1401:1433 --name mssqlslicktest -d microsoft/mssql-server-linux:2017-latest && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "db2slick" ]; then
 	RESULT=$(docker run -d -p 50000:50000 --name ${CONTAINER_NAME} -e DB2INST1_PASSWORD=db2inst1-pwd -e LICENSE=accept  ibmcom/db2express-c:latest "db2start" &&
 	# Extract non-free db2 jdbc driver jar

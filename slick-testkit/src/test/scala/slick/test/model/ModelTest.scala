@@ -1,13 +1,12 @@
 package slick.test.model
 
 import org.junit.Test
-import org.junit.Assert._
 import slick.model._
 
 /** Test case for the SQL schema support in table definitions */
 class ModelTest {
 
-  @Test def testConsistencyCheck {
+  @Test def testConsistencyCheck: Unit = {
     Model(Seq()).assertConsistency
 
     val A = QualifiedName("A")

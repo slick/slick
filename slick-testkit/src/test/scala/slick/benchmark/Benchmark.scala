@@ -5,7 +5,7 @@ import slick.jdbc.H2Profile.api._
 object Benchmark {
   val COUNT = 2000
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     for(i <- 0 to COUNT) test1(i == 0)
     val t0 = System.nanoTime()
     for(i <- 0 to COUNT) test1(false)
@@ -29,7 +29,7 @@ object Benchmark {
   }
   val orders = TableQuery[Orders]
 
-  def test1(print: Boolean) {
+  def test1(print: Boolean): Unit = {
     val q1 = for(u <- users) yield u
     val q2 = for {
       u <- users

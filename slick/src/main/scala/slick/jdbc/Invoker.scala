@@ -2,7 +2,6 @@ package slick.jdbc
 
 import scala.language.higherKinds
 import scala.annotation.unchecked.{uncheckedVariance => uV}
-import scala.collection.immutable.Map
 import scala.collection.generic.CanBuildFrom
 import slick.util.CloseableIterator
 
@@ -44,7 +43,7 @@ trait Invoker[+R] { self =>
 
   /** Execute the statement and call f for each converted row of the result set.
    * @param maxRows Maximum number of rows to read from the result (0 for unlimited). */
-  final def foreach(f: R => Unit, maxRows: Int = 0)(implicit session: JdbcBackend#Session) {
+  final def foreach(f: R => Unit, maxRows: Int = 0)(implicit session: JdbcBackend#Session): Unit = {
     val it = iteratorTo(maxRows)
     try { it.foreach(f) } finally { it.close() }
   }
@@ -55,7 +54,7 @@ trait ResultSetMutator[T] {
     * the end of the result set. */
   def row: T
   /** Update the current row. */
-  def row_=(value: T)
+  def row_=(value: T): Unit
   /** Insert a new row. */
   def += (value: T): Unit
   /** Insert multiple new rows. */

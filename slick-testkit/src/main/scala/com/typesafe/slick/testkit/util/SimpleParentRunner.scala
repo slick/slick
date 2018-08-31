@@ -52,14 +52,14 @@ abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Fi
     desc
   }
 
-  def run(notifier: RunNotifier) {
+  def run(notifier: RunNotifier): Unit = {
     try runChildren(notifier) catch {
       case e: StoppedByUserException => throw e
       case e: Throwable => addFailure(e, notifier, getDescription)
     }
   }
 
-  final def filter(filter: Filter) {
+  final def filter(filter: Filter): Unit = {
     children = children.filter { ch =>
       if(!filter.shouldRun(describeChild(ch))) false
       else try { filter.apply(ch); true } catch { case _: NoTestsRemainException => false }
@@ -67,7 +67,7 @@ abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Fi
     if(children.isEmpty) throw new NoTestsRemainException
   }
 
-  final def sort(sorter: Sorter) {
+  final def sort(sorter: Sorter): Unit = {
     children.foreach(sorter.apply _)
     children = children.sorted(new Ordering[T] {
       def compare(o1: T, o2: T): Int = sorter.compare(describeChild(o1), describeChild(o2))

@@ -36,7 +36,7 @@ private[util] final class InternalArrayQueue[E >: Null <: AnyRef](capacity: Int)
     }
   }
 
-  private[this] def removeAt(_i: Int) {
+  private[this] def removeAt(_i: Int): Unit = {
     var i = _i
     val items = this.items
     if (i == takeIndex) {
@@ -91,7 +91,7 @@ private[util] final class InternalArrayQueue[E >: Null <: AnyRef](capacity: Int)
 
   def peek: E = if(count == 0) null else itemAt(takeIndex)
 
-  private[util] def clear() {
+  private[util] def clear(): Unit = {
     val items = this.items
     var i = takeIndex
     var k = count

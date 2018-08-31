@@ -54,6 +54,16 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def filterNot[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
     filterHelper(f, node => Library.Not.typed(node.nodeType, node) )
 
+  /** Applies the given filter, if the Option value is defined.
+    * If the value is None, the filter will not be part of the query. */
+  def filterOpt[V, T <: Rep[_] : CanBeQueryCondition](optValue: Option[V])(f: (E, V) => T): Query[E, U, C] =
+    optValue.map(v => withFilter(a => f(a, v))).getOrElse(this)
+
+  /** Applies the given filter function, if the boolean parameter `p` evaluates to true. 
+    * If not, the filter will not be part of the query. */
+  def filterIf(p: Boolean)(f: E => Rep[Boolean]): Query[E, U, C] =
+    if (p) withFilter(f) else this
+
   /** Select all elements of this query which satisfy a predicate. This method
     * is used when desugaring for-comprehensions over queries. There is no
     * reason to call it directly because it is the same as `filter`. */
@@ -185,6 +195,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def size = length
 
   /** The number of distinct elements of the query. */
+  @deprecated("Use `length` on `distinct` or `distinctOn` instead of `countDistinct`", "3.2")
   def countDistinct: Rep[Int] = Library.CountDistinct.column(toNode)
 
   /** Test whether this query is non-empty. */

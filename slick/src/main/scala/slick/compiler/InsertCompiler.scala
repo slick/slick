@@ -1,7 +1,6 @@
 package slick.compiler
 
 import slick.ast._
-import scala.collection.mutable.ArrayBuffer
 import slick.{SlickTreeException, SlickException}
 import slick.util.{ConstArray, SlickLogger}
 import org.slf4j.LoggerFactory
@@ -23,7 +22,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
     var expansionRef: TermSymbol = null
     val cols = ConstArray.newBuilder[Select]()
     val allFields = ConstArray.newBuilder[FieldSymbol]()
-    def setTable(te: TableExpansion) {
+    def setTable(te: TableExpansion): Unit = {
       if(tableExpansion eq null) {
         tableExpansion = te
         expansionRef = te.generator

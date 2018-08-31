@@ -194,7 +194,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       }
     }
 
-    protected def scanJoins(from: ConstArray[(TermSymbol, Node)]): Unit =  {
+    protected def scanJoins(from: ConstArray[(TermSymbol, Node)]): Unit = {
       for((sym, j: Join) <- from) {
         joins += sym -> j
         scanJoins(j.generators)
@@ -424,9 +424,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         b"\}"
       case Union(left, right, all) =>
         b"\{"
+        b"\["
         buildFrom(left, None, true)
+        b"\]"
         if(all) b"\nunion all " else b"\nunion "
+        b"\["
         buildFrom(right, None, true)
+        b"\]"
         b"\}"
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)
@@ -532,7 +536,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   /** Builder for upsert statements, builds standard SQL MERGE statements by default. */
   class UpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
-    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition(_.options.contains(ColumnOption.PrimaryKey))
+    /* NOTE: pk defined by using method `primaryKey` and pk defined with `PrimaryKey` can only have one,
+             here we let table ddl to help us ensure this. */
+    private lazy val funcDefinedPKs = table.profileTable.asInstanceOf[Table[_]].primaryKeys
+    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition { sym =>
+      sym.options.contains(ColumnOption.PrimaryKey) || funcDefinedPKs.exists(pk => pk.columns.collect {
+        case Select(_, f: FieldSymbol) => f
+      }.exists(_.name == sym.name)) }
     protected lazy val pkNames = pkSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val softNames = softSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val nonAutoIncSyms = syms.filter(s => !(s.options contains ColumnOption.AutoInc))
@@ -588,17 +598,19 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       if(primaryKeys.size > 1)
         throw new SlickException("Table "+tableNode.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
-      DDL(createPhase1, createPhase2, dropPhase1, dropPhase2 , truncatePhase)
+      DDL(createPhase1, createIfNotExistsPhase, createPhase2, dropPhase1, dropIfExistsPhase, dropPhase2 , truncatePhase)
     }
 
-    protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createPhase1 = Iterable(createTable(false)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
-    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
+    protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(true))
+    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable(false))
     protected def truncatePhase = Iterable(truncateTable)
 
-    protected def createTable: String = {
-      val b = new StringBuilder append "create table " append quoteTableName(tableNode) append " ("
+    protected def createTable(checkNotExists: Boolean): String = {
+      val b = new StringBuilder append "create table " append (if(checkNotExists) "if not exists " else "") append quoteTableName(tableNode) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -609,9 +621,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b.toString
     }
 
-    protected def addTableOptions(b: StringBuilder): Unit =  {}
+    protected def addTableOptions(b: StringBuilder): Unit = {}
 
-    protected def dropTable: String = "drop table "+quoteTableName(tableNode)
+    protected def dropTable(ifExists: Boolean): String = "drop table "+(if(ifExists) "if exists " else "")+quoteTableName(tableNode)
 
     protected def truncateTable: String = "truncate table "+ quoteTableName(tableNode)
 
@@ -630,7 +642,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       sb.toString
     }
 
-    protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit =  {
+    protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit = {
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, tableNode.tableName)
       sb append ") references " append quoteTableName(fk.targetTable) append "("
@@ -645,7 +657,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       sb.toString
     }
 
-    protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder): Unit =  {
+    protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder): Unit = {
       sb append "constraint " append quoteIdentifier(pk.name) append " primary key("
       addPrimaryKeyColumnList(pk.columns, sb, tableNode.tableName)
       sb append ")"
@@ -666,7 +678,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def addPrimaryKeyColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "foreign key constraint")
 
-    protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String): Unit =  {
+    protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String): Unit = {
       var first = true
       for(c <- columns) c match {
         case Select(t: TableNode, field: FieldSymbol) =>
@@ -694,7 +706,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected var defaultLiteral: String = null
     init()
 
-    protected def init(): Unit =  {
+    protected def init(): Unit = {
       for(o <- column.options) handleColumnOption(o)
       if(sqlType ne null) {
         size.foreach(l => sqlType += s"($l)")
@@ -717,7 +729,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     def appendType(sb: StringBuilder): Unit = sb append sqlType
 
-    def appendColumn(sb: StringBuilder): Unit =  {
+    def appendColumn(sb: StringBuilder): Unit = {
       sb append quoteIdentifier(column.name) append ' '
       appendType(sb)
       appendOptions(sb)

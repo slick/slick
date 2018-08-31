@@ -5,7 +5,6 @@ import org.reactivestreams.Subscriber
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import slick.SlickException
-import slick.dbio._
 import slick.relational.RelationalBackend
 import slick.basic.BasicBackend
 import slick.util.Logging
@@ -63,14 +62,14 @@ trait DistributedBackend extends RelationalBackend with Logging {
   }
 
   class SessionDef(val sessions: Vector[BasicBackend#Session]) extends super.SessionDef {
-    def close() {
+    def close(): Unit = {
       sessions.map(s => Try(s.close())).collectFirst{ case Failure(t) => t }.foreach(throw _)
     }
 
     def rollback() =
       throw new SlickException("DistributedBackend does not currently support transactions")
 
-    def force() {
+    def force(): Unit = {
       sessions.foreach(_.force)
     }
 

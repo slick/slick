@@ -2,7 +2,6 @@ package slick.jdbc
 
 import java.io.Closeable
 import java.util.Properties
-import java.util.concurrent.TimeUnit
 import java.sql.{Connection, Driver, DriverManager, SQLException}
 import javax.sql.DataSource
 
@@ -23,12 +22,10 @@ trait JdbcDataSource extends Closeable {
     * Otherwise no action is taken. */
   def close(): Unit
 
-  /** If this object represents a connection pool managed directly by Slick, return the maximum pool size
-    * Otherwise return None.
-    * The AsyncExecutor uses this to make sure to not schedule any more work (that requires a connection) when all pooled JDBC connections are in use.
+  /** If this object represents a connection pool with a limited size, return the maximum pool size.
+    * Otherwise return None. This is required to prevent deadlocks when scheduling database actions.
     */
-  val maxConnections: Option[Int] = None
-
+  val maxConnections: Option[Int]
 }
 
 object JdbcDataSource extends Logging {
@@ -60,6 +57,7 @@ trait JdbcDataSourceFactory {
 
 /** A JdbcDataSource for a `DataSource` */
 class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Boolean,
+                               val maxConnections: Option[Int],
                                val connectionPreparer: ConnectionPreparer = null) extends JdbcDataSource {
   private[this] var openedKeepAliveConnection: Connection = null
 
@@ -86,22 +84,26 @@ class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Bool
 
 object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): DataSourceJdbcDataSource = {
-    val ds = c.getStringOpt("dataSourceClass") match {
-      case Some(dsClass) =>
-        val propsO = c.getPropertiesOpt("properties")
-        try {
-          val ds = Class.forName(dsClass).newInstance.asInstanceOf[DataSource]
-          propsO.foreach(BeanConfigurator.configure(ds, _))
-          ds
-        } catch { case ex: Exception => throw new SlickException("Error configuring DataSource "+dsClass, ex) }
-      case None =>
-        val ds = new DriverDataSource
-        ds.classLoader = classLoader
-        ds.driverObject = driver
-        BeanConfigurator.configure(ds, c.toProperties, Set("url", "user", "password", "properties", "driver", "driverClassName"))
-        ds
-    }
-    new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), new ConnectionPreparer(c))
+    val (ds, maxConnections) =
+      c.getStringOpt("dataSourceClassName").orElse(c.getStringOpt("dataSourceClass")) match {
+
+        case Some(dsClass) =>
+          val propsO = c.getPropertiesOpt("properties")
+          try {
+            val ds = Class.forName(dsClass).newInstance.asInstanceOf[DataSource]
+            propsO.foreach(BeanConfigurator.configure(ds, _))
+            val maxConnections = c.getIntOpt("maxConnections")
+            (ds, maxConnections)
+          } catch { case ex: Exception => throw new SlickException("Error configuring DataSource " + dsClass, ex) }
+
+        case None =>
+          val ds = new DriverDataSource
+          ds.classLoader = classLoader
+          ds.driverObject = driver
+          BeanConfigurator.configure(ds, c.toProperties, Set("url", "user", "password", "properties", "driver", "driverClassName"))
+          (ds, None)
+      }
+    new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), maxConnections, new ConnectionPreparer(c))
   }
 }
 
@@ -123,6 +125,8 @@ trait DriverBasedJdbcDataSource extends JdbcDataSource {
   def deregisterDriver(): Boolean =
     if(registeredDriver ne null) { DriverManager.deregisterDriver(registeredDriver); true }
     else false
+
+  val maxConnections: Option[Int] = None
 }
 
 /** A JdbcDataSource for lookup via a `Driver` or the `DriverManager` */

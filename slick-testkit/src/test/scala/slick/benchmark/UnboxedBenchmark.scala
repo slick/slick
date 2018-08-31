@@ -53,7 +53,7 @@ object UnboxedBenchmark extends App {
   runTest(q2.toNode)
   runTest(q3.toNode)
 
-  def runTest(n: Node) {
+  def runTest(n: Node): Unit = {
     val rsm = profile.queryCompiler.run(n).tree
     TreePrinter.default.print(rsm)
     val ResultSetMapping(_, _, CompiledMapping(converter, _)) = rsm
@@ -77,7 +77,7 @@ object UnboxedBenchmark extends App {
       }
       override def wasNull(): Boolean = lastIndex >= 3
     }
-    val pr = new PositionedResult(fakeRS) { def close() {} }
+    val pr = new PositionedResult(fakeRS) { def close(): Unit = {} }
     new PositionedResultIterator[Any](pr, 0, true) {
       def extractValue(pr: PositionedResult) = converter.read(rs)
     }

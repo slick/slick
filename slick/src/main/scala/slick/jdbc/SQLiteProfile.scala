@@ -1,6 +1,9 @@
 package slick.jdbc
 
-import java.sql.{Timestamp, Time, Date}
+import java.sql.{Date, Time, Timestamp}
+import java.time.{Instant, LocalDate, LocalDateTime}
+import java.util.UUID
+
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 
@@ -8,14 +11,10 @@ import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.basic.Capability
 import slick.dbio._
-import slick.lifted._
 import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.compiler.CompilerState
-import slick.model.Model
-import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
-import slick.relational.RelationalProfile
-import slick.sql.SqlProfile
+import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 
 /** Slick profile for SQLite.
   *
@@ -97,15 +96,34 @@ trait SQLiteProfile extends JdbcProfile {
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       /** Regex matcher to extract name and length out of a db type name with length ascription */
-      final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
+      final val TypePattern = "^([A-Z\\s]+)(\\(([0-9]+)\\))?$".r
       private val (_dbType,_size) = meta.typeName match {
         case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
+        case "" => ("TEXT", None)
       }
       override def dbType = Some(_dbType)
       override def length = _size
       override def varying = dbType == Some("VARCHAR")
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
+      	case (v , "java.sql.Timestamp") => {
+      	  import scala.util.{Try, Success}
+      	  val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
+            (s: String) => java.sql.Timestamp.valueOf(s),
+            (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s).getTime.getTime),
+      	    (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replaceAll(" ","T")).getTime.getTime),
+      	    (s: String) => {
+      		    if(s == "now")
+      		      "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
+      		    else
+      		      throw new Exception(s"Failed to parse timestamp - $s")
+      	    }
+          )
+      	  val v2 = v.replaceAll("\"", "")
+      	  convertors.collectFirst(fn => Try(fn(v2)) match{
+      	    case Success(v) => Some(v)
+      	  })
+      	}
       }.getOrElse{super.default}
       override def tpe = dbType match {
         case Some("DOUBLE") => "Double"
@@ -120,6 +138,11 @@ trait SQLiteProfile extends JdbcProfile {
       // in 3.7.15-M1:
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
+    override def readIndices(t: MTable) = super.readIndices(t).map(
+      _.filterNot(
+        _.exists( _.indexName.exists(_.startsWith("sqlite_autoindex_")) )
+      )
+    )
   }
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
@@ -145,7 +168,7 @@ trait SQLiteProfile extends JdbcProfile {
     override protected val alwaysAliasSubqueries = false
     override protected val quotedJdbcFns = Some(Nil)
 
-    override protected def buildOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       if(o.nulls.last && !o.direction.desc)
         b"($n) is null,"
       else if(o.nulls.first && o.direction.desc)
@@ -177,6 +200,17 @@ trait SQLiteProfile extends JdbcProfile {
       case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
       // https://github.com/jOOQ/jOOQ/issues/1595
       case Library.Repeat(n, times) => b"replace(substr(quote(zeroblob(($times + 1) / 2)), 3, $times), '0', $n)"
+      case Union(left, right, all) =>
+        b"\{ select * from "
+        b"\["
+        buildFrom(left, None, true)
+        b"\]"
+        if(all) b"\nunion all " else b"\nunion "
+        b"select * from "
+        b"\["
+        buildFrom(right, None, true)
+        b"\]"
+        b"\}"
       case _ => super.expr(c, skipParens)
     }
   }
@@ -194,7 +228,7 @@ trait SQLiteProfile extends JdbcProfile {
     override protected val foreignKeys = Nil // handled directly in addTableOptions
     override protected val primaryKeys = Nil // handled directly in addTableOptions
 
-    override protected def addTableOptions(b: StringBuilder) {
+    override protected def addTableOptions(b: StringBuilder): Unit = {
       for(pk <- table.primaryKeys) {
         b append ","
         addPrimaryKey(pk, b)
@@ -209,7 +243,7 @@ trait SQLiteProfile extends JdbcProfile {
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override protected def appendOptions(sb: StringBuilder) {
+    override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
       else if(primaryKey) sb append " PRIMARY KEY"
@@ -233,6 +267,9 @@ trait SQLiteProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val dateJdbcType = new DateJdbcType
+    override val localDateType = new LocalDateJdbcType
+    override val localDateTimeType = new LocalDateTimeJdbcType
+    override val instantType = new InstantJdbcType
     override val timeJdbcType = new TimeJdbcType
     override val timestampJdbcType = new TimestampJdbcType
     override val uuidJdbcType = new UUIDJdbcType
@@ -247,7 +284,24 @@ trait SQLiteProfile extends JdbcProfile {
      * date/time/timestamp literals. SQLite expects these values as milliseconds
      * since epoch. */
     class DateJdbcType extends super.DateJdbcType {
-      override def valueToSQLLiteral(value: Date) = value.getTime.toString
+      override def valueToSQLLiteral(value: Date) = {
+        value.getTime.toString
+      }
+    }
+    class LocalDateJdbcType extends super.LocalDateJdbcType {
+      override def valueToSQLLiteral(value: LocalDate) = {
+        Date.valueOf(value).getTime.toString
+      }
+    }
+    class InstantJdbcType extends super.InstantJdbcType {
+      override def valueToSQLLiteral(value: Instant) = {
+        value.toEpochMilli.toString
+      }
+    }
+    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+      override def valueToSQLLiteral(value: LocalDateTime) = {
+        Timestamp.valueOf(value).getTime.toString
+      }
     }
     class TimeJdbcType extends super.TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = value.getTime.toString
@@ -257,6 +311,8 @@ trait SQLiteProfile extends JdbcProfile {
     }
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB
+      override def valueToSQLLiteral(value: UUID): String =
+        "x'" + value.toString.replace("-", "") + "'"
     }
   }
 }

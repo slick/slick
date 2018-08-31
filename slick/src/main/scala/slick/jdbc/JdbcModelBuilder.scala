@@ -1,8 +1,7 @@
 package slick.jdbc
 
-import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 
 import scala.util.{Failure, Success}
@@ -191,15 +190,17 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       * Only valid for single column primary keys. */
     def createPrimaryKeyColumnOption: Boolean =
       tableBuilder.mPrimaryKeys.size == 1 && tableBuilder.mPrimaryKeys.head.column == meta.name
-    /** A (potentially non-portable) database column type for string types, this should not
-      * include a length ascription for other types it should */
+    /** A (potentially non-portable) database column type. For string types, this should not
+      * include a length ascription. */
     def dbType: Option[String] = Some(meta.typeName)
     /** Column length of string types */
     def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
-    /** Indicates wether this should be a varchar in case of a string column.
-      * Currently defaults to true. Should be based on the value of dbType in the future. */
-    def varying: Boolean =
-      Seq(java.sql.Types.NVARCHAR, java.sql.Types.VARCHAR, java.sql.Types.LONGVARCHAR, java.sql.Types.LONGNVARCHAR) contains meta.sqlType
+    /** Indicates whether this should be a varchar in case of a string column.
+      * Should be based on the value of dbType in the future. */
+    def varying: Boolean = {
+      import java.sql.Types._
+      Seq(NVARCHAR, VARCHAR, LONGVARCHAR, LONGNVARCHAR) contains meta.sqlType
+    }
 
     def rawDefault = meta.columnDef
 
@@ -227,7 +228,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
               case 3 => v(1) // quoted character
             }
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
-          case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
+          case (v,"scala.math.BigDecimal") => BigDecimal(s"${v.trim}") // need the trim for Oracle trailing space
           case (StringPattern(str),"String") => str
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false

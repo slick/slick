@@ -1,10 +1,8 @@
 package com.typesafe.slick.testkit.util
 
-import java.lang.reflect.Method
 
 import com.typesafe.config.Config
 
-import org.junit.Assert
 
 import java.io._
 import java.net.{URL, URLClassLoader}
@@ -16,10 +14,9 @@ import java.util.zip.GZIPInputStream
 import scala.collection.mutable
 import scala.concurrent.{Await, Future, ExecutionContext}
 
-import slick.SlickException
 import slick.basic.{BasicProfile, Capability}
 import slick.dbio.{NoStream, DBIOAction, DBIO}
-import slick.jdbc.{JdbcProfile, ResultSetAction, JdbcDataSource, SimpleJdbcAction}
+import slick.jdbc.{JdbcProfile, ResultSetAction, JdbcDataSource}
 import slick.jdbc.GetResult._
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
@@ -47,7 +44,7 @@ object TestDB {
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */
-  def copy(src: File, dest: File) {
+  def copy(src: File, dest: File): Unit = {
     dest.createNewFile()
     val out = new FileOutputStream(dest)
     try {
@@ -66,7 +63,7 @@ object TestDB {
   }
 
   /** Delete files in the testDB directory */
-  def deleteDBFiles(prefix: String) {
+  def deleteDBFiles(prefix: String): Unit = {
     assert(!prefix.isEmpty, "prefix must not be empty")
     def deleteRec(f: File): Boolean = {
       if(f.isDirectory()) f.listFiles.forall(deleteRec _) && f.delete()
@@ -107,7 +104,7 @@ trait TestDB {
   def isEnabled = TestkitConfig.testDBs.map(_.contains(confName)).getOrElse(true)
 
   /** This method is called to clean up before running all tests. */
-  def cleanUpBefore() {}
+  def cleanUpBefore(): Unit = {}
 
   /** This method is called to clean up after running all tests. It
     * defaults to cleanUpBefore(). */
@@ -188,6 +185,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     profile.backend.Database.forSource(new JdbcDataSource {
       def createConnection(): Connection = wrappedConn
       def close(): Unit = ()
+      val maxConnections: Option[Int] = Some(1)
     }, executor)
   }
   final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])(implicit session: profile.Backend#Session): R = {
@@ -235,7 +233,7 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
 
   override def createDB() = databaseFor("testConn")
 
-  override def cleanUpBefore() {
+  override def cleanUpBefore(): Unit = {
     if(!drop.isEmpty || !create.isEmpty) {
       println("[Creating test database "+this+"]")
       await(databaseFor("adminConn").run(
@@ -249,7 +247,7 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
     }
   }
 
-  override def cleanUpAfter() {
+  override def cleanUpAfter(): Unit = {
     if(!drop.isEmpty) {
       println("[Dropping test database "+this+"]")
       await(databaseFor("adminConn").run(

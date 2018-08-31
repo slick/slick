@@ -95,7 +95,7 @@ sealed abstract class HList extends Product {
   final def apply(n: Int): Any = macro HListMacros.applyImpl
 
   /** Evaluate a function for each element of this HList. */
-  final def foreach(f: Any => Unit) {
+  final def foreach(f: Any => Unit): Unit = {
     var h = this
     while(h.nonEmpty) {
       f(h.head)
@@ -127,7 +127,7 @@ sealed abstract class HList extends Product {
 final object HList {
   import syntax._
 
-  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
+  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
     def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
     def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new HListShape(shapes)
   }

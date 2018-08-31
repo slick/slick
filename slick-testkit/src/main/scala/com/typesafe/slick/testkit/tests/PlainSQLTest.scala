@@ -1,7 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert
-import org.junit.Assert._
 import slick.jdbc.GetResult
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 

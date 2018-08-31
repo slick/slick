@@ -1,5 +1,8 @@
 package slick.jdbc
 
+import java.sql.{ResultSet, PreparedStatement}
+import java.time.{Instant, LocalDateTime, LocalTime}
+
 import com.typesafe.config.Config
 
 import scala.concurrent.ExecutionContext
@@ -12,13 +15,11 @@ import slick.basic.Capability
 import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
 import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
 import slick.lifted._
-import slick.model.Model
 import slick.relational.{RelationalProfile, RelationalCapabilities}
 import slick.sql.SqlCapabilities
 import slick.util.{SlickLogger, GlobalConfig, ConstArray}
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.util.ConfigExtensionMethods.configExtensionMethods
-import slick.util.SQLBuilder.Result
 
 /** Slick profile for MySQL.
   *
@@ -65,6 +66,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     - SqlCapabilities.sequenceLimited
     - RelationalCapabilities.joinFull
     - JdbcCapabilities.nullableNoDefault
+    - JdbcCapabilities.distinguishesIntTypes //https://github.com/slick/slick/pull/1735
   )
 
   override protected[this] def loadProfileConfig: Config = {
@@ -81,8 +83,9 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       override def default = meta.columnDef.map((_,tpe)).collect{
         case (v,"String")    => Some(Some(v))
-        case ("1","Boolean") => Some(Some(true))
-        case ("0","Boolean") => Some(Some(false))
+        case ("1"|"b'1'", "Boolean") => Some(Some(true))
+        case ("0"|"b'0'", "Boolean") => Some(Some(false))
+        case ( v , "scala.math.BigDecimal") => Some( Some( scala.math.BigDecimal(v) ) )
       }.getOrElse{
         val d = super.default
         if(meta.nullable == Some(true) && d == None){
@@ -100,6 +103,22 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta){
       override def schema = meta.name.catalog
       override def catalog = meta.name.schema 
+    }
+
+    //https://dev.mysql.com/doc/connector-j/5.1/en/connector-j-reference-type-conversions.html
+    import scala.reflect.{ClassTag, classTag}
+    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
+      import java.sql.Types._
+      jdbcType match{
+        case TINYINT if typeName.contains("UNSIGNED")  =>  classTag[Short]
+        case SMALLINT                                  =>  classTag[Int]
+        case INTEGER if typeName.contains("UNSIGNED")  =>  classTag[Long]
+          /**
+            * Currently java.math.BigInteger/scala.math.BigInt isn't supported as a default datatype, so this is currently out of scope.
+           */
+//        case BIGINT  if typeName.contains("UNSIGNED")  =>  classTag[BigInt]
+        case _ => super.jdbcTypeToScala(jdbcType, typeName)
+      }
     }
   }
 
@@ -169,13 +188,19 @@ trait MySQLProfile extends JdbcProfile { profile =>
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
-        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName(None)
+        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else if(ti == columnTypes.bigDecimalJdbcType) "DECIMAL" else ti.sqlTypeName(None)
         b"\({fn convert(!${ch},$tn)}\)"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
       case RowNum(sym, false) => b"@`$sym"
       case RowNumGen(sym, init) => b"@`$sym := $init"
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None)
+        if (all) b"\nunion all " else b"\nunion "
+        buildFrom(right, None)
+        b"\}"
       case _ => super.expr(n, skipParens)
     }
 
@@ -186,7 +211,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
       case _ =>
     }
 
-    override protected def buildOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       if(o.nulls.last && !o.direction.desc)
         b"isnull($n),"
       else if(o.nulls.first && o.direction.desc)
@@ -232,7 +257,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override protected def appendOptions(sb: StringBuilder) {
+    override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
       else if(sqlType.toUpperCase == "TIMESTAMP") sb append " NULL"
@@ -278,24 +303,34 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class JdbcTypes extends super.JdbcTypes {
+
+    @inline
+    private[this] def stringToMySqlString(value : String) : String = {
+      value match {
+        case null => "NULL"
+        case _ =>
+          val sb = new StringBuilder
+          sb append '\''
+          for(c <- value) c match {
+            case '\'' => sb append "\\'"
+            case '"' => sb append "\\\""
+            case 0 => sb append "\\0"
+            case 26 => sb append "\\Z"
+            case '\b' => sb append "\\b"
+            case '\n' => sb append "\\n"
+            case '\r' => sb append "\\r"
+            case '\t' => sb append "\\t"
+            case '\\' => sb append "\\\\"
+            case _ => sb append c
+          }
+          sb append '\''
+          sb.toString
+      }
+    }
+
     override val stringJdbcType = new StringJdbcType {
-      override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
-        val sb = new StringBuilder
-        sb append '\''
-        for(c <- value) c match {
-          case '\'' => sb append "\\'"
-          case '"' => sb append "\\\""
-          case 0 => sb append "\\0"
-          case 26 => sb append "\\Z"
-          case '\b' => sb append "\\b"
-          case '\n' => sb append "\\n"
-          case '\r' => sb append "\\r"
-          case '\t' => sb append "\\t"
-          case '\\' => sb append "\\\\"
-          case _ => sb append c
-        }
-        sb append '\''
-        sb.toString
+      override def valueToSQLLiteral(value: String) : String = {
+        stringToMySqlString(value)
       }
     }
 
@@ -307,6 +342,58 @@ trait MySQLProfile extends JdbcProfile { profile =>
 
       override def valueToSQLLiteral(value: UUID): String =
         "x'"+value.toString.replace("-", "")+"'"
+    }
+
+    override val instantType : InstantJdbcType = new InstantJdbcType {
+      override def sqlType : Int = {
+        /**
+         * [[Instant]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
+         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
+         * second precision, while [[Instant]] stores it with a millisecond one.
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, if (v == null) null else v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : Instant = {
+        r.getString(idx) match {
+          case null => null
+          case iso8601String => Instant.parse(iso8601String)
+        }
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
+        r.updateString(idx, if (v == null) null else v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) : String = {
+        stringToMySqlString(value.toString)
+      }
+    }
+
+    override val localDateTimeType : LocalDateTimeJdbcType = new LocalDateTimeJdbcType {
+      override def sqlType : Int = {
+        /**
+         * [[LocalDateTime]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
+         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
+         * second precision, while [[LocalDateTime]] stores it with a millisecond one.
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, if (v == null) null else v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
+        r.getString(idx) match {
+          case null => null
+          case iso8601String => LocalDateTime.parse(iso8601String)
+        }
+      }
+      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) = {
+        r.updateString(idx, if (v == null) null else v.toString)
+      }
+      override def valueToSQLLiteral(value: LocalDateTime) : String = {
+        stringToMySqlString(value.toString)
+      }
     }
   }
 }
