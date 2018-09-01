@@ -209,8 +209,9 @@ trait PostgresProfile extends JdbcProfile {
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
     override def buildInsert: InsertBuilderResult = {
-      val insert = s"""insert into $tableName (${allNames.mkString(",")}) values $allVars"""
-      val update = s"""update set ${softNames.map(n => s"$n=EXCLUDED.$n").mkString(",")}"""
+      val tmpName = s"$tableName-${UUID.randomUUID}"
+      val insert = s"""insert into $tableName as $tmpName (${allNames.mkString(",")}) values $allVars"""
+      val update = s"""update set ${softNames.map(n => s"$n=$tmpName.$n").mkString(",")}"""
       val upsert = s"""$insert on conflict (${pkNames.mkString(",")}) do $update"""
       new InsertBuilderResult(table, upsert, syms)
     }
