@@ -464,6 +464,13 @@ object LiftedEmbedding extends App {
       }
 
       {
+        //#compiled3
+        val userCompiled = Compiled(users)
+        userCompiled += User(None, "John", "Doe")
+        //#compiled3
+      }
+
+      {
         //#template1
         val userNameByID = for {
           id <- Parameters[Int]
