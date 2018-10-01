@@ -432,7 +432,7 @@ object LiftedEmbedding extends App {
 
     ;{
       //#update2
-      val q = coffees.filter(c.name === "Espresso").map(coffee => (coffee.name, coffee.price))
+      val q = coffees.filter(_.name === "Espresso").map(coffee => (coffee.name, coffee.price))
       // A Lungo is more expensive:
       val updateAction = q.update(("Espresso Lungo", 12.88))
 
