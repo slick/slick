@@ -76,11 +76,16 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+    override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta)
+
+    class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]) extends super.PrimaryKeyBuilder(tableBuilder, meta) {
       // TODO: this needs a test
       override def name = super.name.filter(_ != "PRIMARY")
     }
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+
+    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
       override def default = meta.columnDef.map((_,tpe)).collect{
         case (v,"String")    => Some(Some(v))
         case ("1"|"b'1'", "Boolean") => Some(Some(true))
@@ -100,7 +105,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     }
 
     //Reference: https://github.com/slick/slick/issues/1419
-    override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta){
+    class TableNamer(meta: MTable) extends super.TableNamer(meta){
       override def schema = meta.name.catalog
       override def catalog = meta.name.schema 
     }

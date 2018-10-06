@@ -45,7 +45,8 @@ trait HsqldbProfile extends JdbcProfile {
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
+    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable)
+    class TableNamer(mTable: MTable) extends super.TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
       override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
     }
