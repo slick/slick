@@ -87,15 +87,14 @@ trait PostgresProfile extends JdbcProfile {
 
 
        */
-      val NumericPattern = "^['(]?(-?[0-9]+\\.?[0-9]*)[')]?(?:::(?:numeric|bigint|integer))?".r
-      val TextPattern = "^'(.*)'::(?:bpchar|character varying|text)".r
-      val UUIDPattern = "^'(.*)'::uuid".r
+      val NumericPattern = "^['(]?(-?[0-9]+\\.?[0-9]*)[')]?(?:::(?:\\w*))?".r
+      val TextualPattern = "^'(.*)'::(?:\\w*)".r
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("true","Boolean")  => Some(Some(true))
         case ("false","Boolean") => Some(Some(false))
-        case (TextPattern(str),"String") => Some(Some(str))
+        case (TextualPattern(str),"String") => Some(Some(str))
         case ("NULL::bpchar", "String") => Some(None)
-        case (TextPattern(str),"Char") => str.length match {
+        case (TextualPattern(str),"Char") => str.length match {
           case 0 => Some(Some(' ')) // Default to one space, as the char will be space padded anyway
           case 1 => Some(Some(str.head))
           case _ => None // This is invalid, so let's not supply any default
@@ -107,7 +106,7 @@ trait PostgresProfile extends JdbcProfile {
         case (NumericPattern(v),"Float") => Some(Some(v.toFloat))
         case (NumericPattern(v),"Double") => Some(Some(v.toDouble))
         case (NumericPattern(v), "scala.math.BigDecimal") => Some(Some(BigDecimal(s"$v")))
-        case (UUIDPattern(v),"java.util.UUID") => Some(Some(java.util.UUID.fromString(v)))
+        case (TextualPattern(v),"java.util.UUID") => Some(Some(java.util.UUID.fromString(v)))
         case (_,"java.util.UUID") => None // The UUID is generated through a function - treat it as if there was no default.
       }.getOrElse{
         val d = super.default
