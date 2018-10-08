@@ -281,6 +281,11 @@ updating are defined in
 There is currently no way to use scalar expressions or transformations of
 the existing data in the database for updates.
 
+When you want to update multiple columns at once, just map to a tuple first:
+
+```scala src=../code/LiftedEmbedding.scala#update2
+```
+
 Upserting
 ---------
 
