@@ -36,7 +36,14 @@ object SlickBuild extends Build {
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
     val hikariCP = "com.zaxxer" % "HikariCP" % "2.7.4"
-    val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
+    val jaxbVersion = "2.3.0"
+    val jaxb = Seq(
+      "javax.xml.bind" % "jaxb-api" % jaxbVersion % "provided",
+      "com.sun.xml.bind" % "jaxb-core" % jaxbVersion,
+      "com.sun.xml.bind" % "jaxb-impl" % jaxbVersion
+    )
+
+    val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams) ++ jaxb
     val h2 = "com.h2database" % "h2" % "1.4.197"
     val testDBs = Seq(
       h2,
@@ -311,7 +318,8 @@ object SlickBuild extends Build {
         Dependencies.junit ++:
         (Dependencies.reactiveStreamsTCK % "test") +:
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
-        (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
+        (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen") ++: 
+        (Dependencies.jaxb),
       parallelExecution in Test := false,
       fork in run := true,
       //connectInput in run := true,
