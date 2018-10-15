@@ -354,7 +354,6 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     "Australia/ACT",
     "America/Dawson_Creek",
     "GB",
-    "America/Porto_Acre",
     "Pacific/Johnston",
     "Portugal",
     "Australia/Eucla"
@@ -374,14 +373,11 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         localDateTime.atZone(zoneId)
       }
     }
+    val baseLocalDateTime = randomLocalDateTime()
     roundTrip[ZonedDateTime](
-      List(
-        generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(14),
-        generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).withHour(5)),
+      // from the random baseLocalDateTime, generate about 6 months worth of datetimes for each test zoneId
+      (0 to 5000).map(offset => baseLocalDateTime.plusMinutes(offset * 55)).toList.
+        flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
       generateTestZonedDateTime
     )
   }
