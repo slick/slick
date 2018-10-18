@@ -178,8 +178,8 @@ final class AnyOptionExtensionMethods[O <: Rep[_], P](val r: O) extends AnyVal {
   def fold[B, BP](ifEmpty: B)(f: P => B)(implicit shape: Shape[FlatShapeLevel, B, _, BP]): BP = {
     val gen = new AnonSymbol
     val mapv = f(OptionLift.baseValue[P, O](r, Ref(gen)))
-    val n = OptionFold(r.toNode, shape.toNode(ifEmpty), shape.toNode(mapv), gen)
-    shape.packedShape.encodeRef(shape.pack(mapv), n).asInstanceOf[BP]
+    val n = OptionFold(r.toNode, shape.toNode(shape.pack(ifEmpty)), shape.toNode(shape.pack(mapv)), gen)
+    shape.encodeRef(shape.pack(mapv), n)
   }
 
   /** Return the result of applying `f` to this Option's value if this Option is non-empty, otherwise None. */
@@ -210,10 +210,8 @@ final class AnyOptionExtensionMethods[O <: Rep[_], P](val r: O) extends AnyVal {
   }
 
   /** Get the value inside this Option, if it is non-empty, otherwise the supplied default. */
-  def getOrElse[M, P2 <: P](default: M)(implicit shape: Shape[FlatShapeLevel, M, _, P2], ol: OptionLift[P2, O]): P =
-    // P2 != P can only happen if M contains plain values, which pack to ConstColumn instead of Rep.
-    // Both have the same packedShape (RepShape), so we can safely cast here:
-    fold[P, P](shape.pack(default): P)(identity)(shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, P, _, P]])
+  def getOrElse[M](default: M)(implicit shape: Shape[FlatShapeLevel, M, _, P]): P =
+    fold[P, P](shape.pack(default): P)(identity)(shape.packedShape)
 
   /** Check if this Option is empty. */
   def isEmpty: Rep[Boolean] = fold(LiteralColumn(true))(_ => LiteralColumn(false))

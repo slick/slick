@@ -84,11 +84,11 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * The right side of the join is lifted to an `Option`. If at least one element on the right
     * matches, all matching elements are returned as `Some`, otherwise a single `None` row is
     * returned. */
-  def joinLeft[E2, U2, D[_], O2](q2: Query[E2, _, D])(implicit ol: OptionLift[E2, O2], sh: Shape[FlatShapeLevel, O2, U2, _]) = {
+  def joinLeft[E2, U2, D[_], O2, R2](q2: Query[E2, _, D])(implicit ol: OptionLift[E2, O2], sh: Shape[FlatShapeLevel, O2, U2, R2]) = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(Ref(leftGen))
     val aliased2 = ShapedValue(ol.lift(q2.shaped.value), sh).encodeRef(Ref(rightGen))
-    new BaseJoinQuery[E, O2, U, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.LeftOption,
+    new BaseJoinQuery[E, R2, U, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.LeftOption,
       aliased1.zip(aliased2), aliased1.value, q2.shaped.encodeRef(Ref(rightGen)).value)
   }
 
@@ -97,11 +97,11 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * The left side of the join is lifted to an `Option`. If at least one element on the left
     * matches, all matching elements are returned as `Some`, otherwise a single `None` row is
     * returned. */
-  def joinRight[E1 >: E, E2, U2, D[_], O1, U1](q2: Query[E2, U2, D])(implicit ol: OptionLift[E1, O1], sh: Shape[FlatShapeLevel, O1, U1, _]) = {
+  def joinRight[E1 >: E, E2, U2, D[_], O1, U1, R1](q2: Query[E2, U2, D])(implicit ol: OptionLift[E1, O1], sh: Shape[FlatShapeLevel, O1, U1, R1]) = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = ShapedValue(ol.lift(shaped.value), sh).encodeRef(Ref(leftGen))
     val aliased2 = q2.shaped.encodeRef(Ref(rightGen))
-    new BaseJoinQuery[O1, E2, U1, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.RightOption,
+    new BaseJoinQuery[R1, E2, U1, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.RightOption,
       aliased1.zip(aliased2), shaped.encodeRef(Ref(leftGen)).value, aliased2.value)
   }
 
@@ -110,11 +110,11 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * Both sides of the join are lifted to an `Option`. If at least one element on either side
     * matches the other side, all matching elements are returned as `Some`, otherwise a single
     * `None` row is returned. */
-  def joinFull[E1 >: E, E2, U2, D[_], O1, U1, O2](q2: Query[E2, _, D])(implicit ol1: OptionLift[E1, O1], sh1: Shape[FlatShapeLevel, O1, U1, _], ol2: OptionLift[E2, O2], sh2: Shape[FlatShapeLevel, O2, U2, _]) = {
+  def joinFull[E1 >: E, E2, U2, D[_], O1, U1, O2, R1, R2](q2: Query[E2, _, D])(implicit ol1: OptionLift[E1, O1], sh1: Shape[FlatShapeLevel, O1, U1, R1], ol2: OptionLift[E2, O2], sh2: Shape[FlatShapeLevel, O2, U2, R2]) = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = ShapedValue(ol1.lift(shaped.value), sh1).encodeRef(Ref(leftGen))
     val aliased2 = ShapedValue(ol2.lift(q2.shaped.value), sh2).encodeRef(Ref(rightGen))
-    new BaseJoinQuery[O1, O2, U1, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.OuterOption,
+    new BaseJoinQuery[R1, R2, U1, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.OuterOption,
       aliased1.zip(aliased2), shaped.encodeRef(Ref(leftGen)).value, q2.shaped.encodeRef(Ref(rightGen)).value)
   }
 
@@ -159,7 +159,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * function. */
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: FlatShapeLevel, K, T, G], vshape: Shape[_ <: FlatShapeLevel, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
     val sym = new AnonSymbol
-    val key = ShapedValue(f(shaped.encodeRef(Ref(sym)).value), kshape).packedValue
+    val key = ShapedValue(f(shaped.encodeRef(Ref(sym)).value), kshape)
     val value = ShapedValue(pack.to[Seq], RepShape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq]])
     val group = GroupBy(sym, toNode, key.toNode)
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
@@ -231,7 +231,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator)).value
     val fv = f(aliased)
-    new WrappingQuery[E, U, C](Distinct(generator, toNode, shape.toNode(fv)), shaped)
+    new WrappingQuery[E, U, C](Distinct(generator, toNode, shape.toNode(shape.pack(fv))), shaped)
   }
 
   /** Change the collection type to build when executing the query. */
@@ -251,7 +251,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
 object Query {
   /** Lift a scalar value to a Query. */
   def apply[E, U, R](value: E)(implicit unpack: Shape[_ <: FlatShapeLevel, E, U, R]): Query[R, U, Seq] = {
-    val shaped = ShapedValue(value, unpack).packedValue
+    val shaped = ShapedValue(value, unpack)
     new WrappingQuery[R, U, Seq](Pure(shaped.toNode), shaped)
   }
 

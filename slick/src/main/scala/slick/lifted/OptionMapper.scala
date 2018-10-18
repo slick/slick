@@ -96,7 +96,7 @@ object OptionLift extends OptionLiftLowPriority {
 sealed trait OptionLiftLowPriority {
   final implicit def anyOptionLift[M, P](implicit shape: Shape[_ <: FlatShapeLevel, M, _, P]): OptionLift[M, Rep[Option[P]]] = new OptionLift[M, Rep[Option[P]]] {
     def lift(v: M): Rep[Option[P]] =
-      RepOption[P](ShapedValue(shape.pack(v), shape.packedShape), OptionApply(shape.toNode(v)))
+      RepOption[P](ShapedValue(shape.pack(v), shape.packedShape), OptionApply(shape.toNode(shape.pack(v))))
   }
 
   /** Get a suitably typed base value for a `Rep[Option[_]]` */
