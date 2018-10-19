@@ -157,7 +157,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   /** Partition this query into a query of pairs of a key and a nested query
     * containing the elements for the key, according to some discriminator
     * function. */
-  def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: FlatShapeLevel, K, T, G], vshape: Shape[_ <: FlatShapeLevel, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
+  def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: FlatShapeLevel, K, T, G], vshape: Shape[_ <: FlatShapeLevel, E, U, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(shaped.encodeRef(Ref(sym)).value), kshape)
     val value = ShapedValue(pack.to[Seq], RepShape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq]])
@@ -201,10 +201,10 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   /** Test whether this query is non-empty. */
   def exists = Library.Exists.column[Boolean](toNode)
 
-  def pack[R](implicit packing: Shape[_ <: FlatShapeLevel, E, _, R]): Query[R, U, C] =
+  def pack[R](implicit packing: Shape[_ <: FlatShapeLevel, E, U, R]): Query[R, U, C] =
     new Query[R, U, C] {
-      val shaped: ShapedValue[_ <: R, U] = self.shaped.packedValue(packing)
-      def toNode = self.toNode
+      val shaped: ShapedValue[_ <: R, U] = ShapedValue(self.shaped.value, packing)
+      def toNode = shaped.toNode
     }
 
   /** Select the first `num` elements. */
