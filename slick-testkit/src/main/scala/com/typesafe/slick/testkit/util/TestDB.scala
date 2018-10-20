@@ -261,7 +261,7 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   }
 }
 
-private object MyClassLoader extends URLClassLoader(Array.empty) {
+private object MyClassLoader extends URLClassLoader(Array.empty, getClass.getClassLoader) {
   override def addURL(url: URL): Unit = {
     super.addURL(url)
   }
@@ -278,9 +278,7 @@ object ExternalTestDB {
         val driverKlass = Class.forName(driverClass, true, MyClassLoader)
         driverKlass.getConstructor().newInstance().asInstanceOf[Driver]
       } catch {
-        case t: Throwable =>
-          t.printStackTrace()
-          throw new IOException(s"Error, could not add URL $url to classloader");
+        case t: Throwable => throw new IOException(s"Error, could not add URL $url to classloader", t);
       }
     })
   }
