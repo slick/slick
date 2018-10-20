@@ -265,10 +265,17 @@ object ExternalTestDB {
   // A cache for custom drivers to avoid excessive reloading and memory leaks
   private[this] val driverCache = new mutable.HashMap[(String, String), Driver]()
 
+  private[this] val myClassLoader = new URLClassLoader(Array.empty, getClass.getClassLoader) {
+   override def addURL(url: URL): Unit = {
+      super.addURL(url)
+    }
+  }
+
   def getCustomDriver(url: String, driverClass: String) = synchronized {
-    val urls = Array(new URL(url))
-    val loader = URLClassLoader.newInstance(urls)
-    val driverKlass = Class.forName(driverClass, true, loader)
-    driverCache.getOrElseUpdate((url, driverClass), driverKlass.getConstructor().newInstance().asInstanceOf[Driver])
+    driverCache.getOrElseUpdate((url, driverClass), {
+      myClassLoader.addURL(new URL(url))
+      val driverKlass = Class.forName(driverClass, true, myClassLoader)
+      driverKlass.getConstructor().newInstance().asInstanceOf[Driver]
+    })
   }
 }
