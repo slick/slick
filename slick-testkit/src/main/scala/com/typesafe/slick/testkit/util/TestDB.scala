@@ -261,7 +261,7 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   }
 }
 
-private object MyClassLoader extends URLClassLoader(Array.empty, getClass.getClassLoader) {
+private object MyClassLoader extends URLClassLoader(Array.empty) {
   override def addURL(url: URL): Unit = {
     super.addURL(url)
   }
