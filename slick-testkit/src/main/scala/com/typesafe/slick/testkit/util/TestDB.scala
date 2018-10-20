@@ -265,7 +265,7 @@ object ExternalTestDB {
   // A cache for custom drivers to avoid excessive reloading and memory leaks
   private[this] val driverCache = new mutable.HashMap[(String, String), Driver]()
 
-  private[this] val myClassLoader = new URLClassLoader(Array.empty, getClass.getClassLoader) {
+  private[this] val myClassLoader = new URLClassLoader(Array.empty) {
    override def addURL(url: URL): Unit = {
       super.addURL(url)
     }
@@ -273,9 +273,15 @@ object ExternalTestDB {
 
   def getCustomDriver(url: String, driverClass: String) = synchronized {
     driverCache.getOrElseUpdate((url, driverClass), {
-      myClassLoader.addURL(new URL(url))
-      val driverKlass = Class.forName(driverClass, true, myClassLoader)
-      driverKlass.getConstructor().newInstance().asInstanceOf[Driver]
+      try {
+        myClassLoader.addURL(new URL(url))
+        val driverKlass = Class.forName(driverClass, true, myClassLoader)
+        driverKlass.getConstructor().newInstance().asInstanceOf[Driver]
+      } catch {
+        case t: Throwable =>
+          t.printStackTrace()
+          throw new IOException(s"Error, could not add URL $url to classloader");
+      }
     })
   }
 }
