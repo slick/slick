@@ -46,15 +46,16 @@ do
     RUNNING=$(docker inspect  --format="{{ .State.Running}}" ${CONTAINER_NAME}  2> /dev/null)
     if [ $? -eq 1 ]; then
       if [ "${CONTAINER_NAME}" = "oracleslick" ]; then
-	RESULT=$(docker run -d -p 49160:22 -p 49161:1521 --name ${CONTAINER_NAME} wnameless/oracle-xe-11g && echo -e "\n${SUCCESS_TOKEN}")
+	    RESULT=$(docker run -d -p 49160:22 -p 49161:1521 --name ${CONTAINER_NAME} wnameless/oracle-xe-11g && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "mssqlslicktest" ]; then
-	RESULT=$(docker run -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD=Freeslick18' -p 1401:1433 --name mssqlslicktest -d microsoft/mssql-server-linux:2017-latest && echo -e "\n${SUCCESS_TOKEN}")
+	    RESULT=$(docker run -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD=Freeslick18' -p 1401:1433 --name mssqlslicktest -d microsoft/mssql-server-linux:2017-latest && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "db2slick" ]; then
-	RESULT=$(docker run -d -p 50000:50000 --name ${CONTAINER_NAME} -e DB2INST1_PASSWORD=db2inst1-pwd -e LICENSE=accept  ibmcom/db2express-c:latest "db2start" &&
-	# Extract non-free db2 jdbc driver jar
-	docker cp ${CONTAINER_NAME}:/home/db2inst1/sqllib/java/db2jcc4.jar . &&
-	docker exec -i -u db2inst1 -t ${CONTAINER_NAME} bash -l -c "db2 create database $DB2NAME" &&
-	echo -e "\n${SUCCESS_TOKEN}")
+	    RESULT=$(docker run -d -p 50000:50000 --name db2slick -e DB2INST1_PASSWORD=db2inst1-pwd -e LICENSE=accept  ibmcom/db2express-c:latest "db2start" &&
+        # Extract non-free db2 jdbc driver jar
+        docker cp ${CONTAINER_NAME}:/home/db2inst1/sqllib/java/db2jcc4.jar . &&
+        docker cp db2slick:/home/db2inst1/sqllib/java/db2jcc4.jar . &&
+        docker exec -i -u db2inst1 -t ${CONTAINER_NAME} bash -l -c "db2 create database $DB2NAME" &&
+        echo -e "\n${SUCCESS_TOKEN}")
       fi
     elif [ "$RUNNING" = "false" ]; then
       echo "Container ${CONTAINER_NAME} exists, but stopped. Starting ..."
