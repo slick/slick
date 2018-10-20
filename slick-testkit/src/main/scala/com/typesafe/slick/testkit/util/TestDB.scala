@@ -267,7 +267,7 @@ object ExternalTestDB {
 
   def getCustomDriver(url: String, driverClass: String) = synchronized {
     val urls = Array(new URL(url))
-    val loader = URLClassLoader.newInstance(urls, getClass.getClassLoader)
+    val loader = URLClassLoader.newInstance(urls)
     val driverKlass = Class.forName(driverClass, true, loader)
     driverCache.getOrElseUpdate((url, driverClass), driverKlass.getConstructor().newInstance().asInstanceOf[Driver])
   }
