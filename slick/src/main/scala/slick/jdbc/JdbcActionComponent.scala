@@ -1,11 +1,8 @@
 package slick.jdbc
 
-import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
-
-import scala.language.{existentials, higherKinds}
-
 import java.sql.{PreparedStatement, Statement}
 
+import scala.language.{existentials, higherKinds}
 import scala.collection.mutable.Builder
 import scala.util.control.NonFatal
 
@@ -17,6 +14,7 @@ import slick.ast.Util._
 import slick.ast.TypeUtil.:@
 import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
 import slick.relational.{ResultConverter, CompiledMapping}
+import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
 import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
@@ -528,13 +526,13 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       def run(ctx: Backend#Context, sql: Vector[String]) = {
         val sql1 = sql.head
         if(!useBatchUpdates(ctx.session) || (values.isInstanceOf[IndexedSeq[_]] && values.asInstanceOf[IndexedSeq[_]].length < 2))
-          retMany(values, values.map { v =>
+          retMany(values, values.iterator.map { v =>
             preparedInsert(sql1, ctx.session) { st =>
               st.clearParameters()
               a.converter.set(v, st)
               retOne(st, v, st.executeUpdate())
             }
-          }(collection.breakOut): Vector[SingleInsertResult])
+          }.toVector)
         else preparedInsert(a.sql, ctx.session) { st =>
           st.clearParameters()
           for(value <- values) {
@@ -666,7 +664,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = individual
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) =
-      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux)(collection.breakOut)
+      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toIndexedSeq
 
     protected def retQuery(st: Statement, updateCount: Int) =
       buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"

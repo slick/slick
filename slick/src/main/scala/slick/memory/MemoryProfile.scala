@@ -11,6 +11,7 @@ import slick.compiler._
 import slick.dbio._
 import slick.relational.{RelationalProfile, ResultConverterCompiler, ResultConverter, CompiledMapping}
 import slick.util.{DumpInfo, ??}
+import scala.collection.compat._
 
 /** A profile for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
@@ -72,7 +73,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   protected def createInterpreter(db: Backend#Database, param: Any): QueryInterpreter = new QueryInterpreter(db, param) {
     override def run(n: Node) = n match {
       case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>
-        val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
+        val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
         b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
@@ -118,7 +119,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     protected[this] def getIterator(ctx: Backend#Context): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
-      val pvit = inter.run(from).asInstanceOf[TraversableOnce[QueryInterpreter.ProductValue]].toIterator
+      val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].toIterator
       pvit.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read _)
     }
     def run(ctx: Backend#Context): R =

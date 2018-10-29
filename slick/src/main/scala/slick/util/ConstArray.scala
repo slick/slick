@@ -3,6 +3,7 @@ package slick.util
 import java.util.Arrays
 
 import scala.annotation.unchecked.uncheckedVariance
+import scala.collection.compat._
 import scala.collection.immutable
 import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3
@@ -420,7 +421,7 @@ object ConstArray {
     new ConstArray(a)
   }
 
-  def from[T](values: Traversable[T]): ConstArray[T] = {
+  def from[T](values: Iterable[T]): ConstArray[T] = {
     val a = new Array[Any](values.size)
     var i = 0
     values.foreach { v =>
@@ -500,7 +501,7 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
     len += vslen
   }
 
-  def ++= (vs: TraversableOnce[T]): Unit = {
+  def ++= (vs: IterableOnce[T]): Unit = {
     if(vs.isInstanceOf[IndexedSeq[_]]) ensure(vs.size)
     vs.foreach(self += _)
   }
@@ -516,6 +517,6 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
 
   def + (v: T): this.type = { this += v; this }
   def ++ (vs: ConstArray[T]): this.type = { this ++= vs; this }
-  def ++ (vs: TraversableOnce[T]): this.type = { this ++= vs; this }
+  def ++ (vs: IterableOnce[T]): this.type = { this ++= vs; this }
   def ++ (vs: Option[T]): this.type = { this ++= vs; this }
 }
