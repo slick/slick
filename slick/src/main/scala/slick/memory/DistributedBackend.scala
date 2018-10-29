@@ -3,13 +3,14 @@ package slick.memory
 import com.typesafe.config.Config
 import org.reactivestreams.Subscriber
 
+import scala.collection.compat._
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.util.{Failure, Try}
 import slick.SlickException
 import slick.relational.RelationalBackend
 import slick.basic.BasicBackend
 import slick.util.Logging
-import scala.collection.mutable.ArrayBuffer
-import scala.util.{Failure, Try}
 
 /** The backend for DistributedProfile. */
 trait DistributedBackend extends RelationalBackend with Logging {
@@ -57,7 +58,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
   class DatabaseFactoryDef {
     /** Create a new distributed database instance that uses the supplied ExecutionContext for
       * asynchronous execution of database actions. */
-    def apply(dbs: TraversableOnce[BasicBackend#DatabaseDef], executionContext: ExecutionContext): Database =
+    def apply(dbs: IterableOnce[BasicBackend#DatabaseDef], executionContext: ExecutionContext): Database =
       new DatabaseDef(dbs.toVector, executionContext)
   }
 

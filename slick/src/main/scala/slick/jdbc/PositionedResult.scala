@@ -1,7 +1,7 @@
 package slick.jdbc
 
+import scala.collection.compat._
 import scala.language.higherKinds
-import scala.collection.generic.CanBuildFrom
 import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
 import java.io.Closeable
 import slick.util.{ReadAheadIterator, CloseableIterator}
@@ -147,8 +147,8 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
     view(discPos, discPos+1, { r => disc != null && disc == r.nextObject })
   }
 
-  final def build[C[_], R](gr: GetResult[R])(implicit canBuildFrom: CanBuildFrom[Nothing, R, C[R]]): C[R] = {
-    val b = canBuildFrom()
+  final def build[C[_], R](gr: GetResult[R])(implicit canBuildFrom: Factory[R, C[R]]): C[R] = {
+    val b = canBuildFrom.newBuilder
     while(nextRow) b += gr(this)
     b.result()
   }
@@ -156,7 +156,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
   final def to[C[_]] = new To[C]()
 
   final class To[C[_]] private[PositionedResult] () {
-    def apply[R](gr: GetResult[R])(implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R]]) =
+    def apply[R](gr: GetResult[R])(implicit session: JdbcBackend#Session, canBuildFrom: Factory[R, C[R]]) =
       build[C, R](gr)
   }
 }

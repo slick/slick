@@ -2,17 +2,18 @@ package slick.dbio
 
 import org.reactivestreams.Subscription
 
+import scala.collection.compat.IterableOnce
 import scala.collection.mutable.ArrayBuffer
-import scala.language.higherKinds
-
 import scala.collection.generic.{CanBuild, CanBuildFrom}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Try, Failure, Success}
+import scala.util.control.NonFatal
+import scala.language.higherKinds
+
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.util.{DumpInfo, Dumpable, ignoreFollowOnError}
-import scala.util.{Try, Failure, Success}
-import scala.util.control.NonFatal
 
 /** A Database I/O Action that can be executed on a database. The DBIOAction type allows a
   * separation of execution logic and resource usage management logic from composition logic.
@@ -152,11 +153,11 @@ object DBIOAction {
   /** Create a [[DBIOAction]] that always fails. */
   def failed(t: Throwable): DBIOAction[Nothing, NoStream, Effect] = FailureAction(t)
 
-  private[this] def groupBySynchronicity[R, E <: Effect](in: TraversableOnce[DBIOAction[R, NoStream, E]]): Vector[Vector[DBIOAction[R, NoStream, E]]] = {
+  private[this] def groupBySynchronicity[R, E <: Effect](in: IterableOnce[DBIOAction[R, NoStream, E]]): Vector[Vector[DBIOAction[R, NoStream, E]]] = {
     var state = 0 // no current = 0, sync = 1, async = 2
     var current: mutable.Builder[DBIOAction[R, NoStream, E], Vector[DBIOAction[R, NoStream, E]]] = null
     val total = Vector.newBuilder[Vector[DBIOAction[R, NoStream, E]]]
-    (in: TraversableOnce[Any]).foreach { a =>
+    (in: IterableOnce[Any]).foreach { a =>
       val msgState = if(a.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) 1 else 2
       if(msgState != state) {
         if(state != 0) total += current.result()
@@ -176,7 +177,7 @@ object DBIOAction {
   }
 
   /** Transform a `TraversableOnce[ DBIO[R] ]` into a `DBIO[ TraversableOnce[R] ]`. */
-  def sequence[R, M[+_] <: TraversableOnce[_], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: CanBuildFrom[M[DBIOAction[R, NoStream, E]], R, M[R]]): DBIOAction[M[R], NoStream, E] = {
+  def sequence[R, M[+_] <: IterableOnce[_], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: CanBuildFrom[M[DBIOAction[R, NoStream, E]], R, M[R]]): DBIOAction[M[R], NoStream, E] = {
     implicit val ec = DBIO.sameThreadExecutionContext
     def sequenceGroupAsM(g: Vector[DBIOAction[R, NoStream, E]]): DBIOAction[M[R], NoStream, E] = {
       if(g.head.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) { // fuse synchronous group
@@ -212,7 +213,7 @@ object DBIOAction {
         } else SequenceAction[R, Seq[R], E](g)
       }
     }
-    val grouped = groupBySynchronicity[R, E](in.asInstanceOf[TraversableOnce[DBIOAction[R, NoStream, E]]])
+    val grouped = groupBySynchronicity[R, E](in.asInstanceOf[IterableOnce[DBIOAction[R, NoStream, E]]])
     grouped.length match {
       case 0 => DBIO.successful(cbf().result())
       case 1 => sequenceGroupAsM(grouped.head)
