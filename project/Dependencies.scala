@@ -6,22 +6,23 @@ object Dependencies {
   // NOTE: remember to change the version numbers in the sample projects
   // when changing them here
 
-  val scalaVersions = Seq("2.11.12", "2.12.8") // When updating these also update .travis.yml
+  val scalaVersions = Seq("2.11.12", "2.12.8", "2.13.0-RC1") // When updating these also update .travis.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.26"
   val typesafeConfig = "com.typesafe" % "config" % "1.3.4"
   val reactiveStreamsVersion = "1.0.2"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "1.0.0"
 
-  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
+  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",
     "com.novocode" % "junit-interface" % "0.11"
   )
   def scalaTestFor(scalaVersion: String) = {
-    val v = "3.0.7"
+    val v = "3.0.8-RC2"
     "org.scalatest" %% "scalatest" % v
   }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"

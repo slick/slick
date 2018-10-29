@@ -2,6 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import slick.jdbc.DerbyProfile
+import scala.collection.compat._
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
@@ -37,7 +38,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       dst2.forceInsertExpr(q3),
       dst2.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"), (42,"X"))),
       dst3comp.forceInsertQuery(q4comp),
-      dst3comp.result.map(v => v.to[Set] shouldBe Set((1,"A"), (2,"B")))
+      dst3comp.result.map(v => v.to(Set) shouldBe Set((1,"A"), (2,"B")))
     ))
   }
 

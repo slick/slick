@@ -6,6 +6,7 @@ import com.typesafe.config.Config
 
 import org.reactivestreams.Subscriber
 
+import scala.collection.compat._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.{Future, ExecutionContext}
 
@@ -116,7 +117,7 @@ trait HeapBackend extends RelationalBackend with Logging {
       logger.debug("Inserted ("+row.mkString(", ")+") into "+this)
     }
 
-    def createInsertRow: ArrayBuffer[Any] = columns.map(_.createDefault)(collection.breakOut)
+    def createInsertRow: ArrayBuffer[Any] = columns.map(_.createDefault).to(ArrayBuffer)
 
     override def toString = name + "(" + columns.map(_.sym.name).mkString(", ") + ")"
 
