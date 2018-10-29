@@ -448,7 +448,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case t: ScalaType[_] => if(t.nullable) None else null
     case StructType(el) =>
       new StructValue(el.toSeq.map{ case (_, tpe) => createNullRow(tpe) },
-        el.toSeq.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
+        el.toSeq.zipWithIndex.iterator.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
     case ProductType(el) =>
       new ProductValue(el.toSeq.map(tpe => createNullRow(tpe)))
   }

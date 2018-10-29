@@ -15,3 +15,5 @@ resolvers += Resolver.url("fix-sbt-plugin-releases", url("https://dl.bintray.com
 addSbtPlugin("com.novocode" % "sbt-ornate" % "0.5")
 
 addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.1")
+
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.0")

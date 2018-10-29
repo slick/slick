@@ -2,8 +2,8 @@ package slick.jdbc
 
 import scala.language.higherKinds
 import scala.annotation.unchecked.{uncheckedVariance => uV}
-import scala.collection.generic.CanBuildFrom
 import slick.util.CloseableIterator
+import scala.collection.compat._
 
 /** Base trait for all statement invokers of result element type R. */
 trait Invoker[+R] { self =>
@@ -35,8 +35,8 @@ trait Invoker[+R] { self =>
   }
 
   /** Execute the statement and return a fully materialized collection. */
-  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] = {
-    val b = canBuildFrom()
+  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: Factory[R, C[R @uV]]): C[R @uV] = {
+    val b = canBuildFrom.newBuilder
     foreach({ x => b += x }, 0)
     b.result()
   }

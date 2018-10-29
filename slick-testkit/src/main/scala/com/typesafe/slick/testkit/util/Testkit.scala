@@ -29,6 +29,7 @@ import org.junit.Assert
 import org.slf4j.MDC
 
 import org.reactivestreams.{Subscription, Subscriber, Publisher}
+import scala.collection.compat._
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
@@ -203,7 +204,7 @@ abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TD
     if(succeeded) Assert.fail("Exception expected")
   }
 
-  def assertAllMatch[T](t: TraversableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
+  def assertAllMatch[T](t: IterableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
     if(!f.isDefinedAt(x)) Assert.fail("Expected shape not matched by: "+x)
   }
 }
@@ -299,9 +300,10 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
         Thread.sleep(delay.toMillis)
         thunk
       }(ec)
-      f.onFailure { case t =>
+      f.onComplete { case scala.util.Failure(t) =>
         pr.tryFailure(t)
         sub.cancel()
+                    case _ => ()
       }
       f
     }
@@ -354,7 +356,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     }
   }
 
-  implicit class CollectionAssertionExtensionMethods[T](v: TraversableOnce[T]) {
+  implicit class CollectionAssertionExtensionMethods[T](v: IterableOnce[T]) {
     private[this] val cln = getClass.getName
     private[this] def fixStack(f: => Unit): Unit = try f catch {
       case ex: AssertionError =>

@@ -9,6 +9,7 @@ import com.typesafe.sbt.sdlc.Plugin._
 import com.typesafe.sbt.pgp.PgpKeys
 import com.novocode.ornate.sbtplugin.OrnatePlugin
 import com.novocode.ornate.sbtplugin.OrnatePlugin.autoImport._
+import scalafix.sbt.ScalafixPlugin.autoImport.{scalafixDependencies, scalafixSemanticdb}
 
 object SlickBuild extends Build {
 
@@ -17,7 +18,7 @@ object SlickBuild extends Build {
 
   val slickVersion = "3.3.0-SNAPSHOT"
   val binaryCompatSlickVersion = "3.3.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.11.12", "2.12.4")
+  val scalaVersions = Seq("2.11.12", "2.12.4", "2.13.0-M5")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
@@ -26,7 +27,7 @@ object SlickBuild extends Build {
       "com.novocode" % "junit-interface" % "0.11"
     )
     def scalaTestFor(scalaVersion: String) = {
-      val v = "3.0.4"
+      val v = "3.0.6-SNAP4"
       "org.scalatest" %% "scalatest" % v
     }
     val slf4j = "org.slf4j" % "slf4j-api" % "1.7.25"
@@ -56,6 +57,8 @@ object SlickBuild extends Build {
       "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
       "org.apache.felix"       % "org.apache.felix.framework" % "4.6.1"
     )
+    val collectionCompatVersion = "0.2.1"
+    val collectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % collectionCompatVersion
   }
 
   /* Custom Settings */
@@ -103,12 +106,13 @@ object SlickBuild extends Build {
 
   def versionTag(v: String) = // get the tag for a version
     "v" + v
-
+  
   lazy val sharedSettings = Seq(
     version := slickVersion,
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
+    addCompilerPlugin(scalafixSemanticdb),
     scalacOptions ++= List("-deprecation", "-feature", "-unchecked", "-Xfuture"),
     scalacOptions in (Compile, doc) ++= Seq(
       "-doc-title", name.value,
@@ -118,7 +122,10 @@ object SlickBuild extends Build {
       "-doc-source-url", s"https://github.com/slick/slick/blob/${versionTag(version.value)}/slick/src/main€{FILE_PATH}.scala",
       "-implicits",
       "-diagrams", // requires graphviz
-      "-groups"
+      "-groups",
+      "-Yrangepos",
+      "-Ywarn-unused-import",
+      "-P:semanticdb:synthetics:on"
     ),
     logBuffered := false,
     repoKind := (if (version.value.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
@@ -157,7 +164,8 @@ object SlickBuild extends Build {
         <scm>
           <url>git@github.com:slick/slick.git</url>
           <connection>scm:git:git@github.com:slick/slick.git</connection>
-        </scm>
+        </scm>,
+    scalafixDependencies in ThisBuild += "org.scala-lang.modules" %% "scala-collection-migrations" % Dependencies.collectionCompatVersion 
   ) ++ scalaSettings
 
   def commonSdlcSettings = Seq(
@@ -260,6 +268,7 @@ object SlickBuild extends Build {
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       libraryDependencies ++= Dependencies.mainDependencies,
+      libraryDependencies += Dependencies.collectionCompat,
       scalacOptions in (Compile, doc) ++= Seq(
         "-doc-source-url", s"https://github.com/slick/slick/blob/${versionTag(version.value)}/slick/src/main€{FILE_PATH}.scala",
         "-doc-root-content", "scaladoc-root.txt"

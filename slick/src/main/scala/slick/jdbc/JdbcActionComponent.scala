@@ -528,7 +528,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       def run(ctx: Backend#Context, sql: Vector[String]) = {
         val sql1 = sql.head
         if(!useBatchUpdates(ctx.session) || (values.isInstanceOf[IndexedSeq[_]] && values.asInstanceOf[IndexedSeq[_]].length < 2))
-          retMany(values, values.map { v =>
+          retMany(values, values.iterator.map { v =>
             preparedInsert(sql1, ctx.session) { st =>
               st.clearParameters()
               a.converter.set(v, st)

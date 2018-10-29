@@ -116,7 +116,7 @@ trait HeapBackend extends RelationalBackend with Logging {
       logger.debug("Inserted ("+row.mkString(", ")+") into "+this)
     }
 
-    def createInsertRow: ArrayBuffer[Any] = columns.map(_.createDefault)(collection.breakOut)
+    def createInsertRow: ArrayBuffer[Any] = columns.iterator.map(_.createDefault)(collection.breakOut)
 
     override def toString = name + "(" + columns.map(_.sym.name).mkString(", ") + ")"
 
