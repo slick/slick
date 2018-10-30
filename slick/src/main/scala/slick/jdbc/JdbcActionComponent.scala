@@ -2,9 +2,9 @@ package slick.jdbc
 
 import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
 
-import scala.language.{existentials, higherKinds}
-
 import java.sql.{PreparedStatement, Statement}
+
+import scala.language.{existentials, higherKinds}
 
 import scala.collection.mutable.Builder
 import scala.util.control.NonFatal

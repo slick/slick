@@ -2,7 +2,7 @@ package slick.dbio
 
 import org.reactivestreams.Subscription
 
-import scala.collection.compat._
+import scala.collection.compat.IterableOnce
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.generic.{CanBuild, CanBuildFrom}
 import scala.collection.mutable
