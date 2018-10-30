@@ -94,7 +94,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         val p = value.asInstanceOf[Product]
         new ProductValue((0 until p.productArity).iterator.map(i =>
           wrapScalaValue(p.productElement(i), ts(i))
-        )(collection.breakOut))
+        ).toVector)
       case CollectionType(_, elType) =>
         val v = value.asInstanceOf[Iterable[_]]
         val b = v.iterableFactory.newBuilder[Any]

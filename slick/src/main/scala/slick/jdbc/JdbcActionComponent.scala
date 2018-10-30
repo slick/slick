@@ -534,7 +534,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
               a.converter.set(v, st)
               retOne(st, v, st.executeUpdate())
             }
-          }(collection.breakOut): Vector[SingleInsertResult])
+          }.toVector)
         else preparedInsert(a.sql, ctx.session) { st =>
           st.clearParameters()
           for(value <- values) {
@@ -666,7 +666,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = individual
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) =
-      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux)(collection.breakOut)
+      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toIndexedSeq
 
     protected def retQuery(st: Statement, updateCount: Int) =
       buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"
