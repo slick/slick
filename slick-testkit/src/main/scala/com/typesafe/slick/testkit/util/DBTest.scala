@@ -2,14 +2,13 @@ package com.typesafe.slick.testkit.util
 
 import slick.dbio.DBIO
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-
-import org.junit.{Before, After}
+import org.junit.{After, Before}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import scala.collection.JavaConverters._
 
 @RunWith(classOf[Parameterized])
 abstract class DBTest {
@@ -37,5 +36,5 @@ abstract class DBTestObject(dbs: TestDB*) {
     val s = getClass.getName
     s.substring(0, s.length-1)
   }
-  @Parameters def parameters = JavaConversions.seqAsJavaList(dbs.filter(_.isEnabled).map(to => Array(to)))
+  @Parameters def parameters: java.util.List[Array[TestDB]] = dbs.filter(_.isEnabled).map(to => Array(to)).asJava
 }

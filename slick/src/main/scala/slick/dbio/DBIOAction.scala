@@ -2,18 +2,18 @@ package slick.dbio
 
 import org.reactivestreams.Subscription
 
+import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
-import scala.language.higherKinds
-
 import scala.collection.generic.{CanBuild, CanBuildFrom}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Try, Failure, Success}
+import scala.util.control.NonFatal
+import scala.language.higherKinds
+
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.util.{DumpInfo, Dumpable, ignoreFollowOnError}
-import scala.util.{Try, Failure, Success}
-import scala.util.control.NonFatal
-import scala.collection.compat._
 
 /** A Database I/O Action that can be executed on a database. The DBIOAction type allows a
   * separation of execution logic and resource usage management logic from composition logic.

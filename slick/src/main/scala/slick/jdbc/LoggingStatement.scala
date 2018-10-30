@@ -2,6 +2,7 @@ package slick.jdbc
 
 import slick.util.TableDump
 
+import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 import scala.language.reflectiveCalls
 
@@ -9,7 +10,6 @@ import java.io.{InputStream, Reader}
 import java.util.Calendar
 import java.{sql => js}
 import java.sql.{PreparedStatement, Connection, SQLWarning, ResultSet, Statement, Timestamp}
-import scala.collection.compat._
 
 /** A wrapper for `java.sql.Statement` that logs statements and benchmark results
   * to the appropriate [[JdbcBackend]] loggers. */

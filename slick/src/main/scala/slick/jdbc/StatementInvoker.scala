@@ -3,8 +3,8 @@ package slick.jdbc
 import java.sql.PreparedStatement
 import slick.util.{TableDump, SlickLogger, CloseableIterator}
 import org.slf4j.LoggerFactory
-import scala.collection.mutable.ArrayBuffer
 import scala.collection.compat._
+import scala.collection.mutable.ArrayBuffer
 
 private[jdbc] object StatementInvoker {
   val maxLogResults = 5

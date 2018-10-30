@@ -7,7 +7,6 @@ import slick.ast._
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
 import slick.SlickException
-import scala.Iterable
 
 trait ExtensionMethods[B1, P1] extends Any {
   protected[this] def c: Rep[P1]

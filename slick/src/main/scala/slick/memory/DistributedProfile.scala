@@ -1,6 +1,7 @@
 package slick.memory
 
 
+import scala.collection.compat._
 import scala.collection.mutable.{Builder, HashMap}
 
 import slick.SlickException
@@ -11,8 +12,6 @@ import slick.compiler._
 import slick.dbio._
 import slick.relational.{RelationalProfile, ResultConverter, CompiledMapping}
 import slick.util.{DumpInfo, RefId, ??}
-import scala.Iterable
-import scala.collection.compat._
 
 /** A profile for distributed queries. */
 class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryingProfile { self: DistributedProfile =>
