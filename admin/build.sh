@@ -33,7 +33,7 @@ fi
 
 sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf "$publishVersion" +testAll $extraTarget
 
-if [ "$publish_docs" -eq "1" ]; then
+if test "$publish_docs" = "1" ; then
   slick_dir=$(pwd)
   docs_repo="slick/doc.git"
   generated_docs=$slick_dir/doc/target/
