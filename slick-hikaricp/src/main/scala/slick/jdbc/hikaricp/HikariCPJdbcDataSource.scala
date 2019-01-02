@@ -47,7 +47,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     val numThreads = c.getIntOr("numThreads", 20)
 
-    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 1000))
+    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 30000))
     hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
     hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
     c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
@@ -81,7 +81,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
       .map("TRANSACTION_" + _)
       .foreach(hconf.setTransactionIsolation)
 
-    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 1000))
+    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 5000))
     hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
 
     c.getStringOpt("schema").foreach(hconf.setSchema)
