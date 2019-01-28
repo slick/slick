@@ -13,13 +13,13 @@ import slick.relational.RelationalProfile
  * The implementation follows the virtual class pattern, which allows flexible
  * customization by overriding the inner classes (following the pattern).
  * @see http://lampwww.epfl.ch/~odersky/papers/ScalableComponent.html
-*/
+ */
 abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
-                   extends GeneratorHelpers[Code,TermName,TypeName]{ codegen =>
+  extends GeneratorHelpers[Code,TermName,TypeName]{ codegen =>
   model.assertConsistency
 
   /** Enables DDL Generation. */
-   val ddlEnabled = true
+  val ddlEnabled = true
   /** Table code generators. */
   final lazy val tables: Seq[Table] = model.tables.map(Table).sortBy(_.TableClass.rawName.toLowerCase)
   /** Table code generators indexed by db table name. */
@@ -42,7 +42,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
    * Code generator for table related code
    * @group Basic customization overrides
    * @param model corresponding Slick meta model component
-  */
+   */
   abstract case class TableDef(val model: m.Table){
     table =>
     /** Column code generators in the order they appear in the model. */
@@ -85,9 +85,14 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
      *  Uses HList if hlistEnabled else tuple.
      */
     def compoundValue(values: Seq[Code]): Code
-    /** If HList should be used as a compound type instead of tuples. Default to true for > 22 columns.
-        @group Basic customization overrides */
-    def hlistEnabled = columns.size > 22
+    /** If HList should be used as a compound type instead of tuples. Only if hugeClassEnabled is false.
+        @group Basic customization now overrides */
+    def hlistEnabled = !hugeClassEnabled && columns.size > 22;
+    /**
+       Default is true, i.e. a case class will be generated even if column.size > 22.
+       Override to false to get the code as before Slick 3.3, i.e. a HList based type will be generated instead.
+       @group Basic customization now overrides */
+    def hugeClassEnabled = true
     /** Indicates whether auto increment columns should be put last and made an Option with a None default.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
@@ -100,6 +105,9 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Indicates if this table should be mapped using factory and extractor or not, in which case tuples are used. (Consider overriding EntityType.enabled instead, which affects this, too.) Disabled by default when using hlists.
         @group Basic customization overrides */
     def mappingEnabled = !hlistEnabled
+    /** Indicates if table has more than 22 columns but still has to be mapped to a case class.
+      */
+    final def isMappedToHugeClass = hugeClassEnabled && mappingEnabled && EntityType.classEnabled && columns.size > 22
     /** Function that constructs an entity object from the unmapped values
         @group Basic customization overrides */
     def factory: Code
@@ -124,7 +132,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def doc =
         if(classEnabled){
           s"Entity class storing rows of table ${TableValue.name}\n" +
-         columns.map(c => "@param "+c.name+" "+c.doc).mkString("\n")
+            columns.map(c => "@param "+c.name+" "+c.doc).mkString("\n")
         } else {
           s"Row type of table ${TableValue.name}\n"
         }
@@ -136,7 +144,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Plain SQL GetResult mapper generator factory. Override for customization.
         @group Basic customization overrides */
     def PlainSqlMapper: PlainSqlMapper
-    /** Plain SQL GetResult mapper generator definition 
+    /** Plain SQL GetResult mapper generator definition
         @group Basic customization overrides */
     trait PlainSqlMapperDef extends TermDef{
       def doc = s"GetResult implicit for fetching ${EntityType.name} objects using plain SQL queries"
@@ -148,7 +156,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Table class generator factory. Override for customization.
         @group Basic customization overrides */
     def TableClass: TableClass
-    /** Table class generator definition 
+    /** Table class generator definition
         @group Basic customization overrides */
     trait TableClassDef extends TypeDef{
       /** The type of the elements this table yields. */
@@ -196,7 +204,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Table value generator factory. Override for customization.
         @group Basic customization overrides */
     def TableValue: TableValue
-    /** Table value generator definition (generates a collection-like value representing this database table). 
+    /** Table value generator definition (generates a collection-like value representing this database table).
         @group Basic customization overrides */
     trait TableValueDef extends TermDef{
       def doc = s"Collection-like TableQuery object for table ${TableValue.name}"
@@ -211,7 +219,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def Column    : m.Column     => Column
     /**
      * Column related generator definition
-     * @group Basic customization overrides 
+     * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
     abstract case class ColumnDef(val model: m.Column) extends TermDef{
@@ -268,7 +276,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /**
      * PrimaryKey related generator definition
      * (Currently only used for composite primary keys.)
-     * @group Basic customization overrides 
+     * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
     abstract case class PrimaryKeyDef(val model: m.PrimaryKey) extends TermDef{
@@ -292,7 +300,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def ForeignKey: m.ForeignKey => ForeignKey
     /**
      * ForeignKey related generator definition
-     * @group Basic customization overrides 
+     * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
     abstract case class ForeignKeyDef(val model: m.ForeignKey) extends TermDef{
@@ -334,7 +342,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def Index     : m.Index      => Index
     /**
      * Index related generator definition
-     * @group Basic customization overrides 
+     * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
     abstract case class IndexDef(val model: m.Index) extends TermDef{
@@ -344,9 +352,9 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Name used in the db or a default name */
       val dbName = model.name.getOrElse(table.model.name.table+"_INDEX_"+id)
       def rawName = disambiguateTerm("index"+id)
-      def doc: String = 
+      def doc: String =
         (if(model.unique)"Uniqueness " else "")+
-        "Index over "+columns.map(_.name).mkString("(",",",")")+s" (database name ${dbName})"
+          "Index over "+columns.map(_.name).mkString("(",",",")")+s" (database name ${dbName})"
     }
 
     /** Common interface for any kind of definition within the generated code */
@@ -458,7 +466,7 @@ trait GeneratorHelpers[Code,TermName,TypeName]{
     final def uncapitalize: String = str(0).toString.toLowerCase + str.tail
 
     /**
-     * Capitalizes the first (16 bit) character of each word separated by one or more '_'. Lower cases all other characters. 
+     * Capitalizes the first (16 bit) character of each word separated by one or more '_'. Lower cases all other characters.
      * Removes one '_' from each sequence of one or more subsequent '_' (to avoid collision).
      * (Warning: Not unicode-safe, uses String#apply)
      */

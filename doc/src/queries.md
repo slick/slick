@@ -281,6 +281,11 @@ updating are defined in
 There is currently no way to use scalar expressions or transformations of
 the existing data in the database for updates.
 
+When you want to update multiple columns at once, just map to a tuple first:
+
+```scala src=../code/LiftedEmbedding.scala#update2
+```
+
 Upserting
 ---------
 
@@ -318,8 +323,14 @@ known by the time the query is prepared for execution by Slick.
 ```scala src=../code/LiftedEmbedding.scala#compiled2
 ```
 
-You can use a compiled query for querying, inserting, updating and deleting data. For
-backwards-compatibility with Slick 1.0 you can still create a compiled
+You can use a compiled query for querying, inserting, updating and deleting data. 
+To use compiled queries for inserts you can wrap your table query with `Compiled`
+
+```scala src=../code/LiftedEmbedding.scala#compiled3
+```
+
+
+For backwards-compatibility with Slick 1.0 you can still create a compiled
 query by calling `flatMap` on a <api:slick.lifted.Parameters> object.
 In many cases this enables you to write a single *for comprehension* for a
 compiled query:

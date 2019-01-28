@@ -201,7 +201,7 @@ object LiftedEmbedding extends App {
       // building criteria using a "dynamic filter" e.g. from a webform.
       val criteriaColombian = Option("Colombian")
       val criteriaEspresso = Option("Espresso")
-      val criteriaRoast:Option[String] = None
+      val criteriaRoast: Option[String] = None
 
       val q4 = coffees.filter { coffee =>
         List(
@@ -215,11 +215,37 @@ object LiftedEmbedding extends App {
       //     from "COFFEES"
       //     where ("COF_NAME" = 'Colombian' or "COF_NAME" = 'Espresso')
 
+      // Conditional filtering with option e.g. from a webform.
+      val optionFromPrice = Option(20.0)
+      val optionToPrice: Option[Double]  = None
+
+      val q5 = coffees
+        .filterOpt(optionFromPrice)(_.price > _)
+        .filterOpt(optionToPrice)(_.price < _) // won't be added as a condition as `optionToPrice` evaluates to `None`
+      // compiles to SQL (simplified):
+      //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
+      //     from "COFFEES"
+      //     where "PRICE" > 20.0
+
+      // Conditional filtering with boolean e.g. from a webform.
+      val isRoast = true
+      val isEspresso = false
+
+      val q6 = coffees
+        .filterIf(isRoast)(_.price > 11.0)
+        .filterIf(isEspresso)(_.price > 11.0) // won't be added as a condition as `isEspresso` evaluates to `false`
+      // compiles to SQL (simplified):
+      //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
+      //     from "COFFEES"
+      //     where "PRICE" > 11.0
+
       //#filtering
       println(q1.result.statements.head)
       println(q2.result.statements.head)
       println(q3.result.statements.head)
       println(q4.result.statements.head)
+      println(q5.result.statements.head)
+      println(q6.result.statements.head)
     }
 
     ;{
@@ -405,6 +431,21 @@ object LiftedEmbedding extends App {
     }
 
     ;{
+      //#update2
+      val q = coffees.filter(_.name === "Espresso").map(coffee => (coffee.name, coffee.price))
+      // A Lungo is more expensive:
+      val updateAction = q.update(("Espresso Lungo", 12.88))
+
+      // Get the statement without having to specify an updated value:
+      val sql = q.updateStatement
+
+      // compiles to SQL:
+      //   update "COFFEES" set "COF_NAME" = ?, "PRICE" = ? where "COFFEES"."COF_NAME" = 'Espresso'
+      //#update2
+      println(sql)
+    }
+
+    ;{
       Await.result(db.run(
         usersForInsert ++= Seq(
           User(None,"",""),
@@ -435,6 +476,13 @@ object LiftedEmbedding extends App {
         val usersAction1 = userPaged(2, 1).result
         val usersAction2 = userPaged(1, 3).result
         //#compiled2
+      }
+
+      {
+        //#compiled3
+        val userCompiled = Compiled(users)
+        userCompiled += User(None, "John", "Doe")
+        //#compiled3
       }
 
       {

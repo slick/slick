@@ -360,7 +360,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
   /** Extension methods to generate the JDBC-specific insert actions. */
   trait SimpleInsertActionComposer[U] extends super.InsertActionExtensionMethodsImpl[U] {
-    /** The return type for `insertOrUpdate` operations */
+    /** The return type for `insertOrUpdate` operations. Note that the Option return value will be None if it was an update and Some if it was an insert*/
     type SingleInsertOrUpdateResult
 
     /** Get the SQL statement for a standard (soft) insert */
@@ -394,7 +394,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def forceInsertAll(values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write]
 
     /** Insert a single row if its primary key does not exist in the table,
-      * otherwise update the existing record. */
+      * otherwise update the existing record.
+      * Note that the return value will be None if an update was performed and Some if the operation was insert
+      */
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write]
   }
 

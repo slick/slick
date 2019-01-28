@@ -50,12 +50,10 @@ object CodeGenerator extends App {
 
       // override table generator
       override def Table = new Table(_){
-        // disable entity class generation and mapping
-        override def EntityType = new EntityType{
-          override def classEnabled = false
-        }
+        // disable entity class generation for tables with more than 22 columns
+        override def hugeClassEnabled = false
 
-         // override contained column generator
+        // override contained column generator
         override def Column = new Column(_){
           // use the data model member of this column to change the Scala type,
           // e.g. to a custom enum or anything else

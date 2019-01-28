@@ -22,6 +22,10 @@ object GenerateRoundtripSources {
     import Tables.profile.api._
     val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+      override def Table = new Table(_)
+      {
+        override def hugeClassEnabled = false // HList type instead of case classes (like with Slick before 3.3)
+      }
       override def tableName = {
         case n if n.toLowerCase == "null" => "null" // testing null as table name
         case n => super.tableName(n)
@@ -35,11 +39,13 @@ object GenerateRoundtripSources {
         }
       }
     })
+    val a3 = profile.createModel(ignoreInvalidDefaults = false).map(m => new SourceCodeGenerator(m))
     val db = Database.forURL(url=url, driver=jdbcDriver, keepAliveConnection=true)
-    val (gen,gen2) = try Await.result(db.run(ddl.create >> (a1 zip a2)), Duration.Inf) finally db.close
+    val ((gen,gen2),gen3) = try Await.result(db.run(ddl.create >> ((a1 zip a2) zip a3)), Duration.Inf) finally db.close
     val pkg = "slick.test.codegen.roundtrip"
     gen.writeToFile( "slick.jdbc.H2Profile", args(0), pkg )
     gen2.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"2" )
+    gen3.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"3" )
     gen.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles" )
     gen2.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles2" )
   }
@@ -81,7 +87,7 @@ class Tables(val profile: JdbcProfile){
   class X(tag: Tag) extends Table[(Int,Int,Option[Int],Int,Double,String,Option[Int],Option[Int],Option[String],Option[String],Option[String])](tag, "X") {
     def pk = column[Int]("pk")
     def pk2 = column[Int]("pk2")
-    def pkpk = primaryKey( "", (pk,pk2) ) // pk column collision
+    def pkpk = primaryKey( "primary_key2", (pk,pk2) ) // pk column collision
     def i1 = column[Option[Int]]("index_1") // scala keyword collision
     def c = column[Int]("column") // slick Table method with args collision
     def p = column[Option[Int]]("posts")

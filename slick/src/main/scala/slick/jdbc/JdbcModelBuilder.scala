@@ -190,15 +190,17 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       * Only valid for single column primary keys. */
     def createPrimaryKeyColumnOption: Boolean =
       tableBuilder.mPrimaryKeys.size == 1 && tableBuilder.mPrimaryKeys.head.column == meta.name
-    /** A (potentially non-portable) database column type for string types, this should not
-      * include a length ascription for other types it should */
+    /** A (potentially non-portable) database column type. For string types, this should not
+      * include a length ascription. */
     def dbType: Option[String] = Some(meta.typeName)
     /** Column length of string types */
     def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
     /** Indicates whether this should be a varchar in case of a string column.
-      * Currently defaults to true. Should be based on the value of dbType in the future. */
-    def varying: Boolean =
-      Seq(java.sql.Types.NVARCHAR, java.sql.Types.VARCHAR, java.sql.Types.LONGVARCHAR, java.sql.Types.LONGNVARCHAR) contains meta.sqlType
+      * Should be based on the value of dbType in the future. */
+    def varying: Boolean = {
+      import java.sql.Types._
+      Seq(NVARCHAR, VARCHAR, LONGVARCHAR, LONGNVARCHAR) contains meta.sqlType
+    }
 
     def rawDefault = meta.columnDef
 

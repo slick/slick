@@ -391,7 +391,7 @@ trait ActionContext {
 trait StreamingActionContext extends ActionContext {
   /** Emit a single result of the stream. Any Exception thrown by this method should be passed on
     * to the caller. */
-  def emit(v: Any)
+  def emit(v: Any): Unit
 
   /** Get the Subscription for this stream. */
   def subscription: Subscription

@@ -33,7 +33,7 @@ import org.reactivestreams.{Subscription, Subscriber, Publisher}
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
 
-  val profileTest = clazz.newInstance
+  val profileTest = clazz.getConstructor().newInstance()
   var tdb: TestDB = profileTest.tdb
 
   def describeChild(ch: TestMethod) = ch.desc
@@ -53,7 +53,7 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) exte
   override def runChildren(notifier: RunNotifier) = if(!children.isEmpty) {
     tdb.cleanUpBefore()
     try {
-      val is = children.iterator.map(ch => (ch, ch.cl.newInstance()))
+      val is = children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance()))
         .filter{ case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
       val last = is.length - 1
       var previousTestObject: GenericTest[_ >: Null <: TestDB] = null

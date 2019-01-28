@@ -54,7 +54,7 @@ trait ResultSetMutator[T] {
     * the end of the result set. */
   def row: T
   /** Update the current row. */
-  def row_=(value: T)
+  def row_=(value: T): Unit
   /** Insert a new row. */
   def += (value: T): Unit
   /** Insert multiple new rows. */
