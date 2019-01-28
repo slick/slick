@@ -6,11 +6,11 @@ object Dependencies {
   // NOTE: remember to change the version numbers in the sample projects
   // when changing them here
 
-  val scalaVersions = Seq("2.11.12", "2.12.4")
+  val scalaVersions = Seq("2.11.12", "2.12.8")
 
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.25"
   val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
-  val reactiveStreamsVersion = "1.0.1"
+  val reactiveStreamsVersion = "1.0.2"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
 
@@ -25,16 +25,16 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % v
   }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "2.7.4"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "3.2.0"
 
-  val h2 = "com.h2database" % "h2" % "1.4.191"
+  val h2 = "com.h2database" % "h2" % "1.4.196"
   val testDBs = Seq(
     h2,
     "org.apache.derby" % "derby" % "10.11.1.1",
     "org.xerial" % "sqlite-jdbc" % "3.8.11.2",
     "org.hsqldb" % "hsqldb" % "2.2.8",
-    "org.postgresql" % "postgresql" % "42.1.4",
-    "mysql" % "mysql-connector-java" % "5.1.38",
+    "org.postgresql" % "postgresql" % "42.2.2",
+    "mysql" % "mysql-connector-java" % "5.1.46",
     "net.sourceforge.jtds" % "jtds" % "1.3.1"
   )
 
