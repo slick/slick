@@ -89,7 +89,8 @@ trait SQLServerProfile extends JdbcProfile {
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
       override def tpe = dbType match {
         case Some("date") => "java.sql.Date"
         case Some("time") => "java.sql.Time"
@@ -118,7 +119,7 @@ trait SQLServerProfile extends JdbcProfile {
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
-    MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(!_.name.schema.contains("sys")))
+    MTable.getTables(None, None, Some("%"), Some(Seq("TABLE"))).map(_.filter(!_.name.schema.contains("sys")))
   }
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {

@@ -47,7 +47,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     val numThreads = c.getIntOr("numThreads", 20)
 
-    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 1000))
+    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 30000))
     hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
     hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
     c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
@@ -58,17 +58,20 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     // Infrequently used
 
-    // `initializationFailFast` is deprecated and should be replaced by
-    // `initializationFailTimeout`. See HikariCP docs for more information:
-    // https://github.com/brettwooldridge/HikariCP#infrequently-used
-    // But we still respect the value if it configured.
-    c.getBooleanOpt("initializationFailFast").foreach(hconf.setInitializationFailFast)
-
     // The default value for `initializationFailFast` was false, which means the pool
     // will not fail to start if there is a problem when connecting to the database.
     // To keep this behavior, we need to set `initializationFailTimeout` to -1 as
     // documented by HikariCP.
-    hconf.setInitializationFailTimeout(c.getMillisecondsOr("initializationFailTimeout", -1))
+    hconf.setInitializationFailTimeout(c.getMillisecondsOr("initializationFailTimeout", default = {
+      // `initializationFailFast` is deprecated and should be replaced by
+      // `initializationFailTimeout`. See HikariCP docs for more information:
+      // https://github.com/brettwooldridge/HikariCP#infrequently-used
+      // But for backwards compatibility we check for it if initializationFailTimeout is missing
+      c.getBooleanOpt("initializationFailFast").map { failFast =>
+        if (failFast) 1L
+        else 0L
+      }.getOrElse(-1L)
+    }))
 
     c.getBooleanOpt("isolateInternalQueries").foreach(hconf.setIsolateInternalQueries)
     c.getBooleanOpt("allowPoolSuspension").foreach(hconf.setAllowPoolSuspension)
@@ -81,7 +84,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
       .map("TRANSACTION_" + _)
       .foreach(hconf.setTransactionIsolation)
 
-    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 1000))
+    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 5000))
     hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
 
     c.getStringOpt("schema").foreach(hconf.setSchema)

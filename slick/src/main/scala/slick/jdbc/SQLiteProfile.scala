@@ -94,48 +94,48 @@ trait SQLiteProfile extends JdbcProfile {
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
-      /** Regex matcher 
-        * to extract name and length 
-        * out of a db type name with length ascription 
-        */
-      def extractTypeProps( 
-        s: String = "NUMERIC(18,2)"
-      , pattern: scala.util.matching.Regex = "^([A-Z\\s]+)(\\(([0-9]+),?([0-9]+)?\\))?$".r
-      ): ( String, Option[ Int ] ) = s match {
-        case pattern( 
-          name, numericProps, precision, scale 
-        ) => ( name, Option( precision ).map( _.toInt ) )
-        case "" => ( "TEXT", None )
-      }
-      private 
-      val ( _dbType, _size ) = extractTypeProps( 
-        s = meta.typeName
-      , pattern = "^([A-Z\\s]+)(\\(\\s?([0-9]+)\\s?,?\\s?([0-9]+)?\\s?\\))?$".r 
-      )  
+
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta)
+
+    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
+
+      final val TypePattern = "^([A-Z\\s]+)(\\(\\s?([0-9]+)\\s?,?\\s?([0-9]+)?\\s?\\))?$".r
+
+      /** Regex matcher to extract name and length
+       * out of a db type name with length ascription
+       */
+      def extractTypeProps(typeName: String = "NUMERIC(18,2)"): ( String, Option[ Int ] ) =
+        typeName match {
+          case TypePattern(name, _, precision, _) => ( name, Option( precision ).map( _.toInt ) )
+          case "" => ( "TEXT", None )
+        }
+
+      private val ( _dbType, _size ) = extractTypeProps(meta.typeName)
+
       override def dbType = Some(_dbType)
       override def length = _size
       override def varying = dbType == Some("VARCHAR")
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
-      	case (v , "java.sql.Timestamp") => {
-      	  import scala.util.{Try, Success}
-      	  val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
+        case (v , "java.sql.Timestamp") => {
+          import scala.util.{Try, Success}
+          val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
             (s: String) => java.sql.Timestamp.valueOf(s),
             (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s).getTime.getTime),
-      	    (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replaceAll(" ","T")).getTime.getTime),
-      	    (s: String) => {
-      		    if(s == "now")
-      		      "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
-      		    else
-      		      throw new Exception(s"Failed to parse timestamp - $s")
-      	    }
+            (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replaceAll(" ","T")).getTime.getTime),
+            (s: String) => {
+              if(s == "now")
+                "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
+              else
+                throw new Exception(s"Failed to parse timestamp - $s")
+            }
           )
-      	  val v2 = v.replaceAll("\"", "")
-      	  convertors.collectFirst(fn => Try(fn(v2)) match{
-      	    case Success(v) => Some(v)
-      	  })
-      	}
+          val v2 = v.replaceAll("\"", "")
+          convertors.collectFirst(fn => Try(fn(v2)) match{
+            case Success(v) => Some(v)
+          })
+        }
       }.getOrElse{super.default}
       override def tpe = dbType match {
         case Some("DOUBLE") => "Double"
@@ -146,10 +146,12 @@ trait SQLiteProfile extends JdbcProfile {
         case _ => super.tpe
       }
     }
-    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
+
+    class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]) extends super.PrimaryKeyBuilder(tableBuilder, meta) {
       // in 3.7.15-M1:
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
+
     override def readIndices(t: MTable) = super.readIndices(t).map(
       _.filterNot(
         _.exists( _.indexName.exists(_.startsWith("sqlite_autoindex_")) )

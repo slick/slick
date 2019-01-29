@@ -215,17 +215,21 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     * For more information about the MsSQL issue: https://sourceforge.net/p/jtds/feature-requests/73/
     */
   private[this] def generateTestLocalDateTime() : LocalDateTime = {
-    if (tdb.confName.contains("jtds")) {
-      val now = Instant.now
-      val offset = now.get(ChronoField.MILLI_OF_SECOND) % 10
-      LocalDateTime.ofInstant(now.plusMillis(-offset), ZoneOffset.UTC)
+    val now = Instant.now
+    val dbCompatibleInstant = if (tdb.confName.contains("jtds")) {
+      val offset = now.get(ChronoField.NANO_OF_SECOND) % 10000000
+      now.plusNanos(-offset)
     } else if (tdb.confName.contains("mysql")) {
-      val now = Instant.now
-      val msOffset = now.get(ChronoField.MILLI_OF_SECOND)
-      LocalDateTime.ofInstant(now.plusMillis(-msOffset), ZoneOffset.UTC)
-    } else
-      LocalDateTime.now(ZoneOffset.UTC)
-  }
+      // mysql has no subsecond resolution
+      now.`with`(ChronoField.NANO_OF_SECOND, 0)
+    } else {
+      // after JDK8, Instant.now uses a Clock that has greater than millis resolution. Most
+      // database timestamp implementations only have millis resolutions, so only
+      // roundtrip values which have no micro and nano parts
+      now.`with`(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND))
+    }
+    LocalDateTime.ofInstant(dbCompatibleInstant, ZoneOffset.UTC)
+  }  
   val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
   // Test the java.sql.* types
@@ -354,7 +358,6 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     "Australia/ACT",
     "America/Dawson_Creek",
     "GB",
-    "America/Porto_Acre",
     "Pacific/Johnston",
     "Portugal",
     "Australia/Eucla"
@@ -374,14 +377,11 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         localDateTime.atZone(zoneId)
       }
     }
+    val baseLocalDateTime = randomLocalDateTime()
     roundTrip[ZonedDateTime](
-      List(
-        generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(14),
-        generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toZonedDateTime.withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).withHour(5),
-        generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).withHour(5)),
+      // from the random baseLocalDateTime, generate about 6 months worth of datetimes for each test zoneId
+      (0 to 5000).map(offset => baseLocalDateTime.plusMinutes(offset * 55)).toList.
+        flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
       generateTestZonedDateTime
     )
   }

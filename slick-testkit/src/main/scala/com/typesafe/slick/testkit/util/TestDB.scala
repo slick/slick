@@ -281,7 +281,7 @@ object ExternalTestDB {
         throw new IOException(s"Error, could not add URL $url to system classloader");
     }
     driverCache.getOrElseUpdate((url, driverClass),
-      new URLClassLoader(Array(new URL(url)), getClass.getClassLoader).loadClass(driverClass).newInstance.asInstanceOf[Driver]
+      new URLClassLoader(Array(new URL(url)), getClass.getClassLoader).loadClass(driverClass).getConstructor().newInstance().asInstanceOf[Driver]
     )
   }
 }

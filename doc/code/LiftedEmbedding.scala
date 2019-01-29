@@ -431,6 +431,21 @@ object LiftedEmbedding extends App {
     }
 
     ;{
+      //#update2
+      val q = coffees.filter(_.name === "Espresso").map(coffee => (coffee.name, coffee.price))
+      // A Lungo is more expensive:
+      val updateAction = q.update(("Espresso Lungo", 12.88))
+
+      // Get the statement without having to specify an updated value:
+      val sql = q.updateStatement
+
+      // compiles to SQL:
+      //   update "COFFEES" set "COF_NAME" = ?, "PRICE" = ? where "COFFEES"."COF_NAME" = 'Espresso'
+      //#update2
+      println(sql)
+    }
+
+    ;{
       Await.result(db.run(
         usersForInsert ++= Seq(
           User(None,"",""),
@@ -461,6 +476,13 @@ object LiftedEmbedding extends App {
         val usersAction1 = userPaged(2, 1).result
         val usersAction2 = userPaged(1, 3).result
         //#compiled2
+      }
+
+      {
+        //#compiled3
+        val userCompiled = Compiled(users)
+        userCompiled += User(None, "John", "Doe")
+        //#compiled3
       }
 
       {

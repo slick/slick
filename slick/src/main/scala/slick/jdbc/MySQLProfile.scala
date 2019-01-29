@@ -14,6 +14,7 @@ import slick.ast.TypeUtil._
 import slick.basic.Capability
 import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
 import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
+import slick.dbio.DBIO
 import slick.lifted._
 import slick.relational.{RelationalProfile, RelationalCapabilities}
 import slick.sql.SqlCapabilities
@@ -76,11 +77,16 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+    override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta)
+
+    class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]) extends super.PrimaryKeyBuilder(tableBuilder, meta) {
       // TODO: this needs a test
       override def name = super.name.filter(_ != "PRIMARY")
     }
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+
+    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
       override def default = meta.columnDef.map((_,tpe)).collect{
         case (v,"String")    => Some(Some(v))
         case ("1"|"b'1'", "Boolean") => Some(Some(true))
@@ -100,7 +106,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     }
 
     //Reference: https://github.com/slick/slick/issues/1419
-    override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta){
+    class TableNamer(meta: MTable) extends super.TableNamer(meta){
       override def schema = meta.name.catalog
       override def catalog = meta.name.schema 
     }
@@ -124,6 +130,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] ={
+    for {
+      catalog <- SimpleJdbcAction(_.session.conn.getCatalog)
+      mtables <- MTable.getTables(Some(catalog), None, Some("%"), Some(Seq("TABLE")))
+    } yield mtables
+  }
 
   override val columnTypes = new JdbcTypes
   override protected def computeQueryCompiler = super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering
@@ -240,19 +252,23 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+    def buildInsertIgnoreStart: String = allNames.iterator.mkString(s"insert ignore into $tableName (", ",", ") ")
     override def buildInsert: InsertBuilderResult = {
-      val start = buildInsertStart
-      val update = softNames.map(n => s"$n=VALUES($n)").mkString(", ")
-      new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
+      val start = buildInsertIgnoreStart
+      if (softNames.isEmpty) new InsertBuilderResult(table, s"$start values $allVars", syms)
+      else {
+        val update = softNames.map(n => s"$n=VALUES($n)").mkString(", ")
+        new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
+      }
     }
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected def dropForeignKey(fk: ForeignKey) = {
-      "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
+      "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
     }
     override protected def dropPrimaryKey(pk: PrimaryKey): String = {
-      "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP PRIMARY KEY"
+      "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP PRIMARY KEY"
     }
   }
 

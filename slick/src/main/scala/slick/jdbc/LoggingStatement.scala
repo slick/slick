@@ -172,7 +172,14 @@ class LoggingPreparedStatement(st: PreparedStatement) extends LoggingStatement(s
     }
   }
 
-  def addBatch(): Unit = { pushParams; st.addBatch() }
+  def addBatch(): Unit = {
+    pushParams
+    if (JdbcBackend.statementAndParameterLogger.isDebugEnabled) {
+      logged(st.toString, "batch insert") { st.addBatch() }
+    } else {
+      st.addBatch()
+    }
+  }
   def clearParameters(): Unit = { clearParamss; st.clearParameters() }
 
   def getMetaData(): js.ResultSetMetaData = st.getMetaData

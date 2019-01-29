@@ -9,8 +9,8 @@ Slick documentation is written in CommonMark (Markdown) and is compiled to HTML 
 sbt ornate
 ```
 
-In order to build the complete manual including scaladocs, use the `makeSite` command:
+In order to build the complete manual including scaladocs, use the `doc` target:
 
 ``` bash
-sbt makeSite
+sbt doc
 ```
