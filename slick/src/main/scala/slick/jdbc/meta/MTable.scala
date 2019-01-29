@@ -23,6 +23,12 @@ case class MTable(
 }
 
 object MTable {
+  /**
+    * Some DatabaseMetaData methods take arguments that are String patterns. These arguments all have names such as fooPattern.
+    * Within a pattern String, "%" means match any substring of 0 or more characters, and "_" means match any one character.
+    * Only metadata entries matching the search pattern are returned.
+    * If a search pattern argument is set to null, that argument's criterion will be dropped from the search.
+    */
   def getTables(cat: Option[String], schemaPattern: Option[String], namePattern: Option[String],
     types: Option[Seq[String]]) = ResultSetAction[MTable](
       _.metaData.getTables(cat.orNull, schemaPattern.orNull, namePattern.orNull, types.map(_.toArray).orNull) ) { r =>
