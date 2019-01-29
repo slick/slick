@@ -90,7 +90,7 @@ object RelationalProfile {
   /** Extra column options for RelationalProfile */
   object ColumnOption {
     /** Default value for the column. Needs to wrap an Option for nullable Columns. */
-    case class Default[T](val defaultValue: T) extends ColumnOption[T]
+    case class Default[T](defaultValue: T) extends ColumnOption[T]
 
     /** Number of unicode characters for string-like types. Unlike DBType this is portable
       * between different DBMS. Note that for DDL Slick currently picks type CHAR when

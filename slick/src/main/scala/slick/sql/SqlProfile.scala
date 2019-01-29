@@ -119,7 +119,7 @@ object SqlProfile {
       *
       * Note that Slick uses VARCHAR or VARCHAR(254) in DDL for String columns if neither
       * ColumnOption DBType nor Length are given. */
-    case class SqlType(val typeName: String) extends ColumnOption[Nothing]
+    case class SqlType(typeName: String) extends ColumnOption[Nothing]
   }
 }
 
