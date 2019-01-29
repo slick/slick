@@ -27,7 +27,7 @@ object Dependencies {
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
   val hikariCP = "com.zaxxer" % "HikariCP" % "3.2.0"
 
-  val h2 = "com.h2database" % "h2" % "1.4.196"
+  val h2 = "com.h2database" % "h2" % "1.4.197"
   val testDBs = Seq(
     h2,
     "org.apache.derby" % "derby" % "10.11.1.1",
