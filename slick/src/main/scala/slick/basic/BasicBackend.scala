@@ -312,7 +312,14 @@ trait BasicBackend { self =>
               var state = initialState
               ctx.readSync
 
-              if(state eq null) acquireSession(ctx)
+              if(state eq null) {
+                try {
+                  acquireSession(ctx)
+                } catch { case NonFatal(ex) =>
+                  if (!ctx.isPinned) connectionReleased = true
+                  throw ex
+                }
+              }
               var demand = ctx.demandBatch
               var realDemand = if(demand < 0) demand - Long.MinValue else demand
 
@@ -336,17 +343,20 @@ trait BasicBackend { self =>
 
                   if(state eq null) { // streaming finished and cleaned up
                     releaseSession(ctx, true)
+                    if (!ctx.isPinned) connectionReleased = true
+                    ctx.sync = 0
                     ctx.streamingResultPromise.trySuccess(null)
                   }
 
                 } catch { case NonFatal(ex) =>
                   if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
                   releaseSession(ctx, true)
+                  if (!ctx.isPinned) connectionReleased = true
+                  ctx.sync = 0
                   throw ex
 
                 } finally {
                   ctx.streamState = state
-                  if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
                   ctx.sync = 0
                 }
 
@@ -367,9 +377,6 @@ trait BasicBackend { self =>
 
             } catch {
               case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex)
-            } finally {
-              if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
-              ctx.sync = 0
             }
         })
       } catch { case NonFatal(ex) =>
