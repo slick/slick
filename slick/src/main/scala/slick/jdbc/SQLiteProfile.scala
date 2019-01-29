@@ -94,7 +94,10 @@ trait SQLiteProfile extends JdbcProfile {
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta)
+
+    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
       /** Regex matcher to extract name and length out of a db type name with length ascription */
       final val TypePattern = "^([A-Z\\s]+)(\\(([0-9]+)\\))?$".r
       private val (_dbType,_size) = meta.typeName match {
@@ -134,7 +137,8 @@ trait SQLiteProfile extends JdbcProfile {
         case _ => super.tpe
       }
     }
-    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
+
+    class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]) extends super.PrimaryKeyBuilder(tableBuilder, meta) {
       // in 3.7.15-M1:
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }

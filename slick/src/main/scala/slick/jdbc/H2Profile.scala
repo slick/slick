@@ -53,10 +53,14 @@ trait H2Profile extends JdbcProfile {
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
+    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+
+    class TableNamer(mTable: MTable) extends super.TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
     }
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+
+    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
       override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
       override def default = rawDefault.map((_,tpe)).collect{
           case (v,"java.util.UUID") =>
