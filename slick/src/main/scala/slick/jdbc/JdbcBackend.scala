@@ -202,10 +202,9 @@ trait JdbcBackend extends RelationalBackend {
       *     <ul>
       *       <li>`autoCommit` (Boolean, optional, default: true): controls the default auto-commit
       *         behavior of connections returned from the pool.</li>
-      *       <li>`connectionTimeout` (Duration, optional, default: 1s): The maximum time to wait
-      *         before a call to getConnection is timed out. If this time is exceeded without a
-      *         connection becoming available, a SQLException will be thrown. 1000ms is the minimum
-      *         value.</li>
+      *       <li>`connectionTimeout` (Duration, optional, default: 30s): The maximum number of milliseconds that a
+      *         client (that's you) will wait for a connection from the pool. If this time is exceeded without a
+      *         connection becoming available, a SQLException will be thrown. Lowest acceptable connection timeout is 250 ms</li>
       *       <li>`idleTimeout` (Duration, optional, default: 10min): The maximum amount
       *         of time that a connection is allowed to sit idle in the pool. A value of 0 means that
       *         idle connections are never removed from the pool.</li>
@@ -259,8 +258,9 @@ trait JdbcBackend extends RelationalBackend {
       *       <li>`transactionIsolation` or `isolation` (String, optional): Transaction isolation level for new connections.
       *         Allowed values are: `NONE`, `READ_COMMITTED`, `READ_UNCOMMITTED`, `REPEATABLE_READ`,
       *         `SERIALIZABLE`.</li>
-      *       <li>`validationTimeout` (Duration, optional, default: 1s): The maximum amount of time
-      *         that a connection will be tested for aliveness. 1000ms is the minimum value.</li>
+      *       <li>`validationTimeout` (Duration, optional, default: 5s): The maximum amount of time that a connection will
+      *         be tested for aliveness. This value must be less than the connectionTimeout.
+      *         Lowest acceptable validation timeout is 250 ms.</li>
       *       <li>`leakDetectionThreshold` (Duration, optional, default: 0): The amount of time that a
       *         connection can be out of the pool before a message is logged indicating a possible
       *         connection leak. A value of 0 means leak detection is disabled. Lowest acceptable value
