@@ -123,7 +123,7 @@ trait SQLiteProfile extends JdbcProfile {
           val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
             (s: String) => java.sql.Timestamp.valueOf(s),
             (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s).getTime.getTime),
-            (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replaceAll(" ","T")).getTime.getTime),
+            (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replace(' ', 'T')).getTime.getTime),
             (s: String) => {
               if(s == "now")
                 "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
@@ -131,7 +131,7 @@ trait SQLiteProfile extends JdbcProfile {
                 throw new Exception(s"Failed to parse timestamp - $s")
             }
           )
-          val v2 = v.replaceAll("\"", "")
+          val v2 = v.replace("\"", "")
           convertors.collectFirst(fn => Try(fn(v2)) match{
             case Success(v) => Some(v)
           })
