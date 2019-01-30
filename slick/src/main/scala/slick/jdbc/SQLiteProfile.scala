@@ -100,15 +100,13 @@ trait SQLiteProfile extends JdbcProfile {
 
     class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
 
-      final val TypePattern = "^([A-Z\\s]+)(\\(\\s?([0-9]+)\\s?,?\\s?([0-9]+)?\\s?\\))?$".r
+      // Regex matcher to extract name and length out of a db type name with length ascription
+      final val TypePattern = "^([A-Z\\s]+)(?:\\(\\s*([0-9]+)\\s*,?\\s*(?:[0-9]+)?\\s*\\))?$".r
 
-      /** Regex matcher to extract name and length
-       * out of a db type name with length ascription
-       */
-      def extractTypeProps(typeName: String = "NUMERIC(18,2)"): ( String, Option[ Int ] ) =
+      def extractTypeProps(typeName: String): (String, Option[Int]) =
         typeName match {
-          case TypePattern(name, _, precision, _) => ( name, Option( precision ).map( _.toInt ) )
-          case "" => ( "TEXT", None )
+          case TypePattern(name, length) => (name, Option(length).map(_.toInt))
+          case "" => ("TEXT", None)
         }
 
       private val (extractedType, extractedLength) = extractTypeProps(meta.typeName)
