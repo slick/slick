@@ -379,8 +379,9 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     }
     val baseLocalDateTime = randomLocalDateTime()
     roundTrip[ZonedDateTime](
-      // from the random baseLocalDateTime, generate about 6 months worth of datetimes for each test zoneId
-      (0 to 5000).map(offset => baseLocalDateTime.plusMinutes(offset * 55)).toList.
+      // from the random baseLocalDateTime, generate samples from about 6 months worth 
+      // of datetimes for each test zoneId
+      (0 to 50).map(offset => baseLocalDateTime.plusMinutes(offset * 5500)).toList.
         flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
       generateTestZonedDateTime
     )
