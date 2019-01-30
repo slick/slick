@@ -2,9 +2,9 @@ import Settings._
 import Docs.docDir
 import BuildUtils._
 
-version in ThisBuild := "3.3.0-SNAPSHOT"
+version in ThisBuild := "3.3.1-SNAPSHOT"
 
-binaryCompatSlickVersion in ThisBuild := None // Slick base version for binary compatibility checks
+binaryCompatSlickVersion in ThisBuild := Some("3.3.0") // Slick base version for binary compatibility checks
 
 docDir in ThisBuild := (baseDirectory in aRootProject).value / "doc"
 
@@ -94,7 +94,7 @@ def testAll = Command.command("testAll") { state =>
     packageDoc in Compile in slickCodegenProject,
     packageDoc in Compile in slickHikariCPProject,
     packageDoc in Compile in slickTestkitProject,
-    // mimaReportBinaryIssues in Compile in slickProject, // enable for minor versions
+    mimaReportBinaryIssues in Compile in slickProject, // enable for minor versions
     testSamples in aRootProject
   )
 
