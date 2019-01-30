@@ -111,10 +111,10 @@ trait SQLiteProfile extends JdbcProfile {
           case "" => ( "TEXT", None )
         }
 
-      private val ( _dbType, _size ) = extractTypeProps(meta.typeName)
+      private val (extractedType, extractedLength) = extractTypeProps(meta.typeName)
 
-      override def dbType = Some(_dbType)
-      override def length = _size
+      override def dbType = Some(extractedType)
+      override def length = extractedLength
       override def varying = dbType == Some("VARCHAR")
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
