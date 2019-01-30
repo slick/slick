@@ -2,7 +2,7 @@ import Settings._
 import Docs.docDir
 import BuildUtils._
 
-version in ThisBuild := "3.3.0-SNAPSHOT"
+version in ThisBuild := "3.4.0-SNAPSHOT"
 
 binaryCompatSlickVersion in ThisBuild := None // Slick base version for binary compatibility checks
 
