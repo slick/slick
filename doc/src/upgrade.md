@@ -4,7 +4,7 @@ Upgrade Guides {index="migration; 1.0; upgrading"}
 Compatibility Policy {index="source,compatibility; compatibility,source; binary,compatibility; compatibility,binary"}
 --------------------
 
-Slick 3.2 requires Scala 2.11 or 2.12 and Java 8.
+Slick 3.3.0 requires Scala 2.11 or 2.12 and Java 8.
 
 Slick version numbers consist of an epoch, a major and minor version, and possibly a qualifier
 (for milestone, RC and SNAPSHOT versions).
@@ -22,6 +22,20 @@ changes.
 
 Release candidates have the same compatibility guarantees as the final versions to which they
 lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
+
+Upgrade from 3.2 to 3.3
+-----------------------
+
+### Create / Drop If Not Exists
+
+There is no major changes in the API except for the addition of `createIfNotExists` and `dropIfExistsPhase`. This has only impact on database profile developers. Regular users are not impacted by it.
+
+In other to support `createIfNotExists` and `dropIfExistsPhase`, the following changes were made:
+
+* slick.jdbc.JdbcStatementBuilderComponent#TableDDLBuilder.createTable receives not a `checkNotExists: Boolean` as argument
+* slick.jdbc.JdbcStatementBuilderComponent#TableDDLBuilder.dropTable receives not a `ifExists: Boolean` as argument
+* slick.sql.SqlProfile#DDL.apply has two more arguments `createIfNotExists: Iterable[String]` and `dropIfExists: Iterable[String]`
+
 
 Upgrade from 3.1 to 3.2
 -----------------------
