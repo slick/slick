@@ -2,9 +2,13 @@ import Settings._
 import Docs.docDir
 import BuildUtils._
 
-version in ThisBuild := "3.3.0-SNAPSHOT"
+version in ThisBuild := "3.4.0-SNAPSHOT"
 
-binaryCompatSlickVersion in ThisBuild := None // Slick base version for binary compatibility checks
+// Slick base version for binary compatibility checks.
+// The next release to be cut from master will be 3.4.0 during develop of 3.4.0 we check compatibility with 3.3.0.
+// The goal is not to stop any breaking change, but to make us aware. For each breaking change we should add MiMa exclusions.
+// This will also help us decide when a PR can be backported in 3.3.x branch.  
+binaryCompatSlickVersion in ThisBuild := Some("3.3.0") 
 
 docDir in ThisBuild := (baseDirectory in aRootProject).value / "doc"
 
@@ -94,7 +98,7 @@ def testAll = Command.command("testAll") { state =>
     packageDoc in Compile in slickCodegenProject,
     packageDoc in Compile in slickHikariCPProject,
     packageDoc in Compile in slickTestkitProject,
-    // mimaReportBinaryIssues in Compile in slickProject, // enable for minor versions
+    mimaReportBinaryIssues in Compile in slickProject, // enable for minor versions
     testSamples in aRootProject
   )
 
