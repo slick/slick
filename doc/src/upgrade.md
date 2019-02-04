@@ -51,11 +51,15 @@ The types are: `Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `OffsetTime
 If you need to customise these formats,
 you can by extending a `Profile` and overriding the appropriate methods.
 For an example of this see: <https://github.com/d6y/instant-etc/blob/master/src/main/scala/main.scala#L9-L45>.
-Also of use will be an example of a full mapping, such as: <https://github.com/slick/slick/blob/v3.3.0/slick/src/main/scala/slick/jdbc/JdbcTypesComponent.scala#L187-L365>,
-and the [approach Slick has taken](http://slick.lightbend.com/doc/3.3.0/datetimetypes.html) for these mappings.
+Also of use will be an example of a full mapping, such as: <https://github.com/slick/slick/blob/v3.3.0/slick/src/main/scala/slick/jdbc/JdbcTypesComponent.scala#L187-L365>.
 
 If you wish to upgrade your application to use the new formats,
 you may need to migrate your database columns to match the Slick column formats.
+
+In the tables that follow there are many similarities between databases.
+However, not all databases can directly map the various `java.time` semantics.
+In these cases, a `VARCHAR` may have been used to store a formatted time representation.
+For more details see the [description of Slick's approach](http://slick.lightbend.com/doc/3.3.0/datetimetypes.html) to these mappings.
 
 #### `slick.jdbc.DB2Profile`
 
