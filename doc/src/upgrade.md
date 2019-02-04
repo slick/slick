@@ -36,7 +36,7 @@ In other to support `createIfNotExists` and `dropIfExistsPhase`, the following c
 * slick.jdbc.JdbcStatementBuilderComponent#TableDDLBuilder.dropTable receives not a `ifExists: Boolean` as argument
 * slick.sql.SqlProfile#DDL.apply has two more arguments `createIfNotExists: Iterable[String]` and `dropIfExists: Iterable[String]`
 
-### Support for `javax.time` columns
+### Support for `java.time` columns
 
 Slick 3.3.0 profiles now supports `java.time` types as columns (for example, in `Table` `column` definitions).
 
