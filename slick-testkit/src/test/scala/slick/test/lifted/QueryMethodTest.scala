@@ -43,5 +43,13 @@ class QueryMethodTest {
     println(s6)
     assertTrue("filterIf stacks", s6 endsWith """where ("myString" = 'stack') and ("myString" like '%yes' escape '^')""")
 
+    val s7 = ts.filterIf(true){ d => (d.id,d.price) inSet Seq(1->1.0, 2->2.0)}.filterIf(true)(_.myString === "stack").result.statements.head
+    println(s7)
+    assertTrue("filter with inSet on multiple columns", s7 endsWith """where (("id", "PRICE") in ((1, 1.0), (2, 2.0))) and ("myString" = 'stack')""")
+
+    val s8 = ts.filterIf(true){ d => (d.id,d.price) inSetBind Seq(1->1.0, 2->2.0)}.filterIf(true)(_.myString === "stack").result.statements.head
+    println(s8)
+    assertTrue("filter with inSet on multiple columns", s8 endsWith """where (("id", "PRICE") in ((?, ?), (?, ?))) and ("myString" = 'stack')""")
+
   }
 }

@@ -24,7 +24,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalCapabilities.all
 
-  trait API extends super.API with ImplicitColumnTypes {
+  trait API extends super.API with ImplicitColumnTypes with TupleInSetImplicits {
     type FastPath[T] = SimpleFastPathResultConverter[ResultConverterDomain, T]
     type Table[T] = self.Table[T]
     type Sequence[T] = self.Sequence[T]

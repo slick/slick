@@ -1,0 +1,27 @@
+package slick.lifted
+
+import slick.ast._
+import ScalaBaseType._
+import slick.lifted._
+import slick.util.ConstArray
+import slick.lifted.FunctionSymbolExtensionMethods._
+import slick.lifted._
+import scala.language.{higherKinds, implicitConversions}
+import scala.reflect.ClassTag
+import OptionTupleMapper._
+
+trait TupleInSetImplicits {
+<#list 2..22 as i>
+ implicit class Tuple${i}QueryExtensions[<#list 1..i as j>B${j} : BaseTypedType<#if i != j>, </#if></#list>](c: (<#list 1..i as j>Rep[B${j}]<#if i != j>, </#if></#list>)) {
+    def inSet[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>, R](seq: Traversable[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)]) (implicit om: OptionTupleMapper[(<#list 1..i as j>Boolean<#if i != j>, </#if></#list>), (<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), Boolean, (<#list 1..i as j>Boolean<#if i != j>, </#if></#list>), (<#list 1..i as j>T${j}<#if i != j>, </#if></#list>), Boolean]): Rep[Boolean] = {
+      if(seq.isEmpty) om(LiteralColumn(false))
+      else om.column(Library.In, ProductNode(ConstArray.from(Seq(<#list 1..i as j>c._${j}.toNode<#if i != j>, </#if></#list>))), ProductNode(ConstArray.from(seq.map{v => ProductNode(ConstArray.from(Seq(<#list 1..i as j>LiteralNode(implicitly[TypedType[B${j}]], v._${j})<#if i != j>, </#if></#list>)))})))
+    }
+
+    def inSetBind[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>, R](seq: Traversable[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)]) (implicit om: OptionTupleMapper[(<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), (<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), Boolean, (<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), (<#list 1..i as j>T${j}<#if i != j>, </#if></#list>), Boolean]): Rep[Boolean] = {
+      if(seq.isEmpty) om(LiteralColumn(false))
+      else om.column(Library.In, ProductNode(ConstArray.from(Seq(<#list 1..i as j>c._${j}.toNode<#if i != j>, </#if></#list>))), ProductNode(ConstArray.from(seq.map{v => ProductNode(ConstArray.from(Seq(<#list 1..i as j>LiteralNode(implicitly[TypedType[B${j}]], v._${j}, vol = true)<#if i != j>, </#if></#list>)))})))
+    }
+  }
+</#list>
+}
