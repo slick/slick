@@ -82,7 +82,7 @@ import slick.jdbc.H2Profile.api._
       //#features-type-safe
       // The result of "select PRICE from COFFEES" is a Seq of Double
       // because of the type safe column definitions
-      val coffeeNames: Future[Seq[Double]] = db.run(
+      val coffeePrices: Future[Seq[Double]] = db.run(
         //#features-type-safe
         coffees.schema.create andThen
         //#features-type-safe
