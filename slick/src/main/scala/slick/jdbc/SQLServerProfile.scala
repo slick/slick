@@ -194,8 +194,8 @@ trait SQLServerProfile extends JdbcProfile {
         b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${Int.MaxValue})}\)"
       case Library.Repeat(str, count) =>
         b"replicate($str, $count)"
-//      case RewriteBooleans.ToFakeBoolean(Library.SilentCast(ch: JdbcBooleanType)) =>
-//        expr(IfThenElse(ConstArray(Library.==.typed[Boolean](ch, LiteralNode(1).infer()), LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
+      case RewriteBooleans.ToFakeBoolean(Library.SilentCast(ch: JdbcBooleanType)) =>
+        expr(IfThenElse(ConstArray(Library.==.typed[Boolean](ch, LiteralNode(1).infer()), LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
       case n => super.expr(n, skipParens)
     }
   }
