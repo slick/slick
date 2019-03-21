@@ -7,7 +7,7 @@
 set -x
 
 if [ $# -eq 0 ]; then
-  echo "Need to specify container to start. Any combintation of oracle, db2, sqlserver"
+  echo "Need to specify container to start. Any combination of oracle, db2, sqlserver"
   exit 1
 fi
 
@@ -33,7 +33,7 @@ done
 # to the db in a shell that is kept alive, aggregate functions with nulls behave incorrectly
 # so the AggregateTest.testGroupBy test fails
 db2HackConnection () {
-  echo "Starting persitant db2 connection"
+  echo "Starting persistent db2 connection"
   docker exec -i ${CONTAINER_NAME} bash -c "su - db2inst1 -c 'while true; do db2 connect to $DB2NAME && while sleep 65535;do :; done; sleep 5; done'" &
 }
 
@@ -46,7 +46,7 @@ do
     RUNNING=$(docker inspect  --format="{{ .State.Running}}" ${CONTAINER_NAME}  2> /dev/null)
     if [ $? -eq 1 ]; then
       if [ "${CONTAINER_NAME}" = "oracleslick" ]; then
-	RESULT=$(docker run -d -p 49160:22 -p 49161:1521 --name ${CONTAINER_NAME} wnameless/oracle-xe-11g && echo -e "\n${SUCCESS_TOKEN}")
+	RESULT=$(docker run -d -p 49160:22 -p 49161:1521 --name ${CONTAINER_NAME} oracleinanutshell/oracle-xe-11g && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "mssqlslicktest" ]; then
 	RESULT=$(docker run -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD=Freeslick18' -p 1401:1433 --name mssqlslicktest -d microsoft/mssql-server-linux:2017-latest && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "db2slick" ]; then
