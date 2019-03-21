@@ -331,7 +331,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           }
           b"\)"
         case RewriteBooleans.ToFakeBoolean(ch) =>
-          expr(IfThenElse(ConstArray(Library.==.typed[Boolean](ch, LiteralNode(1).infer()), LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
+          expr(IfThenElse(ConstArray(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), LiteralNode(true).infer(), LiteralNode(false).infer())), skipParens)
         case RewriteBooleans.ToRealBoolean(ch) =>
           expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
         case Library.Exists(c: Comprehension) =>
