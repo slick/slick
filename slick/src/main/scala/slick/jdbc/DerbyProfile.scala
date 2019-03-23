@@ -209,8 +209,8 @@ trait DerbyProfile extends JdbcProfile {
         buildFrom(right, None, true)
         b"\]"
         b"\}"
-      case RewriteBooleans.ToFakeBoolean(ch) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(ch), skipParens)
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
       case _ => super.expr(c, skipParens)
     }
   }

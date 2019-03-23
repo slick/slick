@@ -92,8 +92,8 @@ trait DB2Profile extends JdbcProfile {
       case Library.User() => b += "current user"
       case Library.Database() => b += "current server"
       case Library.CountAll(LiteralNode(1)) => b"count(*)"
-      case RewriteBooleans.ToFakeBoolean(ch) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(ch), skipParens)
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
       case _ => super.expr(c, skipParens)
     }
 

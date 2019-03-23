@@ -47,16 +47,16 @@ class RewriteBooleanTest extends AsyncTest[RelationalTestDB] {
 
     def getPersonAddressTuple(id: Int) = peopleQuery(id)
 
-    for {
-      _ <- (people.schema ++ addresses.schema).create
-      _ <- addresses
+    seq(
+      (people.schema ++ addresses.schema).create,
+      addresses
         .map(r => (r.id, r.street , r.city,  r.isActive))
-        .+= (     (   1,  "street",  "city",       true))
-      _ <- people
+        .+= (     (   1,  "street",  "city",       true)),
+      people
         .map(r => (r.id, r.name, r.age, r.addressId, r.isHomeowner))
-        .+= (     (   1,  "name",   21,     Some(1),          true))
-      _ <- getPersonAddressTuple(1).result.map(_.size shouldBe 1)
-    } yield ()
+        .+= (     (   1,  "name",   21,     Some(1),          true)),
+      getPersonAddressTuple(1).result.map(_.size shouldBe 1)
+    )
 
   }
 

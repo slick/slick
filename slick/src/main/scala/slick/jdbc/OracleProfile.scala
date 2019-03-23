@@ -150,8 +150,8 @@ trait OracleProfile extends JdbcProfile {
         b"\)"
       case Library.==(l, r) if (l.nodeType != UnassignedType) && jdbcTypeFor(l.nodeType).sqlType == Types.BLOB =>
         b"\(dbms_lob.compare($l, $r) = 0\)"
-      case RewriteBooleans.ToFakeBoolean(ch) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(ch), skipParens)
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
       case _ => super.expr(c, skipParens)
     }
   }
