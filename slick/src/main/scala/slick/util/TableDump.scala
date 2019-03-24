@@ -40,7 +40,7 @@ class TableDump(maxColumnWidth: Int = 20) {
       }
     }
     buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(7), box(8), box(9)) + cNormal
-    buf
+    buf.toIndexedSeq
   }
 
   /** Return the first `len` codepoints from a String */
