@@ -94,7 +94,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
       converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf)
-      htable.append(buf)
+      htable.append(buf.toIndexedSeq)
     }
 
     def ++= (values: Iterable[T])(implicit session: Backend#Session): Unit =
