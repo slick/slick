@@ -8,6 +8,8 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ChronoField, ChronoUnit}
 import javax.sql.rowset.serial.SerialBlob
+import slick.ast.FieldSymbol
+import slick.jdbc.PostgresProfile
 
 import scala.annotation.tailrec
 import scala.concurrent.Future
@@ -118,7 +120,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   private def roundTrip[T: BaseColumnType](values: List[T],
                                            dataCreateFn: () => T,
                                            dataCompareFn: (Int, Option[T], Option[T]) => Unit =
-                                           (id: Int, l: Option[T], r: Option[T]) => (id, l) shouldBe(id, r)) = {
+                                           (id: Int, l: Option[T], r: Option[T]) => (id, l) shouldBe(id, r),
+                                           tableNameSuffix: String = "") = {
     // How many random values to generate and test with
     val testValuesSize = 1000
     val rows = (1 to testValuesSize).map(i => (i, Some(dataCreateFn())))
@@ -126,7 +129,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     val insertValue = dataCreateFn()
     val defaultValue = dataCreateFn()
 
-    val tableName = "Data_" + values.headOption.getOrElse(dataCreateFn()).getClass.getSimpleName
+    val tableName = "Data_" + values.headOption.getOrElse(dataCreateFn()).getClass.getSimpleName + tableNameSuffix
     class DataTable(tag: Tag) extends Table[(Int, Option[T])](tag, tableName) {
       def id = column[Int]("ID", O.PrimaryKey)
       def data = column[Option[T]]("DATA", O Default Some(defaultValue))
@@ -312,6 +315,23 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
     )
+
+  def testPostgresInstantWithTimeZone: Future[Unit] = if (tdb.confName == "postgres") {
+    // Slick uses the TIMESTAMP mapping by default for instants, however it should also
+    // be possible to read/write Instants as TIMESTAMPTZ (with time zone)
+    // This test ensures that the profile logic also works correctly for the TIMESTAMPTZ type
+    val withTimeZone = new PostgresProfile.columnTypes.InstantJdbcType {
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMPTZ"
+    }
+    roundTrip[Instant](
+      List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
+        Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
+        generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
+        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
+      () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+      tableNameSuffix = "_with_time_zone"
+    )(withTimeZone)
+  } else Future.successful(())
 
   private def randomZoneOffset = {
     // offset could be +-18 in java.time context, but postgres and oracle are stricter
