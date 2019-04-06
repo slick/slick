@@ -45,6 +45,7 @@ object Settings {
         mimaBinaryIssueFilters ++= Seq(
           ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
           ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl"),
+<<<<<<< 3a1e9971c6cf3c5e9a5ec82b34dace2100fbf334
           // #1997 added new method ColumnExtensionMethods.in
           ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.in")
           ProblemFilters.exclude[InheritedNewAbstractMethodProblem]("slick.relational.RelationalProfile#API.Tuple16QueryExtensions"),
@@ -110,6 +111,11 @@ object Settings {
           ProblemFilters.exclude[InheritedNewAbstractMethodProblem]("slick.memory.MemoryProfile#API.Tuple20QueryExtensions"),
           ProblemFilters.exclude[InheritedNewAbstractMethodProblem]("slick.memory.MemoryProfile#API.Tuple2QueryExtensions"),
           ProblemFilters.exclude[InheritedNewAbstractMethodProblem]("slick.memory.MemoryProfile#API.Tuple9QueryExtensions")
+=======
+          ProblemFilters.exclude[InheritedNewAbstractMethodProblem]("slick.relational.RelationalProfile#API.getQueryExtension"),
+          ProblemFilters.exclude[InheritedNewAbstractMethodProblem]("slick.jdbc.JdbcProfile#API.getQueryExtension"),
+          ProblemFilters.exclude[InheritedNewAbstractMethodProblem]("slick.memory.MemoryProfile#API.getQueryExtension")
+>>>>>>> chain tuple implicits in TypeContext
         ),
         ivyConfigurations += config("macro").hide.extend(Compile),
         unmanagedClasspath in Compile ++= (products in config("macro")).value,

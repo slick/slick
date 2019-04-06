@@ -2,26 +2,64 @@ package slick.lifted
 
 import slick.ast._
 import ScalaBaseType._
-import slick.lifted._
 import slick.util.ConstArray
 import slick.lifted.FunctionSymbolExtensionMethods._
 import slick.lifted._
 import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.ClassTag
-import OptionTupleMapper._
+import slick.ast.{BaseTypedType, Library, LiteralNode, ProductNode, ScalaBaseType}
+import ScalaBaseType._
+import scala.language.{higherKinds, implicitConversions}
+import slick.util.ConstArray
+
+
+
+sealed trait TypeContext[B1, P1] {
+  def literals[P2 <: P1] (x: Traversable[P2], vol: Boolean): ProductNode
+  def columns ( x: B1): ProductNode
+}
+
+sealed trait TupleTypeContext[B1 <: Product, P1 <: Product] extends TypeContext [B1, P1] {
+  def baseTypedType: Seq[BaseTypedType[_]]
+  override def literals[P2 <: P1] (x:  Traversable[P2], vol: Boolean = false): ProductNode = ProductNode(
+    ConstArray.from(
+      for(v <- x) yield ProductNode ( v match {
+        case v: Product => ConstArray.from(for( i <- 0 until v.productArity) yield LiteralNode(baseTypedType(i),v.productElement(i), vol))
+      })
+    )
+  )
+
+  override def columns(x: B1) : ProductNode = x match {
+    case x: Product =>
+      ProductNode(ConstArray.from(for(i <- 0 until x.productArity) yield x.productElement(i).asInstanceOf[Rep[_]].toNode))
+  }
+}
+
+
+class QueryExtension[T, K](x: T, t: TypeContext[T,K]) {
+  def inSet[P <: K, R](seq: Traversable[K])(implicit om: TupleOptionMapper[Boolean, R]): Rep[R] = {
+    om.column(Library.In, t.columns(x), t.literals(seq, false))
+  }
+
+  def inSetBind[P <: K, R](seq: Traversable[K])(implicit om: TupleOptionMapper[Boolean, R]): Rep[R] = {
+      om.column(Library.In, t.columns(x), t.literals(seq, true))
+    }
+
+}
 
 trait TupleInSetImplicits {
-<#list 2..22 as i>
- implicit class Tuple${i}QueryExtensions[<#list 1..i as j>B${j} : BaseTypedType<#if i != j>, </#if></#list>](c: (<#list 1..i as j>Rep[B${j}]<#if i != j>, </#if></#list>)) {
-    def inSet[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>, R](seq: Traversable[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)]) (implicit om: OptionTupleMapper[(<#list 1..i as j>Boolean<#if i != j>, </#if></#list>), (<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), Boolean, (<#list 1..i as j>Boolean<#if i != j>, </#if></#list>), (<#list 1..i as j>T${j}<#if i != j>, </#if></#list>), Boolean]): Rep[Boolean] = {
-      if(seq.isEmpty) om(LiteralColumn(false))
-      else om.column(Library.In, ProductNode(ConstArray.from(Seq(<#list 1..i as j>c._${j}.toNode<#if i != j>, </#if></#list>))), ProductNode(ConstArray.from(seq.map{v => ProductNode(ConstArray.from(Seq(<#list 1..i as j>LiteralNode(implicitly[TypedType[B${j}]], v._${j})<#if i != j>, </#if></#list>)))})))
-    }
-
-    def inSetBind[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>, R](seq: Traversable[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)]) (implicit om: OptionTupleMapper[(<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), (<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), Boolean, (<#list 1..i as j>B${j}<#if i != j>, </#if></#list>), (<#list 1..i as j>T${j}<#if i != j>, </#if></#list>), Boolean]): Rep[Boolean] = {
-      if(seq.isEmpty) om(LiteralColumn(false))
-      else om.column(Library.In, ProductNode(ConstArray.from(Seq(<#list 1..i as j>c._${j}.toNode<#if i != j>, </#if></#list>))), ProductNode(ConstArray.from(seq.map{v => ProductNode(ConstArray.from(Seq(<#list 1..i as j>LiteralNode(implicitly[TypedType[B${j}]], v._${j}, vol = true)<#if i != j>, </#if></#list>)))})))
-    }
-  }
-</#list>
+  implicit def getQueryExtension[T, K](x: T)(implicit  t: TypeContext[T,K] ) = new QueryExtension(x,t)
 }
+
+
+object TypeContext {
+
+<#list 2..22 as i>
+  implicit def getContext${i}[<#list 1..i as j>B${j}<#if i != j>, </#if></#list>] (implicit <#list 1..i as j>t${j}: BaseTypedType[B${j}]<#if i != j>, </#if></#list>) =
+    new TupleTypeContext[(<#list 1..i as j>Rep[B${j}]<#if i != j>, </#if></#list>), (<#list 1..i as j>B${j}<#if i != j>, </#if></#list>)] {
+      val baseTypedType = Seq(<#list 1..i as j>t${j}<#if i != j>, </#if></#list>)
+    }
+</#list>
+
+}
+
