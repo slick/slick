@@ -9,6 +9,7 @@ import java.io.{InputStream, Reader}
 import java.util.Calendar
 import java.{sql => js}
 import java.sql.{PreparedStatement, Connection, SQLWarning, ResultSet, Statement, Timestamp}
+import scala.collection.compat._
 
 /** A wrapper for `java.sql.Statement` that logs statements and benchmark results
   * to the appropriate [[JdbcBackend]] loggers. */
@@ -49,7 +50,7 @@ class LoggingStatement(st: Statement) extends Statement {
     if(doStatementAndParameter && (sql ne null)) JdbcBackend.statementAndParameterLogger.debug("Executing "+what+": "+sql)
     if(doParameter && (paramss ne null) && paramss.nonEmpty) {
       // like s.groupBy but only group adjacent elements and keep the ordering
-      def groupBy[T](s: TraversableOnce[T])(f: T => AnyRef): IndexedSeq[IndexedSeq[T]] = {
+      def groupBy[T](s: IterableOnce[T])(f: T => AnyRef): scala.collection.IndexedSeq[scala.collection.IndexedSeq[T]] = {
         var current: AnyRef = null
         val b = new ArrayBuffer[ArrayBuffer[T]]
         s.foreach { v =>

@@ -63,7 +63,7 @@ object TestkitConfig {
   def getStrings(config: Config, path: String): Option[Seq[String]] = {
     if(config.hasPath(path)) {
       config.getValue(path).unwrapped() match {
-        case l: java.util.List[_] => Some(l.asScala.map(_.toString))
+        case l: java.util.List[_] => Some(l.asScala.map(_.toString).toSeq)
         case o => Some(List(o.toString))
       }
     } else None

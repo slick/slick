@@ -11,6 +11,8 @@ import slick.compiler._
 import slick.dbio._
 import slick.relational.{RelationalProfile, ResultConverter, CompiledMapping}
 import slick.util.{DumpInfo, RefId, ??}
+import scala.Iterable
+import scala.collection.compat._
 
 /** A profile for distributed queries. */
 class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryingProfile { self: DistributedProfile =>
@@ -80,7 +82,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         wr
       case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) :@ CollectionType(cons, el) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
-        val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
+        val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
         b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
@@ -90,12 +92,12 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
     def wrapScalaValue(value: Any, tpe: Type): Any = tpe match {
       case ProductType(ts) =>
         val p = value.asInstanceOf[Product]
-        new ProductValue((0 until p.productArity).map(i =>
+        new ProductValue((0 until p.productArity).iterator.map(i =>
           wrapScalaValue(p.productElement(i), ts(i))
-        )(collection.breakOut))
+        ).toIndexedSeq)
       case CollectionType(_, elType) =>
-        val v = value.asInstanceOf[Traversable[_]]
-        val b = v.companion.newBuilder[Any]
+        val v = value.asInstanceOf[Iterable[_]]
+        val b = v.iterableFactory.newBuilder[Any]
         v.foreach(v => b += wrapScalaValue(v, elType))
         b.result()
       case _ => value

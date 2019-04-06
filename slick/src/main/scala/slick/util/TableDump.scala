@@ -11,12 +11,12 @@ class TableDump(maxColumnWidth: Int = 20) {
   protected[this] val dashes = Iterator.fill(maxColumnWidth+2)(box(0)).mkString
   protected[this] val spaces = Iterator.fill(maxColumnWidth+2)(' ').mkString
 
-  protected[this] def formatLine(line: IndexedSeq[Any]): IndexedSeq[String] = line.map { v =>
+  protected[this] def formatLine(line: scala.collection.IndexedSeq[Any]): scala.collection.IndexedSeq[String] = line.map { v =>
     val s = if(v == null) "NULL" else v.toString
     if(s == null) "NULL" else s.replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t")
   }
 
-  def apply(headers: IndexedSeq[IndexedSeq[String]], data: IndexedSeq[IndexedSeq[Any]]): IndexedSeq[String] = {
+  def apply(headers: scala.collection.IndexedSeq[scala.collection.IndexedSeq[String]], data: scala.collection.IndexedSeq[scala.collection.IndexedSeq[Any]]): IndexedSeq[String] = {
     val columns = headers(0).length
     val texts = headers.map(formatLine) ++ data.map(formatLine)
     val widths = 0.until(columns).map { idx => math.min(maxColumnWidth, texts.map(_.apply(idx).length).max) }
@@ -40,7 +40,7 @@ class TableDump(maxColumnWidth: Int = 20) {
       }
     }
     buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(7), box(8), box(9)) + cNormal
-    buf
+    buf.toIndexedSeq
   }
 
   /** Return the first `len` codepoints from a String */

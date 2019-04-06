@@ -7,6 +7,7 @@ import Util._
 import TypeUtil._
 
 import scala.collection.mutable
+import scala.collection.compat._
 
 /** Expand sum types and their catamorphisms to equivalent product type operations. */
 class ExpandSums extends Phase {
@@ -126,7 +127,7 @@ class ExpandSums extends Phase {
         case _ => Set.empty
       }
       def find(t: Type, path: List[TermSymbol]): Vector[List[TermSymbol]] = t.structural match {
-        case StructType(defs) => defs.toSeq.flatMap { case (s, t) => find(t, s :: path) }(collection.breakOut)
+        case StructType(defs) => defs.toSeq.iterator.flatMap { case (s, t) => find(t, s :: path) }.toVector
         case p: ProductType => p.elements.iterator.zipWithIndex.flatMap { case (t, i) => find(t, ElementSymbol(i+1) :: path) }.toVector
         case _: AtomicType => Vector(path)
         case _ => Vector.empty

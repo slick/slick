@@ -59,7 +59,7 @@ object ForeignKey {
         n.childrenForeach(f)
     }
     f(n)
-    sels
+    sels.toIndexedSeq
   }
 }
 

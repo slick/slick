@@ -37,7 +37,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       dst2.forceInsertExpr(q3),
       dst2.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"), (42,"X"))),
       dst3comp.forceInsertQuery(q4comp),
-      dst3comp.result.map(v => v.to[Set] shouldBe Set((1,"A"), (2,"B")))
+      dst3comp.result.map(v => v.toSet shouldBe Set((1,"A"), (2,"B")))
     ))
   }
 
@@ -196,11 +196,12 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val ts = TableQuery[T]
 
     for {
-      _ <- ts.schema.create
-      _ <- ts ++= Seq((1, "a"), (2, "b"))
-      _ <- ts.insertOrUpdate((3, "c")).map(_ shouldBe 1)
-      _ <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
-      _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
+      // FIXME using underscores here causes a compile error, is this a scala 2.13.0-RC1 bug?
+      a <- ts.schema.create
+      b <- ts ++= Seq((1, "a"), (2, "b"))
+      c <- ts.insertOrUpdate((3, "c")).map(_ shouldBe 1)
+      d <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
+      e <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
     } yield ()
   }
 

@@ -107,7 +107,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testUUID =
-    roundTrip[UUID](List(UUID.randomUUID()), UUID.randomUUID)
+    roundTrip[UUID](List(UUID.randomUUID()), () => UUID.randomUUID())
 
   /**
     *
@@ -403,7 +403,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       // of datetimes for each test zoneId
       (0 to 50).map(offset => baseLocalDateTime.plusMinutes(offset * 5500)).toList.
         flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
-      generateTestZonedDateTime
+      () => generateTestZonedDateTime()
     )
   }
 

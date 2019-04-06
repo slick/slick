@@ -210,7 +210,7 @@ class RewriteJoins extends Phase {
       val m2 = m.mapValues(_.replace({
         case Ref(s) :@ tpe if s == j.leftGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(1)) :@ tpe
         case Ref(s) :@ tpe if s == j.rightGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(2)) :@ tpe
-      }, keepType = true))
+      }, keepType = true)).toMap
       if(logger.isDebugEnabled) m2.foreach { case (p, n) =>
         logger.debug("Replacement for "+FwdPath.toString(p)+":", n)
       }
@@ -278,7 +278,7 @@ class RewriteJoins extends Phase {
       case n => b += n
     }
     f(n)
-    b
+    b.toIndexedSeq
   }
 
   def and(ns: IndexedSeq[Node]): Node =

@@ -19,6 +19,8 @@ import slick.SlickException
 import slick.dbio._
 import slick.util._
 
+import scala.collection.compat._
+
 /** Backend for the basic database and session handling features.
   * Concrete backends like `JdbcBackend` extend this type and provide concrete
   * types for `Database`, `DatabaseFactory` and `Session`. */
@@ -186,7 +188,7 @@ trait BasicBackend { self =>
 
           def run(pos: Int): Future[Any] = {
             if (pos == len) Future.successful {
-              val b = sa.cbf()
+              val b = sa.cbf.newBuilder
               var i = 0
               while (i < len) {
                 b += results.get(i)

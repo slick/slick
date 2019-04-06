@@ -6,6 +6,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable
 import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3
+import scala.collection.compat._
 
 /** An efficient immutable array implementation which is used in the AST. Semantics are generally
   * the same as for Scala collections but for performance reasons it does not implement any
@@ -500,7 +501,7 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
     len += vslen
   }
 
-  def ++= (vs: TraversableOnce[T]): Unit = {
+  def ++= (vs: IterableOnce[T]): Unit = {
     if(vs.isInstanceOf[IndexedSeq[_]]) ensure(vs.size)
     vs.foreach(self += _)
   }
@@ -516,6 +517,6 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
 
   def + (v: T): this.type = { this += v; this }
   def ++ (vs: ConstArray[T]): this.type = { this ++= vs; this }
-  def ++ (vs: TraversableOnce[T]): this.type = { this ++= vs; this }
+  def ++ (vs: IterableOnce[T]): this.type = { this ++= vs; this }
   def ++ (vs: Option[T]): this.type = { this ++= vs; this }
 }
