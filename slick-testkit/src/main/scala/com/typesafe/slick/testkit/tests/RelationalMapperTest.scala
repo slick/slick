@@ -146,7 +146,7 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
 
     case class Row(id: String, escaped: Option[String])
 
-    class T(tag: Tag) extends Table[Row](tag, u"t") {
+    class T(tag: Tag) extends Table[Row](tag, "t".withUniquePostFix) {
       val id = column[String]("id", O.PrimaryKey)
       val name = column[Option[String]]("name")
       val upperName = name.shaped <> (toLower, toUpper)
