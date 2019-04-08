@@ -51,7 +51,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
           def close() = {
             st.close()
             if(doLogResult) {
-              StatementInvoker.tableDump(logHeader, logBuffer).foreach(s => StatementInvoker.resultLogger.debug(s))
+              StatementInvoker.tableDump(logHeader.toIndexedSeq.map(_.toIndexedSeq), logBuffer.toIndexedSeq.map(_.toIndexedSeq)).foreach(s => StatementInvoker.resultLogger.debug(s))
               val rest = rowCount - logBuffer.length
               if(rest > 0) StatementInvoker.resultLogger.debug(s"$rest more rows read ($rowCount total)")
             }

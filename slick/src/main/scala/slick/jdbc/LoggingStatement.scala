@@ -59,7 +59,7 @@ class LoggingStatement(st: Statement) extends Statement {
           else b.last += v
           current = id
         }
-        b
+        b.toIndexedSeq.map(_.toIndexedSeq)
       }
       def mkTpStr(tp: Int) = JdbcTypesComponent.typeNames.getOrElse(tp, tp.toString)
       val paramSets = paramss.map { params =>
@@ -80,7 +80,7 @@ class LoggingStatement(st: Statement) extends Statement {
       groupBy(paramSets)(_._1).foreach { matchingSets =>
         val tpes = matchingSets.head._1
         val idxs = 1.to(tpes.length).map(_.toString)
-        dump(Vector(idxs, tpes), matchingSets.map(_._2)).foreach(s => JdbcBackend.parameterLogger.debug(s))
+        dump(Vector(idxs, tpes.toIndexedSeq), matchingSets.map(_._2).toIndexedSeq.map(_.toIndexedSeq)).foreach(s => JdbcBackend.parameterLogger.debug(s))
       }
     }
     val t0 = if(doBenchmark) System.nanoTime() else 0L
