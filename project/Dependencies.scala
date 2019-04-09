@@ -22,7 +22,7 @@ object Dependencies {
     "com.novocode" % "junit-interface" % "0.11"
   )
   def scalaTestFor(scalaVersion: String) = {
-    val v = "3.0.7"
+    val v = "3.0.8-RC2"
     "org.scalatest" %% "scalatest" % v
   }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
