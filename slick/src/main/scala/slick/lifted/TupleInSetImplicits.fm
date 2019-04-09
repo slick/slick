@@ -38,12 +38,14 @@ sealed trait TupleTypeContext[B1 <: Product, P1 <: Product] extends TypeContext 
 
 class QueryExtension[T, K](x: T, t: TypeContext[T,K]) {
   def inSet[P <: K, R](seq: Traversable[K])(implicit om: TupleOptionMapper[Boolean, R]): Rep[R] = {
-    om.column(Library.In, t.columns(x), t.literals(seq, false))
+    if(seq.isEmpty) om(LiteralColumn(false))
+    else om.column(Library.In, t.columns(x), t.literals(seq, false))
   }
-
+``
   def inSetBind[P <: K, R](seq: Traversable[K])(implicit om: TupleOptionMapper[Boolean, R]): Rep[R] = {
-      om.column(Library.In, t.columns(x), t.literals(seq, true))
-    }
+    if(seq.isEmpty) om(LiteralColumn(false))
+    else om.column(Library.In, t.columns(x), t.literals(seq, true))
+  }
 
 }
 
