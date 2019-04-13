@@ -31,7 +31,7 @@ class QueryMethodTest {
     println(s3)
     assertTrue("filterOpt stacks", s3 endsWith """where ("myString" = 'something') and ("myString" like 'something%' escape '^')""")
 
-    val s4 = ts.filterIf(false)(_.myString == "wonderful").result.statements.head
+    val s4 = ts.filterIf(false)(_.myString === "wonderful").result.statements.head
     println(s4)
     assertTrue("filterIf adds no condition when the given option is present", s4 endsWith """from "myschema"."mytable"""")
 
