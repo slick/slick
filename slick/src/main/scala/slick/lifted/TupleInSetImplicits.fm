@@ -41,7 +41,7 @@ class QueryExtension[T, K](x: T, t: TypeContext[T,K]) {
     if(seq.isEmpty) om(LiteralColumn(false))
     else om.column(Library.In, t.columns(x), t.literals(seq, false))
   }
-``
+
   def inSetBind[P <: K, R](seq: Traversable[K])(implicit om: TupleOptionMapper[Boolean, R]): Rep[R] = {
     if(seq.isEmpty) om(LiteralColumn(false))
     else om.column(Library.In, t.columns(x), t.literals(seq, true))
