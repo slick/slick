@@ -275,10 +275,10 @@ trait PostgresProfile extends JdbcProfile {
 
     trait PostgreTimeJdbcType [T] {
 
-      implicit val min : T
-      implicit val max : T
-      implicit val serializeFiniteTime : (T => String)
-      implicit val parseFiniteTime : (String => T)
+      val min : T
+      val max : T
+      val serializeFiniteTime : (T => String)
+      val parseFiniteTime : (String => T)
 
       @inline
       private[this] val negativeInfinite = "-infinity"
@@ -308,10 +308,10 @@ trait PostgresProfile extends JdbcProfile {
 
       private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE
 
-      implicit val min : LocalDate = LocalDate.MIN
-      implicit val max : LocalDate = LocalDate.MAX
-      implicit val serializeFiniteTime : (LocalDate => String) =  _.format(formatter)
-      implicit val parseFiniteTime : (String => LocalDate) = LocalDate.parse(_, formatter)
+      val min : LocalDate = LocalDate.MIN
+      val max : LocalDate = LocalDate.MAX
+      val serializeFiniteTime : (LocalDate => String) =  _.format(formatter)
+      val parseFiniteTime : (String => LocalDate) = LocalDate.parse(_, formatter)
 
       override val sqlType = java.sql.Types.DATE
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATE"
@@ -329,10 +329,10 @@ trait PostgresProfile extends JdbcProfile {
 
       private[this] val formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
 
-      implicit val min : LocalTime = LocalTime.MIN
-      implicit val max : LocalTime = LocalTime.MAX
-      implicit val serializeFiniteTime : (LocalTime => String) =  _.format(formatter)
-      implicit val parseFiniteTime : (String => LocalTime) = LocalTime.parse(_, formatter)
+      val min : LocalTime = LocalTime.MIN
+      val max : LocalTime = LocalTime.MAX
+      val serializeFiniteTime : (LocalTime => String) =  _.format(formatter)
+      val parseFiniteTime : (String => LocalTime) = LocalTime.parse(_, formatter)
 
       override val sqlType = java.sql.Types.OTHER
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME"
@@ -358,10 +358,10 @@ trait PostgresProfile extends JdbcProfile {
           .toFormatter()
       }
 
-      implicit val min : OffsetTime = OffsetTime.MIN
-      implicit val max : OffsetTime = OffsetTime.MAX
-      implicit val serializeFiniteTime : (OffsetTime => String) =  _.format(formatter)
-      implicit val parseFiniteTime : (String => OffsetTime) = OffsetTime.parse(_, formatter)
+      val min : OffsetTime = OffsetTime.MIN
+      val max : OffsetTime = OffsetTime.MAX
+      val serializeFiniteTime : (OffsetTime => String) =  _.format(formatter)
+      val parseFiniteTime : (String => OffsetTime) = OffsetTime.parse(_, formatter)
 
       override val sqlType = java.sql.Types.OTHER
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMETZ"
@@ -384,16 +384,21 @@ trait PostgresProfile extends JdbcProfile {
           .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
           .optionalEnd()
           .optionalStart()
-          .appendLiteral("+00")
+          .appendOffset("+HH:mm", "+00")
           .optionalEnd()
           .toFormatter()
       }
 
-      implicit val min : Instant = Instant.MIN
-      implicit val max : Instant = Instant.MAX
-      implicit val serializeFiniteTime : (Instant => String) =  _.toString
-      implicit val parseFiniteTime : (String => Instant) = {
-        LocalDateTime.parse(_, formatter).toInstant(ZoneOffset.UTC)
+      val min : Instant = Instant.MIN
+      val max : Instant = Instant.MAX
+      val serializeFiniteTime : (Instant => String) =  _.toString
+      val parseFiniteTime : (String => Instant) = { s =>
+        val parsed = formatter.parse(s)
+        if (parsed.isSupported(ChronoField.INSTANT_SECONDS)) {
+          Instant.from(parsed)
+        } else {
+          LocalDateTime.from(parsed).toInstant(ZoneOffset.UTC)
+        }
       }
 
       override val sqlType = java.sql.Types.OTHER
@@ -429,10 +434,10 @@ trait PostgresProfile extends JdbcProfile {
           .toFormatter()
       }
 
-      implicit val min : LocalDateTime = LocalDateTime.MIN
-      implicit val max : LocalDateTime = LocalDateTime.MAX
-      implicit val serializeFiniteTime : (LocalDateTime => String) =  _.format(formatter)
-      implicit val parseFiniteTime : (String => LocalDateTime) = LocalDateTime.parse(_, formatter)
+      val min : LocalDateTime = LocalDateTime.MIN
+      val max : LocalDateTime = LocalDateTime.MAX
+      val serializeFiniteTime : (LocalDateTime => String) =  _.format(formatter)
+      val parseFiniteTime : (String => LocalDateTime) = LocalDateTime.parse(_, formatter)
 
       override val sqlType = java.sql.Types.OTHER
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP"
