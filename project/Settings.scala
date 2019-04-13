@@ -1,7 +1,7 @@
 import sbt._
 import Keys._
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
+import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem, ReversedMissingMethodProblem}
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaPreviousArtifacts, mimaBinaryIssueFilters, mimaReportBinaryIssues}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.pgp.PgpKeys
@@ -44,7 +44,9 @@ object Settings {
         },
         mimaBinaryIssueFilters ++= Seq(
           ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
-          ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl")
+          ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl"),
+          // #1997 added new method ColumnExtensionMethods.in
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.in")
         ),
         ivyConfigurations += config("macro").hide.extend(Compile),
         unmanagedClasspath in Compile ++= (products in config("macro")).value,
