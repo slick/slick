@@ -25,6 +25,9 @@ addons:
     - mysql-server-5.6
     - mysql-client-core-5.6
     - mysql-client-5.6
+scala:
+  - 2.11.12
+  - 2.12.8
 script:
 - admin/build.sh
 cache:
