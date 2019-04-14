@@ -23,7 +23,7 @@ PostgreSQL quick setup (tested with 9.2.4-1):
 MySQL
 -----
 
-MySQL quick setup (tested with 5.6.11.0):
+MySQL quick setup (tested with 5.7.25):
 - Install MySQL community server with default options
 - Set "mysql.user" (default: "root") and mysql.password (default: null) if necessary
 - Set enabled = true
