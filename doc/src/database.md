@@ -32,9 +32,17 @@ libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "{{version}}",
   "org.slf4j" % "slf4j-nop" % "1.6.4",
   "com.typesafe.slick" %% "slick-hikaricp" % "{{version}}",
-  "org.postgresql" % "postgresql" % "9.4-1206-jdbc42" //org.postgresql.ds.PGSimpleDataSource dependency
+  "org.postgresql" % "postgresql" % "42.2.5" //org.postgresql.ds.PGSimpleDataSource dependency
 )
 ``` 
+
+Note, some examples on the internet point to the 9.4.X versions of the
+PostgreSQL JDBC drivers. Those examples are incorrect and many years out of
+date. The 42.X development line has been the main line of development since
+February 2017. As noted on the Postgres site, "Unless you have unusual
+requirements (running old applications or JVMs), this is the driver you should
+be using." See https://jdbc.postgresql.org/download.html for more information
+about when you may want to use the 9.4 line.
 
 ##### MySQL
 
