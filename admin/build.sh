@@ -20,7 +20,7 @@ if [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
   openssl aes-256-cbc -K $encrypted_c3c0a1170361_key -iv $encrypted_c3c0a1170361_iv -in secrets.tar.enc -out secrets.tar -d
   myVer=$(echo $TRAVIS_TAG | sed -e s/^v//)
   publishVersion='set every version := "'$myVer'"'
-  extraTarget="+publishSigned doc"
+  extraTarget="publishSigned doc"
   publish_docs=1
   cp admin/publish-settings.sbt ./
   echo "Contents of secrets.tar:"
@@ -31,7 +31,7 @@ if [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
   ls -l *.sbt project/*.scala
 fi
 
-sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf "$publishVersion" +testAll $extraTarget
+sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf "$publishVersion" ++$TRAVIS_SCALA_VERSION testAll $extraTarget
 
 if test "$publish_docs" = "1" ; then
   slick_dir=$(pwd)
