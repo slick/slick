@@ -1,4 +1,4 @@
-dist: trusty
+dist: xenial
 sudo: required
 language: scala
 before_install:
@@ -9,7 +9,7 @@ before_install:
 - sh -v travis/runcontainer.sh oracle db2
 - docker ps
 jdk:
-  - oraclejdk8
+  - openjdk8
 notifications:
   flowdock:
     secure: j3YP9TjiIcMRy2mvunF1AHBOFnz2H7mZAFVbHPBNkAjMCwSdBNvLpn33qv6ybr02c5snBDJTs0P70RJ/mh3YsqwnIeloQD9HUfnndKQD6ujxx1QWRI/lVDW4pfVRQEuPsXdW/3AiqxrSG5BS4thiyc3vj3LpnodHwNMUT+Nlmq0=
@@ -22,9 +22,9 @@ addons:
   apt:
     packages:
     - graphviz
-    - mysql-server-5.6
-    - mysql-client-core-5.6
-    - mysql-client-5.6
+    - mysql-server-5.7
+    - mysql-client-core-5.7
+    - mysql-client-5.7
 scala:
   - 2.11.12
   - 2.12.8
