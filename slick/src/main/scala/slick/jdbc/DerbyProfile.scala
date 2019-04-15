@@ -1,6 +1,6 @@
 package slick.jdbc
 
-import java.sql.{PreparedStatement, ResultSet, Timestamp}
+import java.sql.{PreparedStatement, ResultSet}
 import java.time.Instant
 import java.util.UUID
 
@@ -10,7 +10,7 @@ import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.Capability
 import slick.dbio._
-import slick.compiler.{CompilerState, Phase}
+import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.jdbc.meta.MTable
 import slick.lifted._
 import slick.relational.RelationalCapabilities
@@ -163,7 +163,7 @@ trait DerbyProfile extends JdbcProfile {
         b" with RS "
       }
     }
-
+/
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
@@ -209,6 +209,8 @@ trait DerbyProfile extends JdbcProfile {
         buildFrom(right, None, true)
         b"\]"
         b"\}"
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
       case _ => super.expr(c, skipParens)
     }
   }

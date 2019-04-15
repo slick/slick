@@ -1,23 +1,17 @@
 package slick.jdbc
 
-import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.format.DateTimeFormatter
 import java.time._
 import java.util.UUID
-
-import scala.concurrent.ExecutionContext
-
 import java.sql.{Array => _, _}
-import java.time.temporal.ChronoField
 
 import slick.SlickException
 import slick.ast._
-import slick.compiler.{CompilerState, Phase}
+import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio._
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
 import slick.model.ForeignKeyAction
-import slick.relational.{RelationalCapabilities, ResultConverter, RelationalProfile}
-import slick.model.{ForeignKeyAction, Model}
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.basic.Capability
 import slick.util.ConstArray
@@ -155,6 +149,8 @@ trait OracleProfile extends JdbcProfile {
         b"\)"
       case Library.==(l, r) if (l.nodeType != UnassignedType) && jdbcTypeFor(l.nodeType).sqlType == Types.BLOB =>
         b"\(dbms_lob.compare($l, $r) = 0\)"
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
       case _ => super.expr(c, skipParens)
     }
   }
