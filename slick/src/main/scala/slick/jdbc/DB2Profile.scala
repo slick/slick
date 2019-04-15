@@ -1,14 +1,12 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import java.time.{Instant, LocalDateTime, OffsetDateTime, OffsetTime, ZoneOffset}
-import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
-import java.time.temporal.ChronoField
+import java.time.Instant
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 import slick.ast._
-import slick.compiler.{CompilerState, Phase}
+import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
@@ -94,6 +92,8 @@ trait DB2Profile extends JdbcProfile {
       case Library.User() => b += "current user"
       case Library.Database() => b += "current server"
       case Library.CountAll(LiteralNode(1)) => b"count(*)"
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
       case _ => super.expr(c, skipParens)
     }
 
