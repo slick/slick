@@ -5,6 +5,7 @@ import java.time._
 import java.util.UUID
 import java.sql.{Array => _, _}
 
+import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.ast._
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}

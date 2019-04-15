@@ -1,6 +1,7 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
+import java.time.Instant
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
