@@ -180,11 +180,11 @@ trait SQLServerProfile extends JdbcProfile {
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       // Cast bind variables of type TIME to TIME (otherwise they're treated as TIMESTAMP)
-      case c @ LiteralNode(v) if c.volatileHint && jdbcTypeFor(c.nodeType) == columnTypes.timeJdbcType =>
+      case c @ LiteralNode(_) if c.volatileHint && jdbcTypeFor(c.nodeType) == columnTypes.timeJdbcType =>
         b"cast("
         super.expr(n, skipParens)
         b" as ${columnTypes.timeJdbcType.sqlTypeName(None)})"
-      case QueryParameter(extractor, tpe, _) if jdbcTypeFor(tpe) == columnTypes.timeJdbcType =>
+      case QueryParameter(_, tpe, _) if jdbcTypeFor(tpe) == columnTypes.timeJdbcType =>
         b"cast("
         super.expr(n, skipParens)
         b" as ${columnTypes.timeJdbcType.sqlTypeName(None)})"
@@ -192,6 +192,8 @@ trait SQLServerProfile extends JdbcProfile {
         b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${Int.MaxValue})}\)"
       case Library.Repeat(str, count) =>
         b"replicate($str, $count)"
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
       case n => super.expr(n, skipParens)
     }
   }
