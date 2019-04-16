@@ -28,7 +28,7 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q1a = (for {
       (a, b) <- ts.map(t => (t.a, t.b))
       c <- ts.map(t => t.c)
-    } yield a ~ b ~ c ~ 5).sortBy(t => t._3 ~ t._1)
+    } yield (a, b, c, 5)).sortBy(t => t._3 ~ t._1)
 
     val q1c = (for {
       a ~ b <- ts.map(t => (t.a, t.b))
@@ -43,7 +43,7 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val res2 = Set((1, "1", 8), (2, "2", 10))
 
     val q2a = for {
-      a ~ b ~ c <- ts.filter(_.a === 1).map(t => t.a ~ t.b ~ 4) unionAll ts.filter(_.a === 2).map(t => t.a ~ t.b ~ 5)
+      a ~ b ~ c <- ts.filter(_.a === 1).map(t => (t.a, t.b, 4)) unionAll ts.filter(_.a === 2).map(t => t.a ~ t.b ~ 5)
     } yield a ~ b ~ (c*2)
 
     val q2b = for {

@@ -2,7 +2,7 @@ package slick.ast
 
 import scala.language.{implicitConversions, higherKinds}
 import slick.SlickException
-import scala.collection.generic.CanBuild
+import scala.collection.compat._
 import scala.collection.mutable.{Builder, ArrayBuilder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
 import scala.annotation.implicitNotFound
@@ -174,10 +174,10 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]
   }
 }
 
-class ErasedCollectionTypeConstructor[C[_]](canBuildFrom: CanBuild[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
+class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
   val isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(classTag.runtimeClass)
   val isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(classTag.runtimeClass)
-  def createBuilder[E : ClassTag] = canBuildFrom().asInstanceOf[Builder[E, C[E]]]
+  def createBuilder[E : ClassTag] = factory.newBuilder.asInstanceOf[Builder[E, C[E]]]
 }
 
 object TypedCollectionTypeConstructor {
@@ -187,7 +187,7 @@ object TypedCollectionTypeConstructor {
   /** The standard TypedCollectionTypeConstructor for Set */
   def set = forColl[Set]
   /** Get a TypedCollectionTypeConstructor for an Iterable type */
-  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: CanBuild[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
+  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
     new ErasedCollectionTypeConstructor[C](cbf, tag)
   /** Get a TypedCollectionTypeConstructor for an Array type */
   implicit val forArray: TypedCollectionTypeConstructor[Array] = new TypedCollectionTypeConstructor[Array](arrayClassTag) {

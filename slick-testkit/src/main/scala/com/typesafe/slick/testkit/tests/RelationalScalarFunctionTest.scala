@@ -22,8 +22,8 @@ class RelationalScalarFunctionTest extends AsyncTest[RelationalTestDB] {
       checkLit(-17.5),
       checkLit(17.5f),
       checkLit(-17.5f),
-      checkLit(42l),
-      checkLit(-42l),
+      checkLit(42L),
+      checkLit(-42L),
       checkLit("foo"),
 
       check("42".asColumnOf[Int], 42),

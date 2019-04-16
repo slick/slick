@@ -4,7 +4,7 @@ import org.reactivestreams.Subscription
 
 import scala.collection.compat.IterableOnce
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.generic.{CanBuild, CanBuildFrom}
+import scala.collection.compat.{BuildFrom, Factory}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Try, Failure, Success}
@@ -13,7 +13,7 @@ import scala.language.higherKinds
 
 import slick.SlickException
 import slick.basic.BasicBackend
-import slick.util.{DumpInfo, Dumpable, ignoreFollowOnError}
+import slick.util.{DumpInfo, Dumpable, ignoreFollowOnError, VersionCompat}
 
 /** A Database I/O Action that can be executed on a database. The DBIOAction type allows a
   * separation of execution logic and resource usage management logic from composition logic.
@@ -177,19 +177,19 @@ object DBIOAction {
   }
 
   /** Transform a `TraversableOnce[ DBIO[R] ]` into a `DBIO[ TraversableOnce[R] ]`. */
-  def sequence[R, M[+_] <: IterableOnce[_], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: CanBuildFrom[M[DBIOAction[R, NoStream, E]], R, M[R]]): DBIOAction[M[R], NoStream, E] = {
+  def sequence[R, M[+_] <: IterableOnce[_], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: BuildFrom[M[DBIOAction[R, NoStream, E]], R, M[R]]): DBIOAction[M[R], NoStream, E] = {
     implicit val ec = DBIO.sameThreadExecutionContext
     def sequenceGroupAsM(g: Vector[DBIOAction[R, NoStream, E]]): DBIOAction[M[R], NoStream, E] = {
       if(g.head.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) { // fuse synchronous group
         new SynchronousDatabaseAction.Fused[M[R], NoStream, BasicBackend, E] {
           def run(context: BasicBackend#Context) = {
-            val b = cbf()
+            val b = cbf.newBuilder(in)
             g.foreach(a => b += a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, BasicBackend, E]].run(context))
             b.result()
           }
-          override def nonFusedEquivalentAction = SequenceAction[R, M[R], E](g)
+          override def nonFusedEquivalentAction = SequenceAction[R, M[R], E](g)(VersionCompat.partiallyApply(cbf)(in))
         }
-      } else SequenceAction[R, M[R], E](g)
+      } else SequenceAction[R, M[R], E](g)(VersionCompat.partiallyApply(cbf)(in))
     }
     def sequenceGroupAsSeq(g: Vector[DBIOAction[R, NoStream, E]]): DBIOAction[Seq[R], NoStream, E] = {
       if(g.length == 1) {
@@ -206,7 +206,7 @@ object DBIOAction {
             def run(context: BasicBackend#Context) = {
               val b = new ArrayBuffer[R](g.length)
               g.foreach(a => b += a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, BasicBackend, E]].run(context))
-              b
+              b.toSeq
             }
             override def nonFusedEquivalentAction = SequenceAction[R, Seq[R], E](g)
           }
@@ -215,10 +215,10 @@ object DBIOAction {
     }
     val grouped = groupBySynchronicity[R, E](in.asInstanceOf[IterableOnce[DBIOAction[R, NoStream, E]]])
     grouped.length match {
-      case 0 => DBIO.successful(cbf().result())
+      case 0 => DBIO.successful(cbf.newBuilder(in).result())
       case 1 => sequenceGroupAsM(grouped.head)
       case n =>
-        grouped.foldLeft(DBIO.successful(cbf(in)): DBIOAction[mutable.Builder[R, M[R]], NoStream, E]) { (ar, g) =>
+        grouped.foldLeft(DBIO.successful(cbf.newBuilder(in)): DBIOAction[mutable.Builder[R, M[R]], NoStream, E]) { (ar, g) =>
           for (r <- ar; ge <- sequenceGroupAsSeq(g)) yield r ++= ge
         } map (_.result)
     }
@@ -343,7 +343,7 @@ case class AndThenAction[R, +S <: NoStream, -E <: Effect](as: IndexedSeq[DBIOAct
 }
 
 /** A DBIOAction that represents a `sequence` or operation for sequencing in the DBIOAction monad. */
-case class SequenceAction[R, +R2, -E <: Effect](as: IndexedSeq[DBIOAction[R, NoStream, E]])(implicit val cbf: CanBuild[R, R2]) extends DBIOAction[R2, NoStream, E] {
+case class SequenceAction[R, +R2, -E <: Effect](as: IndexedSeq[DBIOAction[R, NoStream, E]])(implicit val cbf: Factory[R, R2]) extends DBIOAction[R2, NoStream, E] {
   def getDumpInfo = DumpInfo("sequence", children = as.zipWithIndex.map { case (a, i) => (String.valueOf(i+1), a) })
 }
 

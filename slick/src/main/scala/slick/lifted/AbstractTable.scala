@@ -100,7 +100,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]) = new Index(name, this, ForeignKey.linearizeFieldRefs(shape.toNode(on)), unique)
 
   def indexes: Iterable[Index] = (for {
-      m <- getClass().getMethods.view
+      m <- getClass().getMethods.iterator
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
-    } yield m.invoke(this).asInstanceOf[Index]).sortBy(_.name)
+    } yield m.invoke(this).asInstanceOf[Index]).toIndexedSeq.sortBy(_.name)
 }

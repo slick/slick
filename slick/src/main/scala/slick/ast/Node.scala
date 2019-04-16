@@ -667,7 +667,7 @@ final case class IfThenElse(clauses: ConstArray[Node]) extends SimplyTypedNode {
   def mapResultClauses(f: Node => Node, keepType: Boolean = false) =
     mapClauses(f, keepType, (i => i%2 == 1 || i == clauses.length-1))
   def ifThenClauses: Iterator[(Node, Node)] =
-    clauses.iterator.grouped(2).withPartial(false).map { case List(i, t) => (i, t) }
+    clauses.iterator.grouped(2).withPartial(false).map { case Seq(i, t) => (i, t) }
   def elseClause = clauses.last
 }
 

@@ -183,7 +183,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     DBIO.seq()
   }
 
-  def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, _, _] = {
+  def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, NoStream, Effect.All] = {
     //FIXME remove this after fixed checkInsert issue
     if (tdb.profile.isInstanceOf[DerbyProfile]) return DBIO.successful(())
 
