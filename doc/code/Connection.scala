@@ -76,7 +76,10 @@ object Connection extends App {
       val a = q.result
       val f: Future[Seq[String]] = db.run(a)
 
-      f.onSuccess { case s => println(s"Result: $s") }
+      f.onComplete {
+        case Success(s) => println(s"Result: $s")
+        case Failure(t) => t.printStackTrace()
+      }
       //#materialize
       Await.result(f, Duration.Inf)
     };{

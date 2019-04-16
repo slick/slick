@@ -55,7 +55,7 @@ object SqlToSlick extends App {
 
       Class.forName("org.h2.Driver")
       val conn = DriverManager.getConnection("jdbc:h2:mem:test1")
-      val people = new scala.collection.mutable.MutableList[(Int,String,Int)]()
+      val people = new scala.collection.mutable.ListBuffer[(Int,String,Int)]()
       try{
         val stmt = conn.createStatement()
         try{
