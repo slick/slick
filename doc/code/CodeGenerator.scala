@@ -2,6 +2,7 @@ package com.typesafe.slick.docs
 
 //#imports
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
 import slick.jdbc.H2Profile.api._
 import slick.jdbc.H2Profile
 //#imports
@@ -62,10 +63,12 @@ object CodeGenerator extends App {
         }
       }
     })
-    codegenFuture.onSuccess { case codegen =>
-      codegen.writeToFile(
-        "slick.jdbc.H2Profile","some/folder/","some.packag","Tables","Tables.scala"
-      )
+    codegenFuture.onComplete {
+      case Success(codegen) =>
+        codegen.writeToFile(
+          "slick.jdbc.H2Profile","some/folder/","some.packag","Tables","Tables.scala"
+        )
+      case Failure(_) =>
     }
     //#customization
   }
