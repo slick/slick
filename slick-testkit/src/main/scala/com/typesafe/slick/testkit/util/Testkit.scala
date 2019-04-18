@@ -143,9 +143,11 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     if(keepAliveSession ne null) keepAliveSession.close()
   }
 
-  implicit class StringContextExtensionMethods(s: StringContext) {
+  implicit class StringExtensionMethods(s: String) {
     /** Generate a unique name suitable for a database entity */
-    def u(args: Any*) = s.standardInterpolator(identity, args) + "_" + unique.incrementAndGet()
+    def withUniquePostFix: String = {
+      s"${s}_${unique.incrementAndGet()}"
+    }
   }
 
   final def mark[T](id: String, f: => T): T = {
