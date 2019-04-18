@@ -663,10 +663,10 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     protected def retOne(st: Statement, value: U, updateCount: Int) = mux(value, buildKeysResult(st).first(null))
 
-    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = individual
+    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): Seq[SingleInsertResult] = individual
 
-    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) =
-      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toIndexedSeq
+    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): Seq[RU] =
+      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
 
     protected def retQuery(st: Statement, updateCount: Int) =
       buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"
