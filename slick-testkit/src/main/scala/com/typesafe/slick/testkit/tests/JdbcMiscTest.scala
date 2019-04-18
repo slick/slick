@@ -51,7 +51,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testOverrideStatements = {
-    class T(tag: Tag) extends Table[Int](tag, u"t") {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def id = column[Int]("a")
       def * = id
     }

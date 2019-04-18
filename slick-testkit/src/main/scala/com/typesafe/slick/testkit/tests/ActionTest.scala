@@ -8,7 +8,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def testSimpleActionAsFuture = {
-    class T(tag: Tag) extends Table[Int](tag, u"t") {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a
     }
@@ -27,7 +27,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testSessionPinning = {
-    class T(tag: Tag) extends Table[Int](tag, u"t") {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a
     }
@@ -70,7 +70,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testStreaming = {
-    class T(tag: Tag) extends Table[Int](tag, u"t") {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a
     }
@@ -114,7 +114,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   } else DBIO.successful(())
 
   def testOptionSequence = {
-    class T(tag: Tag) extends Table[Option[Int]](tag, u"t") {
+    class T(tag: Tag) extends Table[Option[Int]](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a.?
     }
@@ -138,7 +138,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testFlatten = {
-    class T(tag: Tag) extends Table[Int](tag, u"t") {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a
     }
@@ -155,7 +155,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testZipWith = {
-      class T(tag: Tag) extends Table[Int](tag, u"t") {
+      class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
         def a = column[Int]("a")
         def * = a
       }
@@ -173,7 +173,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     }
 
   def testCollect = {
-    class T(tag: Tag) extends Table[Int](tag, u"t") {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
 
       def * = a
