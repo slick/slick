@@ -1,11 +1,11 @@
 package slick.ast
 
+import scala.annotation.implicitNotFound
 import scala.language.{implicitConversions, higherKinds}
-import slick.SlickException
 import scala.collection.compat._
 import scala.collection.mutable.{Builder, ArrayBuilder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
-import scala.annotation.implicitNotFound
+import slick.SlickException
 import slick.util.{DumpInfo, Dumpable, TupleSupport, ConstArray}
 
 /** Super-trait for all types */

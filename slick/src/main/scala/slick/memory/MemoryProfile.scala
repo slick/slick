@@ -1,6 +1,7 @@
 package slick.memory
 
 import scala.language.existentials
+import scala.collection.compat._
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
@@ -11,7 +12,6 @@ import slick.compiler._
 import slick.dbio._
 import slick.relational.{RelationalProfile, ResultConverterCompiler, ResultConverter, CompiledMapping}
 import slick.util.{DumpInfo, ??}
-import scala.collection.compat._
 
 /** A profile for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
