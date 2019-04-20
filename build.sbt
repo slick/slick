@@ -4,7 +4,13 @@ import BuildUtils._
 
 version in ThisBuild := "3.3.1-SNAPSHOT"
 
-binaryCompatSlickVersion in ThisBuild := Some("3.3.0") // Slick base version for binary compatibility checks
+// Slick base version for binary compatibility checks.
+// The next release to be cut from master will be 3.4.0 during develop of 3.4.0 we check compatibility with 3.3.0.
+// The goal is not to stop any breaking change, but to make us aware. For each breaking change we should add MiMa exclusions.
+// This will also help us decide when a PR can be backported in 3.3.x branch.  
+binaryCompatSlickVersion in ThisBuild := {
+  if (scalaBinaryVersion.value.startsWith("2.13")) None else Some("3.3.0")
+}
 
 docDir in ThisBuild := (baseDirectory in aRootProject).value / "doc"
 
