@@ -39,7 +39,7 @@ object Settings {
           "-doc-root-content", "scaladoc-root.txt"
         ),
         test := (), testOnly :=  (), // suppress test status output
-        mimaPreviousArtifacts := binaryCompatSlickVersion.value.toSet.map { v: String =>
+        mimaPreviousArtifacts := emptyIfScala213(binaryCompatSlickVersion.value, scalaBinaryVersion.value).toSet.map { v: String =>
           "com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % v
         },
         mimaBinaryIssueFilters ++= Seq(
@@ -298,6 +298,10 @@ object Settings {
       case null => Seq.empty
       case path => Seq(target := file(path + "/" + extName))
     }
+  }
+
+  def emptyIfScala213(value: Option[String], scalaBinaryVersionString: String): Option[String] = {
+    if (scalaBinaryVersionString.startsWith("2.13")) None else value
   }
 
 }
