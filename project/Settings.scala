@@ -1,9 +1,9 @@
 import sbt._
 import Keys._
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem, ReversedMissingMethodProblem}
-import com.typesafe.tools.mima.plugin.MimaKeys.{mimaPreviousArtifacts, mimaBinaryIssueFilters, mimaReportBinaryIssues}
-import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
+import com.typesafe.tools.mima.core.{IncompatibleMethTypeProblem, MissingClassProblem, ProblemFilters, ReversedMissingMethodProblem}
+import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaPreviousArtifacts, mimaReportBinaryIssues}
+import com.typesafe.sbt.osgi.SbtOsgi.{OsgiKeys, osgiSettings}
 import com.typesafe.sbt.pgp.PgpKeys
 
 object Settings {
@@ -39,14 +39,23 @@ object Settings {
           "-doc-root-content", "scaladoc-root.txt"
         ),
         test := (), testOnly :=  (), // suppress test status output
-        mimaPreviousArtifacts := binaryCompatSlickVersion.value.toSet.map { v: String =>
+        mimaPreviousArtifacts := emptyIfScala213(binaryCompatSlickVersion.value, scalaBinaryVersion.value).toSet.map { v: String =>
           "com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % v
         },
         mimaBinaryIssueFilters ++= Seq(
           ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
           ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl"),
           // #1997 added new method ColumnExtensionMethods.in
-          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.in")
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.in"),
+          // #1958 changes for scala 2.13 support (Iterable return type instead of Traversable)
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.util.ConstArray.from"),
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.util.SQLBuilder.sep"),
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.BaseColumnExtensionMethods.inSetBind"),
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.BaseColumnExtensionMethods.inSet"),
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.ColumnExtensionMethods.inSetBind"),
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.ColumnExtensionMethods.inSet"),
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.OptionColumnExtensionMethods.inSetBind"),
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.OptionColumnExtensionMethods.inSet")
         ),
         ivyConfigurations += config("macro").hide.extend(Compile),
         unmanagedClasspath in Compile ++= (products in config("macro")).value,
@@ -300,6 +309,10 @@ object Settings {
       case null => Seq.empty
       case path => Seq(target := file(path + "/" + extName))
     }
+  }
+
+  def emptyIfScala213(value: Option[String], scalaBinaryVersionString: String): Option[String] = {
+    if (scalaBinaryVersionString.startsWith("2.13")) None else value
   }
 
 }
