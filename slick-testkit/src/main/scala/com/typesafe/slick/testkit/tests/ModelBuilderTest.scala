@@ -168,12 +168,8 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
         val posts = model.tables.filter(_.name.table.toUpperCase=="POSTS").head
         assertEquals( 5, posts.columns.size )
         assertEquals( posts.indices.toString, 0, posts.indices.size )
-        if(tdb.profile != SQLiteProfile) {
-          // Reporting of multi-column primary keys through JDBC metadata is broken in Xerial SQLite 3.8:
-          // https://bitbucket.org/xerial/sqlite-jdbc/issue/107/databasemetadatagetprimarykeys-does-not
-          assertEquals( Some(2), posts.primaryKey.map(_.columns.size) )
-          assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
-        }
+        assertEquals( Some(2), posts.primaryKey.map(_.columns.size) )
+        assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
         assertEquals( 1, posts.foreignKeys.size )
         if(tdb.profile != slick.jdbc.SQLiteProfile){
           assertEquals( "CATEGORY_FK", posts.foreignKeys.head.name.get.toUpperCase )

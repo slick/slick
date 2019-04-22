@@ -8,8 +8,8 @@ object Dependencies {
 
   val scalaVersions = Seq("2.11.12", "2.12.8") // When updating these also update .travis.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.25"
-  val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
+  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.26"
+  val typesafeConfig = "com.typesafe" % "config" % "1.3.4"
   val reactiveStreamsVersion = "1.0.2"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
@@ -25,14 +25,14 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % v
   }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "3.2.0"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "3.3.1"
 
-  val h2 = "com.h2database" % "h2" % "1.4.197"
+  val h2 = "com.h2database" % "h2" % "1.4.199"
   val testDBs = Seq(
     h2,
-    "org.apache.derby" % "derby" % "10.11.1.1",
-    "org.xerial" % "sqlite-jdbc" % "3.8.11.2",
-    "org.hsqldb" % "hsqldb" % "2.2.8",
+    "org.apache.derby" % "derby" % "10.14.2.0",
+    "org.xerial" % "sqlite-jdbc" % "3.27.2.1",
+    "org.hsqldb" % "hsqldb" % "2.4.1",
     "org.postgresql" % "postgresql" % "42.2.5",
     "mysql" % "mysql-connector-java" % "5.1.46",
     "net.sourceforge.jtds" % "jtds" % "1.3.1"

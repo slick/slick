@@ -38,7 +38,7 @@ build definition (`build.sbt` for [sbt] or `pom.xml` for Maven):
 ```scala expandVars=true tab=sbt
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "{{version}}",
-  "org.slf4j" % "slf4j-nop" % "1.6.4",
+  "org.slf4j" % "slf4j-nop" % "1.7.26",
   "com.typesafe.slick" %% "slick-hikaricp" % "{{version}}"
 )
 ```
@@ -55,7 +55,7 @@ libraryDependencies ++= Seq(
   <dependency>
     <groupId>org.slf4j</groupId>
     <artifactId>slf4j-nop</artifactId>
-    <version>1.6.4</version>
+    <version>1.7.26</version>
   </dependency>
   <dependency>
     <groupId>com.typesafe.slick</groupId>

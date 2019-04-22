@@ -30,7 +30,7 @@ When specifying a dataSourceClass you will need to bring in the sbt dependency f
 ```scala expandVars=true
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "{{version}}",
-  "org.slf4j" % "slf4j-nop" % "1.6.4",
+  "org.slf4j" % "slf4j-nop" % "1.7.26",
   "com.typesafe.slick" %% "slick-hikaricp" % "{{version}}",
   "org.postgresql" % "postgresql" % "42.2.5" //org.postgresql.ds.PGSimpleDataSource dependency
 )

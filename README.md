@@ -21,10 +21,10 @@ These are the databases and driver versions that have explicit automated tests.
 |DB2 10.5|[db2jcc4:4.19.20](http://www-01.ibm.com/support/docview.wss?uid=swg21363866)|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
 |MySQL|mysql-connector-java:5.1.38|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
 |PostgreSQL|postgresql:42.2.5|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
-|SQLite|sqlite-jdbc:3.8.11.2|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
-|Derby/JavaDB|derby:10.11.1.1|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
-|HSQLDB/HyperSQL|hsqldb:2.2.8|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
-|H2|com.h2database.h2:1.4.197|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
+|SQLite|sqlite-jdbc:3.27.2.1|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
+|Derby/JavaDB|derby:10.14.2.0|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
+|HSQLDB/HyperSQL|hsqldb:2.4.1|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
+|H2|com.h2database.h2:1.4.199|[![Build Status](https://travis-ci.org/slick/slick.svg?branch=master)](https://travis-ci.org/slick/slick)|
 
 Accessing other database systems is possible, with a reduced feature set.
 
