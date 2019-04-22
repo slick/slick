@@ -38,13 +38,11 @@ object Dependencies {
     "net.sourceforge.jtds" % "jtds" % "1.3.1"
   )
 
-  val paxExamVersion = "4.6.0"
+  val paxExamVersion = "4.13.1"
   val paxExam = Seq(
     "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
-    "org.ops4j.pax.url"      % "pax-url-aether"             % "1.6.0",
-    "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
-    "org.apache.felix"       % "org.apache.felix.framework" % "4.6.1"
+    "org.apache.felix"       % "org.apache.felix.framework" % "6.0.2"
   )
 }
