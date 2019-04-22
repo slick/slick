@@ -29,7 +29,23 @@ object AsyncExecutor extends Logging {
     * @param name A prefix to use for the names of the created threads.
     * @param numThreads The number of threads in the pool.
     * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size. */
-  def apply(name: String, numThreads: Int, queueSize: Int): AsyncExecutor = apply(name, numThreads, numThreads, queueSize)
+  def apply(name: String, numThreads: Int, queueSize: Int): AsyncExecutor =
+    apply(name, minThreads = numThreads, maxThreads = numThreads, queueSize = queueSize, maxConnections = numThreads,
+      keepAliveTime = 1.minute, registerMbeans = false)
+
+  /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
+    * I/O. New threads are created as daemon threads.
+    *
+    * @param name A prefix to use for the names of the created threads.
+    * @param minThreads The number of core threads in the pool.
+    * @param maxThreads The maximum number of threads in the pool.
+    * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
+    * @param maxConnections The maximum number of configured connections for the connection pool.
+    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in use.
+    *                       It will resume as soon as a connection is released again to the pool */
+  def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int): AsyncExecutor =
+    apply(name, minThreads = minThreads, maxThreads = maxThreads, queueSize = queueSize, maxConnections = maxConnections,
+      keepAliveTime = 1.minute, registerMbeans = false)
 
   /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
     * I/O. New threads are created as daemon threads.
@@ -41,14 +57,29 @@ object AsyncExecutor extends Logging {
     * @param maxConnections The maximum number of configured connections for the connection pool.
     *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in use.
     *                       It will resume as soon as a connection is released again to the pool
-    *                       Default is Integer.MAX_VALUE which is only ever a good choice when not using connection pooling
+    * @param registerMbeans If set to true, register an MXBean that provides insight into the current
+    *        queue and thread pool workload. */
+  def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int, registerMbeans: Boolean): AsyncExecutor =
+    apply(name, minThreads = minThreads, maxThreads = maxThreads, queueSize = queueSize, maxConnections = maxConnections,
+      keepAliveTime = 1.minute, registerMbeans = registerMbeans)
+
+  /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
+    * I/O. New threads are created as daemon threads.
+    *
+    * @param name A prefix to use for the names of the created threads.
+    * @param minThreads The number of core threads in the pool.
+    * @param maxThreads The maximum number of threads in the pool.
+    * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
+    * @param maxConnections The maximum number of configured connections for the connection pool.
+    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in use.
+    *                       It will resume as soon as a connection is released again to the pool
     * @param keepAliveTime when the number of threads is greater than
     *        the core, this is the maximum time that excess idle threads
     *        will wait for new tasks before terminating.
     * @param registerMbeans If set to true, register an MXBean that provides insight into the current
     *        queue and thread pool workload. */
-  def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int = Integer.MAX_VALUE, keepAliveTime: Duration = 1.minute,
-            registerMbeans: Boolean = false): AsyncExecutor = new AsyncExecutor {
+  def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int, keepAliveTime: Duration,
+            registerMbeans: Boolean): AsyncExecutor = new AsyncExecutor {
     
     @volatile private[this] lazy val mbeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name");
 
