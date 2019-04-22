@@ -31,7 +31,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     MTypeInfo.getTypeInfo.named("Type info from DatabaseMetaData"),
 
     ifCap(tcap.jdbcMetaGetFunctions) {
-      /* Not supported by PostgreSQL and H2. */
+      /* Not supported by PostgreSQL, SQLite and H2. */
       MFunction.getFunctions(MQName.local("%")).flatMap { fs =>
         DBIO.sequence(fs.map(_.getFunctionColumns()))
       }

@@ -33,23 +33,23 @@ following to your build definition - ``build.sbt`` or ``project/Build.scala``:
 .. parsed-literal::
   libraryDependencies ++= Seq(
     "com.typesafe.slick" %% "slick" % "|release|",
-    "org.slf4j" % "slf4j-nop" % "1.6.4",
+    "org.slf4j" % "slf4j-nop" % "1.7.26",
     "com.typesafe.slick" %% "slick-hikaricp" % "|release|"
   )
 
 For Maven projects add the following to your ``<dependencies>`` (make sure to use the correct Scala
-version prefix, ``_2.10`` or ``_2.11``, to match your project's Scala version):
+version prefix, ``_2.11`` or ``_2.12``, to match your project's Scala version):
 
 .. parsed-literal::
   <dependency>
     <groupId>com.typesafe.slick</groupId>
-    <artifactId>slick_2.10</artifactId>
+    <artifactId>slick_2.11</artifactId>
     <version>\ |release|\ </version>
   </dependency>
   <dependency>
     <groupId>org.slf4j</groupId>
     <artifactId>slf4j-nop</artifactId>
-    <version>1.6.4</version>
+    <version>1.7.26</version>
   </dependency>
 
 .. index:: logging, SLF4j

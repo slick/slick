@@ -10,6 +10,7 @@ import slick.jdbc._
 import slick.jdbc.GetResult._
 import slick.jdbc.meta.MTable
 import org.junit.Assert
+import slick.basic.Capability
 import slick.util.ConfigExtensionMethods._
 
 import scala.concurrent.duration.Duration
@@ -65,6 +66,7 @@ object StandardTestDBs {
 
   lazy val SQLiteMem = new SQLiteTestDB("jdbc:sqlite:file:slick_test?mode=memory&cache=shared", "sqlitemem") {
     override def isPersistent = false
+    override def capabilities: Set[Capability] = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
   }
 
   lazy val SQLiteDisk = {
@@ -72,6 +74,7 @@ object StandardTestDBs {
     val prefix = "sqlite-"+confName
     new SQLiteTestDB("jdbc:sqlite:"+TestkitConfig.testDBPath+"/"+prefix+".db", confName) {
       override def cleanUpBefore() = TestDB.deleteDBFiles(prefix)
+      override def capabilities: Set[Capability] = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
     }
   }
 
@@ -287,6 +290,8 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
 }
 
 abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
+  // sbt enables a security manager which prevents Derby from loading, we must disable it
+  System.setSecurityManager(null)
   import profile.api.actionBasedSQLInterpolation
   val profile = DerbyProfile
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
