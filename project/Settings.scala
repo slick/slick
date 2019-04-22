@@ -315,8 +315,4 @@ object Settings {
     }
   }
 
-  def emptyIfScala213(value: Option[String], scalaBinaryVersionString: String): Option[String] = {
-    if (scalaBinaryVersionString.startsWith("2.13")) None else value
-  }
-
 }
