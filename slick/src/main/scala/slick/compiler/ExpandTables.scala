@@ -40,7 +40,7 @@ class ExpandTables extends Phase {
       // structural type under a different identity when we are traversing the tree to modify it.
       val structs: Map[TypeSymbol, Type] = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
         case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => baseIdentity(n.sourceNominalType.sym) -> (sym -> s.nodeType)
-      }.toSeq.groupBy(_._1).mapValues(v => StructType(ConstArray.from(v.map(_._2).toMap)))
+      }.toSeq.groupBy(_._1).mapValues(v => StructType(ConstArray.from(v.map(_._2).toMap))).toMap
       logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
 
       val tables = new mutable.HashMap[TableIdentitySymbol, (TermSymbol, Node)]
