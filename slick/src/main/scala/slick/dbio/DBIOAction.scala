@@ -2,9 +2,8 @@ package slick.dbio
 
 import org.reactivestreams.Subscription
 
-import scala.collection.compat.IterableOnce
+import scala.collection.compat.{Factory, IterableOnce}
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.generic.{CanBuild, CanBuildFrom}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Try, Failure, Success}
@@ -177,13 +176,13 @@ object DBIOAction {
   }
 
   /** Transform a `TraversableOnce[ DBIO[R] ]` into a `DBIO[ TraversableOnce[R] ]`. */
-  def sequence[R, M[+_] <: IterableOnce[_], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: CanBuildFrom[M[DBIOAction[R, NoStream, E]], R, M[R]]): DBIOAction[M[R], NoStream, E] = {
+  def sequence[R, M[+_] <: IterableOnce[_], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: Factory[R, M[R]]): DBIOAction[M[R], NoStream, E] = {
     implicit val ec = DBIO.sameThreadExecutionContext
     def sequenceGroupAsM(g: Vector[DBIOAction[R, NoStream, E]]): DBIOAction[M[R], NoStream, E] = {
       if(g.head.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) { // fuse synchronous group
         new SynchronousDatabaseAction.Fused[M[R], NoStream, BasicBackend, E] {
           def run(context: BasicBackend#Context) = {
-            val b = cbf()
+            val b = cbf.newBuilder
             g.foreach(a => b += a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, BasicBackend, E]].run(context))
             b.result()
           }
@@ -203,10 +202,10 @@ object DBIOAction {
       } else {
         if(g.head.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) { // fuse synchronous group
           new SynchronousDatabaseAction.Fused[Seq[R], NoStream, BasicBackend, E] {
-            def run(context: BasicBackend#Context) = {
+            def run(context: BasicBackend#Context): IndexedSeq[R] = {
               val b = new ArrayBuffer[R](g.length)
               g.foreach(a => b += a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, BasicBackend, E]].run(context))
-              b
+              b.toIndexedSeq
             }
             override def nonFusedEquivalentAction = SequenceAction[R, Seq[R], E](g)
           }
@@ -215,10 +214,10 @@ object DBIOAction {
     }
     val grouped = groupBySynchronicity[R, E](in.asInstanceOf[IterableOnce[DBIOAction[R, NoStream, E]]])
     grouped.length match {
-      case 0 => DBIO.successful(cbf().result())
+      case 0 => DBIO.successful(cbf.newBuilder.result())
       case 1 => sequenceGroupAsM(grouped.head)
       case n =>
-        grouped.foldLeft(DBIO.successful(cbf(in)): DBIOAction[mutable.Builder[R, M[R]], NoStream, E]) { (ar, g) =>
+        grouped.foldLeft(DBIO.successful(cbf.newBuilder): DBIOAction[mutable.Builder[R, M[R]], NoStream, E]) { (ar, g) =>
           for (r <- ar; ge <- sequenceGroupAsSeq(g)) yield r ++= ge
         } map (_.result)
     }
@@ -343,7 +342,7 @@ case class AndThenAction[R, +S <: NoStream, -E <: Effect](as: IndexedSeq[DBIOAct
 }
 
 /** A DBIOAction that represents a `sequence` or operation for sequencing in the DBIOAction monad. */
-case class SequenceAction[R, +R2, -E <: Effect](as: IndexedSeq[DBIOAction[R, NoStream, E]])(implicit val cbf: CanBuild[R, R2]) extends DBIOAction[R2, NoStream, E] {
+case class SequenceAction[R, +R2, -E <: Effect](as: IndexedSeq[DBIOAction[R, NoStream, E]])(implicit val cbf: Factory[R, R2]) extends DBIOAction[R2, NoStream, E] {
   def getDumpInfo = DumpInfo("sequence", children = as.zipWithIndex.map { case (a, i) => (String.valueOf(i+1), a) })
 }
 
