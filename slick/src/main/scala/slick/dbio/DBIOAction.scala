@@ -2,7 +2,7 @@ package slick.dbio
 
 import org.reactivestreams.Subscription
 
-import scala.collection.compat.{Factory, IterableOnce}
+import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
