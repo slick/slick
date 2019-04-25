@@ -4,14 +4,14 @@ install:
       Add-Type -AssemblyName System.IO.Compression.FileSystem
       if (!(Test-Path -Path "C:\sbt" )) {
         (new-object System.Net.WebClient).DownloadFile(
-          'https://dl.bintray.com/sbt/native-packages/sbt/0.13.13/sbt-0.13.13.zip',
+          'https://piccolo.link/sbt-0.13.17.zip',
           'C:\sbt-bin.zip'
         )
         [System.IO.Compression.ZipFile]::ExtractToDirectory("C:\sbt-bin.zip", "C:\sbt")
       }
-  - cmd: SET JDK_HOME=C:\Program Files\Java\jdk1.8.0
-  - cmd: SET JAVA_HOME=C:\Program Files\Java\jdk1.8.0
-  - cmd: SET PATH=C:\sbt\sbt-launcher-packaging-0.13.13\bin;%JDK_HOME%\bin;%PATH%
+  - cmd: SET JDK_HOME=C:\Program Files\Java\jdk11
+  - cmd: SET JAVA_HOME=C:\Program Files\Java\jdk11
+  - cmd: SET PATH=C:\sbt\sbt\bin;%JDK_HOME%\bin;%PATH%
   - cmd: SET SBT_OPTS=-Xmx4g -Xss2m -Dslick.testkit-config=test-dbs/testkit-appveyor.conf
 # Start up sqlservers: 2008 on port 1433, 2012 on 1533, 2014 on 1633, 2017 on 1733. Enable tcp connections
   - ps: |
@@ -52,8 +52,8 @@ install:
       }
   - bash -v ./travis/extractNonPublicDeps
 build_script:
-  - sbt clean compile test:compile
+  - sbt ++2.12.8 clean compile test:compile
 test_script:
-  - sbt testkit/test:test
+  - sbt ++2.12.8 testkit/test:test
 cache:
   - C:\Users\appveyor\.ivy2
