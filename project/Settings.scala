@@ -193,7 +193,7 @@ object Settings {
   )
 
   def slickGeneralSettings =
-    slickPublishSettings ++ slickScalacSettings ++ slickScalaSettings ++ Seq(
+    slickPublishSettings ++ slickScalacSettings ++ slickScalaSettings ++ crossScalaFoldersSettings ++ Seq(
       logBuffered := false
     )
 
@@ -288,6 +288,18 @@ object Settings {
     unmanagedJars in config("compile") := scalaInstance.map( _.jars.classpath).value,
     unmanagedJars in config("test") := scalaInstance.map( _.jars.classpath).value,
     unmanagedJars in config("macro") := scalaInstance.map( _.jars.classpath).value
+  )
+
+  def crossScalaFoldersSettings: Seq[Setting[_]] = Seq(
+    unmanagedSourceDirectories in Compile += {
+      val sourceDir = (sourceDirectory in Compile).value
+      val scalaVer = scalaVersion.value
+      if (scalaVer.startsWith("2.13")) {
+        sourceDir / "scala-2.13+"
+      } else {
+        sourceDir / "scala-2.13-"
+      }
+    }
   )
 
   def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s))
