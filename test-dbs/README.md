@@ -77,8 +77,6 @@ SQL Server via JTDS quick setup:
 
 SQL Server via sqljdbc quick setup:
 - Install [SQL Server Express 2008 R2](http://www.microsoft.com/express/Database/InstallOptions.aspx)
-- Install [sqljdbc](http://www.microsoft.com/en-us/download/details.aspx?id=11774)
-- Copy the sqljdbc driver jar into the `slick-testkit/lib` directory
 - Enter the password for the `sa` user in `sqlserver-sqljdbc.password`
   (use SQL Server Management Studio to set a password if necessary)
 - Ensure that the TCP transport on port 1433 is enabled (-> SQL Server Configuration Manager)
