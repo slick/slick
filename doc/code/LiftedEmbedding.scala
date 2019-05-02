@@ -542,18 +542,22 @@ object LiftedEmbedding extends App {
 
     {
       //#mappedtype1
-      // An algebraic data type for booleans
-      sealed trait Bool
-      case object True extends Bool
-      case object False extends Bool
+      // Custom data type for booleans that maps to NUMBER in database
+      object Bool extends Enumeration {
+          type Bool = Value
+          val True, False = Value
 
-      // And a ColumnType that maps it to Int values 1 and 0
-      implicit val boolColumnType = MappedColumnType.base[Bool, Int](
-        { b => if(b == True) 1 else 0 },    // map Bool to Int
-        { i => if(i == 1) True else False } // map Int to Bool
-      )
+          // A ColumnType that maps it to NUMBER values 1 and 0
+          val columnMapper = MappedColumnType.base[Bool, Int](
+              { case True => 1; case False => 0 }, // map Bool to NUMBER
+              { i => if (i == 1) True else False } // map NUMBER to Bool
+          )
+      }
 
-      // You can now use Bool like any built-in column type (in tables, queries, etc.)
+      // Make columnMapper available in table definitions and where you do queries
+      implicit val boolColumnType = Bool.columnMapper
+
+      // You can now use Bool.{True, False} like any built-in column type (in tables, queries, etc.)
       //#mappedtype1
     }
 
