@@ -254,7 +254,12 @@ object Settings {
   )
 
   def slickScalacSettings = Seq(
-    scalacOptions ++= List("-deprecation", "-feature", "-unchecked", "-Xfuture"),
+    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
+    // -Xfuture is deprecated: Not used since 2.13.
+    scalacOptions ++= {
+      if (scalaVersion.value.startsWith("2.13")) List.empty
+      else List("-Xfuture")
+    },
     scalacOptions in (Compile, doc) ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,
