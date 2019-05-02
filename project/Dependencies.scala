@@ -29,8 +29,17 @@ object Dependencies {
   val hikariCP = "com.zaxxer" % "HikariCP" % "3.3.1"
 
   val h2 = "com.h2database" % "h2" % "1.4.199"
+  val sqlServer = {
+    val javaVersion = System.getProperty("java.version")
+    val jreVersionToUse = if (javaVersion.startsWith("11") || javaVersion.startsWith("12")) {
+      "11"
+    } else "8"
+    "com.microsoft.sqlserver" % "mssql-jdbc" % s"7.2.2.jre$jreVersionToUse"
+  }
+  
   val testDBs = Seq(
     h2,
+    sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
     "org.xerial" % "sqlite-jdbc" % "3.27.2.1",
     "org.hsqldb" % "hsqldb" % "2.4.1",
