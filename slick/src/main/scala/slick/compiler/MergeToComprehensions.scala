@@ -263,7 +263,7 @@ class MergeToComprehensions extends Phase {
 
       case n =>
         val (c, rep) = mergeTakeDrop(n, false)
-        val mappings = ConstArray.from(rep.mapValues(_ :: Nil))
+        val mappings = ConstArray.from(rep.mapValues(_ :: Nil).toSeq)
         logger.debug("Mappings are: "+mappings)
         val c2 = c.select match {
           // Ensure that the select clause is non-empty
@@ -319,7 +319,7 @@ class MergeToComprehensions extends Phase {
   }
 
   def toSubquery(n: Comprehension, r: Replacements): (Comprehension, Replacements) =
-    buildSubquery(n, ConstArray.from(r.mapValues(_ :: Nil)))
+    buildSubquery(n, ConstArray.from(r.mapValues(_ :: Nil).toSeq))
 
   /** Merge the common operations Bind, Filter and CollectionCast into an existing Comprehension.
     * This method is used at different stages of the pipeline. If the Comprehension already contains

@@ -12,7 +12,7 @@ import scala.util.hashing.MurmurHash3
   * the same as for Scala collections but for performance reasons it does not implement any
   * standard collection traits. */
 final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extends Product { self =>
-  private def this(a: Array[Any]) = this(a, a.length)
+  private[util] def this(a: Array[Any]) = this(a, a.length)
 
   def apply(i: Int): T =
     if(i > length) throw new IndexOutOfBoundsException
@@ -397,7 +397,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
   override def productPrefix = "ConstArray"
 }
 
-object ConstArray {
+object ConstArray extends ConstArrayCompat {
   val empty: ConstArray[Nothing] = new ConstArray[Nothing](new Array[Any](0))
 
   def apply[T](v0: T): ConstArray[T] = {
@@ -419,16 +419,6 @@ object ConstArray {
     a(1) = v1
     a(2) = v2
     new ConstArray(a)
-  }
-
-  def from[T](values: Iterable[T]): ConstArray[T] = {
-    val a = new Array[Any](values.size)
-    var i = 0
-    values.foreach { v =>
-      a(i) = v
-      i += 1
-    }
-    new ConstArray[T](a)
   }
 
   def from[T](o: Option[T]): ConstArray[T] =
