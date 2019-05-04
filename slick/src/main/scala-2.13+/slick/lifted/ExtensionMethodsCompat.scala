@@ -26,10 +26,10 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
 
   def in[P2, R, C[_]](e: Query[Rep[P2], _, C])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.In, n, e.toNode)
-  def inSet[R](seq: scala.collection.immutable.Iterable[B1])(implicit om: o#to[Boolean, R]) =
+  def inSet[R](seq: scala.collection.Iterable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(LiteralColumn(false))
     else om.column(Library.In, n, ProductNode(ConstArray.from(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) })))
-  def inSetBind[R](seq: scala.collection.immutable.Iterable[B1])(implicit om: o#to[Boolean, R]) =
+  def inSetBind[R](seq: scala.collection.Iterable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(LiteralColumn(false))
     else om.column(Library.In, n, ProductNode(ConstArray.from(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)))))
 

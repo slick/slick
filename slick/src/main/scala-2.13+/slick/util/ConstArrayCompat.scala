@@ -1,7 +1,7 @@
 package slick.util
 
 trait ConstArrayCompat {
-  def from[T](values: scala.collection.immutable.Iterable[T]): ConstArray[T] = {
+  def from[T](values: scala.collection.Iterable[T]): ConstArray[T] = {
     val a = new Array[Any](values.size)
     var i = 0
     values.foreach { v =>
