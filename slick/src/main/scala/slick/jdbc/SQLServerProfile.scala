@@ -268,15 +268,12 @@ trait SQLServerProfile extends JdbcProfile {
     override val byteArrayJdbcType = new ByteArrayJdbcType
     override val dateJdbcType = new DateJdbcType
     override val timeJdbcType = new TimeJdbcType
-    override val localTimeType = new LocalTimeJdbcType
     override val timestampJdbcType = new TimestampJdbcType
-    override val localDateTimeType = new LocalDateTimeJdbcType
-    override val instantType = new InstantJdbcType
-    override val offsetDateTimeType = new OffsetDateTimeJdbcType
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UNIQUEIDENTIFIER"
       override def valueToSQLLiteral(uuid: UUID) = s"'${uuid.toString}'"
     }
+    override val offsetDateTimeType = new OffsetDateTimeJdbcType
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
     class BooleanJdbcType extends super.BooleanJdbcType {
@@ -309,119 +306,124 @@ trait SQLServerProfile extends JdbcProfile {
       }
     }
 
-    class LocalTimeJdbcType extends super.LocalTimeJdbcType {
-      private[this] val formatter : DateTimeFormatter = {
-        new DateTimeFormatterBuilder()
-          .append(DateTimeFormatter.ofPattern("HH:mm:ss"))
-          .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-          .optionalEnd()
-          .toFormatter()
-      }
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(6)"
-      override def getValue(r: ResultSet, idx: Int) = {
-        r.getString(idx) match {
-          case null => null
-          case serializedTime =>
-
-            val sep = serializedTime.indexOf('.')
-            if (sep == -1) {
-              Time.valueOf(serializedTime).toLocalTime
-            } else {
-              LocalTime.parse(serializedTime, formatter)
-            }
-        }
-      }
-      override def valueToSQLLiteral(value: LocalTime) = {
-        s"(convert(time(6), '$value'))"
-      }
-    }
+//    class LocalTimeJdbcType extends super.LocalTimeJdbcType {
+//      private[this] val formatter : DateTimeFormatter = {
+//        new DateTimeFormatterBuilder()
+//          .append(DateTimeFormatter.ofPattern("HH:mm:ss"))
+//          .optionalStart()
+//          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+//          .optionalEnd()
+//          .toFormatter()
+//      }
+//      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(6)"
+//      override def getValue(r: ResultSet, idx: Int) = {
+//        r.getString(idx) match {
+//          case null => null
+//          case serializedTime =>
+//
+//            val sep = serializedTime.indexOf('.')
+//            if (sep == -1) {
+//              Time.valueOf(serializedTime).toLocalTime
+//            } else {
+//              LocalTime.parse(serializedTime, formatter)
+//            }
+//        }
+//      }
+//      override def valueToSQLLiteral(value: LocalTime) = {
+//        s"(convert(time(6), '$value'))"
+//      }
+//    }
     class TimestampJdbcType extends super.TimestampJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def valueToSQLLiteral(value: Timestamp) = s"'$value'"
     }
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
-      private[this] val formatter : DateTimeFormatter = {
-        new DateTimeFormatterBuilder()
-          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-          .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-          .optionalEnd()
-          .toFormatter()
-      }
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
-      override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
-        r.getTimestamp(idx) match {
-          case null =>
-            null
-          case timestamp =>
-            timestamp.toLocalDateTime
-        }
-      }
-    }
-    class InstantJdbcType extends super.InstantJdbcType {
-      private[this] val formatter : DateTimeFormatter = {
-        new DateTimeFormatterBuilder()
-          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-          .appendPattern(" ")
-          .appendOffset("+HH:MM", "")
-          .toFormatter()
-      }
-      private[this] def serializeInstantValue(value : Instant) : String = {
-        formatter.format(
-          OffsetDateTime.ofInstant(value, ZoneOffset.UTC)
-        )
-      }
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, serializeInstantValue(v))
-      }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
-        r.updateString(idx, serializeInstantValue(v))
-      }
+//    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+////      private[this] val formatter : DateTimeFormatter = {
+////        new DateTimeFormatterBuilder()
+////          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+////          .optionalStart()
+////          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+////          .optionalEnd()
+////          .toFormatter()
+////      }
+//      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
+////      override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
+////        r.getTimestamp(idx) match {
+////          case null =>
+////            null
+////          case timestamp =>
+////            timestamp.toLocalDateTime
+////        }
+////      }
+//    }
+//    class InstantJdbcType extends super.InstantJdbcType {
+//      private[this] val formatter : DateTimeFormatter = {
+//        new DateTimeFormatterBuilder()
+//          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+//          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+//          .appendPattern(" ")
+//          .appendOffset("+HH:MM", "")
+//          .toFormatter()
+//      }
+//      private[this] def serializeInstantValue(value : Instant) : String = {
+//        formatter.format(
+//          OffsetDateTime.ofInstant(value, ZoneOffset.UTC)
+//        )
+//      }
+//      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
+//      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+//        p.setString(idx, serializeInstantValue(v))
+//      }
+//      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
+//        r.updateString(idx, serializeInstantValue(v))
+//      }
+//
+//      override def getValue(r: ResultSet, idx: Int): Instant = {
+//        r.getString(idx) match {
+//          case null =>
+//            null
+//          case dateStr =>
+//            OffsetDateTime.parse(dateStr, formatter).toInstant()
+//        }
+//      }
+//      override def valueToSQLLiteral(value: Instant) = {
+//        s"(convert(datetimeoffset(6), '${serializeInstantValue(value)}'))"
+//      }
+//    }
+//    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
+//      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
+//
+//      private[this] val formatter: DateTimeFormatter = {
+//        new DateTimeFormatterBuilder()
+//          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+//          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+//          .appendPattern(" ")
+//          .appendOffset("+HH:MM", "")
+//          .toFormatter()
+//      }
+////      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) : Unit = {
+////        p.setString(idx, formatter.format(v))
+////      }
+////      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) : Unit = {
+////        r.updateString(idx, formatter.format(v))
+////      }
+////      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
+////        r.getString(idx) match {
+////          case null =>
+////            null
+////          case timestamp =>
+////            OffsetDateTime.parse(timestamp, formatter)
+////        }
+////      }
+//      override def valueToSQLLiteral(value: OffsetDateTime) = {
+//        s"(convert(datetimeoffset(6), '${formatter.format(value)}'))"
+//      }
+//    }
 
-      override def getValue(r: ResultSet, idx: Int): Instant = {
-        r.getString(idx) match {
-          case null =>
-            null
-          case dateStr =>
-            OffsetDateTime.parse(dateStr, formatter).toInstant()
-        }
-      }
-      override def valueToSQLLiteral(value: Instant) = {
-        s"(convert(datetimeoffset(6), '${serializeInstantValue(value)}'))"
-      }
-    }
     class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
-
-      private[this] val formatter: DateTimeFormatter = {
-        new DateTimeFormatterBuilder()
-          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-          .appendPattern(" ")
-          .appendOffset("+HH:MM", "")
-          .toFormatter()
-      }
-      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, formatter.format(v))
-      }
-      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) : Unit = {
-        r.updateString(idx, formatter.format(v))
-      }
-      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
-        r.getString(idx) match {
-          case null =>
-            null
-          case timestamp =>
-            OffsetDateTime.parse(timestamp, formatter)
-        }
-      }
-      override def valueToSQLLiteral(value: OffsetDateTime) = {
-        s"(convert(datetimeoffset(6), '${formatter.format(value)}'))"
-      }
+      override def sqlTypeName(sym: Option[FieldSymbol]): String = "DATETIMEOFFSET(9)"
     }
+
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result
      * sets, so we read as Short and then convert to Byte. */

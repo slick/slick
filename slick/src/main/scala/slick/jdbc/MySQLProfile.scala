@@ -1,7 +1,8 @@
 package slick.jdbc
 
-import java.sql.{ResultSet, PreparedStatement}
-import java.time.{Instant, LocalDateTime, LocalTime}
+import java.sql.{PreparedStatement, ResultSet, Timestamp}
+import java.time.temporal.ChronoUnit
+import java.time.LocalTime
 
 import com.typesafe.config.Config
 
@@ -12,13 +13,13 @@ import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
 import slick.basic.Capability
-import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
-import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
+import slick.compiler.{CompilerState, Phase, ResolveZipJoins}
+import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 import slick.dbio.DBIO
 import slick.lifted._
-import slick.relational.{RelationalProfile, RelationalCapabilities}
+import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
-import slick.util.{SlickLogger, GlobalConfig, ConstArray}
+import slick.util.{ConstArray, GlobalConfig, SlickLogger}
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.util.ConfigExtensionMethods.configExtensionMethods
 
@@ -360,57 +361,20 @@ trait MySQLProfile extends JdbcProfile { profile =>
         "x'"+value.toString.replace("-", "")+"'"
     }
 
-    override val instantType : InstantJdbcType = new InstantJdbcType {
-      override def sqlType : Int = {
-        /**
-         * [[Instant]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
-         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
-         * second precision, while [[Instant]] stores it with a millisecond one.
-         */
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, if (v == null) null else v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : Instant = {
-        r.getString(idx) match {
-          case null => null
-          case iso8601String => Instant.parse(iso8601String)
-        }
-      }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
-        r.updateString(idx, if (v == null) null else v.toString)
-      }
-      override def valueToSQLLiteral(value: Instant) : String = {
-        stringToMySqlString(value.toString)
-      }
+    override val localTimeType = new super.LocalTimeJdbcType {
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME"
+      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = p.setObject(idx, v.truncatedTo(ChronoUnit.SECONDS))
+      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) : Unit = r.updateObject(idx, v.truncatedTo(ChronoUnit.SECONDS))
+      override def valueToSQLLiteral(value: LocalTime): String = s"'${value.truncatedTo(ChronoUnit.SECONDS).toString}'"
     }
-
-    override val localDateTimeType : LocalDateTimeJdbcType = new LocalDateTimeJdbcType {
-      override def sqlType : Int = {
-        /**
-         * [[LocalDateTime]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
-         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
-         * second precision, while [[LocalDateTime]] stores it with a millisecond one.
-         */
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, if (v == null) null else v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
-        r.getString(idx) match {
-          case null => null
-          case iso8601String => LocalDateTime.parse(iso8601String)
-        }
-      }
-      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) = {
-        r.updateString(idx, if (v == null) null else v.toString)
-      }
-      override def valueToSQLLiteral(value: LocalDateTime) : String = {
-        stringToMySqlString(value.toString)
-      }
+    override val timestampJdbcType = new super.TimestampJdbcType {
+      private def truncateToSeconds(t: Timestamp): Timestamp = Timestamp.valueOf(t.toLocalDateTime.truncatedTo(ChronoUnit.SECONDS))
+      override def setValue(v: Timestamp, p: PreparedStatement, idx: Int): Unit = p.setTimestamp(idx, truncateToSeconds(v))
+      override def updateValue(v: Timestamp, r: ResultSet, idx: Int): Unit = r.updateTimestamp(idx, truncateToSeconds(v))
+      override def valueToSQLLiteral(value: Timestamp): String = "{ts '"+truncateToSeconds(value).toString+"'}"
     }
+    override val offsetTimeType = intBasedOffsetTimeJdbcType
+    override val offsetDateTimeType = bigIntBasedOffsetDateTimeJdbcType
   }
 }
 

@@ -1,7 +1,7 @@
 package slick.jdbc
 
-import java.sql.{Date, Time, Timestamp}
-import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneOffset}
+import java.sql.{Date, PreparedStatement, ResultSet, Time, Timestamp}
+import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, OffsetDateTime, OffsetTime, ZoneId, ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -282,12 +282,12 @@ trait SQLiteProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val dateJdbcType = new DateJdbcType
-    override val localDateType = new LocalDateJdbcType
-    override val localDateTimeType = new LocalDateTimeJdbcType
-    override val instantType = new InstantJdbcType
     override val timeJdbcType = new TimeJdbcType
     override val timestampJdbcType = new TimestampJdbcType
     override val uuidJdbcType = new UUIDJdbcType
+    override val localTimeType = javaSqlTimeBasedLocalTimeJdbcType
+    override val offsetTimeType = intBasedOffsetTimeJdbcType
+    override val offsetDateTimeType = bigIntBasedOffsetDateTimeJdbcType
 
     /* SQLite does not have a proper BOOLEAN type. The suggested workaround is
      * INTEGER with constants 1 and 0 for TRUE and FALSE. */
@@ -301,21 +301,6 @@ trait SQLiteProfile extends JdbcProfile {
     class DateJdbcType extends super.DateJdbcType {
       override def valueToSQLLiteral(value: Date) = {
         value.getTime.toString
-      }
-    }
-    class LocalDateJdbcType extends super.LocalDateJdbcType {
-      override def valueToSQLLiteral(value: LocalDate) = {
-        Date.valueOf(value).getTime.toString
-      }
-    }
-    class InstantJdbcType extends super.InstantJdbcType {
-      override def valueToSQLLiteral(value: Instant) = {
-        value.toEpochMilli.toString
-      }
-    }
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
-      override def valueToSQLLiteral(value: LocalDateTime) = {
-        Timestamp.valueOf(value).getTime.toString
       }
     }
     class TimeJdbcType extends super.TimeJdbcType {

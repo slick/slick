@@ -133,26 +133,13 @@ trait HsqldbProfile extends JdbcProfile {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
       override def valueToSQLLiteral(value: UUID) = s"x'${value.toString.replace("-", "")}'"
     }
-    override val localTimeType = new LocalTimeJdbcType {
-      override def sqlType = java.sql.Types.TIME
-
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(3)"
-
-      override def getValue(r: ResultSet, idx: Int): LocalTime = {
-        // Fixes an issue caused because Hsqldb outputs the time in a non-standard format
-        // not adding leading zeros to the hours. For example: '2:14:41.421' instead of '02:14:41.421'
-        r.getString(idx) match {
-          case null => null
-          case isoTime if isoTime.indexOf(':') == 2 => LocalTime.parse(isoTime)
-          case isoTime if isoTime.indexOf(':') == 1 => LocalTime.parse(s"0$isoTime")
-          case isoTime => throw new RuntimeException(s"$isoTime is not a valid Hsqldb String")
-        }
-      }
-    }
 
     override val offsetTimeType = new OffsetTimeJdbcType
     override val offsetDateTimeType = new OffsetDateTimeJdbcType
-    override val instantType = new InstantJdbcType
+    override val timestampJdbcType: TimestampJdbcType = new TimestampJdbcType {
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9)"
+    }
+
 
 
     /**
@@ -171,7 +158,7 @@ trait HsqldbProfile extends JdbcProfile {
           .toFormatter()
       }
 
-      protected val datetimeFormatter = {
+      protected val datetimeFormatter: DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ISO_LOCAL_DATE)
           .appendLiteral(' ')
@@ -198,22 +185,7 @@ trait HsqldbProfile extends JdbcProfile {
     }
 
     class OffsetTimeJdbcType extends super.OffsetTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
-
-      override def sqlType = java.sql.Types.TIME_WITH_TIMEZONE
-
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(9) WITH TIME ZONE"
-
       override val hasLiteralForm: Boolean = false
-
-      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
-        @inline val correctedOffsetTime: String = offsetConvertISOToHsqldb(v.format(timeFormatter))
-        p.setString(idx, correctedOffsetTime)
-      }
-
-      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) = {
-        @inline val correctedOffsetTime: String = offsetConvertISOToHsqldb(v.format(timeFormatter))
-        r.updateString(idx, correctedOffsetTime)
-      }
 
       override def getValue(r: ResultSet, idx: Int): OffsetTime = {
         r.getString(idx) match {
@@ -230,65 +202,14 @@ trait HsqldbProfile extends JdbcProfile {
                 normalizedIsoString, timeFormatter)
         }
       }
-
       override def valueToSQLLiteral(v: OffsetTime): String =
         s"'${offsetConvertISOToHsqldb(v.format(timeFormatter))}'"
     }
 
     class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
-
-      override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
-
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
-
       override val hasLiteralForm: Boolean = false
-
-      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) = {
-        @inline val correctedOffsetTime: String = offsetConvertISOToHsqldb(v.format(datetimeFormatter))
-        p.setString(idx, correctedOffsetTime)
-      }
-
-      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) = {
-        @inline val correctedOffsetTime: String = offsetConvertISOToHsqldb(v.format(datetimeFormatter))
-        r.updateString(idx, correctedOffsetTime)
-      }
-
-      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
-        r.getString(idx) match {
-          case null => null
-          case hsqldbString =>
-            @inline val normalizedIsoString: String = offsetConvertHsqldbToISO(hsqldbString)
-            OffsetDateTime.parse(normalizedIsoString,datetimeFormatter)
-        }
-      }
-
       override def valueToSQLLiteral(v: OffsetDateTime): String =
         s"'${offsetConvertISOToHsqldb(v.format(datetimeFormatter))}'"
-    }
-    class InstantJdbcType extends super.InstantJdbcType with HsqldbTimeJdbcTypeWithOffset {
-      override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
-      override val hasLiteralForm: Boolean = false
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) = {
-        @inline val correctedOffsetTime = offsetConvertISOToHsqldb(
-          OffsetDateTime.ofInstant(v, ZoneOffset.UTC).format(datetimeFormatter))
-        p.setString(idx, correctedOffsetTime)
-      }
-
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
-        @inline val correctedOffsetTime: String = offsetConvertISOToHsqldb(
-          OffsetDateTime.ofInstant(v, ZoneOffset.UTC).format(datetimeFormatter))
-        r.updateString(idx, correctedOffsetTime)
-      }
-
-      override def getValue(r: ResultSet, idx: Int): Instant = {
-        r.getString(idx) match {
-          case null => null
-          case hsqldbString =>
-            @inline val normalizedIsoString: String = offsetConvertHsqldbToISO(hsqldbString)
-            OffsetDateTime.parse(normalizedIsoString,datetimeFormatter).toInstant
-        }
-      }
     }
   }
 

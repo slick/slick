@@ -21,7 +21,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
   type ColumnType[T] = JdbcType[T]
-  type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
+  type BaseColumnType[T] = JdbcType[T]
   val columnTypes = new JdbcTypes
   lazy val MappedColumnType = MappedJdbcType
 

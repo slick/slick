@@ -1,12 +1,13 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB, TestDB}
 import java.io.{ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
 import java.util.UUID
 import java.time._
 import java.time.format.DateTimeFormatter
-import java.time.temporal.{ChronoField, ChronoUnit}
+import java.time.temporal.{ChronoField, ChronoUnit, Temporal}
+
 import javax.sql.rowset.serial.SerialBlob
 import slick.ast.FieldSymbol
 import slick.jdbc.PostgresProfile
@@ -106,8 +107,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     ).transactionally
   }
 
-  def testUUID =
-    roundTrip[UUID](List(UUID.randomUUID()), UUID.randomUUID)
+  def testUUID: Future[Unit] =
+    roundTrip[UUID](List(UUID.randomUUID()), () => UUID.randomUUID())
 
   /**
     *
@@ -136,6 +137,9 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       def * = (id, data)
     }
     val dateTable = TableQuery[DataTable]
+
+    println(s"Schema for type ${implicitly[BaseColumnType[T]]}")
+    dateTable.schema.create.statements.foreach(println)
 
     val staticValues = values.zipWithIndex.map(x => (x._2, Some(x._1)))
     db.run(seq(
@@ -166,7 +170,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       // filter on a LiteralColumn value
       db.run(seq(
         dateTable += (values.size + 2, Some(defaultValue)),
-        dateTable.filter(_.data === LiteralColumn(defaultValue)).map(_.data).result.head.map(_ shouldBe Some(defaultValue))
+        dateTable.filter(_.data === LiteralColumn(defaultValue)).map(_.data).result.head.map(x => dataCompareFn(0, x, Some(defaultValue)))
       ))
     }.flatMap { _ =>
       ifCapF(jcap.mutable) {
@@ -191,7 +195,9 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
             Seq((1, Some(updateValue)), (3, None)) ++
               rows.slice(3, rows.size) ++
               Seq((testValuesSize + 1, Some(insertValue)), (testValuesSize + 2, None))).
-            foreach { case ((lId, lValue), (rId, rValue)) => dataCompareFn(lId, lValue, rValue) }
+            foreach { case ((lId, lValue), (rId, rValue)) =>
+              dataCompareFn(lId, lValue, rValue)
+            }
           )
         }
       }
@@ -204,8 +210,22 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     now.plusSeconds(random.nextInt(seconds*2) - seconds)
   }
   lazy val now = generateTestLocalDateTime()
+
+  /**
+    * Compares l and r, consider it acceptable if r is rounded up in ChronoUnit `roundedTo`
+    */
+  def compareAndAllowRounding(l: Temporal, r: Temporal, roundedTo: ChronoUnit): Unit = {
+    if (r.plus(1, roundedTo) == l) {
+      // Rounded up, this is okay
+    } else {
+      l shouldBe r
+    }
+  }
+
   /**
     * Generates a [[LocalDateTime]] used for the [[java.time]] type tests.
+    *
+    * TODO move remainder of these docs to db profile or test capabilities
     * The generated test [[LocalDateTime]] will adapt to the database system being used.
     * If the SQL server driver `jtds` is used, there would be a 3 millisecond rounding, so
     * this method will generate a [[LocalDateTime]], using [[LocalDateTime#now]] whose milliseconds
@@ -218,20 +238,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     * For more information about the MsSQL issue: https://sourceforge.net/p/jtds/feature-requests/73/
     */
   private[this] def generateTestLocalDateTime() : LocalDateTime = {
-    val now = Instant.now
-    val dbCompatibleInstant = if (tdb.confName.contains("jtds")) {
-      val offset = now.get(ChronoField.NANO_OF_SECOND) % 10000000
-      now.plusNanos(-offset)
-    } else if (tdb.confName.contains("mysql")) {
-      // mysql has no subsecond resolution
-      now.`with`(ChronoField.NANO_OF_SECOND, 0)
-    } else {
-      // after JDK8, Instant.now uses a Clock that has greater than millis resolution. Most
-      // database timestamp implementations only have millis resolutions, so only
-      // roundtrip values which have no micro and nano parts
-      now.`with`(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND))
-    }
-    LocalDateTime.ofInstant(dbCompatibleInstant, ZoneOffset.UTC)
+    // Ensure that nanoseconds are included regardless of the jdk version
+    LocalDateTime.now().plusNanos(123456789)
   }  
   val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
@@ -254,15 +262,30 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   // This is far from ideal, but reflects the reality of mapping into a timestamp without time zone datatype in the db.
   // All the other time datatypes roundtrip cleanly.
   val hourInMs = 3600000
-  def testTimestamp = {
-    def timestampCompare(id: Int, l: Option[Timestamp], r: Option[Timestamp]) = {
-      (l, r) match {
+  def hasExactlyOneHourDifference(l: Timestamp, r: Timestamp): Boolean = {
+    val lTime = l.getTime
+    val rTime = r.getTime
+    math.abs(lTime - rTime) == hourInMs
+  }
+  def hasExactlyOneHourDifference(l: LocalDateTime, r: LocalDateTime): Boolean = {
+    math.abs(ChronoUnit.MILLIS.between(l, r)) == hourInMs
+  }
+  def testTimestamp: Future[Unit] = {
+    def timestampCompare(id: Int, lt: Option[Timestamp], rt: Option[Timestamp]): Unit = {
+      (lt, rt) match {
         case (Some(l), Some(r)) =>
-          val lTime = l.getTime
-          val rTime = r.getTime
-          if (lTime != rTime && math.abs(lTime - rTime) != hourInMs)
-            (id, l) shouldBe (id, r)
-        case _ => (id, l) shouldBe (id, r)
+          if (!hasExactlyOneHourDifference(l, r)) {
+            if (tdb.capabilities.contains(TestDB.capabilities.javaSqlTimestampNanoSeconds)) {
+              (id, l) shouldBe(id, r)
+            } else if (tdb.capabilities.contains(TestDB.capabilities.javaSqlTimestampMicroSeconds)) {
+              compareAndAllowRounding(l.toLocalDateTime, r.toLocalDateTime.truncatedTo(ChronoUnit.MICROS), ChronoUnit.MICROS)
+            } else if (tdb.capabilities.contains(TestDB.capabilities.javaSqlTimestampMilliSeconds)) {
+              compareAndAllowRounding(l.toLocalDateTime, r.toLocalDateTime.truncatedTo(ChronoUnit.MILLIS), ChronoUnit.MILLIS)
+            } else {
+              compareAndAllowRounding(l.toLocalDateTime, r.toLocalDateTime.truncatedTo(ChronoUnit.SECONDS), ChronoUnit.SECONDS)
+            }
+          }
+        case _ => (id, lt) shouldBe (id, rt)
       }
     }
     roundTrip[Timestamp](
@@ -274,19 +297,29 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   }
 
   // Test the java.time.* types
-  def testLocalDateTime = {
-    def localDateTimeCompare(id: Int, l: Option[LocalDateTime], r: Option[LocalDateTime]) = {
-      (l, r) match {
+  def testLocalDateTime: Future[Unit] = {
+    def localDateTimeCompare(id: Int, lt: Option[LocalDateTime], rt: Option[LocalDateTime]): Unit = {
+      (lt, rt) match {
         case (Some(l), Some(r)) =>
-          if (l != r &&
-            math.abs(ChronoUnit.MILLIS.between(l, r)) != hourInMs)
+          if (hasExactlyOneHourDifference(l, r)) {
+            // DST change, this is okay
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeLocalDateTimeNanoSeconds)) {
             (id, l) shouldBe (id, r)
-        case _ => (id, l) shouldBe (id, r)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeLocalDateTimeMicroSeconds)) {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.MICROS), ChronoUnit.MICROS)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeLocalDateTimeMilliSeconds)) {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.MILLIS), ChronoUnit.MILLIS)
+          } else {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.SECONDS), ChronoUnit.SECONDS)
+          }
+        case _ => (id, lt) shouldBe (id, rt)
       }
     }
 
     roundTrip[LocalDateTime](
       List(LocalDateTime.parse("2018-03-25T01:37:40", formatter),
+        LocalDateTime.ofEpochSecond(1, 0, ZoneOffset.UTC),
+        LocalDateTime.of(2037, 12, 31, 23, 59, 59, 999999999),
         generateTestLocalDateTime().withHour(5),
         generateTestLocalDateTime().withHour(12)),
       dataCreateFn = () => randomLocalDateTime(),
@@ -300,28 +333,43 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       () => randomLocalDateTime().toLocalDate
     )
 
-  def testLocalTime =
+  def testLocalTime: Future[Unit] = {
+    def localTimeCompare(id: Int, lt: Option[LocalTime], rt: Option[LocalTime]): Unit = {
+      (lt, rt) match {
+        case (Some(l), Some(r)) =>
+          if (tdb.capabilities.contains(TestDB.capabilities.javaTimeLocalTimeNanoSeconds)) {
+            (id, l) shouldBe (id, r)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeLocalTimeMicroSeconds)) {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.MICROS), ChronoUnit.MICROS)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeLocalTimeMilliSeconds)) {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.MILLIS), ChronoUnit.MILLIS)
+          } else {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.SECONDS), ChronoUnit.SECONDS)
+          }
+        case _ => (id, lt) shouldBe (id, rt)
+      }
+    }
     roundTrip[LocalTime](
       List(generateTestLocalDateTime().toLocalTime.withHour(14),
         generateTestLocalDateTime().toLocalTime.withHour(5)),
-      () => randomLocalDateTime().toLocalTime
+      () => randomLocalDateTime().toLocalTime,
+      dataCompareFn = localTimeCompare
     )
+  }
 
-  def testInstant =
-    roundTrip[Instant](
-      List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
-        Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
-        generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
-        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
-      () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
-    )
-
-  def testPostgresInstantWithTimeZone: Future[Unit] = if (tdb.confName == "postgres") {
-    // Slick uses the TIMESTAMP mapping by default for instants, however it should also
-    // be possible to read/write Instants as TIMESTAMPTZ (with time zone)
-    // This test ensures that the profile logic also works correctly for the TIMESTAMPTZ type
-    val withTimeZone = new PostgresProfile.columnTypes.InstantJdbcType {
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMPTZ"
+  def testInstant: Future[Unit] = {
+    def instantCompare(id: Int, lt: Option[Instant], rt: Option[Instant]): Unit = {
+      (lt, rt) match {
+        case (Some(l), Some(r)) =>
+          if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds)) {
+            (id, l) shouldBe(id, r)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimeMicroseconds)) {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.MICROS), ChronoUnit.MICROS)
+          } else {
+            compareAndAllowRounding(l, r.truncatedTo(ChronoUnit.MILLIS), ChronoUnit.MILLIS)
+          }
+        case _ => (id, lt) shouldBe(id, rt)
+      }
     }
     roundTrip[Instant](
       List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
@@ -329,9 +377,27 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
         generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
-      tableNameSuffix = "_with_time_zone"
-    )(withTimeZone)
-  } else Future.successful(())
+      dataCompareFn = instantCompare
+    )
+  }
+
+//  def testPostgresInstantWithoutTimeZone: Future[Unit] = if (tdb.confName == "postgres") {
+//    // Slick uses the TIMESTAMPTZ mapping by default for instants, however it should also
+//    // be possible to read/write Instants as TIMESTAMP (without time zone)
+//    // This test ensures that the profile logic also works correctly for the TIMESTAMP type
+//    val zonedTimestamp = new jdbc.PostgresProfile.columnTypes.ZonedDateTimeJdbcType { // TODO test the legacy variant?
+//      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP"
+//    }
+//
+//    roundTrip[Instant](
+//      List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
+//        Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
+//        generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
+//        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
+//      () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+//      tableNameSuffix = "_without_time_zone"
+//    )(withTimeZone)
+//  } else Future.successful(())
 
   private def randomZoneOffset = {
     // offset could be +-18 in java.time context, but postgres and oracle are stricter
@@ -340,7 +406,22 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     ZoneOffset.ofHoursMinutes(hours, mins)
   }
 
-  def testOffsetTime =
+  def testOffsetTime: Future[Unit] = {
+    def offsetTimeCompare(id: Int, lt: Option[OffsetTime], rt: Option[OffsetTime]): Unit = {
+      (lt, rt) match {
+        case (Some(l), Some(r)) =>
+          if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetTimePreservesOriginalOffset)) {
+            (id, l) shouldBe (id, r)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetTimeNanoSeconds)) {
+            (id, l.withOffsetSameInstant(ZoneOffset.UTC)) shouldBe (id, r.withOffsetSameInstant(ZoneOffset.UTC))
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetTimeMicroSeconds)) {
+            compareAndAllowRounding(l.withOffsetSameInstant(ZoneOffset.UTC), r.withOffsetSameInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS), ChronoUnit.MICROS)
+          } else {
+            compareAndAllowRounding(l.withOffsetSameInstant(ZoneOffset.UTC), r.withOffsetSameInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.MILLIS), ChronoUnit.MILLIS)
+          }
+        case _ => (id, lt) shouldBe (id, rt)
+      }
+    }
     roundTrip[OffsetTime](
       List(OffsetTime.of(0, 0, 1, 746000000, ZoneOffset.ofHours(1)),
         OffsetTime.of(0, 0, 0, 745000000, ZoneOffset.ofHours(1)),
@@ -350,10 +431,27 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         generateTestLocalDateTime().atZone(ZoneId.of("Antarctica/Rothera")).toOffsetDateTime.toOffsetTime,
         generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.toOffsetTime,
         generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.toOffsetTime),
-      () => randomLocalDateTime().atOffset(randomZoneOffset).toOffsetTime
+      () => randomLocalDateTime().atOffset(randomZoneOffset).toOffsetTime,
+      dataCompareFn = offsetTimeCompare
     )
+  }
 
-  def testOffsetDateTime =
+  def testOffsetDateTime: Future[Unit] = {
+    def offsetDateTimeCompare(id: Int, lt: Option[OffsetDateTime], rt: Option[OffsetDateTime]): Unit = {
+      (lt, rt) match {
+        case (Some(l), Some(r)) =>
+          if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset)) {
+            (id, l) shouldBe (id, r)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds)) {
+            (id, l.toInstant) shouldBe(id, r.toInstant)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimeMicroseconds)) {
+            compareAndAllowRounding(l.toInstant, r.toInstant.truncatedTo(ChronoUnit.MICROS), ChronoUnit.MICROS)
+          } else {
+            compareAndAllowRounding(l.toInstant, r.toInstant.truncatedTo(ChronoUnit.MILLIS), ChronoUnit.MILLIS)
+          }
+        case _ => (id, lt) shouldBe (id, rt)
+      }
+    }
     roundTrip[OffsetDateTime](
       List(
         OffsetDateTime.parse("2015-06-05T09:43:00+00:00"), // time has zero seconds and milliseconds
@@ -363,8 +461,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         generateTestLocalDateTime().atZone(ZoneId.of("Africa/Addis_Ababa")).toOffsetDateTime.withHour(15),
         generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.withHour(15),
         generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.withHour(15)),
-      () => randomLocalDateTime().atOffset(randomZoneOffset)
+      () => randomLocalDateTime().atOffset(randomZoneOffset),
+      dataCompareFn = offsetDateTimeCompare
     )
+  }
 
   // the database backends that support named timezones aren't necessarily configured for all
   // the zoneIds returned from ZoneId.getAvailableZoneIds (e.g. Oracle 11), so pick a subset to test with
@@ -382,7 +482,27 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     "Portugal",
     "Australia/Eucla"
   )
-  def testZonedDateTime = {
+  def testZonedDateTime: Future[Unit] = {
+    val truncateUnit = if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds)) {
+      ChronoUnit.NANOS
+    } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimeMicroseconds)) {
+      ChronoUnit.MICROS
+    } else {
+      ChronoUnit.MILLIS
+    }
+    def zonedDateTimeCompare(id: Int, lt: Option[ZonedDateTime], rt: Option[ZonedDateTime]): Unit = {
+      (lt, rt) match {
+        case (Some(l), Some(r)) =>
+          if (tdb.capabilities.contains(TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone)) {
+            compareAndAllowRounding(l, r.truncatedTo(truncateUnit), truncateUnit)
+          } else if (tdb.capabilities.contains(TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset)) {
+            compareAndAllowRounding(l.toOffsetDateTime, r.toOffsetDateTime.truncatedTo(truncateUnit), truncateUnit)
+          } else {
+            compareAndAllowRounding(l.toInstant, r.toInstant.truncatedTo(truncateUnit), truncateUnit)
+          }
+        case _ => (id, lt) shouldBe (id, rt)
+      }
+    }
     @tailrec
     def generateTestZonedDateTime(): ZonedDateTime = {
       val zoneId = ZoneId.of(zoneIds(random.nextInt(zoneIds.size)))
@@ -403,7 +523,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       // of datetimes for each test zoneId
       (0 to 50).map(offset => baseLocalDateTime.plusMinutes(offset * 5500)).toList.
         flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
-      generateTestZonedDateTime
+      () => generateTestZonedDateTime(),
+      dataCompareFn = zonedDateTimeCompare
     )
   }
 

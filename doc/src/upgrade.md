@@ -23,6 +23,11 @@ changes.
 Release candidates have the same compatibility guarantees as the final versions to which they
 lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
 
+Upgrade from 3.4 to 3.4
+-----------------------
+
+TODO document java.time support changes
+
 Upgrade from 3.2 to 3.3
 -----------------------
 
@@ -61,121 +66,130 @@ However, not all databases can directly map the various `java.time` semantics.
 In these cases, a `VARCHAR` may have been used to store a formatted time representation.
 For more details see the [description of Slick's approach](http://slick.lightbend.com/doc/3.3.0/datetimetypes.html) to these mappings.
 
+
+
+
+
+# TODO remove this from the upgrade guide, and move this somewhere else instead
+-- TODO this section should only contain the details about the changes from 3.2.x to 3.3.0
+
 #### `slick.jdbc.DB2Profile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `VARCHAR(254)` | `'2019-02-03T18:20:28.660Z'` |
-| `java.time.LocalDate` | `DATE` | `'2019-02-03'` |
-| `java.time.LocalTime` | `VARCHAR(254)` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` |
-| `java.time.OffsetTime` | `VARCHAR(254)` | `'18:20:28.661Z'` |
-| `java.time.OffsetDateTime` | `VARCHAR(254)` | `'2019-02-03T18:20:28.661Z'` |
-| `java.time.ZonedDateTime` | `VARCHAR(254)` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `BIGINT` | `TODO` | milliseconds | |
+| `java.time.LocalDate` | `DATE` | `'2019-02-03'` | days | |
+| `java.time.LocalTime` | `TIME` | `'18:20:28'` | seconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` | nanoseconds | |
+| `java.time.OffsetTime` | `INT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.OffsetDateTime` | `BIGINT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.ZonedDateTime` | `BIGINT` | `TODO` | milliseconds | resolution, offset always returned as UTC |
 
 
 #### `slick.jdbc.DerbyProfile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `VARCHAR(254)` | `'2019-02-03T18:20:28.660Z'` |
-| `java.time.LocalDate` | `DATE` | `'2019-02-03'` |
-| `java.time.LocalTime` | `VARCHAR(254)` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` |
-| `java.time.OffsetTime` | `VARCHAR(254)` | `'18:20:28.661Z'` |
-| `java.time.OffsetDateTime` | `VARCHAR(254)` | `'2019-02-03T18:20:28.661Z'` |
-| `java.time.ZonedDateTime` | `VARCHAR(254)` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `BIGINT` | `TODO` | milliseconds | |
+| `java.time.LocalDate` | `DATE` | `'2019-02-03'` | days |
+| `java.time.LocalTime` | `TIME` | `'18:20:28'` | seconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` | nanoseconds | |
+| `java.time.OffsetTime` | `INT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.OffsetDateTime` | `BIGINT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.ZonedDateTime` | `BIGINT` | `TODO` | milliseconds | resolution, offset always returned as UTC |
 
 
 #### `slick.jdbc.H2Profile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03T18:20:28.660Z'` |
-| `java.time.LocalDate` | `DATE` | `'2019-02-03'` |
-| `java.time.LocalTime` | `VARCHAR` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` |
-| `java.time.OffsetTime` | `VARCHAR` | `'18:20:28.661Z'` |
-| `java.time.OffsetDateTime` | `VARCHAR` | `'2019-02-03T18:20:28.661Z'` |
-| `java.time.ZonedDateTime` | `VARCHAR` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03T18:20:28.660Z'` | nanoseconds | |
+| `java.time.LocalDate` | `DATE` | `'2019-02-03'` | days |
+| `java.time.LocalTime` | `TIME(9)` | `'18:20:28.661'` | nanoseconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP(9)` | `'2019-02-03 18:20:28.661'` | nanoseconds | |
+| `java.time.OffsetTime` | `INT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.OffsetDateTime` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03T18:20:28.660Z'` | nanoseconds | offset always returned as UTC |
+| `java.time.ZonedDateTime` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03T18:20:28.660Z'` | nanoseconds | offset always returned as UTC |
 
 
 #### `slick.jdbc.HsqldbProfile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03 18:20:28.66'` |
-| `java.time.LocalDate` | `DATE` | `'2019-02-03'` |
-| `java.time.LocalTime` | `TIME(3)` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` |
-| `java.time.OffsetTime` | `TIME(9) WITH TIME ZONE` | `'18:20:28.661+0:00'` |
-| `java.time.OffsetDateTime` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03 18:20:28.661+0:00'` |
-| `java.time.ZonedDateTime` | `LONGVARCHAR` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03 18:20:28.66'` | nanoseconds | |
+| `java.time.LocalDate` | `DATE` | `'2019-02-03'` | days | |
+| `java.time.LocalTime` | `TIME(9)` | `'18:20:28.661'` | nanoseconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP(9)` | `'2019-02-03 18:20:28.661'` | nanoseconds | |
+| `java.time.OffsetTime` | `TIME(9) WITH TIME ZONE` | `'18:20:28.661+0:00'` | nanoseconds | offset always returned as UTC |
+| `java.time.OffsetDateTime` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03 18:20:28.661+0:00'` | nanoseconds | |
+| `java.time.ZonedDateTime` | `TIMESTAMP(9) WITH TIME ZONE` | `'2019-02-03T18:20:28.661Z[Europe/London]'` | nanoseconds | Only the time offset it preserved, not the zone itself |
 
 
 #### `slick.jdbc.SQLServerProfile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `DATETIMEOFFSET(6)` | `(convert(datetimeoffset(6), '2019-02-03 18:20:28.66 '))` |
-| `java.time.LocalDate` | `DATE` | `'2019-02-03'` |
-| `java.time.LocalTime` | `TIME(6)` | `(convert(time(6), '18:20:28.661'))` |
-| `java.time.LocalDateTime` | `DATETIME2(6)` | `'2019-02-03 18:20:28.661'` |
-| `java.time.OffsetTime` | `VARCHAR(MAX)` | `'18:20:28.661Z'` |
-| `java.time.OffsetDateTime` | `DATETIMEOFFSET(6)` | `(convert(datetimeoffset(6), '2019-02-03 18:20:28.661 '))` |
-| `java.time.ZonedDateTime` | `VARCHAR(MAX)` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+# TODO not yet implemented
+
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `DATETIMEOFFSET(6)` | `(convert(datetimeoffset(6), '2019-02-03 18:20:28.66 '))` | microseconds| |
+| `java.time.LocalDate` | `DATE` | `'2019-02-03'` | days | |
+| `java.time.LocalTime` | `TIME(6)` | `(convert(time(6), '18:20:28.661'))` | microseconds| |
+| `java.time.LocalDateTime` | `DATETIME2(6)` | `'2019-02-03 18:20:28.661'` | microseconds| |
+| `java.time.OffsetTime` | `TODO` | `'18:20:28.661Z'` | TODO| TODO |
+| `java.time.OffsetDateTime` | `DATETIMEOFFSET(6)` | `(convert(datetimeoffset(6), '2019-02-03 18:20:28.661 '))` | microseconds| |
+| `java.time.ZonedDateTime` | `DATETIMEOFFSET(6)` | `'2019-02-03T18:20:28.661Z[Europe/London]'` | microseconds| |
 
 
 #### `slick.jdbc.MySQLProfile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `TEXT` | `'2019-02-03T18:20:28.660Z'` |
-| `java.time.LocalDate` | `DATE` | `'2019-02-03'` |
-| `java.time.LocalTime` | `TEXT` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TEXT` | `'2019-02-03T18:20:28.661'` |
-| `java.time.OffsetTime` | `TEXT` | `'18:20:28.661Z'` |
-| `java.time.OffsetDateTime` | `TEXT` | `'2019-02-03T18:20:28.661Z'` |
-| `java.time.ZonedDateTime` | `TEXT` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `BIGINT` | `TODO` | milliseconds | |
+| `java.time.LocalDate` | `DATE` | `'2019-02-03'` | days | |
+| `java.time.LocalTime` | `TIME` | `'18:20:28.661'` | seconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03T18:20:28.661'` | seconds | |
+| `java.time.OffsetTime` | `INT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.OffsetDateTime` | `BIGINT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.ZonedDateTime` | `BIGINT` | `TODO` | milliseconds | offset always returned as UTC |
 
 
 #### `slick.jdbc.OracleProfile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `TIMESTAMP(9) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('2019-02-03 18:20:28.660 +00', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')` |
-| `java.time.LocalDate` | `DATE` | `TO_DATE('2019-02-03', 'SYYYY-MM-DD')` |
-| `java.time.LocalTime` | `VARCHAR2(254)` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TIMESTAMP` | `TO_TIMESTAMP('2019-02-03 18:20:28.661', 'YYYY-MM-DD HH24:MI:SS.FF3')` |
-| `java.time.OffsetTime` | `TIMESTAMP(6) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('1970-01-01 18:20:28.661 +0000', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')` |
-| `java.time.OffsetDateTime` | `TIMESTAMP(6) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('2019-02-03 18:20:28.661 +0000', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')` |
-| `java.time.ZonedDateTime` | `TIMESTAMP(6) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('2019-02-03 18:20:28.661 Europe/London', 'YYYY-MM-DD HH24:MI:SS.FF3 TZR')` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `TIMESTAMP(9) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('2019-02-03 18:20:28.660 +00', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')` | nanoseconds | |
+| `java.time.LocalDate` | `DATE` | `TO_DATE('2019-02-03', 'SYYYY-MM-DD')` | days | |
+| `java.time.LocalTime` | `TIMESTAMP(9)` | `'18:20:28.661'` | nanoseconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP(9)` | `TO_TIMESTAMP('2019-02-03 18:20:28.661', 'YYYY-MM-DD HH24:MI:SS.FF3')` | |
+| `java.time.OffsetTime` | `TIMESTAMP(9) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('1970-01-01 18:20:28.661 +0000', 'YYYY-MM-DD HH24:MI:SS.FF9 TZH:TZM')` | nanoseconds | |
+| `java.time.OffsetDateTime` | `TIMESTAMP(9) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('2019-02-03 18:20:28.661 +0000', 'YYYY-MM-DD HH24:MI:SS.FF9 TZH:TZM')` | nanoseconds | |
+| `java.time.ZonedDateTime` | `TIMESTAMP(9) WITH TIME ZONE` | `TO_TIMESTAMP_TZ('2019-02-03 18:20:28.661 Europe/London', 'YYYY-MM-DD HH24:MI:SS.FF9 TZR')` | nanoseconds | |
 
 
 #### `slick.jdbc.PostgresProfile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `TIMESTAMP` | `'2019-02-03 18:20:28.66'` |
-| `java.time.LocalDate` | `DATE` | `'2019-02-03'` |
-| `java.time.LocalTime` | `TIME` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` |
-| `java.time.OffsetTime` | `TIMETZ` | `'18:20:28.661Z'` |
-| `java.time.OffsetDateTime` | `VARCHAR` | `'2019-02-03T18:20:28.661Z'` |
-| `java.time.ZonedDateTime` | `VARCHAR` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `TIMESTAMP WITH TIME ZONE` | `'2019-02-03 18:20:28.66'` | microseconds | |
+| `java.time.LocalDate` | `DATE` | `'2019-02-03'` | days |
+| `java.time.LocalTime` | `TIME` | `'18:20:28.661'` | microseconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP` | `'2019-02-03 18:20:28.661'` | microseconds | |
+| `java.time.OffsetTime` | `TIME WITH TIME ZONE` | `'18:20:28.661Z'` | microseconds | offset always returned as UTC |
+| `java.time.OffsetDateTime` | `TIMESTAMP WITH TIME ZONE` | `'2019-02-03T18:20:28.661Z'` | microseconds | offset always returned as UTC |
+| `java.time.ZonedDateTime` | `TIMESTAMP WITH TIME ZONE` | `'2019-02-03T18:20:28.661Z[Europe/London]'` | microseconds | offset always returned as UTC |
 
 
 #### `slick.jdbc.SQLiteProfile`
 
-| Java Type | SQL Type | Example SQL Literal |
-|-----------|----------|---------------------|
-| `java.time.Instant` | `TIMESTAMP` | `1549218028660` |
-| `java.time.LocalDate` | `DATE` | `1549152000000` |
-| `java.time.LocalTime` | `VARCHAR(254)` | `'18:20:28.661'` |
-| `java.time.LocalDateTime` | `TIMESTAMP` | `1549218028661` |
-| `java.time.OffsetTime` | `VARCHAR(254)` | `'18:20:28.661Z'` |
-| `java.time.OffsetDateTime` | `VARCHAR(254)` | `'2019-02-03T18:20:28.661Z'` |
-| `java.time.ZonedDateTime` | `VARCHAR(254)` | `'2019-02-03T18:20:28.661Z[Europe/London]'` |
+| Java Type | SQL Type | Example SQL Literal | Resolution | Notes |
+|-----------|----------|---------------------|------------|-------|
+| `java.time.Instant` | `BIGINT` | `TODO` | milliseconds | |
+| `java.time.LocalDate` | `DATE` | `1549152000000` | days | |
+| `java.time.LocalTime` | `TIME` | `'18:20:28'` | seconds | |
+| `java.time.LocalDateTime` | `TIMESTAMP` | `1549218028661` | milliseconds | |
+| `java.time.OffsetTime` | `INT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.OffsetDateTime` | `BIGINT` | `TODO` | milliseconds | offset always returned as UTC |
+| `java.time.ZonedDateTime` | `BIGINT` | `TODO` | milliseconds | resolution, offset always returned as UTC |
 
 
 Upgrade from 3.1 to 3.2

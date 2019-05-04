@@ -268,7 +268,9 @@ trait DerbyProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val uuidJdbcType = new UUIDJdbcType
-    override val instantType = new InstantJdbcType
+    override val localTimeType = javaSqlTimeBasedLocalTimeJdbcType
+    override val offsetTimeType = intBasedOffsetTimeJdbcType
+    override val offsetDateTimeType = bigIntBasedOffsetDateTimeJdbcType
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */
@@ -281,27 +283,6 @@ trait DerbyProfile extends JdbcProfile {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
       override def valueToSQLLiteral(value: UUID): String =
         "x'" + value.toString.replace("-", "") + "'"
-    }
-
-    class InstantJdbcType extends super.InstantJdbcType {
-      // Derby has no timestamp with timezone type and so using strings as timestamps are
-      // susceptible to DST gaps twice a year
-      override def sqlType: Int = java.sql.Types.VARCHAR
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int): Unit = {
-        p.setString(idx, v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int): Instant = {
-        r.getString(idx) match {
-          case null => null
-          case instantString => Instant.parse(instantString)
-        }
-      }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int): Unit = {
-        r.updateString(idx, v.toString)
-      }
-      override def valueToSQLLiteral(value: Instant) = {
-        s"'${value.toString}'"
-      }
     }
   }
 }

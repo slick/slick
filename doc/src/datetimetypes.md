@@ -1,5 +1,7 @@
 Date and Time types {index=datetime}
 =======
+TODO this needs a rewrite!
+
 The [java.time.* types ](https://docs.oracle.com/javase/8/docs/api/java/time/package-summary.html) that were introduced in Java 8, are well thought out and comprehensive. Mapping these into the disparate date and time
 types implemented by the different database backends and mediated through the various jdbc implementations is tricky.
 

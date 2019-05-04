@@ -66,7 +66,6 @@ object StandardTestDBs {
 
   lazy val SQLiteMem = new SQLiteTestDB("jdbc:sqlite:file:slick_test?mode=memory&cache=shared", "sqlitemem") {
     override def isPersistent = false
-    override def capabilities: Set[Capability] = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
   }
 
   lazy val SQLiteDisk = {
@@ -74,7 +73,6 @@ object StandardTestDBs {
     val prefix = "sqlite-"+confName
     new SQLiteTestDB("jdbc:sqlite:"+TestkitConfig.testDBPath+"/"+prefix+".db", confName) {
       override def cleanUpBefore() = TestDB.deleteDBFiles(prefix)
-      override def capabilities: Set[Capability] = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
     }
   }
 
@@ -111,11 +109,39 @@ object StandardTestDBs {
       ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
         ts.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
       }
-    override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
+    override def capabilities: Set[Capability] = super.capabilities -- Set(
+      TestDB.capabilities.jdbcMetaGetFunctions,
+      TestDB.capabilities.javaSqlTimestampNanoSeconds,
+      TestDB.capabilities.javaTimeLocalDateTimeNanoSeconds,
+      TestDB.capabilities.javaTimeLocalTimeNanoSeconds,
+      TestDB.capabilities.javaTimeOffsetTimeNanoSeconds,
+      TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds,
+      TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone,
+      TestDB.capabilities.javaTimeOffsetTimePreservesOriginalOffset,
+      TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset
+    )
   }
 
   lazy val MySQL = new ExternalJdbcTestDB("mysql") {
     val profile = MySQLProfile
+    override def capabilities: Set[Capability] = super.capabilities -- Set(
+      TestDB.capabilities.javaSqlTimestampNanoSeconds,
+      TestDB.capabilities.javaSqlTimestampMicroSeconds,
+      TestDB.capabilities.javaSqlTimestampMilliSeconds,
+      TestDB.capabilities.javaTimeLocalTimeNanoSeconds,
+      TestDB.capabilities.javaTimeLocalTimeMicroSeconds,
+      TestDB.capabilities.javaTimeLocalTimeMilliSeconds,
+      TestDB.capabilities.javaTimeLocalDateTimeNanoSeconds,
+      TestDB.capabilities.javaTimeLocalDateTimeMicroSeconds,
+      TestDB.capabilities.javaTimeLocalDateTimeMilliSeconds,
+      TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone,
+      TestDB.capabilities.javaTimeOffsetTimeNanoSeconds,
+      TestDB.capabilities.javaTimeOffsetTimeMicroSeconds,
+      TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds,
+      TestDB.capabilities.javaTimeOffsetDateTimeMicroseconds,
+      TestDB.capabilities.javaTimeOffsetTimePreservesOriginalOffset,
+      TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset
+    )
     // Recreating the DB is faster than dropping everything individually
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
       session.close()
@@ -152,6 +178,18 @@ object StandardTestDBs {
 
     override def canGetLocalTables = false
 
+    override def capabilities: Set[Capability] = super.capabilities -- Set(
+      TestDB.capabilities.javaTimeLocalTimeNanoSeconds,
+      TestDB.capabilities.javaTimeLocalTimeMicroSeconds,
+      TestDB.capabilities.javaTimeLocalTimeMilliSeconds,
+      TestDB.capabilities.javaTimeOffsetTimePreservesOriginalOffset,
+      TestDB.capabilities.javaTimeOffsetTimeNanoSeconds,
+      TestDB.capabilities.javaTimeOffsetTimeMicroSeconds,
+      TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds,
+      TestDB.capabilities.javaTimeOffsetDateTimeMicroseconds,
+      TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset,
+      TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone
+    )
     lazy val schema = config.getString("schema")
 
     def dropSchema: DBIO[Unit] = {
@@ -210,7 +248,10 @@ object StandardTestDBs {
   }
 
   lazy val SQLServerJTDS = new SQLServerDB("sqlserver-jtds") {
-    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
+    override def capabilities = super.capabilities -- Set(
+      TestDB.capabilities.plainSql,
+      TestDB.capabilities.javaTimeLocalTimeNanoSeconds
+    )
   }
   lazy val SQLServer2012JTDS = new SQLServerDB("sqlserver2012-jtds") {
     override def capabilities = super.capabilities - TestDB.capabilities.plainSql
@@ -240,7 +281,11 @@ object StandardTestDBs {
 
     override def canGetLocalTables = false
     override def capabilities =
-      super.capabilities - TestDB.capabilities.jdbcMetaGetIndexInfo - TestDB.capabilities.transactionIsolation
+      super.capabilities -- Set(
+        TestDB.capabilities.jdbcMetaGetIndexInfo,
+        TestDB.capabilities.transactionIsolation,
+        TestDB.capabilities.javaTimeOffsetTimeNanoSeconds
+      )
 
     override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] = {
       val tableNames = profile.defaultTables.map(_.map(_.name.name)).map(_.toVector)
@@ -268,7 +313,15 @@ object StandardTestDBs {
 abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJdbcTestDB(confName) {
   val profile: Profile = H2Profile
   val jdbcDriver = "org.h2.Driver"
-  override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
+  override def capabilities: Set[Capability] = super.capabilities -- Set(
+    TestDB.capabilities.jdbcMetaGetFunctions,
+    TestDB.capabilities.jdbcMetaGetClientInfoProperties,
+    TestDB.capabilities.javaTimeOffsetTimeNanoSeconds,
+    TestDB.capabilities.javaTimeOffsetTimeMicroSeconds,
+    TestDB.capabilities.javaTimeOffsetTimePreservesOriginalOffset,
+    TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset,
+    TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone
+  )
   override def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver, keepAliveConnection = keepAlive)
 }
 
@@ -277,6 +330,24 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
   val profile = SQLiteProfile
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
+  override def capabilities: Set[Capability] = super.capabilities -- Set(
+    TestDB.capabilities.jdbcMetaGetFunctions,
+    TestDB.capabilities.jdbcMetaGetClientInfoProperties,
+    TestDB.capabilities.javaSqlTimestampNanoSeconds,
+    TestDB.capabilities.javaSqlTimestampMicroSeconds,
+    TestDB.capabilities.javaTimeLocalTimeNanoSeconds,
+    TestDB.capabilities.javaTimeLocalTimeMicroSeconds,
+    TestDB.capabilities.javaTimeLocalTimeMilliSeconds,
+    TestDB.capabilities.javaTimeLocalDateTimeNanoSeconds,
+    TestDB.capabilities.javaTimeLocalDateTimeMicroSeconds,
+    TestDB.capabilities.javaTimeOffsetTimeNanoSeconds,
+    TestDB.capabilities.javaTimeOffsetTimeMicroSeconds,
+    TestDB.capabilities.javaTimeOffsetTimePreservesOriginalOffset,
+    TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds,
+    TestDB.capabilities.javaTimeOffsetDateTimeMicroseconds,
+    TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset,
+    TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone
+  )
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     super.localTables.map(_.filter(s => !s.toLowerCase.contains("sqlite_")))
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
@@ -296,6 +367,20 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
   val profile = DerbyProfile
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
+
+  override def capabilities: Set[Capability] = super.capabilities -- Set(
+    TestDB.capabilities.javaTimeLocalTimeNanoSeconds,
+    TestDB.capabilities.javaTimeLocalTimeMicroSeconds,
+    TestDB.capabilities.javaTimeLocalTimeMilliSeconds,
+    TestDB.capabilities.javaTimeOffsetTimeNanoSeconds,
+    TestDB.capabilities.javaTimeOffsetTimeMicroSeconds,
+    TestDB.capabilities.javaTimeOffsetTimePreservesOriginalOffset,
+    TestDB.capabilities.javaTimeOffsetDateTimeNanoSeconds,
+    TestDB.capabilities.javaTimeOffsetDateTimeMicroseconds,
+    TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset,
+    TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone
+  )
+
   override def cleanUpBefore() = {
     // The default seems to be 1s, and the CI environments can be a bit slow. So, set a conservative timeout, so
     // tests don't fail intermittently
@@ -338,7 +423,11 @@ abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
   val jdbcDriver = "org.hsqldb.jdbcDriver"
   // Hsqldb has valid "select for update" syntax, but in testing, it either takes a whole table lock or no exclusive
   // lock at all, so exclude from ForUpdate testing
-  override def capabilities = super.capabilities - TestDB.capabilities.selectForUpdateRowLocking
+  override def capabilities = super.capabilities -- Set(
+    TestDB.capabilities.selectForUpdateRowLocking,
+    TestDB.capabilities.javaTimeOffsetDateTimePreservesOriginalOffset,
+    TestDB.capabilities.javaTimeZonedDateTimePreservesOriginalTimeZone
+  )
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null)).map { ts =>
       ts.map(_._3).sorted

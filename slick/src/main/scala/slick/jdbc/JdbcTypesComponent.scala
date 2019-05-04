@@ -1,8 +1,8 @@
 package slick.jdbc
 
-import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
+import java.sql.{Blob, Clob, Date, PreparedStatement, ResultSet, Time, Timestamp}
 import java.util.UUID
-import java.time.{OffsetDateTime, ZonedDateTime, Instant, LocalTime, LocalDate, LocalDateTime, OffsetTime}
+import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, OffsetDateTime, OffsetTime, ZoneOffset, ZonedDateTime}
 
 import scala.reflect.ClassTag
 
@@ -103,13 +103,11 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val charJdbcType = new CharJdbcType
     val clobJdbcType = new ClobJdbcType
     val dateJdbcType = new DateJdbcType
-    val offsetDateTimeType = new OffsetDateTimeJdbcType
-    val zonedDateType = new ZonedDateTimeJdbcType
-    val localTimeType = new LocalTimeJdbcType
-    val localDateType = new LocalDateJdbcType
-    val localDateTimeType = new LocalDateTimeJdbcType
-    val offsetTimeType = new OffsetTimeJdbcType
-    val instantType = new InstantJdbcType
+    val offsetDateTimeType: JdbcType[OffsetDateTime] = new OffsetDateTimeJdbcType
+    // Must be lazy to void initialization order issues
+    lazy val zonedDateType: JdbcType[ZonedDateTime] = zonedDateTimeJdbcTypeFromOffsetDateTime
+    val offsetTimeType: JdbcType[OffsetTime] = new OffsetTimeJdbcType
+    val localTimeType: JdbcType[LocalTime] = new LocalTimeJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
     val intJdbcType = new IntJdbcType
@@ -117,7 +115,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val shortJdbcType = new ShortJdbcType
     val stringJdbcType = new StringJdbcType
     val timeJdbcType = new TimeJdbcType
-    val timestampJdbcType = new TimestampJdbcType
+    val timestampJdbcType: JdbcType[Timestamp] = new TimestampJdbcType
     val uuidJdbcType = new UUIDJdbcType
     val bigDecimalJdbcType = new BigDecimalJdbcType
     val nullJdbcType = new NullJdbcType
@@ -173,7 +171,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     }
 
     /**
-      * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] or [[LocalTimeJdbcType]]
+      * Use [[OffsetDateTimeJdbcType]]
       * or [[OffsetTime]] or [[LocalDateTime]] or [[LocalDate]] or [[Instant]] instead.
       */
     class DateJdbcType extends DriverJdbcType[Date] {
@@ -184,184 +182,60 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def valueToSQLLiteral(value: Date) = s"{d '${value.toString}'}"
     }
 
-    class LocalDateJdbcType extends DriverJdbcType[LocalDate] {
-      // TODO: Use native Instant JDBC methods as soon they are implemented.
-      // https://java.net/jira/browse/JPA_SPEC-63
-      override def sqlType : Int = java.sql.Types.DATE
-      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) : Unit = {
-        p.setDate(idx, Date.valueOf(v))
-      }
-      override def getValue(r: ResultSet, idx: Int) : LocalDate = {
-        r.getDate(idx) match {
-          case null => null
-          case date => date.toLocalDate
-        }
-      }
-      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) : Unit = {
-        r.updateDate(idx, Date.valueOf(v))
-      }
-      override def valueToSQLLiteral(value: LocalDate) = {
-        s"'${value.toString}'"
-      }
-    }
-
     class LocalTimeJdbcType extends DriverJdbcType[LocalTime] {
-      override def sqlType : Int = {
-        /**
-         * [[LocalTime]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
-         * avoid losing precision, because the ANSI SQL type ([[java.sql.Types.TIME]]) stores
-         * TIME with second precision, while [[LocalTime]] stores it with a millisecond one.
-         */
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : LocalTime = {
-        r.getString(idx) match {
-          case null => null
-          case iso8601String => LocalTime.parse(iso8601String)
-        }
-      }
-      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = {
-        r.updateString(idx, v.toString)
-      }
-
-      override def valueToSQLLiteral(value: LocalTime) = {
-        s"'${value.toString}'"
-      }
+      override def sqlType : Int = java.sql.Types.TIME
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(9)"
+      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = p.setObject(idx, v)
+      override def getValue(r: ResultSet, idx: Int) : LocalTime = r.getObject(idx, classOf[LocalTime])
+      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) : Unit = r.updateObject(idx, v)
+      override def valueToSQLLiteral(value: LocalTime): String = s"'${value.toString}'"
     }
 
-    class LocalDateTimeJdbcType extends DriverJdbcType[LocalDateTime] {
-      // TODO: Use native Instant JDBC methods as soon they are implemented.
-      // https://java.net/jira/browse/JPA_SPEC-63
-      override def sqlType : Int = java.sql.Types.TIMESTAMP
-      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setTimestamp(idx, Timestamp.valueOf(v))
-      }
-      override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
-        r.getTimestamp(idx) match {
-          case null => null
-          case timestamp => timestamp.toLocalDateTime
-        }
-      }
-      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) : Unit = {
-        r.updateTimestamp(idx, Timestamp.valueOf(v))
-      }
-      override def valueToSQLLiteral(value: LocalDateTime) = {
-        s"'${Timestamp.valueOf(value)}'"
-      }
-    }
-
-    class InstantJdbcType extends DriverJdbcType[Instant] {
-      // TODO: Use native Instant JDBC methods as soon they are implemented.
-      // https://java.net/jira/browse/JPA_SPEC-63
-      override def sqlType : Int = {
-        java.sql.Types.TIMESTAMP
-      }
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
-        p.setTimestamp(idx, Timestamp.from(v))
-      }
-      override def getValue(r: ResultSet, idx: Int) : Instant = {
-        r.getTimestamp(idx) match {
-          case null => null
-          case timestamp => timestamp.toInstant
-        }
-      }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
-        r.updateTimestamp(idx, Timestamp.from(v))
-      }
-      override def valueToSQLLiteral(value: Instant) = {
-        s"'${Timestamp.from(value)}'"
-      }
+    def javaSqlTimeBasedLocalTimeJdbcType: JdbcType[LocalTime] = {
+      MappedJdbcType.base[LocalTime, Time](Time.valueOf, _.toLocalTime)(implicitly[ClassTag[LocalTime]], timeJdbcType)
     }
 
     class OffsetTimeJdbcType extends DriverJdbcType[OffsetTime] {
-      // TODO: Use native Instant JDBC methods as soon they are implemented.
-      // https://java.net/jira/browse/JPA_SPEC-63
-      override def sqlType : Int = {
-        /**
-          * Stores the [[OffsetTime]] as a 'VARCHAR' on databases, like SQLite, with no
-          * specific 'TIME' implementations. An example persisted value would be '18:22:43.417+01:00'.
-          * This is done because the standard data type 'TIME WITH TIMEZONE' is not available on all
-          * databases, and TIME is stored with second precision in ANSI SQL, instead of the millisecond
-          * one in the [[OffsetTime]] class.
-          */
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : OffsetTime = {
-        r.getString(idx) match {
-          case null => null
-          case iso8601String => OffsetTime.parse(iso8601String)
-        }
-      }
-      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) : Unit = {
-        r.updateString(idx, v.toString)
-      }
-      override def valueToSQLLiteral(value: OffsetTime) = {
-        s"'${value.toString}'"
-      }
+      override def sqlType : Int = java.sql.Types.TIME_WITH_TIMEZONE
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(9) WITH TIME ZONE"
+      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) : Unit = p.setObject(idx, v)
+      override def getValue(r: ResultSet, idx: Int) : OffsetTime = r.getObject(idx, classOf[OffsetTime])
+      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) : Unit = r.updateObject(idx, v)
+      override def valueToSQLLiteral(value: OffsetTime): String = s"'${value.toString}'"
+    }
+
+    def intBasedOffsetTimeJdbcType: JdbcType[OffsetTime] = {
+      def toEpochMilli(v: OffsetTime): Int = v.atDate(LocalDate.of(1970, 1, 1)).toInstant.toEpochMilli.toInt
+      def fromEpochMilli(v: Int): OffsetTime = Instant.ofEpochMilli(v).atZone(ZoneOffset.UTC).toOffsetDateTime.toOffsetTime
+      MappedJdbcType.base[OffsetTime, Int](toEpochMilli, fromEpochMilli)(implicitly[ClassTag[OffsetTime]], intJdbcType)
     }
 
     class OffsetDateTimeJdbcType extends DriverJdbcType[OffsetDateTime] {
-      override def sqlType : Int = {
-        /**
-          * Stores the [[OffsetDateTime]] as a 'VARCHAR' in databases with no specific
-          * 'TIMESTAMP WITH OFFSET' implementations, like SQLite. It's implemented in this
-          * way because almost any database support 'TIMESTAMP WITH OFFSET' by default,
-          * and the ones supporting it do not have an standardized implementation.
-          *
-          * A persisted value would be '2015-10-01T12:57:20.293+02:00'.
-          */
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int): Unit = {
-        p.setString(idx, v.toString)
+      override def sqlType : Int = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
+      override def sqlTypeName(sym: Option[FieldSymbol]): String = "TIMESTAMP(9) WITH TIME ZONE"
+
+      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setObject(idx, v)
       }
       override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
-        r.getString(idx) match {
-          case null => null
-          case iso8601String : String => OffsetDateTime.parse(iso8601String)
-        }
+        r.getObject(idx, classOf[OffsetDateTime])
       }
       override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int): Unit = {
-        r.updateString(idx, v.toString)
+        r.updateObject(idx, v)
       }
-      override def valueToSQLLiteral(value: OffsetDateTime) = {
+      override def valueToSQLLiteral(value: OffsetDateTime): String = {
         s"'${value.toString}'"
       }
     }
 
-    class ZonedDateTimeJdbcType extends DriverJdbcType[ZonedDateTime] {
-      override def sqlType : Int = {
-        /**
-          * Stores the [[ZonedDateTime]] as a 'VARCHAR' in databases with no specific
-          * 'TIMESTAMP WITH TIMEZONE' implementation, like SQLite. It's implemented in this
-          * way because almost any database support 'TIMESTAMP WITH OFFSET' by default,
-          * and the ones supporting it do not have an standardized implementation.
-          *
-          * A persisted value would be '2015-09-30T17:20:29.393+02:00[Europe/Madrid]'
-          */
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : ZonedDateTime = {
-        r.getString(idx) match {
-          case null => null
-          case iso8601String => ZonedDateTime.parse(iso8601String)
-        }
-      }
-      override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = {
-        r.updateString(idx, v.toString)
-      }
-      override def valueToSQLLiteral(value: ZonedDateTime) = {
-        s"'${value.toString}'"
-      }
+    def zonedDateTimeJdbcTypeFromOffsetDateTime: JdbcType[ZonedDateTime] = {
+      MappedJdbcType.base[ZonedDateTime, OffsetDateTime](_.toOffsetDateTime,
+        _.atZoneSameInstant(ZoneOffset.UTC))(implicitly[ClassTag[ZonedDateTime]], offsetDateTimeType)
+    }
+
+    def bigIntBasedOffsetDateTimeJdbcType: JdbcType[OffsetDateTime] = {
+      MappedJdbcType.base[OffsetDateTime, Long](_.toInstant.toEpochMilli,
+        i => Instant.ofEpochMilli(i).atOffset(ZoneOffset.UTC))(implicitly[ClassTag[OffsetDateTime]], longJdbcType)
     }
 
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
@@ -482,30 +356,32 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
-    implicit def booleanColumnType = columnTypes.booleanJdbcType
-    implicit def blobColumnType = columnTypes.blobJdbcType
-    implicit def byteColumnType = columnTypes.byteJdbcType
-    implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
-    implicit def charColumnType = columnTypes.charJdbcType
-    implicit def clobColumnType = columnTypes.clobJdbcType
-    implicit def dateColumnType = columnTypes.dateJdbcType
-    implicit def doubleColumnType = columnTypes.doubleJdbcType
-    implicit def floatColumnType = columnTypes.floatJdbcType
-    implicit def intColumnType = columnTypes.intJdbcType
-    implicit def longColumnType = columnTypes.longJdbcType
-    implicit def shortColumnType = columnTypes.shortJdbcType
-    implicit def stringColumnType = columnTypes.stringJdbcType
-    implicit def timeColumnType = columnTypes.timeJdbcType
-    implicit def timestampColumnType = columnTypes.timestampJdbcType
-    implicit def uuidColumnType = columnTypes.uuidJdbcType
-    implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
-    implicit def offsetDateTimeColumnType = columnTypes.offsetDateTimeType
-    implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
-    implicit def localTimeColumnType = columnTypes.localTimeType
-    implicit def localDateColumnType = columnTypes.localDateType
-    implicit def localDateTimeColumnType = columnTypes.localDateTimeType
-    implicit def offsetTimeColumnType = columnTypes.offsetTimeType
-    implicit def instantColumnType = columnTypes.instantType
+    implicit def booleanColumnType: JdbcType[Boolean] = columnTypes.booleanJdbcType
+    implicit def blobColumnType: JdbcType[Blob] = columnTypes.blobJdbcType
+    implicit def byteColumnType: JdbcType[Byte] with NumericTypedType = columnTypes.byteJdbcType
+    implicit def byteArrayColumnType: JdbcType[Array[Byte]] = columnTypes.byteArrayJdbcType
+    implicit def charColumnType: JdbcType[Char] = columnTypes.charJdbcType
+    implicit def clobColumnType: JdbcType[Clob] = columnTypes.clobJdbcType
+    implicit def dateColumnType: JdbcType[Date] = columnTypes.dateJdbcType
+    implicit def doubleColumnType: JdbcType[Double] with NumericTypedType = columnTypes.doubleJdbcType
+    implicit def floatColumnType: JdbcType[Float] with NumericTypedType = columnTypes.floatJdbcType
+    implicit def intColumnType: JdbcType[Int] with NumericTypedType = columnTypes.intJdbcType
+    implicit def longColumnType: JdbcType[Long] with NumericTypedType = columnTypes.longJdbcType
+    implicit def shortColumnType: JdbcType[Short] with NumericTypedType = columnTypes.shortJdbcType
+    implicit def stringColumnType: JdbcType[String] = columnTypes.stringJdbcType
+    implicit def timeColumnType: JdbcType[Time] = columnTypes.timeJdbcType
+    implicit def timestampColumnType: JdbcType[Timestamp] = columnTypes.timestampJdbcType
+    implicit def uuidColumnType: JdbcType[UUID] = columnTypes.uuidJdbcType
+    implicit def bigDecimalColumnType: JdbcType[BigDecimal] with NumericTypedType = columnTypes.bigDecimalJdbcType
+    implicit def zonedDateTimeColumnType: JdbcType[ZonedDateTime] = columnTypes.zonedDateType
+    implicit def offsetTimeColumnType: JdbcType[OffsetTime] = columnTypes.offsetTimeType
+    implicit def localTimeColumnType: JdbcType[LocalTime] = columnTypes.localTimeType
+
+    // Derived types
+    implicit def offsetDateTimeColumnType: JdbcType[OffsetDateTime] = MappedColumnType.base[OffsetDateTime, ZonedDateTime](_.toZonedDateTime, _.toOffsetDateTime)
+    implicit def localDateColumnType: JdbcType[LocalDate] = MappedColumnType.base[LocalDate, Date](Date.valueOf, _.toLocalDate)
+    implicit def localDateTimeColumnType: JdbcType[LocalDateTime] = MappedColumnType.base[LocalDateTime, Timestamp](Timestamp.valueOf, _.toLocalDateTime)
+    implicit def instantColumnType: JdbcType[Instant] = MappedColumnType.base[Instant, ZonedDateTime](_.atZone(ZoneOffset.UTC), _.toInstant)
   }
 }
 

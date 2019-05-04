@@ -191,7 +191,12 @@ trait DB2Profile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val uuidJdbcType = new UUIDJdbcType
-    override val instantType = new InstantJdbcType
+    override val localTimeType = javaSqlTimeBasedLocalTimeJdbcType
+    override val offsetTimeType = intBasedOffsetTimeJdbcType
+    override val offsetDateTimeType = bigIntBasedOffsetDateTimeJdbcType
+    override val timestampJdbcType: TimestampJdbcType = new TimestampJdbcType {
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9)"
+    }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
@@ -207,29 +212,6 @@ trait DB2Profile extends JdbcProfile {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
-
-    class InstantJdbcType extends super.InstantJdbcType {
-      // Can't use Timestamp as the type here as subject to 2 hours DST loss each year
-      override def sqlType : Int = {
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : Instant = {
-        r.getString(idx) match {
-          case null => null
-          case instantStr => Instant.parse(instantStr)
-        }
-      }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
-        r.updateString(idx, v.toString)
-      }
-      override def valueToSQLLiteral(value: Instant) = {
-        s"'${value.toString}'"
-      }
-    }
-
 
   }
 }

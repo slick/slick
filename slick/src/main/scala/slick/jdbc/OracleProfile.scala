@@ -18,6 +18,8 @@ import slick.basic.Capability
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
+import scala.reflect.ClassTag
+
 /** Slick profile for Oracle.
   *
   * This profile implements [[slick.jdbc.JdbcProfile]]
@@ -304,12 +306,13 @@ END;
     override val stringJdbcType = new StringJdbcType
     override val timeJdbcType = new TimeJdbcType
     override val uuidJdbcType = new UUIDJdbcType
-    override val localDateType = new LocalDateJdbcType
-    override val localDateTimeType = new LocalDateTimeJdbcType
-    override val instantType = new InstantJdbcType
     override val offsetTimeType = new OffsetTimeJdbcType
-    override val offsetDateTimeType = new OffsetDateTimeJdbcType
-    override val zonedDateType = new ZonedDateTimeJdbcType
+    override lazy val zonedDateType = new ZonedDateTimeJdbcType
+    override val offsetDateTimeType: JdbcType[OffsetDateTime] = offsetDateTimeJdbcType
+    override val localTimeType = new LocalTimeJdbcType
+    override val timestampJdbcType: TimestampJdbcType = new TimestampJdbcType {
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9)"
+    }
 
     /* Oracle does not have a proper BOOLEAN type. The suggested workaround is
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
@@ -378,76 +381,36 @@ END;
         val hex = value.toString.replace("-", "").toUpperCase
         s"hextoraw('$hex')"
       }
-      override def hasLiteralForm = true
     }
 
-    class LocalDateJdbcType extends super.LocalDateJdbcType {
-      override def hasLiteralForm: Boolean = true
-      override def valueToSQLLiteral(value: LocalDate) : String = {
-        s"TO_DATE('${value.toString}', 'SYYYY-MM-DD')"
-      }
-      override def getValue(r: ResultSet, idx: Int): LocalDate = {
-        r.getString(idx) match {
-          case null => null
-          case dateStr => LocalDate.parse(dateStr.substring(0, 10))
-        }
-      }
-    }
+    class LocalTimeJdbcType extends DriverJdbcType[LocalTime] {
+      private def toTimestamp(v: LocalTime): Timestamp =
+        Timestamp.valueOf(v.atDate(LocalDate.of(1970, 1, 1)))
 
-    class LocalTimeJdbcType extends super.LocalTimeJdbcType {
-      @inline private[this] def timestampFromLocalTime(localTime : LocalTime) : Timestamp = {
-        Timestamp.valueOf(LocalDateTime.of(LocalDate.MIN, localTime))
+      override def sqlType: Int = java.sql.Types.TIMESTAMP
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9)"
+      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setTimestamp(idx, toTimestamp(v))
       }
-      override def sqlType = java.sql.Types.TIMESTAMP
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
-
       override def getValue(r: ResultSet, idx: Int) : LocalTime = {
         r.getTimestamp(idx) match {
           case null => null
           case timestamp => timestamp.toLocalDateTime.toLocalTime
         }
       }
-    }
+      override def updateValue(v: LocalTime, r: ResultSet, idx: Int): Unit = {
+        r.updateTimestamp(idx, toTimestamp(v))
+      }
 
-    // LocalDateTime and Instant are the 2 types which have no TZ component
-    // So, store them at UTC timestamps, otherwise the JDBC layer might attempt to map them
-    // and with DST changes, there are some times which will be unrepresentable during the switchover
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
-      override def valueToSQLLiteral(value: LocalDateTime) = {
-        s"TO_TIMESTAMP(${super.valueToSQLLiteral(value)}, 'YYYY-MM-DD HH24:MI:SS.FF3')"
-      }
-    }
-
-    class InstantJdbcType extends super.InstantJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
-      private[this] def serializeTime(v: Instant) : String = formatter.format(instantToUTC(v))
-      private[this] def instantToUTC(v: Instant): OffsetDateTime = v.atOffset(ZoneOffset.UTC)
-
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) = {
-        p.setObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(instantToUTC(v)), -101)
-      }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
-        r.updateObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(instantToUTC(v)), -101)
-      }
-      override def getValue(r: ResultSet, idx: Int): Instant = {
-        r.getObject(idx) match {
-          case null => null
-          case timestamptz => Instant.from(TimestamptzConverter.timestamptzToOffsetDateTime(timestamptz))
-
-        }
-      }
-      override def hasLiteralForm: Boolean = true
-      override def valueToSQLLiteral(value: Instant) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')"
-      }
+      override def valueToSQLLiteral(value: LocalTime) = s"{ts '${toTimestamp(value)}'}"
     }
 
     // No Oracle time type without date component. Add LocalDate.ofEpochDay(0), but ignore it.
     class OffsetTimeJdbcType extends super.OffsetTimeJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS Z")
       private[this] def serializeTime(v : OffsetTime) : String = formatter.format(v.atDate(LocalDate.ofEpochDay(0)))
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
+      override def sqlType: Int = java.sql.Types.VARCHAR
       override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
         p.setObject(idx, TimestamptzConverter.offsetTimeToTimestamptz(v), -101)
       }
@@ -459,46 +422,31 @@ END;
       }
       override def hasLiteralForm: Boolean = true
       override def valueToSQLLiteral(value: OffsetTime) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')"
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF9 TZH:TZM')"
       }
     }
 
-    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
-      private[this] def serializeTime(v : OffsetDateTime) : String = formatter.format(v)
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
-      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) = {
-        p.setObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(v), -101)
-      }
-      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int) = {
-        r.updateObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(v), -101)
-      }
-      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
-        TimestamptzConverter.timestamptzToOffsetDateTime(r.getObject(idx))
-      }
-      override def hasLiteralForm: Boolean = true
-      override def valueToSQLLiteral(value: OffsetDateTime) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')"
-      }
-    }
-
-    class ZonedDateTimeJdbcType extends super.ZonedDateTimeJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV")
+    class ZonedDateTimeJdbcType extends DriverJdbcType[ZonedDateTime] {
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS VV")
       private[this] def serializeTime(v : ZonedDateTime) : String = formatter.format(v)
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
-      override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int) = {
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
+      override def sqlType: Int = java.sql.Types.VARCHAR
+      override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int): Unit = {
         p.setObject(idx, TimestamptzConverter.zonedDateTimeToTimestamptz(v), -101)
       }
-      override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = {
+      override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int): Unit = {
         r.updateObject(idx, TimestamptzConverter.zonedDateTimeToTimestamptz(v), -101)
       }
       override def getValue(r: ResultSet, idx: Int): ZonedDateTime = {
         TimestamptzConverter.timestamptzToZonedDateTime(r.getObject(idx))
       }
-      override def hasLiteralForm: Boolean = true
-      override def valueToSQLLiteral(value: ZonedDateTime) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZR')"
+      override def valueToSQLLiteral(value: ZonedDateTime): String = {
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF9 TZR')"
       }
+    }
+    def offsetDateTimeJdbcType: JdbcType[OffsetDateTime] = {
+      MappedJdbcType.base[OffsetDateTime, ZonedDateTime](_.toZonedDateTime,
+        _.toOffsetDateTime)(implicitly[ClassTag[OffsetDateTime]], zonedDateType)
     }
   }
 

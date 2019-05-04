@@ -39,8 +39,47 @@ object TestDB {
     /** Supports select for update row locking */
     val selectForUpdateRowLocking = new Capability("test.selectForUpdateRowLocking")
 
+    /** Supports returning nanoseconds (at least 9 decimal digits) when storing java.sql.Timestamp values */
+    val javaSqlTimestampNanoSeconds = new Capability("test.javaSqlTimestampNanoSeconds")
+    /** Supports returning microseconds (at least 6 decimal digits) when storing java.sql.Timestamp values */
+    val javaSqlTimestampMicroSeconds = new Capability("test.javaSqlTimestampMicroSeconds")
+    /** Supports returning milliseconds (at least 3 decimal digits) when storing java.sql.Timestamp values */
+    val javaSqlTimestampMilliSeconds = new Capability("test.javaSqlTimestampMilliSeconds")
+    /** Supports milliseconds (at least 3 decimal digits) when storing java.time.LocalTime values */
+    val javaTimeLocalTimeMilliSeconds = new Capability("test.javaTimeLocalTimeMilliSeconds")
+    /** Supports microseconds (at least 6 decimal digits) when storing java.time.LocalTime values */
+    val javaTimeLocalTimeMicroSeconds = new Capability("test.javaTimeLocalTimeMicroSeconds")
+    /** Supports nanoseconds (at least 9 decimal digits) when storing java.time.LocalTime values */
+    val javaTimeLocalTimeNanoSeconds = new Capability("test.javaTimeLocalTimeNanoSeconds")
+    /** Supports returning nanoseconds (at least 9 decimal digits) when storing java.time.LocalDateTime values */
+    val javaTimeLocalDateTimeNanoSeconds = new Capability("test.javaTimeLocalDateTimeNanoSeconds")
+    /** Supports returning microseconds (at least 6 decimal digits) when storing java.time.LocalDateTime values */
+    val javaTimeLocalDateTimeMicroSeconds = new Capability("test.javaTimeLocalDateTimeMicroSeconds")
+    /** Supports returning milliseconds (at least 5 decimal digits) when storing java.time.LocalDateTime values */
+    val javaTimeLocalDateTimeMilliSeconds = new Capability("test.javaTimeLocalDateTimeMilliSeconds")
+    /** Supports returning nanoseconds (at least 9 decimal digits) for java.time.OffsetTime values */
+    val javaTimeOffsetTimeNanoSeconds = new Capability("test.javaTimeOffsetTimeNanoSeconds")
+    /** Supports returning microseconds (at least 6 decimal digits) for java.time.OffsetTime values */
+    val javaTimeOffsetTimeMicroSeconds = new Capability("test.javaTimeOffsetTimeMilliSeconds")
+    /** Supports returning the original offset for java.time.OffsetTime values */
+    val javaTimeOffsetTimePreservesOriginalOffset = new Capability("test.javaTimeOffsetTimePreservesOriginalOffset")
+    /** Supports returning nanoseconds (at least 9 decimal digits) for java.time.OffsetTime values */
+    val javaTimeOffsetDateTimeNanoSeconds = new Capability("test.javaTimeOffsetDateTimeNanoSeconds")
+    /** Supports returning microseconds (at least 6 decimal digits) or java.time.ZonedDateTime, java.time.OffsetDateTime, java.time.Instant values */
+    val javaTimeOffsetDateTimeMicroseconds = new Capability("test.javaTimeOffsetDateTimeMicroseconds")
+    /** Supports returning the original offset for java.time.OffsetDateTime values */
+    val javaTimeOffsetDateTimePreservesOriginalOffset = new Capability("test.javaTimeOffsetDateTimePreservesOriginalOffset")
+    /** Supports returning the original time zone for java.time.ZonedDateTime values */
+    val javaTimeZonedDateTimePreservesOriginalTimeZone = new Capability("test.javaTimeZonedDateTimePreservesOriginalTimeZone")
+
     val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo,
-      transactionIsolation, selectForUpdateRowLocking)
+      transactionIsolation, selectForUpdateRowLocking,
+      javaTimeLocalTimeMilliSeconds, javaTimeLocalTimeMicroSeconds, javaTimeLocalTimeNanoSeconds,
+      javaTimeLocalDateTimeNanoSeconds, javaTimeLocalDateTimeMicroSeconds, javaTimeLocalDateTimeMilliSeconds,
+      javaSqlTimestampNanoSeconds, javaSqlTimestampMicroSeconds, javaSqlTimestampMilliSeconds,
+      javaTimeOffsetTimeNanoSeconds, javaTimeOffsetTimeMicroSeconds, javaTimeOffsetTimePreservesOriginalOffset,
+      javaTimeOffsetDateTimeNanoSeconds, javaTimeOffsetDateTimeMicroseconds,
+      javaTimeOffsetDateTimePreservesOriginalOffset, javaTimeZonedDateTimePreservesOriginalTimeZone)
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */
