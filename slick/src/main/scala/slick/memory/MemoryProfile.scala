@@ -75,7 +75,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }
@@ -119,7 +119,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     protected[this] def getIterator(ctx: Backend#Context): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
-      val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].toIterator
+      val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].iterator
       pvit.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read _)
     }
     def run(ctx: Backend#Context): R =
