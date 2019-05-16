@@ -12,8 +12,8 @@ import com.novocode.ornate.sbtplugin.OrnatePlugin.autoImport._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.2.1"
-  val binaryCompatSlickVersion = "3.2.1" // Slick base version for binary compatibility checks
+  val slickVersion = "3.2.1-rc.1"
+  val binaryCompatSlickVersion = "3.2.1-rc.1" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.11.8", "2.12.0")
 
   /** Dependencies for reuse in different parts of the build */
@@ -26,6 +26,7 @@ object SlickBuild extends Build {
       val v = "3.0.0"
       "org.scalatest" %% "scalatest" % v
     }
+    val twitterUtil = "com.twitter" %% "util-core" % "19.4.0"
     val slf4j = "org.slf4j" % "slf4j-api" % "1.7.18"
     val logback = "ch.qos.logback" % "logback-classic" % "1.1.6"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
@@ -33,7 +34,7 @@ object SlickBuild extends Build {
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
     val hikariCP = "com.zaxxer" % "HikariCP" % "2.5.1"
-    val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
+    val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, twitterUtil)
     val h2 = "com.h2database" % "h2" % "1.4.191"
     val testDBs = Seq(
       h2,

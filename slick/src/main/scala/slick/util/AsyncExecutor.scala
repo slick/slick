@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.util.control.NonFatal
 
+import com.twitter.util.Local
+
 /** A connection pool for asynchronous execution of blocking I/O actions.
   * This is used for the asynchronous query execution API on top of blocking back-ends like JDBC. */
 trait AsyncExecutor extends Closeable {
@@ -22,6 +24,38 @@ trait AsyncExecutor extends Closeable {
 
 }
 
+object MyRunnable extends Logging {
+  def withLocal[T](saved: Local.Context)(fn: => T) {
+    val current = Local.save()
+    Local.restore(saved)
+    try {
+      fn
+    } catch {
+      case e : Throwable => logger.error("Execption", e)
+    } finally {
+      Local.restore(current)
+    }
+  }
+}
+
+class MyRunnable(underlying: AsyncExecutor.PrioritizedRunnable) extends AsyncExecutor.PrioritizedRunnable {
+  def priority = underlying.priority
+  connectionReleased = underlying.connectionReleased
+  inUseCounterSet = underlying.inUseCounterSet
+
+  val saved = Local.save()
+
+  override def run(): Unit = {
+    MyRunnable.withLocal(saved) {
+      // FIXME the issue is the var change and I have no way of accounting for that
+      // is there a race somewhere? probably
+      underlying.run
+      connectionReleased = underlying.connectionReleased
+      inUseCounterSet = underlying.inUseCounterSet
+    }
+  }
+}
+
 object AsyncExecutor extends Logging {
   /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
     * I/O. New threads are created as daemon threads.
@@ -30,6 +64,7 @@ object AsyncExecutor extends Logging {
     * @param numThreads The number of threads in the pool.
     * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size. */
   def apply(name: String, numThreads: Int, queueSize: Int): AsyncExecutor = apply(name, numThreads, numThreads, queueSize)
+
 
   /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
     * I/O. New threads are created as daemon threads.
@@ -66,6 +101,10 @@ object AsyncExecutor extends Logging {
       }
       val tf = new DaemonThreadFactory(name + "-")
       executor = new ThreadPoolExecutor(minThreads, maxThreads, keepAliveTime.toMillis, TimeUnit.MILLISECONDS, queue, tf) {
+
+        override def execute(r: Runnable): Unit = {
+          super.execute(new MyRunnable(r.asInstanceOf[PrioritizedRunnable]))
+        }
 
         /** If the runnable/task is a low/medium priority item, we increase the items in use count, because first thing it will do
           * is open a Jdbc connection from the pool. */
