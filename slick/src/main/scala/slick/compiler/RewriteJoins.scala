@@ -210,7 +210,7 @@ class RewriteJoins extends Phase {
       val m2 = m.mapValues(_.replace({
         case Ref(s) :@ tpe if s == j.leftGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(1)) :@ tpe
         case Ref(s) :@ tpe if s == j.rightGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(2)) :@ tpe
-      }, keepType = true))
+      }, keepType = true)).toMap
       if(logger.isDebugEnabled) m2.foreach { case (p, n) =>
         logger.debug("Replacement for "+FwdPath.toString(p)+":", n)
       }
@@ -270,7 +270,7 @@ class RewriteJoins extends Phase {
     case b => b
   }
 
-  def splitConjunctions(n: Node): IndexedSeq[Node] = {
+  def splitConjunctions(n: Node): scala.collection.IndexedSeq[Node] = {
     val b = new ArrayBuffer[Node]
     def f(n: Node): Unit = n match {
       case Library.And(l, r) => f(l); f(r)
@@ -281,7 +281,7 @@ class RewriteJoins extends Phase {
     b
   }
 
-  def and(ns: IndexedSeq[Node]): Node =
+  def and(ns: scala.collection.IndexedSeq[Node]): Node =
     if(ns.isEmpty) LiteralNode(true) else ns.reduceLeft { (p1, p2) =>
       val t1 = p1.nodeType.structural
       Library.And.typed(if(t1.isInstanceOf[OptionType]) t1 else p2.nodeType.structural, p1, p2)

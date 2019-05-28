@@ -11,6 +11,7 @@ import com.typesafe.config.Config
 import scala.concurrent.{Promise, ExecutionContext, Future}
 import scala.util.{Success, Failure}
 import scala.util.control.NonFatal
+import scala.collection.compat._
 
 import org.slf4j.LoggerFactory
 import org.reactivestreams._
@@ -186,7 +187,7 @@ trait BasicBackend { self =>
 
           def run(pos: Int): Future[Any] = {
             if (pos == len) Future.successful {
-              val b = sa.cbf()
+              val b = sa.cbf.newBuilder
               var i = 0
               while (i < len) {
                 b += results.get(i)

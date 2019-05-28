@@ -2,6 +2,7 @@ package slick.jdbc
 
 import slick.util.TableDump
 
+import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 import scala.language.reflectiveCalls
 
@@ -49,7 +50,7 @@ class LoggingStatement(st: Statement) extends Statement {
     if(doStatementAndParameter && (sql ne null)) JdbcBackend.statementAndParameterLogger.debug("Executing "+what+": "+sql)
     if(doParameter && (paramss ne null) && paramss.nonEmpty) {
       // like s.groupBy but only group adjacent elements and keep the ordering
-      def groupBy[T](s: TraversableOnce[T])(f: T => AnyRef): IndexedSeq[IndexedSeq[T]] = {
+      def groupBy[T](s: IterableOnce[T])(f: T => AnyRef): IndexedSeq[IndexedSeq[T]] = {
         var current: AnyRef = null
         val b = new ArrayBuffer[ArrayBuffer[T]]
         s.foreach { v =>
@@ -58,7 +59,7 @@ class LoggingStatement(st: Statement) extends Statement {
           else b.last += v
           current = id
         }
-        b
+        b.toIndexedSeq.map(_.toIndexedSeq)
       }
       def mkTpStr(tp: Int) = JdbcTypesComponent.typeNames.getOrElse(tp, tp.toString)
       val paramSets = paramss.map { params =>
@@ -79,7 +80,7 @@ class LoggingStatement(st: Statement) extends Statement {
       groupBy(paramSets)(_._1).foreach { matchingSets =>
         val tpes = matchingSets.head._1
         val idxs = 1.to(tpes.length).map(_.toString)
-        dump(Vector(idxs, tpes), matchingSets.map(_._2)).foreach(s => JdbcBackend.parameterLogger.debug(s))
+        dump(Vector(idxs, tpes.toIndexedSeq), matchingSets.map(_._2).toIndexedSeq.map(_.toIndexedSeq)).foreach(s => JdbcBackend.parameterLogger.debug(s))
       }
     }
     val t0 = if(doBenchmark) System.nanoTime() else 0L

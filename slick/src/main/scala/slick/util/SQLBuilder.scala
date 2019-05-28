@@ -3,7 +3,7 @@ package slick.util
 import java.sql.PreparedStatement
 import scala.collection.mutable.ArrayBuffer
 
-final class SQLBuilder { self =>
+final class SQLBuilder extends SQLBuilderCompat { self =>
   import SQLBuilder._
 
   private val sb = new StringBuilder(128)
@@ -15,14 +15,6 @@ final class SQLBuilder { self =>
   def +=(c: Char) = { sb append c; this }
 
   def +?=(f: Setter) = { setters append f; sb append '?'; this }
-
-  def sep[T](sequence: Traversable[T], separator: String)(f: T => Unit): Unit = {
-    var first = true
-    for(x <- sequence) {
-      if(first) first = false else self += separator
-      f(x)
-    }
-  }
 
   def sep[T](sequence: ConstArray[T], separator: String)(f: T => Unit): Unit = {
     var i = 0

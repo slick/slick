@@ -155,6 +155,12 @@ object StandardTestDBs {
       import ExecutionContext.Implicits.global
       for {
         schema <- sql"select schemaname from syscat.schemata where schemaname = '#$schema'".as[String].headOption
+        systoolspace <- sql"select TBSPACE from SYSCAT.TABLESPACES where TBSPACE = 'SYSTOOLSPACE'".as[String].headOption
+        _ <- if(systoolspace.isEmpty && schema.isDefined) {
+          // We must ensure that SYSTOOLSPACE has been created before the admin_drop_schema procedure can be used
+          println(s"[Creating DB2 SYSTOOLSPACE table space]")
+          sqlu"CREATE TABLESPACE SYSTOOLSPACE IN IBMCATGROUP MANAGED BY AUTOMATIC STORAGE USING STOGROUP IBMSTOGROUP EXTENTSIZE 4"
+        } else DBIO.successful(())
         _ <- if(schema.isDefined) {
           println(s"[Dropping DB2 schema '$schema']")
           sqlu"call sysproc.admin_drop_schema($schema, null, ${"ERRORSCHEMA"}, ${"ERRORTABLE"})"

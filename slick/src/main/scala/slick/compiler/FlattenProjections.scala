@@ -107,6 +107,6 @@ class FlattenProjections extends Phase {
       }
     }
     flatten(n, Nil)
-    (StructNode(ConstArray.from(defs)), paths.toMap)
+    (StructNode(ConstArray.from(defs.toSeq)), paths.toMap)
   }
 }
