@@ -7,10 +7,10 @@ if [ $1 ]; then
   else
     HEAD=head
   fi
-  git log '--format=format:* [``%h``](https://github.com/slick/slick/commit/%H) %s' --no-merges $1..$2
+  git log '--format=format:* [``%h``](https://github.com/slick/slick/commit/%H) %s' --no-merges $1..$HEAD
 
 else
-  echo "Wrong argsments:"
+  echo "Wrong arguments:"
   echo "Usage: "
   echo "  ./changelog.sh v3.2.3 head"
   echo "  ./changelog.sh v3.2.3 3.3.0"
