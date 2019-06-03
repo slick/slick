@@ -7,7 +7,7 @@ if [ $1 ]; then
   else
     HEAD=head
   fi
-  git log '--format=format:* [``%h``](https://github.com/slick/slick/commit/%H) %s' --merges $1..$2 | grep -v "from slick/tmp" | sed -e 's/.* from //' | grep -v "Merge branch" | sed -e 's|/.*||' | sort | uniq | sed -e 's|\(.*\)|, [\1](https://github.com/\1)|'
+  git log '--format=format:* [``%h``](https://github.com/slick/slick/commit/%H) %s' --merges $1..$HEAD | grep -v "from slick/tmp" | sed -e 's/.* from //' | grep -v "Merge branch" | sed -e 's|/.*||' | sort | uniq | sed -e 's|\(.*\)|, [\1](https://github.com/\1)|'
 
 else
   echo "Wrong argsments:"
