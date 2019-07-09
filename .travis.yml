@@ -20,22 +20,22 @@ addons:
     packages:
     - graphviz
 before_install:
-  # TZ needed for Oracle driver!
-  - export TZ=Asia/Kamchatka
-  - docker version
-  - sh -v travis/runcontainer.sh oracle db2
-  - docker ps
-  - sh -v ./travis/extractNonPublicDeps
   # adding $HOME/.sdkman to cache would create an empty directory, which interferes with the initial installation
   - "[[ -d $HOME/.sdkman/bin/ ]] || rm -rf $HOME/.sdkman/"
   - curl -sL https://get.sdkman.io | bash
   - echo sdkman_auto_answer=true > $HOME/.sdkman/etc/config
   - source "$HOME/.sdkman/bin/sdkman-init.sh"
+  # TZ needed for Oracle driver!
+  - export TZ=Asia/Kamchatka
+  - docker version
 install:
   - sdk install java $(sdk list java | grep -o "$ADOPTOPENJDK\.[0-9\.]*hs-adpt" | head -1)
   - unset JAVA_HOME
   - java -Xmx32m -version
   - javac -J-Xmx32m -version
+  - sh -v travis/runcontainer.sh oracle db2
+  - docker ps
+  - sh -v ./travis/extractNonPublicDeps
 script:
   - admin/build.sh
 before_cache:
