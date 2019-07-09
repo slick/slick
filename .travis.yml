@@ -1,20 +1,15 @@
 dist: xenial
 sudo: required
 language: scala
-before_install:
-# TZ needed for Oracle driver!
-- export TZ=Asia/Kamchatka
-- docker version
-- sh -v travis/runcontainer.sh oracle db2
-- docker ps
-- sh -v ./travis/extractNonPublicDeps
-jdk:
-  - openjdk8
-  - openjdk11
-  - openjdk12
-notifications:
-  flowdock:
-    secure: j3YP9TjiIcMRy2mvunF1AHBOFnz2H7mZAFVbHPBNkAjMCwSdBNvLpn33qv6ybr02c5snBDJTs0P70RJ/mh3YsqwnIeloQD9HUfnndKQD6ujxx1QWRI/lVDW4pfVRQEuPsXdW/3AiqxrSG5BS4thiyc3vj3LpnodHwNMUT+Nlmq0=
+scala:
+  - 2.11.12
+  - 2.12.8
+  - 2.13.0
+env:
+  matrix:
+    - ADOPTOPENJDK=8
+    - ADOPTOPENJDK=11
+    - ADOPTOPENJDK=12
 services:
   - mysql
   - postgresql
@@ -24,13 +19,30 @@ addons:
   apt:
     packages:
     - graphviz
-scala:
-  - 2.11.12
-  - 2.12.8
-  - 2.13.0
+before_install:
+  # TZ needed for Oracle driver!
+  - export TZ=Asia/Kamchatka
+  - docker version
+  - sh -v travis/runcontainer.sh oracle db2
+  - docker ps
+  - sh -v ./travis/extractNonPublicDeps
+  # adding $HOME/.sdkman to cache would create an empty directory, which interferes with the initial installation
+  - "[[ -d $HOME/.sdkman/bin/ ]] || rm -rf $HOME/.sdkman/"
+  - curl -sL https://get.sdkman.io | bash
+  - echo sdkman_auto_answer=true > $HOME/.sdkman/etc/config
+  - source "$HOME/.sdkman/bin/sdkman-init.sh"
+install:
+  - sdk install java $(sdk list java | grep -o "$ADOPTOPENJDK\.[0-9\.]*hs-adpt" | head -1)
+  - unset JAVA_HOME
+  - java -Xmx32m -version
+  - javac -J-Xmx32m -version
 script:
-- admin/build.sh
+  - admin/build.sh
+before_cache:
+  - find $HOME/.sbt -name "*.lock" | xargs rm
+  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 cache:
   directories:
     - "$HOME/.sbt"
     - "$HOME/.ivy2"
+    - "$HOME/.sdkman"
