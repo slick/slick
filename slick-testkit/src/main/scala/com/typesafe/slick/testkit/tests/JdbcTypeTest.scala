@@ -7,9 +7,10 @@ import java.util.UUID
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ChronoField, ChronoUnit}
+
 import javax.sql.rowset.serial.SerialBlob
 import slick.ast.FieldSymbol
-import slick.jdbc.PostgresProfile
+import slick.jdbc.{JdbcType, PostgresProfile}
 
 import scala.annotation.tailrec
 import scala.concurrent.Future
@@ -415,5 +416,40 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     val t1 = TableQuery[T1]
     t1.schema.createStatements.mkString.should(_ contains "_FOO_BAR_")
     Future.successful(())
+  }
+
+  def testMappedColumnTypePriority: DBIO[Unit] = {
+    val dateFormat = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")
+    def dateToInt(d: LocalDate): Int = dateFormat.format(d).toInt
+    def intToDate(i: Int): LocalDate = LocalDate.parse(i.toString, dateFormat)
+    implicit val localDateType: JdbcType[LocalDate] = MappedColumnType.base[LocalDate, Int](dateToInt, intToDate)
+    object MyTables {
+      val tableName = "test_mapped_column_prio"
+      class DateAsLong(tag: Tag) extends Table[(Int, Int)](tag, tableName) {
+        def id = column[Int]("id")
+        def date = column[Int]("data")
+        def * = (id, date)
+      }
+      class DateAsLocalDate(tag: Tag) extends Table[(Int, LocalDate)](tag, tableName) {
+        def id = column[Int]("id")
+        def date = column[LocalDate]("data")
+        def * = (id, date)
+      }
+    }
+    import MyTables._
+
+    // both tables have the same schema, but their compile time types are different
+    val intTypedTable = TableQuery[DateAsLong]
+    val localDateTypedTable = TableQuery[DateAsLocalDate]
+
+    for {
+      _ <- localDateTypedTable.schema.create
+      _ <- intTypedTable += ((1, 20191231))
+      _ <- localDateTypedTable += (2, LocalDate.of(2020, 10, 10))
+      r1 <- intTypedTable.result
+      _ = r1.toSet shouldBe Set((1, 20191231), (2, 20201010))
+      r2 <- localDateTypedTable.result
+      _ = r2.toSet shouldBe Set((1, LocalDate.of(2019, 12, 31)), (2, LocalDate.of(2020, 10, 10)))
+    } yield ()
   }
 }
