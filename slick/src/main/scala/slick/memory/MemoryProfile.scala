@@ -3,7 +3,6 @@ package slick.memory
 import scala.language.existentials
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
-
 import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}

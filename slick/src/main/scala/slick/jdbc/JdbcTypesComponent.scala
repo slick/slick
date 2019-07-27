@@ -95,7 +95,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     def setNull(p: PreparedStatement, idx: Int): Unit = p.setNull(idx, sqlType)
   }
 
-  class JdbcTypes {
+  class JdbcTypes extends ApiJdbcTypes {
     val booleanJdbcType = new BooleanJdbcType
     val blobJdbcType = new BlobJdbcType
     val byteJdbcType = new ByteJdbcType
@@ -482,30 +482,17 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
-    implicit def booleanColumnType = columnTypes.booleanJdbcType
-    implicit def blobColumnType = columnTypes.blobJdbcType
-    implicit def byteColumnType = columnTypes.byteJdbcType
-    implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
-    implicit def charColumnType = columnTypes.charJdbcType
-    implicit def clobColumnType = columnTypes.clobJdbcType
-    implicit def dateColumnType = columnTypes.dateJdbcType
-    implicit def doubleColumnType = columnTypes.doubleJdbcType
-    implicit def floatColumnType = columnTypes.floatJdbcType
-    implicit def intColumnType = columnTypes.intJdbcType
-    implicit def longColumnType = columnTypes.longJdbcType
-    implicit def shortColumnType = columnTypes.shortJdbcType
-    implicit def stringColumnType = columnTypes.stringJdbcType
-    implicit def timeColumnType = columnTypes.timeJdbcType
-    implicit def timestampColumnType = columnTypes.timestampJdbcType
-    implicit def uuidColumnType = columnTypes.uuidJdbcType
-    implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
-    implicit def offsetDateTimeColumnType = columnTypes.offsetDateTimeType
-    implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
-    implicit def localTimeColumnType = columnTypes.localTimeType
-    implicit def localDateColumnType = columnTypes.localDateType
-    implicit def localDateTimeColumnType = columnTypes.localDateTimeType
-    implicit def offsetTimeColumnType = columnTypes.offsetTimeType
-    implicit def instantColumnType = columnTypes.instantType
+    implicit def booleanColumnType: JdbcType[Boolean] = columnTypes.booleanJdbcType
+    implicit def byteColumnType: JdbcType[Byte] with NumericTypedType = columnTypes.byteJdbcType
+    implicit def charColumnType: JdbcType[Char] = columnTypes.charJdbcType
+    implicit def dateColumnType: JdbcType[Date] = columnTypes.dateJdbcType
+    implicit def doubleColumnType: JdbcType[Double] with NumericTypedType = columnTypes.doubleJdbcType
+    implicit def floatColumnType: JdbcType[Float] with NumericTypedType = columnTypes.floatJdbcType
+    implicit def intColumnType: JdbcType[Int] with NumericTypedType = columnTypes.intJdbcType
+    implicit def longColumnType: JdbcType[Long] with NumericTypedType = columnTypes.longJdbcType
+    implicit def shortColumnType: JdbcType[Short] with NumericTypedType = columnTypes.shortJdbcType
+    implicit def stringColumnType: JdbcType[String] = columnTypes.stringJdbcType
+    implicit def bigDecimalColumnType: JdbcType[BigDecimal] with NumericTypedType = columnTypes.bigDecimalJdbcType
   }
 }
 

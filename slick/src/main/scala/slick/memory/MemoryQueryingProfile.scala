@@ -22,16 +22,16 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
   val api: API
 
   trait ImplicitColumnTypes {
-    implicit def booleanColumnType = ScalaBaseType.booleanType
-    implicit def bigDecimalColumnType = ScalaBaseType.bigDecimalType
-    implicit def byteColumnType = ScalaBaseType.byteType
-    implicit def charColumnType = ScalaBaseType.charType
-    implicit def doubleColumnType = ScalaBaseType.doubleType
-    implicit def floatColumnType = ScalaBaseType.floatType
-    implicit def intColumnType = ScalaBaseType.intType
-    implicit def longColumnType = ScalaBaseType.longType
-    implicit def shortColumnType = ScalaBaseType.shortType
-    implicit def stringColumnType = ScalaBaseType.stringType
+    implicit def booleanColumnType: ScalaBaseType[Boolean] = ScalaBaseType.booleanType
+    implicit def bigDecimalColumnType: ScalaNumericType[BigDecimal] = ScalaBaseType.bigDecimalType
+    implicit def byteColumnType: ScalaNumericType[Byte] = ScalaBaseType.byteType
+    implicit def charColumnType: ScalaBaseType[Char] = ScalaBaseType.charType
+    implicit def doubleColumnType: ScalaNumericType[Double] = ScalaBaseType.doubleType
+    implicit def floatColumnType: ScalaNumericType[Float] = ScalaBaseType.floatType
+    implicit def intColumnType: ScalaNumericType[Int] = ScalaBaseType.intType
+    implicit def longColumnType: ScalaNumericType[Long] = ScalaBaseType.longType
+    implicit def shortColumnType: ScalaNumericType[Short] = ScalaBaseType.shortType
+    implicit def stringColumnType: ScalaBaseType[String] = ScalaBaseType.stringType
   }
 
   /* internal: */

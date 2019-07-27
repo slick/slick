@@ -21,8 +21,8 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
   type ColumnType[T] = JdbcType[T]
-  type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
-  val columnTypes = new JdbcTypes
+  type BaseColumnType[T] = JdbcType[T]
+  val columnTypes: ApiJdbcTypes = new JdbcTypes
   lazy val MappedColumnType = MappedJdbcType
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcCapabilities.all
@@ -49,6 +49,8 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   trait API extends LowPriorityAPI with super.API with ImplicitColumnTypes {
     type SimpleDBIO[+R] = SimpleJdbcAction[R]
     val SimpleDBIO = SimpleJdbcAction
+
+    implicit def apiTypes: ApiJdbcTypes = columnTypes
 
     implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: RelationalProfile#Table[_], _, C]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())

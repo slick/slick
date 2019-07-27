@@ -1,7 +1,11 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import slick.ast.{FieldSymbol, BaseTypedType}
+
+import slick.ast.{BaseTypedType, FieldSymbol, NumericTypedType}
+import java.sql.{Blob, Clob, Date, Time, Timestamp}
+import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, OffsetDateTime, OffsetTime, ZonedDateTime}
+import java.util.UUID
 
 /** A JdbcType object represents a Scala type that can be used as a column type in the database.
   * Implicit JdbcTypes for the standard types are provided by the profile. */
@@ -44,4 +48,36 @@ trait JdbcType[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean
   def hasLiteralForm: Boolean
 
   override def toString = scalaType.toString + "'"
+}
+object JdbcType {
+  object Primitives {
+    // Note implicits for String, BigDecimal and all primitives are already imported when profile.api._ is imported
+    // TODO decide on whether to remove this or not...
+    implicit def booleanJdbcType(implicit types: ApiJdbcTypes): JdbcType[Boolean] = types.booleanJdbcType
+    implicit def bigDecimalJdbcType(implicit types: ApiJdbcTypes): JdbcType[BigDecimal] with NumericTypedType = types.bigDecimalJdbcType
+    implicit def byteJdbcType(implicit types: ApiJdbcTypes): JdbcType[Byte] with NumericTypedType = types.byteJdbcType
+    implicit def charJdbcType(implicit types: ApiJdbcTypes): JdbcType[Char] = types.charJdbcType
+    implicit def doubleJdbcType(implicit types: ApiJdbcTypes): JdbcType[Double] with NumericTypedType = types.doubleJdbcType
+    implicit def floatJdbcType(implicit types: ApiJdbcTypes): JdbcType[Float] with NumericTypedType = types.floatJdbcType
+    implicit def intJdbcType(implicit types: ApiJdbcTypes): JdbcType[Int] with NumericTypedType = types.intJdbcType
+    implicit def longJdbcType(implicit types: ApiJdbcTypes): JdbcType[Long] with NumericTypedType = types.longJdbcType
+    implicit def shortJdbcType(implicit types: ApiJdbcTypes): JdbcType[Short] with NumericTypedType = types.shortJdbcType
+    implicit def stringJdbcType(implicit types: ApiJdbcTypes): JdbcType[String] = types.stringJdbcType
+  }
+
+  implicit def blobColumnType(implicit types: ApiJdbcTypes): JdbcType[Blob] = types.blobJdbcType
+  implicit def byteArrayColumnType(implicit types: ApiJdbcTypes): JdbcType[Array[Byte]] = types.byteArrayJdbcType
+  implicit def clobColumnType(implicit types: ApiJdbcTypes): JdbcType[Clob] = types.clobJdbcType
+  implicit def dateColumnType(implicit types: ApiJdbcTypes): JdbcType[Date] = types.dateJdbcType
+  implicit def offsetDateTimeColumnType(implicit types: ApiJdbcTypes): JdbcType[OffsetDateTime] = types.offsetDateTimeType
+  implicit def zonedDateColumnType(implicit types: ApiJdbcTypes): JdbcType[ZonedDateTime] = types.zonedDateType
+  implicit def localTimeColumnType(implicit types: ApiJdbcTypes): JdbcType[LocalTime] = types.localTimeType
+  implicit def localDateColumnType(implicit types: ApiJdbcTypes): JdbcType[LocalDate] = types.localDateType
+  implicit def localDateTimeColumnType(implicit types: ApiJdbcTypes): JdbcType[LocalDateTime] = types.localDateTimeType
+  implicit def offsetTimeColumnType(implicit types: ApiJdbcTypes): JdbcType[OffsetTime] = types.offsetTimeType
+  implicit def instantColumnType(implicit types: ApiJdbcTypes): JdbcType[Instant] = types.instantType
+  implicit def timeColumnType(implicit types: ApiJdbcTypes): JdbcType[Time] = types.timeJdbcType
+  implicit def timestampColumnType(implicit types: ApiJdbcTypes): JdbcType[Timestamp] = types.timestampJdbcType
+  implicit def uuidColumnType(implicit types: ApiJdbcTypes): JdbcType[UUID] = types.uuidJdbcType
+  implicit def nullColumnType(implicit types: ApiJdbcTypes): JdbcType[Null] = types.nullJdbcType
 }
