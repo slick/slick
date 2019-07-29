@@ -412,6 +412,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
       }
     }
   }
+
+  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] = {
+    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) {
+      override protected def useBatchUpdates(implicit session: JdbcBackend#SessionDef): Boolean = true
+    }
+  }
 }
 
 object MySQLProfile extends MySQLProfile {
