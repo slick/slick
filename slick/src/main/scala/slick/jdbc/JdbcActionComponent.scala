@@ -652,7 +652,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       ResultSetInvoker[QR](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr.rs).asInstanceOf[QR])
 
     // Returning keys from batch inserts is generally not supported
-    override protected def useBatchUpdates(implicit session: Backend#Session) = session.capabilities.supportsBatchUpdates
+    override protected def useBatchUpdates(implicit session: Backend#Session) = false
 
     protected lazy val (keyColumns, keyConverter, keyReturnOther) = compiled.buildReturnColumns(keys)
 
