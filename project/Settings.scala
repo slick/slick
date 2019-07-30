@@ -7,7 +7,7 @@ import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.pgp.PgpKeys
 
 object Settings {
-//  val slickVersion = 
+//  val slickVersion =
 
   val testSamples = TaskKey[Unit]("testSamples", "Run tests in the sample apps")
 
