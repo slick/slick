@@ -1,7 +1,6 @@
 package slick.codegen
-import java.io.File
-import java.io.BufferedWriter
-import java.io.FileWriter
+
+import java.io.{BufferedWriter, File, FileWriter}
 
 /** Output-related code-generation utilities. */
 trait OutputHelpers{
@@ -114,7 +113,8 @@ trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    */
   def packageContainerCode(profile: String, pkg: String, container: String = "Tables"): String = {
-    val mixinCode = codePerTable.keys.map(tableName => s"${handleQuotedNamed(tableName) }").mkString("extends ", " with ", "")
+    val mixinCode = codePerTable.keys.map(tableName => s"${handleQuotedNamed(tableName)}")
+    val extensions = (parentType ++ mixinCode).reduceLeftOption((a, b) => s"$a with $b")
     s"""
 package ${pkg}
 // AUTO-GENERATED Slick data model
@@ -126,7 +126,7 @@ object ${container} extends {
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.)
     Each generated XXXXTable trait is mixed in this trait hence allowing access to all the TableQuery lazy vals.
   */
-trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} ${mixinCode} {
+trait ${container}${extensions.map(ext => s" extends $ext").getOrElse("")} {
   val profile: slick.jdbc.JdbcProfile
   import profile.api._
   ${indent(codeForContainer)}
