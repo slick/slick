@@ -2,7 +2,7 @@ import sbt._
 import sbt.nio.Keys.fileTreeView
 import Keys._
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.core.{DirectMissingMethodProblem, IncompatibleMethTypeProblem, MissingClassProblem, ProblemFilters, ReversedMissingMethodProblem}
+import com.typesafe.tools.mima.core.{DirectMissingMethodProblem, IncompatibleMethTypeProblem, IncompatibleResultTypeProblem, MissingClassProblem, ProblemFilters, ReversedMissingMethodProblem}
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaPreviousArtifacts}
 import com.jsuereth.sbtpgp.PgpKeys
 
@@ -72,7 +72,58 @@ object Settings {
           // #2025 default parameters for AsyncExecutor.apply have been removed and replaced by overloads
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$5"),
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$6"),
-          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$7")
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$7"),
+          // #2058 allow jdbc types to be overridden by importing an implicit JdbcType[T] in scope
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.charColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.longColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.clobColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.byteColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.blobColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.timeColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.instantColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.intColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.booleanColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.shortColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.localDateColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.doubleColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.timestampColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.offsetTimeColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.floatColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.bigDecimalColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.zonedDateTimeColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.uuidColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.localTimeColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.dateColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.localDateTimeColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.offsetDateTimeColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.byteArrayColumnType"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.stringColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.charColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.byteColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.longColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.intColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.booleanColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.shortColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.doubleColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.floatColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.bigDecimalColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.dateColumnType"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.stringColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcProfile.columnTypes"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcProfile.slick$jdbc$JdbcProfile$_setter_$columnTypes_="),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcProfile.columnTypes"),
+          ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.jdbc.JdbcProfile#API.apiTypes"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.charColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.longColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.byteColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.intColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.booleanColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.shortColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.doubleColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.bigDecimalColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.floatColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.dateColumnType"),
+          ProblemFilters.exclude[IncompatibleResultTypeProblem]("slick.jdbc.JdbcTypesComponent#ImplicitColumnTypes.stringColumnType")
         ),
         ivyConfigurations += MacroConfig.hide.extend(Compile),
         Compile / unmanagedClasspath  ++= (MacroConfig / products).value,
