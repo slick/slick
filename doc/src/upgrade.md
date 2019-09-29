@@ -4,7 +4,7 @@ Upgrade Guides {index="migration; 1.0; upgrading"}
 Compatibility Policy {index="source,compatibility; compatibility,source; binary,compatibility; compatibility,binary"}
 --------------------
 
-Slick 3.4.0 requires Scala 2.11, 2.12 or 2.13 and Java 8, 11 or 12.
+Slick 3.4.0 requires Scala 2.11, 2.12 or 2.13 and Java 8, 11 or 13.
 
 Slick version numbers consist of an epoch, a major and minor version, and possibly a qualifier
 (for milestone, RC and SNAPSHOT versions).
