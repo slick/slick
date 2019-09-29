@@ -2,7 +2,7 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
 
-import slick.ast.{BaseTypedType, FieldSymbol, NumericTypedType}
+import slick.ast.{BaseTypedType, FieldSymbol}
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, OffsetDateTime, OffsetTime, ZonedDateTime}
 import java.util.UUID
@@ -50,20 +50,7 @@ trait JdbcType[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean
   override def toString = scalaType.toString + "'"
 }
 object JdbcType {
-  object Primitives {
-    // Note implicits for String, BigDecimal and all primitives are already imported when profile.api._ is imported
-    // TODO decide on whether to remove this or not...
-    implicit def booleanJdbcType(implicit types: ApiJdbcTypes): JdbcType[Boolean] = types.booleanJdbcType
-    implicit def bigDecimalJdbcType(implicit types: ApiJdbcTypes): JdbcType[BigDecimal] with NumericTypedType = types.bigDecimalJdbcType
-    implicit def byteJdbcType(implicit types: ApiJdbcTypes): JdbcType[Byte] with NumericTypedType = types.byteJdbcType
-    implicit def charJdbcType(implicit types: ApiJdbcTypes): JdbcType[Char] = types.charJdbcType
-    implicit def doubleJdbcType(implicit types: ApiJdbcTypes): JdbcType[Double] with NumericTypedType = types.doubleJdbcType
-    implicit def floatJdbcType(implicit types: ApiJdbcTypes): JdbcType[Float] with NumericTypedType = types.floatJdbcType
-    implicit def intJdbcType(implicit types: ApiJdbcTypes): JdbcType[Int] with NumericTypedType = types.intJdbcType
-    implicit def longJdbcType(implicit types: ApiJdbcTypes): JdbcType[Long] with NumericTypedType = types.longJdbcType
-    implicit def shortJdbcType(implicit types: ApiJdbcTypes): JdbcType[Short] with NumericTypedType = types.shortJdbcType
-    implicit def stringJdbcType(implicit types: ApiJdbcTypes): JdbcType[String] = types.stringJdbcType
-  }
+  // Note implicits for all primitives and String, BigDecimal are already imported when profile.api._ is imported
 
   implicit def blobColumnType(implicit types: ApiJdbcTypes): JdbcType[Blob] = types.blobJdbcType
   implicit def byteArrayColumnType(implicit types: ApiJdbcTypes): JdbcType[Array[Byte]] = types.byteArrayJdbcType
