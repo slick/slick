@@ -94,6 +94,10 @@ trait DB2Profile extends JdbcProfile {
       case Library.CountAll(LiteralNode(1)) => b"count(*)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
       case _ => super.expr(c, skipParens)
     }
 
@@ -136,7 +140,7 @@ trait DB2Profile extends JdbcProfile {
       } else super.createIndex(idx)
     }
 
-    //For compatibility with all versions of DB2 
+    //For compatibility with all versions of DB2
     //http://stackoverflow.com/questions/3006999/sql-query-to-truncate-table-in-ibm-db2
     override def truncateTable = s"DELETE FROM ${quoteTableName(tableNode)}"
 
