@@ -36,7 +36,7 @@ object Dependencies {
     } else "8"
     "com.microsoft.sqlserver" % "mssql-jdbc" % s"7.2.2.jre$jreVersionToUse"
   }
-  
+
   val testDBs = Seq(
     h2,
     sqlServer,
