@@ -93,9 +93,9 @@ trait OutputHelpers{
 package ${pkg}
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
-object ${container} extends {
+object ${container} extends ${container} {
   val profile = $profile
-} with ${container}
+}
 
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
 trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
@@ -119,9 +119,9 @@ trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
 package ${pkg}
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
-object ${container} extends {
+object ${container} extends ${container} {
   val profile = $profile
-} with ${container}
+}
 
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.)
     Each generated XXXXTable trait is mixed in this trait hence allowing access to all the TableQuery lazy vals.
