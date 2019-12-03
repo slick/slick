@@ -10,7 +10,7 @@ Reactive Functional Relational Mapping for Scala
 ## API Documentation (scaladoc)
 
 - [Slick Core](unchecked:/api/index.html) (slick)
-- [Code Generator](unchecked:/api/index.html) (slick-codegen)
+- [Code Generator](unchecked:/codegen-api/index.html) (slick-codegen)
 - [HikariCP integration](unchecked:hikaricp-api/index.html) (slick-hikaricp)
 - [TestKit](unchecked:testkit-api/index.html) (slick-testkit)
 
