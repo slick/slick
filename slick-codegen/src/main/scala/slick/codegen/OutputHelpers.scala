@@ -99,7 +99,7 @@ object ${container} extends {
 
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
 trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
-  val profile: slick.jdbc.JdbcProfile
+  val profile: $profile
   import profile.api._
   ${indent(code)}
 }
@@ -116,7 +116,7 @@ trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
   def packageContainerCode(profile: String, pkg: String, container: String = "Tables"): String = {
     val mixinCode = codePerTable.keys.map(tableName => s"${handleQuotedNamed(tableName) }").mkString("extends ", " with ", "")
     s"""
-package ${pkg}
+package ${pkg}Output
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
 object ${container} extends {
@@ -127,7 +127,7 @@ object ${container} extends {
     Each generated XXXXTable trait is mixed in this trait hence allowing access to all the TableQuery lazy vals.
   */
 trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} ${mixinCode} {
-  val profile: slick.jdbc.JdbcProfile
+  val profile: $profile
   import profile.api._
   ${indent(codeForContainer)}
 
