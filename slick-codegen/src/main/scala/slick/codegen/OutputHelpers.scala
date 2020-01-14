@@ -16,6 +16,11 @@ trait OutputHelpers{
   def codePerTable: Map[String, String]
 
   /**
+    * Foreign keys used for mapping a minimal set of dependencies between tables.
+  */
+  def foreignKeysPerTable: Map[String, List[String]]
+
+  /**
     * The generated code used to generate the container class.
     */
   def codeForContainer: String
@@ -70,6 +75,7 @@ trait OutputHelpers{
    */
   def writeToMultipleFiles(profile: String, folder: String, pkg: String, container: String = "Tables"): Unit = {
     // Write the container file (the file that contains the stand-alone object).
+    writeStringToFile(rootTraitCode(profile, pkg, container), folder, pkg, container + "Root.scala")
     writeStringToFile(packageContainerCode(profile, pkg, container), folder, pkg, container + ".scala")
     // Write one file for each table.
     codePerTable.foreach {
@@ -79,6 +85,17 @@ trait OutputHelpers{
 
   private def handleQuotedNamed(tableName: String) = {
     if (tableName.endsWith("`")) s"${tableName.init}Table`" else s"${tableName}Table"
+  }
+
+  def rootTraitCode(profile: String, pkg: String, container: String = "Tables"): String = {
+  s"""
+package ${pkg}
+// AUTO-GENERATED Slick data model
+
+trait ${container}Root {
+  val profile: slick.jdbc.JdbcProfile
+}
+"""
   }
 
   /**
@@ -114,7 +131,9 @@ trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    */
   def packageContainerCode(profile: String, pkg: String, container: String = "Tables"): String = {
-    val mixinCode = codePerTable.keys.map(tableName => s"${handleQuotedNamed(tableName) }").mkString("extends ", " with ", "")
+    val tableTraits = codePerTable.keys.map(tableName => s"${handleQuotedNamed(tableName) }")
+    val allTraits = s"${container}Root" :: tableTraits.toList
+    val mixinCode = allTraits.mkString("extends ", " with ", "")
     s"""
 package ${pkg}
 // AUTO-GENERATED Slick data model
@@ -144,12 +163,16 @@ trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} ${mixinCo
    * @param container The name of the container
    */
   def packageTableCode(tableName: String, tableCode: String, pkg: String, container: String): String = {
+
+    val foreignKeys = foreignKeysPerTable.getOrElse(tableName, Nil).map(handleQuotedNamed)
+    val selfTraits = s"${container}Root" :: foreignKeys
+
     s"""
 package ${pkg}
 // AUTO-GENERATED Slick data model for table ${tableName}
 trait ${handleQuotedNamed(tableName) } {
 
-  self:${container}  =>
+  self:${selfTraits.mkString(" with ")}  =>
 
   import profile.api._
   ${indent(tableCode)}
