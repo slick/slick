@@ -45,4 +45,4 @@ cache:
   directories:
     - "$HOME/.sbt"
     - "$HOME/.ivy2"
-    - "$HOME/.sdkman"
+    - "$HOME/.sdkman/archives"
