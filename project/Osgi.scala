@@ -2,7 +2,7 @@ import sbt._
 
 object Osgi {
   lazy val osgiBundleFiles =
-    TaskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
+    taskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
 
   /** Create an OSGi version range for standard Scala / Typesafe versioning
     * schemes that describes binary compatible versions. */
