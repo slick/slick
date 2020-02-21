@@ -252,6 +252,8 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+    // Method kept for binary compatibility. Otherwise unused
+    def buildInsertIgnoreStart: String = allNames.iterator.mkString(s"insert ignore into $tableName (", ",", ") ")
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
       val columnNamesForUpdate = if (softNames.nonEmpty) softNames else pkNames
