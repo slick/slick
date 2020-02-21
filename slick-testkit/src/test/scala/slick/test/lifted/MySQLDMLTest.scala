@@ -17,10 +17,8 @@ class MySQLDMLTest {
       def value = column[String]("value")
       def * = (id, value) <> ((V.apply _).tupled, V.unapply)
     }
-    assertTrue("generates insert ignore statements",
-      TableQuery[T].insertOrUpdate(1).statements.mkString.startsWith("insert ignore"))
-    assertTrue("there are no update action if insert primary key only",
-      TableQuery[T].insertOrUpdate(1).statements.mkString.endsWith(")"))
+    assertTrue("generates query with update action if insert primary key only",
+      TableQuery[T].insertOrUpdate(1).statements.mkString.endsWith("on duplicate key update `id`=VALUES(`id`)"))
     assertTrue("generates query with update action if insert with value",
       TableQuery[T2].insertOrUpdate(V("test", "test-value")).statements.mkString.endsWith("on duplicate key update `value`=VALUES(`value`)"))
   }
