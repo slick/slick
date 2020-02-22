@@ -20,6 +20,6 @@ class MySQLDMLTest {
     assertTrue("generates query with update action if insert primary key only",
       TableQuery[T].insertOrUpdate(1).statements.mkString.endsWith("on duplicate key update `id`=VALUES(`id`)"))
     assertTrue("generates query with update action if insert with value",
-      TableQuery[T2].insertOrUpdate(V("test", "test-value")).statements.mkString.endsWith("on duplicate key update `value`=VALUES(`value`)"))
+      TableQuery[T2].insertOrUpdate(V("test", "test-value")).statements.mkString.endsWith("on duplicate key update `id`=VALUES(`id`), `value`=VALUES(`value`)"))
   }
 }
