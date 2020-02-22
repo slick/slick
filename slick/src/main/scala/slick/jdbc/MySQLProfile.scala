@@ -256,8 +256,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     def buildInsertIgnoreStart: String = allNames.iterator.mkString(s"insert ignore into $tableName (", ",", ") ")
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
-      val columnNamesForUpdate = if (softNames.nonEmpty) softNames else pkNames
-      val update = columnNamesForUpdate.map(n => s"$n=VALUES($n)").mkString(", ")
+      val update = allNames.map(n => s"$n=VALUES($n)").mkString(", ")
       new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
     }
   }
