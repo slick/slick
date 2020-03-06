@@ -12,13 +12,14 @@ object Settings {
 
   val testSamples = taskKey[Unit]("Run tests in the sample apps")
 
+  lazy val sampleOverridden = AttributeKey[Boolean]("sample-settings-overridden")
+  lazy val updateSampleCommand = Command.command("update-sample")(updateSampleSettings)
+
   val cleanCompileTimeTests = taskKey[Unit]("Delete files used for compile-time tests which should be recompiled every time.")
 
-  val repoKind =
-    settingKey[String]("""Maven repository kind ("snapshots" or "releases")""")
+  val repoKind = settingKey[String]("""Maven repository kind ("snapshots" or "releases")""")
 
-  val binaryCompatSlickVersion = settingKey[Option[String]](
-                                                            "The slick version this build should be compatible with, if any")
+  val binaryCompatSlickVersion = settingKey[Option[String]]("The slick version this build should be compatible with, if any")
 
   /* Test Configuration for running tests on doc sources */
   val DocTest = config("doctest") extend(Test)
@@ -112,7 +113,7 @@ object Settings {
         // These are used for compile-time tests and should be recompiled every time.
         Test / cleanCompileTimeTests := {
           val products = fileTreeView.value.list(
-            (Test / classDirectory).value.toGlob / ** / "codegen" / *
+            (Test / classDirectory).value.toGlob / ** / "compile" / *
           ).map(x => x._1.toFile)
           streams.value.log.info(s"Deleting $products")
           IO.delete(products)
@@ -312,14 +313,16 @@ object Settings {
     crossVersion := CrossVersion.disabled,
     scalaHome := Some(file(path)),
     autoScalaLibrary := false,
+    // When using scala.home.local property adds all jars from <SCALA_HOME>/lib directory.
     unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
     CompileConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
     TestConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
     MacroConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq)
   )
 
-  // todo: add files
-  def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s))//.addFiles(file("../override.sbt"))
+  def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
+    commands += updateSampleCommand
+  )
 
   def extTarget(extName: String): Seq[Setting[File]] = {
     sys.props("slick.build.target") match {
@@ -328,4 +331,41 @@ object Settings {
     }
   }
 
+  def updateSampleSettings(state: State): State = {
+
+    if(state.get(sampleOverridden) getOrElse false) {
+      state
+    } else {
+      val nst = state.put(sampleOverridden, true)
+      val extracted = Project.extract(nst)
+
+      extracted.appendWithSession(
+        sampleSettingsOverride,
+        nst
+      ).put(sampleOverridden, false)
+    }
+  }
+
+  // Override settings of sample projects when they are used as subprojects of the main Slick build.
+  //
+  // The sample projects are packaged as standalone sbt projects via the Example Code Service
+  // (https://example.lightbend.com) so they have to be complete and usable on their own and they must
+  // not contain any unnecessary code that is only needed when they are run as part of the main build.
+  // The settings here (which are loaded after build.sbt) ensure that the Scala version and the Slick
+  // version match the ones of the main build.
+  def sampleSettingsOverride = Seq(
+    crossScalaVersions := (LocalProject("slick") / crossScalaVersions).value,
+
+    scalaVersion := (LocalProject("slick") / scalaVersion).value,
+
+    libraryDependencies := libraryDependencies.value.map { m =>
+      if (m.organization != (LocalProject("slick") / organization).value) m
+      else m.withRevision((ThisBuild / version).value)
+    },
+
+    Compile / unmanagedClasspath :=
+      Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value,
+
+    Compile / unmanagedClasspath ++= (LocalProject("slick") / MacroConfig / products).value
+  )
 }

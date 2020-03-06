@@ -14,6 +14,23 @@ ThisBuild / binaryCompatSlickVersion := {
 
 ThisBuild / docDir := (aRootProject / baseDirectory).value / "doc"
 
+lazy val overridesForSampleProjects: State => State = { s: State =>
+  "project sample-hello-slick" :: "update-sample" ::
+  "project sample-slick-multidb" :: "update-sample" ::
+  "project sample-slick-plainsql" :: "update-sample" ::
+  "project sample-slick-testkit-example" :: "update-sample" ::
+  "project root" :: s
+}
+
+Global / onLoad := { state =>
+  if (state.get(sampleOverridden) getOrElse false)
+    (Global / onLoad).value(state)
+  else {
+    val old = (Global / onLoad).value
+    (overridesForSampleProjects compose old)(state)
+  }
+}
+
 lazy val slickProject: Project = Project(id = "slick", base =  file("slick")).settings(slickProjectSettings).enablePlugins(SbtOsgi, SDLCPlugin)
 
 lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit")).settings(slickTestkitProjectSettings).configs(DocTest).enablePlugins(SDLCPlugin).
