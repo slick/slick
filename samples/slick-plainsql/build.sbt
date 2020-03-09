@@ -8,8 +8,8 @@ libraryDependencies ++= List(
 
 scalacOptions += "-deprecation"
 
-fork in run := true
+run / fork := true
 
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
 
-unmanagedClasspath in Compile ++= (unmanagedResources in Compile).value
+Compile / unmanagedClasspath ++= (Compile / unmanagedResources).value
