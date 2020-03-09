@@ -9,4 +9,4 @@ libraryDependencies ++= List(
 
 scalacOptions += "-deprecation"
 
-fork in run := true
+run / fork := true
