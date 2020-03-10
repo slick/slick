@@ -223,4 +223,21 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       q1.result.map(_ shouldBe Vector(("a",1,"c",3), ("a",1,"c",3)))
     )
   }
+
+  def testInUnion = {
+    class T(tag: Tag) extends Table[(String, Int)](tag, "t") {
+      def id = column[String]("id")
+      def data = column[Int]("data")
+      def * = (id, data)
+    }
+
+    val ts = TableQuery[T]
+    val q1 = ts.filter(_.data.in((ts.filter(_.id === "a") ++ ts.filter(_.id === "c")).map(_.data)))
+    DBIO.seq(
+      ts.schema.create,
+      ts.map(f => (f.id, f.data)) ++= Seq(("a", 1), ("b", 2), ("c", 1), ("d", 1)),
+      q1.result.map(_ shouldBe Vector(("a", 1), ("c", 1), ("d", 1)))
+    )
+  }
+
 }
