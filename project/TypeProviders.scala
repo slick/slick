@@ -12,7 +12,7 @@ object TypeProviders {
   def codegenSettings = {
     inConfig(TypeProvidersConfig)(Defaults.configSettings) ++
     Seq(
-      sourceGenerators in Test += typeProviders.taskValue,
+      Test / sourceGenerators += typeProviders.taskValue,
       typeProviders := typeProvidersTask.value,
       ivyConfigurations += TypeProvidersConfig.extend(Compile),
       (Test / compile) := ((Test / compile) dependsOn (TypeProvidersConfig / compile)).value,
@@ -40,18 +40,17 @@ object TypeProviders {
     val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", inStyle = FilesInfo.lastModified, outStyle = FilesInfo.exists) { (in: Set[File]) =>
       IO.delete((output ** "*.scala").get)
 
-      val errors = {
-        r.run("slick.test.codegen.GenerateMainSources", cp.files, Array(outDir), s.log)
-      } orElse {
-        r.run("slick.test.codegen.GenerateRoundtripSources", cp.files, Array(outDir), s.log)
-      }
+      val errorsMain = r.run("slick.test.codegen.GenerateMainSources", cp.files, Array(outDir), s.log)
+      val errorsRoundtrip = r.run("slick.test.codegen.GenerateRoundtripSources", cp.files, Array(outDir), s.log)
 
-      errors match {
-        case Success(value) => value
-        case Failure(exception) => sys.error(exception.getMessage)
+      (errorsMain, errorsRoundtrip) match {
+        case (Success(_), Success(_)) =>
+          (output ** "*.scala").get.toSet
+        case (Failure(failedMain), Failure(failedRoundtrip)) =>
+          sys.error(failedMain.getMessage + System.lineSeparator() + failedRoundtrip)
+        case (failedMain, failedRoundtrip) =>
+          failedMain.fold(e => sys.error(e.getMessage), _ => sys.error(failedRoundtrip.failed.get.getMessage))
       }
-
-      (output ** "*.scala").get.toSet
     }
     cachedFun(inFiles).toSeq
   }
