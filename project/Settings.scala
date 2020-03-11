@@ -212,7 +212,7 @@ object Settings {
     ),
     Osgi.osgiBundleFiles := Seq((LocalProject("slick") / OsgiKeys.bundle).value),
     Osgi.osgiBundleFiles ++=
-      (LocalProject("root") / Compile / dependencyClasspath).value.
+      (LocalProject("slick") / Compile / dependencyClasspath).value.
       map(_.data).filterNot(_.isDirectory),
     Osgi.osgiBundleFiles ++=
       (Test / dependencyClasspath).value.map(_.data).
