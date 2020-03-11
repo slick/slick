@@ -3,7 +3,7 @@ scalacOptions ++= Seq("-deprecation", "-feature")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.3.0")
 addSbtPlugin("com.jsuereth" % "sbt-pgp" % "2.0.2")
 
-addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.9.5")
+addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.9.4")
 
 addSbtPlugin("com.typesafe" % "sbt-sdlc" % "0.2")
 
