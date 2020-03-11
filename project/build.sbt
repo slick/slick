@@ -2,7 +2,7 @@ scalacOptions += "-deprecation"
 
 scalacOptions += "-feature"
 
-addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.3.0")
+addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.7.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.9.4")
 
