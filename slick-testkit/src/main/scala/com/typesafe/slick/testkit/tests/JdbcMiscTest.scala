@@ -57,16 +57,26 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     }
     val t = TableQuery[T]
 
+    class U(tag: Tag) extends Table[Int](tag, "u".withUniquePostFix) {
+      def id = column[Int]("a")
+      def * = id
+    }
+    val u = TableQuery[U]
+
     val a1 = t.filter(_.id === 1)
     val a2 = t.filter(_.id === 2)
 
     seq(
-      t.schema.create,
+      (t.schema ++ u.schema).create,
       t ++= Seq(1, 2, 3),
       a1.result.map(_ shouldBe Seq(1)),
       a1.result.overrideStatements(a2.result.statements).map(_ shouldBe Seq(2)),
       a1.result.head.map(_ shouldBe 1),
-      a1.result.head.overrideStatements(a2.result.head.statements).map(_ shouldBe 2)
+      a1.result.head.overrideStatements(a2.result.head.statements).map(_ shouldBe 2),
+      (t += 4).overrideStatements(Seq(u.insertStatement)),
+      u.result.map(_ shouldBe Seq(4)),
+      (t ++= Seq(5, 6)).overrideStatements(Seq(u.insertStatement)),
+      u.result.map(_ shouldBe Seq(4, 5, 6))
     )
   }
 }
