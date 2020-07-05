@@ -234,7 +234,7 @@ trait DerbyProfile extends JdbcProfile {
       } else super.createIndex(idx)
     }
 
-    override def dropIfExistsPhase = dropPhase1 ++ dropPhase2
+    override def dropIfExistsPhase = dropPhase2 // Derby does not support "DROP IF EXISTS"
 
     override def createIfNotExistsPhase = createPhase1 ++ createPhase2
   }
