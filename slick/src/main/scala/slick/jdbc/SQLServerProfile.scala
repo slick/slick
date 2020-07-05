@@ -236,7 +236,7 @@ trait SQLServerProfile extends JdbcProfile {
       + tableNode.tableName
       + "') AND type in (N'U'))\n"
       + "begin\n"
-      + dropPhase1.mkString("\n") + dropPhase2.mkString("\n")
+      + dropPhase2.mkString("\n")
       + "\nend")
     }
 
