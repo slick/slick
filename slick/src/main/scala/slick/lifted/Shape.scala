@@ -311,7 +311,7 @@ object ShapedValue {
       (q"($rModule.apply _) : ($uTag => $rTag)",
        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     } else { // Map from tuple
-      (q"($rModule.tupled) : ($uTag => $rTag)",
+      (q"(($rModule.apply _).tupled) : ($uTag => $rTag)",
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     }
 
