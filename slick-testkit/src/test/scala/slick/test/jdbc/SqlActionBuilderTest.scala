@@ -24,7 +24,7 @@ class SqlActionBuilderTest {
                   #from SUPPLIERS
                   #where SUP_ID = ${id}""".stripMargin('#')
 
-    def dropNewLineChars(queryParts: Seq[Any]): Seq[Any] = queryParts.map(_.asInstanceOf[String].replace('\n', ' '))
+    def dropNewLineChars(queryParts: Seq[Any]): Seq[Any] = queryParts.map(_.asInstanceOf[String].replace('\n', ' ').replaceAll("\r", ""))
 
     assertEquals(s1.queryParts, dropNewLineChars(s2.queryParts))
     assertEquals(s1.queryParts, dropNewLineChars(s3.queryParts))
