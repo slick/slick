@@ -1,9 +1,6 @@
 package slick.basic
 
-import scala.language.experimental.macros
-import scala.annotation.{StaticAnnotation, Annotation}
 import scala.reflect.ClassTag
-import scala.reflect.macros.blackbox.Context
 import scala.util.control.NonFatal
 
 import java.net.{URL, URI}
@@ -127,47 +124,5 @@ object DatabaseConfig {
       if(base eq null) ConfigFactory.load(classLoader)
       else ConfigFactory.parseURL(new URL(base)).resolve()
     forConfig[P](path, root, classLoader)
-  }
-
-  /** Load a profile and database configuration from the URI specified in a [[StaticDatabaseConfig]]
-    * annotation in the static scope of the caller. */
-  def forAnnotation[P <: BasicProfile](classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader)(implicit ct: ClassTag[P]): DatabaseConfig[P] =
-    macro StaticDatabaseConfigMacros.getWithClassLoaderImpl[P]
-
-  /** Load a profile and database configuration from the URI specified in a [[StaticDatabaseConfig]]
-    * annotation in the static scope of the caller. */
-  def forAnnotation[P <: BasicProfile](implicit ct: ClassTag[P]): DatabaseConfig[P] =
-    macro StaticDatabaseConfigMacros.getImpl[P]
-}
-
-/** An annotation for injecting a DatabaseConfig at compile time. The URI parameter must be a
-  * literal String. This annotation is required for providing a statically scoped database
-  * configuration to the `tsql` interpolator. */
-final class StaticDatabaseConfig(val uri: String) extends Annotation with StaticAnnotation
-
-object StaticDatabaseConfigMacros {
-  private[slick] def getURI(c: Context): String = {
-    import c.universe._
-
-    def findUri(ann: Seq[c.universe.Annotation]): Option[String] =
-      ann.map(a => c.typecheck(a.tree, pt = weakTypeOf[StaticDatabaseConfig], silent = true)).collectFirst {
-        case Apply(Select(_, _), List(Literal(Constant(uri: String)))) => uri
-      }
-
-    val scopes = Iterator.iterate(c.internal.enclosingOwner)(_.owner).takeWhile(_ != NoSymbol)
-    val uriOpt = scopes.map(s => findUri(s.annotations)).find(_.isDefined).flatten
-    uriOpt.getOrElse(c.abort(c.enclosingPosition, "No @StaticDatabaseConfig annotation found in enclosing scope"))
-  }
-
-  def getImpl[P <: BasicProfile : c.WeakTypeTag](c: Context)(ct: c.Expr[ClassTag[P]]): c.Expr[DatabaseConfig[P]] = {
-    import c.universe._
-    val uri = c.Expr[String](Literal(Constant(getURI(c))))
-    reify(DatabaseConfig.forURI[P](new URI(uri.splice))(ct.splice))
-  }
-
-  def getWithClassLoaderImpl[P <: BasicProfile : c.WeakTypeTag](c: Context)(classLoader: c.Expr[ClassLoader])(ct: c.Expr[ClassTag[P]]): c.Expr[DatabaseConfig[P]] = {
-    import c.universe._
-    val uri = c.Expr[String](Literal(Constant(getURI(c))))
-    reify(DatabaseConfig.forURI[P](new URI(uri.splice), classLoader.splice)(ct.splice))
   }
 }
