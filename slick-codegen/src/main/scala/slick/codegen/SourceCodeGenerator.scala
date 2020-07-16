@@ -32,27 +32,28 @@ import slick.util.ConfigExtensionMethods.configExtensionMethods
 class SourceCodeGenerator(model: m.Model)
                    extends AbstractSourceCodeGenerator(model) with OutputHelpers{
   // "Tying the knot": making virtual classes concrete
-  type Table = SourceCodeTableDef
-  def Table = new SourceCodeTableDef(_)
-  class SourceCodeTableDef(model: m.Table) extends AbstractSourceCodeTableDef(model) {
+
+  type Table = STableDef
+  def Table = new STableDef(_)
+  class STableDef(model: m.Table) extends ASTableDef(model){
     // Using defs instead of (caching) lazy vals here to provide consitent interface to the user.
     // Performance should really not be critical in the code generator. Models shouldn't be huge.
     // Also lazy vals don't inherit docs from defs
-    type EntityType     =     AbstractSourceCodeEntityTypeDef
+    type EntityType     =     ASEntityTypeDef
     def  EntityType     = new EntityType {}
-    type PlainSqlMapper =     AbstractSourceCodePlainSqlMapperDef
+    type PlainSqlMapper =     ASPlainSqlMapperDef
     def  PlainSqlMapper = new PlainSqlMapper {}
-    type TableClass     =     AbstractSourceCodeTableClassDef
+    type TableClass     =     ASTableClassDef
     def  TableClass     = new TableClass {}
-    type TableValue     =     AbstractSourceCodeTableValueDef
+    type TableValue     =     ASTableValueDef
     def  TableValue     = new TableValue {}
-    type Column         =     AbstractSourceCodeColumnDef
+    type Column         =     ASColumnDef
     def  Column         = new Column(_)
-    type PrimaryKey     =     AbstractSourceCodePrimaryKeyDef
+    type PrimaryKey     =     ASPrimaryKeyDef
     def  PrimaryKey     = new PrimaryKey(_)
-    type ForeignKey     =     AbstractSourceCodeForeignKeyDef
+    type ForeignKey     =     ASForeignKeyDef
     def  ForeignKey     = new ForeignKey(_)
-    type Index          =     AbstractSourceCodeIndexDef
+    type Index          =     ASIndexDef
     def  Index          = new Index(_)
   }
 }

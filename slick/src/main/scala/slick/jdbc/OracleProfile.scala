@@ -82,10 +82,9 @@ trait OracleProfile extends JdbcProfile {
 
   override val columnOptions: OracleColumnOptions = new OracleColumnOptions {}
 
-  class OracleModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
-    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
-      new OracleColumnBuilder(tableBuilder, meta)
+
+  class OracleModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new OracleColumnBuilder(tableBuilder, meta)
     class OracleColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       override def tpe = meta.sqlType match {
         case 101 => "Double"
@@ -98,8 +97,8 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new OracleModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
@@ -110,19 +109,17 @@ trait OracleProfile extends JdbcProfile {
   }
 
   override protected def computeQueryCompiler =
-    super.computeQueryCompiler
-      .addAfter(Phase.removeTakeDrop, Phase.expandSums)
-      .replace(Phase.resolveZipJoinsRownumStyle) -
-      Phase.fixRowNumberOrdering +
-      Phase.rewriteBooleans +
-      new RemoveSubqueryOrdering
+
+    (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
+      .replace(Phase.resolveZipJoinsRownumStyle)
+      - Phase.fixRowNumberOrdering
+      + Phase.rewriteBooleans + new RemoveSubqueryOrdering)
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new OracleQueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new OracleTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): OracleColumnDDLBuilder =
-    new OracleColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
-  override val columnTypes: OracleJdbcTypes = new OracleJdbcTypes
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new OracleTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): OracleColumnDDLBuilder = new OracleColumnDDLBuilder(column)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
+  override val columnTypes = new OracleJdbcTypes
 
   val blobBufferSize = 4096
 
@@ -173,7 +170,8 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  class OracleTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
+
+  class OracleTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override val createPhase1 = super.createPhase1 ++ createAutoIncSequences
     override val dropPhase2 = dropAutoIncSequences ++ super.dropPhase2
 
@@ -316,18 +314,19 @@ END;
   }
 
   class OracleJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType: OracleBooleanJdbcType = new OracleBooleanJdbcType
-    override val blobJdbcType: OracleBlobJdbcType = new OracleBlobJdbcType
-    override val byteArrayJdbcType: OracleByteArrayJdbcType = new OracleByteArrayJdbcType
-    override val stringJdbcType: OracleStringJdbcType = new OracleStringJdbcType
-    override val timeJdbcType: OracleTimeJdbcType = new OracleTimeJdbcType
-    override val uuidJdbcType: OracleUUIDJdbcType = new OracleUUIDJdbcType
-    override val localDateType: OracleLocalDateJdbcType = new OracleLocalDateJdbcType
-    override val localDateTimeType: OracleLocalDateTimeJdbcType = new OracleLocalDateTimeJdbcType
-    override val instantType: OracleInstantJdbcType = new OracleInstantJdbcType
-    override val offsetTimeType: OracleOffsetTimeJdbcType = new OracleOffsetTimeJdbcType
-    override val offsetDateTimeType: OracleOffsetDateTimeJdbcType = new OracleOffsetDateTimeJdbcType
-    override val zonedDateType: OracleZonedDateTimeJdbcType = new OracleZonedDateTimeJdbcType
+
+    override val booleanJdbcType    = new OracleBooleanJdbcType
+    override val blobJdbcType       = new OracleBlobJdbcType
+    override val byteArrayJdbcType  = new OracleByteArrayJdbcType
+    override val stringJdbcType     = new OracleStringJdbcType
+    override val timeJdbcType       = new OracleTimeJdbcType
+    override val uuidJdbcType       = new OracleUUIDJdbcType
+    override val localDateType      = new OracleLocalDateJdbcType
+    override val localDateTimeType  = new OracleLocalDateTimeJdbcType
+    override val instantType        = new OracleInstantJdbcType
+    override val offsetTimeType     = new OracleOffsetTimeJdbcType
+    override val offsetDateTimeType = new OracleOffsetDateTimeJdbcType
+    override val zonedDateType      = new OracleZonedDateTimeJdbcType
 
     /* Oracle does not have a proper BOOLEAN type. The suggested workaround is
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
@@ -364,7 +363,8 @@ END;
     }
 
     class OracleByteArrayJdbcType extends ByteArrayJdbcType {
-      override def updateValue(v: Array[Byte], r: ResultSet, idx: Int): Nothing =
+
+      override def updateValue(v: Array[Byte], r: ResultSet, idx: Int) =
         throw new SlickException("OracleProfile does not support updating Blob values")
     }
 
@@ -408,6 +408,21 @@ END;
         r.getString(idx) match {
           case null => null
           case dateStr => LocalDate.parse(dateStr.substring(0, 10))
+        }
+      }
+    }
+
+    class OracleLocalTimeJdbcType extends LocalTimeJdbcType {
+      @inline private[this] def timestampFromLocalTime(localTime : LocalTime) : Timestamp = {
+        Timestamp.valueOf(LocalDateTime.of(LocalDate.MIN, localTime))
+      }
+      override def sqlType = java.sql.Types.TIMESTAMP
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
+
+      override def getValue(r: ResultSet, idx: Int) : LocalTime = {
+        r.getTimestamp(idx) match {
+          case null => null
+          case timestamp => timestamp.toLocalDateTime.toLocalTime
         }
       }
     }
@@ -511,19 +526,16 @@ END;
    * statements with a non-prepared Statement. */
   override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
     new OracleSchemaActionExtensionMethodsImpl(schema)
-  class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
-    extends JdbcSchemaActionExtensionMethodsImpl(schema) {
 
-    override def create: ProfileAction[Unit, NoStream, Effect.Schema] =
-      new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
-          for (s <- sql) ctx.session.withStatement()(_.execute(s))
-      }
-    override def drop: ProfileAction[Unit, NoStream, Effect.Schema] =
-      new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
-          for (s <- sql) ctx.session.withStatement()(_.execute(s))
-      }
+  class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends JdbcSchemaActionExtensionMethodsImpl(schema) {
+    override def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withStatement()(_.execute(s))
+    }
+    override def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withStatement()(_.execute(s))
+    }
   }
 
   override def createOptionResultConverter[T](ti: JdbcType[T],

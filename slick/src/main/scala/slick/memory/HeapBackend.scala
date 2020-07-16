@@ -33,9 +33,8 @@ trait HeapBackend extends RelationalBackend with Logging {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new BasicActionContext { val useSameThread = _useSameThread }
 
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T],
-                                                                useSameThread: Boolean): StreamingContext =
-      new BasicStreamingActionContext(s, useSameThread, this)
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
+      new BasicStreamingActionContext(s, useSameThread, HeapDatabaseDef.this)
 
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new HeapSessionDef(this)

@@ -59,16 +59,13 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       JdbcCapabilities.nullableNoDefault -
       JdbcCapabilities.supportsByte
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
-    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createTableNamer(mTable: MTable): TableNamer = new PostgresTableNamer(mTable)
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
-      new PostgresColumnBuilder(tableBuilder, meta)
-    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder =
-      new PostgresIndexBuilder(tableBuilder, meta)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new PostgresColumnBuilder(tableBuilder, meta)
+    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new PostgresIndexBuilder(tableBuilder, meta)
 
-    class PostgresTableNamer(mTable: MTable) extends TableNamer(mTable) {
+    class PostgresTableNamer(mTable: MTable) extends TableNamer(mTable){
       override def schema = super.schema.filter(_ != "public") // remove default schema
     }
     class PostgresColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
@@ -140,8 +137,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
         case _ => super.tpe
       }
     }
-    class PostgresIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo])
-      extends IndexBuilder(tableBuilder, meta) {
+
+    class PostgresIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]) extends IndexBuilder(tableBuilder, meta) {
       // FIXME: this needs a test
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
@@ -156,12 +153,11 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
 
   override val columnTypes: PostgresJdbcTypes = new PostgresJdbcTypes
   override protected def computeQueryCompiler = super.computeQueryCompiler - Phase.rewriteDistinct
-  override def createQueryBuilder(n: Node, state: CompilerState): PostgresQueryBuilder =
-    new PostgresQueryBuilder(n, state)
+
+  override def createQueryBuilder(n: Node, state: CompilerState): PostgresQueryBuilder = new PostgresQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): PostgresUpsertBuilder = new PostgresUpsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[?]): PostgresTableDDLBuilder = new PostgresTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): PostgresColumnDDLBuilder =
-    new PostgresColumnDDLBuilder(column)
+  override def createTableDDLBuilder(table: Table[_]): PostgresTableDDLBuilder = new PostgresTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): PostgresColumnDDLBuilder = new PostgresColumnDDLBuilder(column)
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useTransactionForUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
@@ -178,9 +174,9 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   }
 
   class PostgresQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
-    override protected val concatOperator: Some[String] = Some("||")
-    override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] =
-      Some(Vector(Library.Database, Library.User))
+
+    override protected val concatOperator = Some("||")
+    override protected val quotedJdbcFns = Some(Vector(Library.Database, Library.User))
 
     override protected def buildSelectModifiers(c: Comprehension.Base): Unit = (c.distinct, c.select) match {
       case (Some(ProductNode(onNodes)), Pure(ProductNode(selNodes), _)) if onNodes.nonEmpty =>
@@ -243,7 +239,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
   }
 
-  class PostgresTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
+
+  class PostgresTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override def createPhase1 = super.createPhase1 ++ columns.flatMap {
       case cb: PostgresColumnDDLBuilder => cb.createLobTrigger(table.tableName)
     }
@@ -257,12 +254,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   }
 
   class PostgresColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
-    override protected def appendOptions(sb: StringBuilder): Unit = {
-      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-      if(notNull) sb append " NOT NULL"
-      if(primaryKey) sb append " PRIMARY KEY"
-      if(unique) sb append " UNIQUE"
-    }
+
     override def appendColumn(sb: StringBuilder): Unit = {
       sb append quoteIdentifier(column.name) append ' '
       if(autoIncrement && !customSqlType) {
@@ -287,14 +279,15 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   }
 
   class PostgresJdbcTypes extends JdbcTypes {
-    override val byteArrayJdbcType: PostgresByteArrayJdbcType = new PostgresByteArrayJdbcType
-    override val uuidJdbcType: PostgresUUIDJdbcType = new PostgresUUIDJdbcType
-    override val localDateType: PostgresLocalDateJdbcType = new PostgresLocalDateJdbcType
-    override val localTimeType: PostgresLocalTimeJdbcType = new PostgresLocalTimeJdbcType
-    override val offsetTimeType: PostgresOffsetTimeJdbcType = new PostgresOffsetTimeJdbcType
+
+    override val byteArrayJdbcType = new PostgresByteArrayJdbcType
+    override val uuidJdbcType      = new PostgresUUIDJdbcType
+    override val localDateType     = new PostgresLocalDateJdbcType
+    override val localTimeType     = new PostgresLocalTimeJdbcType
+    override val offsetTimeType    = new PostgresOffsetTimeJdbcType
     //OffsetDateTime and ZonedDateTime not currently supportable natively by the backend
-    override val instantType: PostgresInstantJdbcType = new PostgresInstantJdbcType
-    override val localDateTimeType: PostgresLocalDateTimeJdbcType = new PostgresLocalDateTimeJdbcType
+    override val instantType       = new PostgresInstantJdbcType
+    override val localDateTimeType = new PostgresLocalDateTimeJdbcType
 
     class PostgresByteArrayJdbcType extends ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
@@ -350,7 +343,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     }
 
     import PGUtils.createPGObject
-    class PostgresLocalDateJdbcType extends LocalDateJdbcType with PostgresInfinityTimeJdbcType[LocalDate] {
+
+    class PostgresLocalDateJdbcType extends LocalDateJdbcType with PostgreTimeJdbcType[LocalDate] {
 
       private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE
 
@@ -371,7 +365,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresLocalTimeJdbcType extends LocalTimeJdbcType with PostgresTimeJdbcType[LocalTime] {
+
+    class PostgresLocalTimeJdbcType extends LocalTimeJdbcType with PostgreTimeJdbcType[LocalTime] {
 
       private[this] val formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
 
@@ -395,7 +390,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresOffsetTimeJdbcType extends OffsetTimeJdbcType with PostgresTimeJdbcType[OffsetTime] {
+
+    class PostgresOffsetTimeJdbcType extends OffsetTimeJdbcType with PostgreTimeJdbcType[OffsetTime] {
 
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
@@ -440,7 +436,9 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresInstantJdbcType extends InstantJdbcType with PostgresInfinityTimeJdbcType[Instant] {
+
+    class PostgresInstantJdbcType extends InstantJdbcType with PostgreTimeJdbcType[Instant] {
+
       private[this] val formatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
@@ -487,7 +485,9 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresLocalDateTimeJdbcType extends LocalDateTimeJdbcType with PostgresInfinityTimeJdbcType[LocalDateTime] {
+
+    class PostgresLocalDateTimeJdbcType extends LocalDateTimeJdbcType with PostgreTimeJdbcType[LocalDateTime] {
+
       private[this] val formatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))

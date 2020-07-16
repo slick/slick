@@ -44,43 +44,36 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     is performed natively on the server side.</li>
   * </ul>
   */
-trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      SqlCapabilities.sequenceMin -
-      SqlCapabilities.sequenceMax -
-      SqlCapabilities.sequenceCycle -
-      JdbcCapabilities.returnInsertOther -
-      RelationalCapabilities.joinFull -
-      JdbcCapabilities.insertOrUpdate -
-      RelationalCapabilities.reverse
+trait H2Profile extends JdbcProfile {
 
-  class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
-    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - SqlCapabilities.sequenceMin
+    - SqlCapabilities.sequenceMax
+    - SqlCapabilities.sequenceCycle
+    - JdbcCapabilities.returnInsertOther
+    - RelationalCapabilities.joinFull
+    - JdbcCapabilities.insertOrUpdate
+    - RelationalCapabilities.reverse
+  )
 
+  class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createTableNamer(mTable: MTable): TableNamer = new H2TableNamer(mTable)
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
-      new H2ColumnBuilder(tableBuilder, meta)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new H2ColumnBuilder(tableBuilder, meta)
 
     class H2TableNamer(mTable: MTable) extends TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
     }
 
     class H2ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
-      override def length =
-        super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
-      override def default =
-        rawDefault
-          .map((_, tpe))
-          .collect {
-            case (v, "java.util.UUID") =>
-              if (v.matches("^['\"].*['\"]$"))
-                Some(Some(java.util.UUID.fromString(v.replaceAll("['\"]", "")))) // strip quotes
-              else
-                None // The UUID is generated through a function - treat it as if there was no default.
-          }
-          .getOrElse(super.default)
+      override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
+      override def default = rawDefault.map((_,tpe)).collect{
+          case (v,"java.util.UUID") =>
+            if (v.matches("^['\"].*['\"]$"))
+              Some(Some(java.util.UUID.fromString(v.replaceAll("[\'\"]", "")))) //strip quotes
+            else
+              None // The UUID is generated through a function - treat it as if there was no default.
+        }.getOrElse{super.default}
       override def tpe = dbType match {
         case Some("UUID") => "java.util.UUID"
         case _            => super.tpe
@@ -88,17 +81,15 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new H2ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override val columnTypes: H2JdbcTypes = new H2JdbcTypes
-  override protected def computeQueryCompiler =
-    super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) - Phase.fixRowNumberOrdering
+  override val columnTypes = new H2JdbcTypes
+  override protected def computeQueryCompiler = super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) - Phase.fixRowNumberOrdering
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new H2QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new H2UpsertBuilder(node)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
-    new H2ColumnDDLBuilder(column)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new H2ColumnDDLBuilder(column)
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new H2CountingInsertActionComposerImpl[T](compiled)
 

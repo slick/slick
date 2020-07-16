@@ -53,7 +53,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new MemoryInsertActionExtensionMethodsImpl[T](compiled)
 
-  override lazy val MappedColumnType: MemoryMappedColumnTypeFactory = new MemoryMappedColumnTypeFactory
+  lazy val MappedColumnType = new MemoryMappedColumnTypeFactory
 
   class MemoryMappedColumnTypeFactory extends MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
@@ -147,41 +147,29 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       }
       if(it.hasNext) it else null
     }
-    def head: ProfileAction[T, NoStream, Effect.Read] =
-      new ProfileAction[T, NoStream, Effect.Read]
-        with SynchronousDatabaseAction[T, NoStream, Backend#This, Effect.Read] {
-        def run(ctx: Backend#Context): T = getIterator(ctx).next()
-        def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
-      }
-    def headOption: ProfileAction[Option[T], NoStream, Effect.Read] =
-      new ProfileAction[Option[T], NoStream, Effect.Read]
-        with SynchronousDatabaseAction[Option[T], NoStream, Backend#This, Effect.Read] {
 
-        def run(ctx: Backend#Context): Option[T] = {
-          val it = getIterator(ctx)
-          if (it.hasNext) Some(it.next()) else None
-        }
-        def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.firstOption")
+    def head: ProfileAction[T, NoStream, Effect.Read] = new ProfileAction[T, NoStream, Effect.Read] with SynchronousDatabaseAction[T, NoStream, Backend#This, Effect.Read] {
+      def run(ctx: Backend#Context): T = getIterator(ctx).next()
+      def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
+    }
+    def headOption: ProfileAction[Option[T], NoStream, Effect.Read] = new ProfileAction[Option[T], NoStream, Effect.Read] with SynchronousDatabaseAction[Option[T], NoStream, Backend#This, Effect.Read] {
+      def run(ctx: Backend#Context): Option[T] = {
+        val it = getIterator(ctx)
+        if(it.hasNext) Some(it.next()) else None
       }
     def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction")
   }
 
-  class MemoryQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any)
-    extends BasicQueryActionExtensionMethodsImpl[R, S] {
-
+  class MemoryQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends BasicQueryActionExtensionMethodsImpl[R, S] {
     def result: ProfileAction[R, S, Effect.Read] =
       new StreamingQueryAction[R, Nothing](tree, param).asInstanceOf[ProfileAction[R, S, Effect.Read]]
   }
 
-  class MemoryStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any)
-    extends MemoryQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param)
-      with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingProfileAction[R, T, Effect.Read] =
-      super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
+  class MemoryStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends MemoryQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
+    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
-  class MemorySchemaActionExtensionMethodsImpl(schema: SchemaDescription)
-    extends RelationalSchemaActionExtensionMethodsImpl {
+  class MemorySchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends RelationalSchemaActionExtensionMethodsImpl {
     protected[this] val tables = schema.asInstanceOf[DDL].tables
     override def create: FixedBasicAction[Unit, Nothing, Effect.Schema] = dbAction { session =>
       tables.foreach(t =>
@@ -212,9 +200,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     }
   }
 
-  class MemoryInsertActionExtensionMethodsImpl[T](compiled: CompiledInsert)
-    extends InsertActionExtensionMethodsImpl[T] {
-
+  class MemoryInsertActionExtensionMethodsImpl[T](compiled: CompiledInsert) extends InsertActionExtensionMethodsImpl[T] {
     protected[this] val inv = createInsertInvoker[T](compiled)
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit

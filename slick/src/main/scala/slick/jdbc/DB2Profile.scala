@@ -62,8 +62,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
   override val columnTypes: DB2JdbcTypes = new DB2JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DB2QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DB2TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
-    new DB2ColumnDDLBuilder(column)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new DB2ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new DB2SequenceDDLBuilder(seq)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =

@@ -6,7 +6,7 @@ import java.util.Properties
 import java.util.logging.Logger
 
 import scala.beans.BeanProperty
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 import slick.SlickException
@@ -120,7 +120,8 @@ class DriverDataSource(
 
   def getParentLogger: Logger = {
     init
-    driver.getParentLogger
+    try driver.asInstanceOf[{ def getParentLogger: Logger }].getParentLogger
+    catch { case _: NoSuchMethodException => throw new SQLFeatureNotSupportedException() }
   }
 
   def isWrapperFor(iface: Class[_]): Boolean = iface.isInstance(this)

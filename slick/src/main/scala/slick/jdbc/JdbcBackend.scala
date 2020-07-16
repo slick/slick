@@ -55,13 +55,15 @@ trait JdbcBackend extends RelationalBackend {
       * one single element at a time after processing the current one, so that the proper
       * sequencing is preserved even though processing may happen on a different thread. */
     final def stream[T](a: StreamingDBIO[_, T], bufferNext: Boolean): DatabasePublisher[T] =
-      createPublisher(a, s => new JdbcStreamingActionContext(s, false, this, bufferNext))
+
+      createPublisher(a, s => new JdbcStreamingActionContext(s, false, JdbcDatabaseDef.this, bufferNext))
 
     override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new JdbcActionContext { val useSameThread = _useSameThread }
 
     override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
-      new JdbcStreamingActionContext(s, useSameThread, this, true)
+
+      new JdbcStreamingActionContext(s, useSameThread, JdbcDatabaseDef.this, true)
 
     protected[this] def synchronousExecutionContext = executor.executionContext
 
@@ -96,10 +98,8 @@ trait JdbcBackend extends RelationalBackend {
       *                            is accessed for the first time, and kept open until `close()` is called. This is
       *                            useful for named in-memory databases in test environments.
       */
-    def forDataSource(ds: DataSource,
-                      maxConnections: Option[Int],
-                      executor: AsyncExecutor = AsyncExecutor.default(),
-                      keepAliveConnection: Boolean = false): JdbcDatabaseDef =
+
+    def forDataSource(ds: DataSource, maxConnections: Option[Int], executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false): JdbcDatabaseDef =
       forSource(new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections), executor)
 
     /** Create a Database based on the JNDI name of a DataSource.
@@ -133,20 +133,10 @@ trait JdbcBackend extends RelationalBackend {
       }
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url: String,
-               user: String = null,
-               password: String = null,
-               prop: Properties = null,
-               driver: String = null,
-               executor: AsyncExecutor = AsyncExecutor.default(),
-               keepAliveConnection: Boolean = false,
+    def forURL(url: String, user: String = null, password: String = null, prop: Properties = null, driver: String = null,
+               executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false,
                classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): JdbcDatabaseDef =
-      forDataSource(
-        new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader),
-        None,
-        executor,
-        keepAliveConnection
-      )
+      forDataSource(new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader), None, executor, keepAliveConnection)
 
     /** Create a Database that uses the DriverManager to open new connections. */
     def forURL(url: String, prop: Map[String, String]): Database = {
@@ -158,11 +148,8 @@ trait JdbcBackend extends RelationalBackend {
 
     /** Create a Database that directly uses a Driver to open new connections.
       * This is needed to open a JDBC URL with a driver that was not loaded by the system ClassLoader. */
-    def forDriver(driver: Driver,
-                  url: String,
-                  user: String = null,
-                  password: String = null,
-                  prop: Properties = null,
+
+    def forDriver(driver: Driver, url: String, user: String = null, password: String = null, prop: Properties = null,
                   executor: AsyncExecutor = AsyncExecutor.default()): JdbcDatabaseDef =
       forDataSource(new DriverDataSource(url, user, password, prop, driverObject = driver), None, executor)
 

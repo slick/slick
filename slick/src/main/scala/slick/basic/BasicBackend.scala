@@ -160,9 +160,9 @@ trait BasicBackend { self =>
                                           streaming: Boolean,
                                           topLevel: Boolean,
                                           stackLevel: Int): Future[R] =
-      if (stackLevel < 100)
+      if (stackLevel < 100) {
         runInContextInline(a, ctx, streaming, topLevel, stackLevel + 1)
-      else {
+      } else {
         val promise = Promise[R]()
         val runnable = new Runnable {
           override def run() = {

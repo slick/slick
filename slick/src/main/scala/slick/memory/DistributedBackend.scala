@@ -26,15 +26,12 @@ trait DistributedBackend extends RelationalBackend with Logging {
   def createDatabase(config: Config, path: String): Database =
     throw new SlickException("DistributedBackend cannot be configured with an external config file")
 
-  class DistributedDatabaseDef(val dbs: Vector[BasicBackend#BasicDatabaseDef], val executionContext: ExecutionContext)
-    extends BasicDatabaseDef {
-
+  class DistributedDatabaseDef(val dbs: Vector[BasicBackend#BasicDatabaseDef], val executionContext: ExecutionContext) extends BasicDatabaseDef {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new BasicActionContext { val useSameThread = _useSameThread }
 
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T],
-                                                                useSameThread: Boolean): StreamingContext =
-      new BasicStreamingActionContext(s, useSameThread, this)
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
+      new BasicStreamingActionContext(s, useSameThread, DistributedDatabaseDef.this)
 
     def createSession(): Session = {
       val sessions = new ArrayBuffer[BasicBackend#Session]

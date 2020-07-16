@@ -116,18 +116,17 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
-    new JdbcSchemaActionExtensionMethodsImpl(schema) {
-      override def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] =
-        new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
-          def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
-            import java.sql.SQLException
-            for (s <- sql) try {
-              ctx.session.withPreparedStatement(s)(_.execute)
-            } catch {
-              //<value> '<value>' already exists in <value> '<value>'.
-              case e: SQLException if e.getSQLState.equals("X0Y32") => ()
-              case e: Throwable                                     => throw e
-            }
+
+    new JdbcSchemaActionExtensionMethodsImpl(schema){
+      override def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
+          import java.sql.SQLException
+          for(s <- sql) try{
+            ctx.session.withPreparedStatement(s)(_.execute)
+          }catch{
+            //<value> '<value>' already exists in <value> '<value>'.
+            case e: SQLException if e.getSQLState().equals("X0Y32") =>  ()
+            case e: Throwable => throw e
           }
         }
 

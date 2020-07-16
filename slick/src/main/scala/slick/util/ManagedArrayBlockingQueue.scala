@@ -213,7 +213,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
     n
   }
 
-  def iterator: util.Iterator[PrioritizedRunnable] = {
+  def iterator: util.Iterator[E] = {
     import scala.jdk.CollectionConverters._
 
     // copy all items from queues and build a snapshot
@@ -223,7 +223,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
 
     new util.Iterator[PrioritizedRunnable] {
       override def hasNext: Boolean = items.hasNext
-      override def next(): PrioritizedRunnable = items.next()
+      override def next(): E = items.next()
       override def remove(): Unit = throw new UnsupportedOperationException
     }
   }

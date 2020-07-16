@@ -205,9 +205,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       new MutatingResultAction[T](rsm, elemType, collectionType, _statements.head, param, sendEndMarker)
   }
 
-  class JdbcQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any)
-    extends BasicQueryActionExtensionMethodsImpl[R, S] {
-
+  class JdbcQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends BasicQueryActionExtensionMethodsImpl[R, S] {
     def result: ProfileAction[R, S, Effect.Read] = {
       def findSql(n: Node): String = n match {
         case c: CompiledStatement => c.extra.asInstanceOf[SQLBuilder.Result].sql
@@ -233,12 +231,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
   }
 
-  class JdbcStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any)
-    extends JdbcQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param)
-      with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
-
-    override def result: StreamingProfileAction[R, T, Effect.Read] =
-      super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
+  class JdbcStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends JdbcQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
+    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
 
     /** Same as `mutate(sendEndMarker = false)`. */
     def mutate: ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = mutate(false)
@@ -291,9 +285,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
     new JdbcSchemaActionExtensionMethodsImpl(schema)
 
-  class JdbcSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
-    extends RelationalSchemaActionExtensionMethodsImpl {
-
+  class JdbcSchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends RelationalSchemaActionExtensionMethodsImpl {
     def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)

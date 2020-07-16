@@ -3,6 +3,9 @@ package com.typesafe.slick.testkit.util
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+import com.typesafe.config.{ConfigValueFactory, Config, ConfigFactory}
+import java.io.File
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 

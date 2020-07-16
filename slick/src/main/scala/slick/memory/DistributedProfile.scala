@@ -50,9 +50,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   type ProfileAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
   type StreamingProfileAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
 
-  class DistributedQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any)
-    extends BasicQueryActionExtensionMethodsImpl[R, S] {
-
+  class DistributedQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends BasicQueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: ProfileAction[R, S, Effect.Read] =
       new StreamingProfileAction[R, Any, Effect.Read]
@@ -64,11 +62,8 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
       }.asInstanceOf[ProfileAction[R, S, Effect.Read]]
   }
 
-  class DistributedStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any)
-    extends DistributedQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param)
-      with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingProfileAction[R, T, Effect.Read] =
-      super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
+  class DistributedStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends DistributedQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
+    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {
@@ -87,11 +82,8 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
       case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
-        val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, Any]]
-        b ++= fromV.iterator.map { v =>
-          converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]]
-            .read(v.asInstanceOf[QueryInterpreter.ProductValue])
-        }
+        val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n                                                                                    => super.run(n)
     }
