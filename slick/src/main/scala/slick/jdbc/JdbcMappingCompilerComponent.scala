@@ -14,10 +14,8 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
   val mappingCompiler: MappingCompiler = new MappingCompiler
 
   /** Create a (possibly specialized) `ResultConverter` for the given `JdbcType`. */
-  def createBaseResultConverter[T](ti: JdbcType[T],
-                                   name: String,
-                                   idx: Int): ResultConverter[JdbcResultConverterDomain, T] =
-    SpecializedJdbcResultConverter.base(ti, name, idx)
+  def createBaseResultConverter[T](ti: JdbcType[T], name: String, idx: Int): ResultConverter[JdbcResultConverterDomain, T] =
+    new BaseResultConverter(ti, name, idx)
 
   /** Create a (possibly specialized) `ResultConverter` for `Option` values of the given `JdbcType`. */
   def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =

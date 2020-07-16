@@ -85,7 +85,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   abstract class DriverJdbcType[T](implicit val classTag: ClassTag[T]) extends JdbcType[T] {
-    override def scalaType: ScalaBaseType[T] = ScalaBaseType[T]
+      def scalaType = ScalaBaseType[T]
     def sqlTypeName(sym: Option[FieldSymbol]): String = self.defaultSqlTypeName(this, sym)
     def valueToSQLLiteral(value: T) =
       if(hasLiteralForm) value.toString

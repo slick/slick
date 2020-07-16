@@ -89,8 +89,7 @@ final case class ProductResultConverter[
 }
 
 /** Result converter that can write to multiple sub-converters and read from the first one */
-final case class CompoundResultConverter[M <: ResultConverterDomain, T
-](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
+final case class CompoundResultConverter[M <: ResultConverterDomain, T](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
   private[this] val cha = childConverters.toArray
   private[this] val len = cha.length
 
