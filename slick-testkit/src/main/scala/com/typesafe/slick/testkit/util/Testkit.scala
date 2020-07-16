@@ -26,6 +26,7 @@ import org.junit.Assert
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
 import org.slf4j.MDC
 
+import org.reactivestreams.{Subscription, Subscriber, Publisher}
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)

@@ -5,7 +5,7 @@ import scala.util.{Failure, Success}
 import slick.jdbc.{DerbyProfile, JdbcCapabilities}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-
+import slick.jdbc.DerbyProfile
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
 

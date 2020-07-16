@@ -1,13 +1,10 @@
 package slick.jdbc
 
-import scala.collection.compat._
-import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
+import java.sql.{Blob, Clob, Date, ResultSet, Time, Timestamp}
 import java.io.Closeable
-import java.sql.{Array => _, _}
+import slick.util.{CloseableIterator, ReadAheadIterator}
 
 import scala.collection.Factory
-
-import slick.util.{CloseableIterator, ReadAheadIterator}
 
 /**
  * A database result positioned at a row and column.

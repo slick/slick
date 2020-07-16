@@ -7,10 +7,10 @@ import scala.reflect.ClassTag
 import slick.ast.*
 import slick.ast.TypeUtil.*
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
-import slick.compiler.*
-import slick.dbio.*
-import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter, ResultConverterCompiler}
-import slick.util.{??, DumpInfo}
+import slick.compiler._
+import slick.dbio._
+import slick.relational.{RelationalProfile, ResultConverterCompiler, ResultConverter, CompiledMapping}
+import slick.util.{DumpInfo, ??}
 
 /** A profile for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
