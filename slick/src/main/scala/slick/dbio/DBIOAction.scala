@@ -156,7 +156,7 @@ object DBIOAction {
     var state = 0 // no current = 0, sync = 1, async = 2
     var current: mutable.Builder[DBIOAction[R, NoStream, E], Vector[DBIOAction[R, NoStream, E]]] = null
     val total = Vector.newBuilder[Vector[DBIOAction[R, NoStream, E]]]
-    in.foreach { a =>
+    in.iterator.foreach { a =>
       val msgState = if(a.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) 1 else 2
       if(msgState != state) {
         if(state != 0) total += current.result()
@@ -219,7 +219,7 @@ object DBIOAction {
       case n =>
         grouped.foldLeft(DBIO.successful(cbf.newBuilder): DBIOAction[mutable.Builder[R, M[R]], NoStream, E]) { (ar, g) =>
           for (r <- ar; ge <- sequenceGroupAsSeq(g)) yield r ++= ge
-        } map (_.result)
+        } map (_.result())
     }
   }
 

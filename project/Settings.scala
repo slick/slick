@@ -276,7 +276,7 @@ object Settings {
   )
 
   def slickScalacSettings = Seq(
-    scalacOptions ++= List("-deprecation", "-feature", "-unchecked", "-Xfuture"),
+    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,

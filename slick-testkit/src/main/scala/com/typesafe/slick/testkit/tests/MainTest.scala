@@ -79,7 +79,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
       val ordersInserts =
         for(u <- allUsers if u.first != "Apu" && u.first != "Snowball"; i <- 1 to 2)
           yield orders.map(o => (o.userID, o.product, o.shipped, o.rebate)) += (
-            u.id, "Gizmo "+((scala.math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
+            u.id, "Gizmo "+((scala.math.random()*10)+1).toInt, i == 2, Some(u.first == "Marge"))
       db.run(seq(ordersInserts: _*))
     }.flatMap { _ =>
       val q3 = for (
@@ -115,7 +115,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
 
       val q4e = for (
         u <- users if u.first inSetBind List("Homer", "Marge");
-        o <- orders if o.userID in (u.id, u.id)
+        o <- orders if o.userID.in(u.id, u.id)
       ) yield (u.first, o.orderID)
       q4e.result.statements.toSeq.length.should(_ >= 1)
 

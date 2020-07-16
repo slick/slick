@@ -69,7 +69,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Join(_, _, left, right, JoinType.Zip, LiteralNode(true)) =>
         val leftV = run(left).asInstanceOf[Coll]
         val rightV = run(right).asInstanceOf[Coll]
-        (leftV, rightV).zipped.map { (l, r) => new ProductValue(Vector(l, r)) }
+        leftV.lazyZip(rightV).map { (l, r) => new ProductValue(Vector(l, r)) }
       case Join(leftGen, rightGen, left, right, JoinType.Inner, by) =>
         val res = run(left).asInstanceOf[Coll].flatMap { l =>
           scope(leftGen) = l
@@ -144,7 +144,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         }
         scope.remove(gen)
         res
-      case First(ch) => run(ch).asInstanceOf[Coll].toIterator.next()
+      case First(ch) => run(ch).asInstanceOf[Coll].iterator.next()
       case Distinct(gen, from, on) =>
         val fromV = run(from).asInstanceOf[Coll]
         val seen = mutable.HashSet[Any]()
@@ -196,13 +196,13 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val fromV = run(from).asInstanceOf[Coll]
         val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.take(numV.toInt)
+        b ++= fromV.iterator.take(numV.toInt)
         b.result()
       case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
         val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.drop(numV.toInt)
+        b ++= fromV.iterator.drop(numV.toInt)
         b.result()
       case Union(left, right, all) =>
         val leftV = run(left).asInstanceOf[Coll]
@@ -404,7 +404,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       var len = s.length
       while(len > 0 && s.charAt(len-1) == ' ') len -= 1
       if(len == s.length) s else s.substring(0, len)
-    case Library.Sign => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.signum(args(0)._2)
+    case Library.Sign =>
+      val n = args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric
+      n.toInt(n.sign(args(0)._2))
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
     case Library.User => ""

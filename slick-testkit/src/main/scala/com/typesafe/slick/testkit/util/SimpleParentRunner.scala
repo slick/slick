@@ -4,7 +4,7 @@ import org.junit.runner.{Runner, Description}
 import org.junit.runner.notification.{StoppedByUserException, Failure, RunNotifier}
 import org.junit.runner.manipulation._
 import org.junit.runners.model._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import java.lang.reflect.InvocationTargetException
 
 /**

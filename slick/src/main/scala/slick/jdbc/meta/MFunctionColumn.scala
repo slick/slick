@@ -19,7 +19,7 @@ object MFunctionColumn {
       try s.metaData.getFunctionColumns(functionPattern.catalog_?, functionPattern.schema_?,
                                        functionPattern.name, columnNamePattern)
       catch { case _: AbstractMethodError => null }
-    } { r => MFunctionColumn(MQName.from(r), r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextShort match {
+    } { r => MFunctionColumn(MQName.from(r), r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextShort() match {
         case DatabaseMetaData.functionNoNulls => Some(false)
         case DatabaseMetaData.functionNullable => Some(true)
         case _ => None

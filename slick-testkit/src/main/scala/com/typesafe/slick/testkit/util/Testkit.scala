@@ -366,7 +366,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
         throw ex
     }
 
-    def shouldAllMatch(f: PartialFunction[T, _]) = v.foreach { x =>
+    def shouldAllMatch(f: PartialFunction[T, _]) = v.iterator.foreach { x =>
       if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
     }
   }

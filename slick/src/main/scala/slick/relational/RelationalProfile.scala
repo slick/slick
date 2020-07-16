@@ -24,7 +24,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalCapabilities.all
 
-  trait API extends super.API with ImplicitColumnTypes {
+  trait RelationalAPI extends BasicAPI with RelationalImplicitColumnTypes {
     type FastPath[T] = SimpleFastPathResultConverter[ResultConverterDomain, T]
     type Table[T] = self.Table[T]
     type Sequence[T] = self.Sequence[T]
@@ -48,7 +48,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def fastPathExtensionMethods[T, P](mp: MappedProjection[T, P]): FastPathExtensionMethods[ResultConverterDomain, T, P] = new FastPathExtensionMethods[ResultConverterDomain, T, P](mp)
   }
 
-  val api: API
+  val api: RelationalAPI
 
   final lazy val compiler = computeQueryCompiler
 
@@ -106,7 +106,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription
 
-  trait ColumnOptions {
+  trait RelationalColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
@@ -114,7 +114,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
     val Length = RelationalProfile.ColumnOption.Length
   }
 
-  val columnOptions: ColumnOptions = new ColumnOptions {}
+  val columnOptions: RelationalColumnOptions = new RelationalColumnOptions {}
 
   abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTable[T](_tableTag, _schemaName, _tableName) { table =>
     final type TableElementType = T
@@ -197,7 +197,7 @@ trait RelationalTypesComponent { self: RelationalProfile =>
         throw new NullPointerException("implicit BaseColumnType[U] for MappedColumnType.base[T, U] is null. This may be an initialization order problem.")
   }
 
-  trait ImplicitColumnTypes {
+  trait RelationalImplicitColumnTypes {
     implicit def isomorphicType[A, B](implicit iso: Isomorphism[A, B], ct: ClassTag[A], jt: BaseColumnType[B]): BaseColumnType[A] =
       MappedColumnType.base[A, B](iso.map, iso.comap)
     implicit def booleanColumnType: BaseColumnType[Boolean]
@@ -237,11 +237,11 @@ trait RelationalActionComponent extends BasicActionComponent { self: RelationalP
 
   //////////////////////////////////////////////////////////// Schema Actions
 
-  type SchemaActionExtensionMethods <: SchemaActionExtensionMethodsImpl
+  type SchemaActionExtensionMethods <: RelationalSchemaActionExtensionMethodsImpl
 
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods
 
-  trait SchemaActionExtensionMethodsImpl {
+  trait RelationalSchemaActionExtensionMethodsImpl {
     /** Create an Action that creates the entities described by this schema description. */
     def create: ProfileAction[Unit, NoStream, Effect.Schema]
 

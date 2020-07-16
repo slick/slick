@@ -464,7 +464,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       else if(o.nulls.last) b" nulls last"
     }
 
-    def buildUpdate: SQLBuilder.Result = {
+    def buildUpdate(): SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
         case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None, None, false) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field))
@@ -490,7 +490,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b"delete from $tableName"
     }
 
-    def buildDelete: SQLBuilder.Result = {
+    def buildDelete(): SQLBuilder.Result = {
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {

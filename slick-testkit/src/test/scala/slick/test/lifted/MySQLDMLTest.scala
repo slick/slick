@@ -15,7 +15,7 @@ class MySQLDMLTest {
     class T2(tag: Tag) extends Table[V](tag, "mytable2") {
       def id = column[String]("id", O.PrimaryKey)
       def value = column[String]("value")
-      def * = (id, value) <> ((V.apply _).tupled, V.unapply)
+      def * = (id, value).<>((V.apply _).tupled, V.unapply)
     }
     assertTrue("generates insert ignore statements",
       TableQuery[T].insertOrUpdate(1).statements.mkString.startsWith("insert ignore"))

@@ -53,7 +53,7 @@ class LoggingStatement(st: Statement) extends Statement {
       def groupBy[T](s: IterableOnce[T])(f: T => AnyRef): IndexedSeq[IndexedSeq[T]] = {
         var current: AnyRef = null
         val b = new ArrayBuffer[ArrayBuffer[T]]
-        s.foreach { v =>
+        s.iterator.foreach { v =>
           val id = f(v)
           if(b.isEmpty || current != id) b += ArrayBuffer(v)
           else b.last += v
@@ -91,10 +91,10 @@ class LoggingStatement(st: Statement) extends Statement {
   }
 
   private[this] def formatNS(ns: Long): String = {
-    if(ns < 1000L) ns + "ns"
-    else if(ns < 1000000L) (ns / 1000L) + "µs"
-    else if(ns < 1000000000L) (ns / 1000000L) + "ms"
-    else (ns / 1000000000L) + "s"
+    if(ns < 1000L) s"${ns}ns"
+    else if(ns < 1000000L) s"${(ns / 1000L)}µs"
+    else if(ns < 1000000000L) s"${(ns / 1000000L)}ms"
+    else s"${(ns / 1000000000L)}s"
   }
 
   def addBatch(sql: String) = {

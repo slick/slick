@@ -17,9 +17,9 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
   def compileInsert(tree: Node) = insertCompiler.run(tree).tree
   type CompiledInsert = Node
 
-  trait API extends super.API with ImplicitColumnTypes
+  trait MemoryQueryingAPI extends BasicAPI with ImplicitColumnTypes
 
-  val api: API
+  val api: MemoryQueryingAPI
 
   trait ImplicitColumnTypes {
     implicit def booleanColumnType = ScalaBaseType.booleanType

@@ -502,8 +502,8 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
   }
 
   def ++= (vs: IterableOnce[T]): Unit = {
-    if(vs.isInstanceOf[IndexedSeq[_]]) ensure(vs.size)
-    vs.foreach(self += _)
+    if(vs.isInstanceOf[scala.collection.IndexedSeq[_]]) ensure(vs.asInstanceOf[scala.collection.IndexedSeq[_]].size)
+    vs.iterator.foreach(self += _)
   }
 
   def ++= (vs: Option[T]): Unit =

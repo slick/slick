@@ -49,7 +49,7 @@ object GlobalConfig {
 
 /** Extension methods to make Typesafe Config easier to use */
 class ConfigExtensionMethods(val c: Config) extends AnyVal {
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
 
   def getBooleanOr(path: String, default: => Boolean = false) = if(c.hasPath(path)) c.getBoolean(path) else default
   def getIntOr(path: String, default: => Int = 0) = if(c.hasPath(path)) c.getInt(path) else default

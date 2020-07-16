@@ -127,7 +127,7 @@ object StandardTestDBs {
     type Profile = MemoryProfile
     val profile: Profile = MemoryProfile
     val confName: String = "heap"
-    def createDB: profile.Backend#Database = profile.backend.Database(ExecutionContext.global)
+    def createDB(): profile.Backend#Database = profile.backend.Database(ExecutionContext.global)
     def dropUserArtifacts(implicit session: profile.Backend#Session): Unit = {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))

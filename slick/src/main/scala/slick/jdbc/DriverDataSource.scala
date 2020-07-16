@@ -12,7 +12,7 @@ import slick.SlickException
 import slick.util.{ClassLoaderUtil, Logging, ignoreFollowOnError}
 
 import scala.beans.BeanProperty
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 /** A DataSource that wraps the DriverManager API. It can be configured as a Java Bean and used
@@ -121,7 +121,7 @@ class DriverDataSource(
 
   def getParentLogger: Logger = {
     init
-    try driver.asInstanceOf[{ def getParentLogger(): Logger }].getParentLogger
+    try driver.asInstanceOf[{ def getParentLogger: Logger }].getParentLogger
     catch { case _: NoSuchMethodException => throw new SQLFeatureNotSupportedException() }
   }
 
