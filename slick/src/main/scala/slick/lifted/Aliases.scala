@@ -6,7 +6,7 @@ package lifted
 trait Aliases {
   type Query[+E, U, C[_]] = lifted.Query[E, U, C]
   val Query = lifted.Query
-  type TableQuery[E <: AbstractTable[_]] = lifted.TableQuery[E]
+  type TableQuery[E <: AbstractTable[?]] = lifted.TableQuery[E]
   val TableQuery = lifted.TableQuery
   type Compiled[T] = lifted.Compiled[T]
   val Compiled = lifted.Compiled
@@ -38,8 +38,6 @@ trait Aliases {
   type NestedShapeLevel = lifted.NestedShapeLevel
   type FlatShapeLevel = lifted.FlatShapeLevel
   type ColumnsShapeLevel = lifted.ColumnsShapeLevel
-  type Isomorphism[A, B] = lifted.Isomorphism[A, B]
-  type MappedTo[T] = lifted.MappedTo[T]
   val ForeignKeyAction = slick.model.ForeignKeyAction
   type ForeignKeyAction = slick.model.ForeignKeyAction
 

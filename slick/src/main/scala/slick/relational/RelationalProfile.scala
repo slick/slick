@@ -1,14 +1,14 @@
 package slick.relational
 
-import slick.ast._
-import slick.basic.{BasicActionComponent, BasicProfile}
-import slick.compiler.{EmulateOuterJoins, Phase, QueryCompiler}
-import slick.dbio._
-import slick.lifted.FunctionSymbolExtensionMethods._
-import slick.lifted._
-
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
+
+import slick.ast.*
+import slick.basic.{BasicActionComponent, BasicProfile}
+import slick.compiler.{EmulateOuterJoins, Phase, QueryCompiler}
+import slick.dbio.*
+import slick.lifted.*
+import slick.lifted.FunctionSymbolExtensionMethods.*
 
 /** A profile for relational databases that does not assume the existence
   * of SQL (or any other text-based language for executing statements).
@@ -37,11 +37,11 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T): LiteralColumn[T] = new LiteralColumn[T](v)
     implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
-    implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[_], U](q: Query[T, U, Seq] with TableQuery[T]): TableQueryExtensionMethods[T, U] =
+    implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[?], U](q: Query[T, U, Seq] & TableQuery[T]): TableQueryExtensionMethods[T, U] =
       new TableQueryExtensionMethods[T, U](q)
 
-    implicit def streamableCompiledInsertActionExtensionMethods[EU](c: StreamableCompiled[_, _, EU]): InsertActionExtensionMethods[EU] = createInsertActionExtensionMethods[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
-    implicit def queryInsertActionExtensionMethods[U, C[_]](q: Query[_, U, C]): InsertActionExtensionMethods[U] = createInsertActionExtensionMethods[U](compileInsert(q.toNode))
+    implicit def streamableCompiledInsertActionExtensionMethods[EU](c: StreamableCompiled[?, ?, EU]): InsertActionExtensionMethods[EU] = createInsertActionExtensionMethods[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
+    implicit def queryInsertActionExtensionMethods[U, C[_]](q: Query[?, U, C]): InsertActionExtensionMethods[U] = createInsertActionExtensionMethods[U](compileInsert(q.toNode))
 
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
 
@@ -61,14 +61,14 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandRecords)
   }
 
-  class TableQueryExtensionMethods[T <: RelationalProfile#Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
+  class TableQueryExtensionMethods[T <: RelationalProfile#Table[?], U](val q: Query[T, U, Seq] & TableQuery[T]) {
     /** Get the schema description (DDL) for this table. */
-    def schema: SchemaDescription = buildTableSchemaDescription(q.shaped.value.asInstanceOf[Table[_]])
+    def schema: SchemaDescription = buildTableSchemaDescription(q.shaped.value.asInstanceOf[Table[?]])
 
     /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
-    def findBy[P](f: (T => Rep[P]))(implicit ashape: Shape[ColumnsShapeLevel, Rep[P], P, Rep[P]], pshape: Shape[ColumnsShapeLevel, P, P, _]): CompiledFunction[Rep[P] => Query[T, U, Seq], Rep[P], P, Query[T, U, Seq], Seq[U]] = {
-      import self.api._
+    def findBy[P](f: T => Rep[P])(implicit ashape: Shape[ColumnsShapeLevel, Rep[P], P, Rep[P]], pshape: Shape[ColumnsShapeLevel, P, P, ?]): CompiledFunction[Rep[P] => Query[T, U, Seq], Rep[P], P, Query[T, U, Seq], Seq[U]] = {
+      import self.api.*
       Compiled { (p: Rep[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
     }
   }
@@ -78,10 +78,10 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R
 
   class FastPathExtensionMethods[M <: ResultConverterDomain, T, P](val mp: MappedProjection[T, P]) {
-    def fastPath(fpf: (TypeMappingResultConverter[M, T, _] => SimpleFastPathResultConverter[M, T])): MappedProjection[T, P] = mp.genericFastPath {
-      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _], _, _) =>
-        fpf(tm.asInstanceOf[TypeMappingResultConverter[M, T, _]])
-      case tm => tm
+    def fastPath(fpf: TypeMappingResultConverter[M, T, ?] => SimpleFastPathResultConverter[M, T]): MappedProjection[T, P] = mp.genericFastPath {
+      case tm @ TypeMappingResultConverter(_: ProductResultConverter[?, ?], _, _) =>
+        fpf(tm.asInstanceOf[TypeMappingResultConverter[M, T, ?]])
+      case tm                                                                     => tm
     }
   }
 }
@@ -97,14 +97,14 @@ object RelationalProfile {
       * varying=false and VARCHAR when varying=true. Slick uses VARCHAR or VARCHAR(254) in DDL for
       * String columns if neither ColumnOption DBType nor Length are given.
       *
-      * @param varying indicates wether this is just the maximum length of a varying */
+      * @param varying indicates whether this is just the maximum length of a varying */
     case class Length(length: Int, varying: Boolean = true) extends ColumnOption[Nothing]
   }
 }
 
 trait RelationalTableComponent { self: RelationalProfile =>
 
-  def buildTableSchemaDescription(table: Table[_]): SchemaDescription
+  def buildTableSchemaDescription(table: Table[?]): SchemaDescription
 
   trait RelationalColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
@@ -138,10 +138,10 @@ trait RelationalTableComponent { self: RelationalProfile =>
         "When using a MappedColumnType, you may want to change it from a val to a lazy val or def.")
       new Rep.TypedRep[C] {
         override def toNode =
-          Select((tableTag match {
+          Select(tableTag match {
             case r: RefTag => r.path
             case _ => tableNode
-          }), FieldSymbol(n)(options, tt)) :@ tt
+          }, FieldSymbol(n)(options, tt)) :@ tt
         override def toString = (tableTag match {
           case r: RefTag => "(" + _tableName + " " + r.path + ")"
           case _ => _tableName
@@ -153,7 +153,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
 trait RelationalSequenceComponent { self: RelationalProfile =>
 
-  def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription
+  def buildSequenceSchemaDescription(seq: Sequence[?]): SchemaDescription
 
   class Sequence[T] private[Sequence] (val name: String,
                                        val _minValue: Option[T],
@@ -184,7 +184,7 @@ trait RelationalSequenceComponent { self: RelationalProfile =>
 
 trait RelationalTypesComponent { self: RelationalProfile =>
   type ColumnType[T] <: TypedType[T]
-  type BaseColumnType[T] <: ColumnType[T] with BaseTypedType[T]
+  type BaseColumnType[T] <: ColumnType[T] & BaseTypedType[T]
 
   val MappedColumnType: MappedColumnTypeFactory
 
@@ -192,23 +192,21 @@ trait RelationalTypesComponent { self: RelationalProfile =>
   trait MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T]
 
-    protected[this] def assertNonNullType(t: BaseColumnType[_]): Unit =
+    protected[this] def assertNonNullType(t: BaseColumnType[?]): Unit =
       if(t == null)
         throw new NullPointerException("implicit BaseColumnType[U] for MappedColumnType.base[T, U] is null. This may be an initialization order problem.")
   }
 
   trait RelationalImplicitColumnTypes {
-    implicit def isomorphicType[A, B](implicit iso: Isomorphism[A, B], ct: ClassTag[A], jt: BaseColumnType[B]): BaseColumnType[A] =
-      MappedColumnType.base[A, B](iso.map, iso.comap)
     implicit def booleanColumnType: BaseColumnType[Boolean]
-    implicit def bigDecimalColumnType: BaseColumnType[BigDecimal] with NumericTypedType
-    implicit def byteColumnType: BaseColumnType[Byte] with NumericTypedType
+    implicit def bigDecimalColumnType: BaseColumnType[BigDecimal] & NumericTypedType
+    implicit def byteColumnType: BaseColumnType[Byte] & NumericTypedType
     implicit def charColumnType: BaseColumnType[Char]
-    implicit def doubleColumnType: BaseColumnType[Double] with NumericTypedType
-    implicit def floatColumnType: BaseColumnType[Float] with NumericTypedType
-    implicit def intColumnType: BaseColumnType[Int] with NumericTypedType
-    implicit def longColumnType: BaseColumnType[Long] with NumericTypedType
-    implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
+    implicit def doubleColumnType: BaseColumnType[Double] & NumericTypedType
+    implicit def floatColumnType: BaseColumnType[Float] & NumericTypedType
+    implicit def intColumnType: BaseColumnType[Int] & NumericTypedType
+    implicit def longColumnType: BaseColumnType[Long] & NumericTypedType
+    implicit def shortColumnType: BaseColumnType[Short] & NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
   }
 }
