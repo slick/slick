@@ -110,6 +110,7 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  /*
   def testAutoMapped = {
 
     class T(tag: Tag) extends Table[(MyMappedID, Int)](tag, "t_automapped") {
@@ -159,4 +160,6 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.result.map(_ shouldBe Seq(Row("a", Some("foo"))))
     )
   }
+  */
 }
+//case class MyMappedID(value: Int) extends AnyVal with slick.lifted.MappedTo[Int]

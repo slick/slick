@@ -88,7 +88,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def scalaType = ScalaBaseType[T]
     def sqlTypeName(sym: Option[FieldSymbol]): String = self.defaultSqlTypeName(this, sym)
     def valueToSQLLiteral(value: T) =
-      if(hasLiteralForm) value.toString
+      if(hasLiteralForm ) value.toString
       else throw new SlickException(sqlTypeName(None) + " does not have a literal representation")
     def hasLiteralForm = true
     def wasNull(r: ResultSet, idx: Int) = r.wasNull()
