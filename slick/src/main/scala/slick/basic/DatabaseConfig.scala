@@ -1,7 +1,5 @@
 package slick.basic
 
-import java.net.URI
-
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
