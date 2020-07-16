@@ -53,6 +53,6 @@ install:
       }
   - bash -v ./appveyor/extractNonPublicDeps
 build_script:
-  - sbt ++2.12.15 clean compile coverage "testkit/Test/testOnly slick.test.profile.SQLServer*Test" coverageReport
+  - sbt ++2.13.x clean compile coverage "testkit/Test/testOnly slick.test.profile.SQLServer*Test" coverageReport
 cache:
   - C:\Users\appveyor\.ivy2
