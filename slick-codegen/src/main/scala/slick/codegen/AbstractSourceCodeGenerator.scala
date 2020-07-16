@@ -170,7 +170,11 @@ def $name($args): $name = {
         val body =
           if(autoIncLast && columns.size > 1){
             val rearranged = {
-              val r = desiredColumnOrder.map(i => if(hlistEnabled || isMappedToHugeClass) s"r($i)" else tuple(i))
+              val r = desiredColumnOrder.map { i =>
+                val c = columnsPositional(i)
+                val tp = if(c.asOption || c.model.nullable) optionType(c.rawType) else c.rawType
+                if(hlistEnabled || isMappedToHugeClass) s"r.productElement($i).asInstanceOf[$tp]" else tuple(i)
+              }
               if (isMappedToHugeClass) r.mkString(", ") else compoundValue(r)
             }
             s"""
@@ -216,7 +220,7 @@ implicit def $name(implicit $dependencies): GR[${TableClass.elementType}] = GR{
       def optionFactory = {
         val accessors = columns.zipWithIndex.map{ case(c,i) =>
           val accessor = if (isMappedToHugeClass) {
-            s"r($i).asInstanceOf[${optionType(c.rawType)}]"
+            s"r.productElement($i).asInstanceOf[${optionType(c.rawType)}]"
           } else if(columns.size > 1) tuple(i) else "r"
           if(c.asOption || c.model.nullable) accessor else s"$accessor.get"
         }
