@@ -1,4 +1,14 @@
-import com.jsuereth.sbtpgp.PgpKeys
+import Settings.{testSample1, testSample2, testSample3, testSample4, _}
+import Docs.docDir
+import BuildUtils._
+
+ThisBuild / version := "3.4.0-SNAPSHOT"
+
+// Slick base version for binary compatibility checks.
+// The next release to be cut from master will be 3.4.0 during develop of 3.4.0 we check compatibility with 3.3.0.
+// The goal is not to stop any breaking change, but to make us aware. For each breaking change we should add MiMa exclusions.
+// This will also help us decide when a PR can be backported in 3.3.x branch.
+ThisBuild / binaryCompatSlickVersion := None
 
 
 val testAll = taskKey[Unit]("Run all tests")

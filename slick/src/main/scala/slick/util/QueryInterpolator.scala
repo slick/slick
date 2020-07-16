@@ -1,11 +1,7 @@
 package slick.util
 
 import scala.language.implicitConversions
-<<<<<<< HEAD
-
-=======
 import scala.language.experimental.macros
->>>>>>> Macro-less b interpolator implementation
 import slick.ast.{Node, Symbol, SymbolNamer}
 
 object QueryInterpolator {
