@@ -222,8 +222,6 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     override def ++=(values: Iterable[T]): FixedBasicAction[Unit, Nothing, Effect.Write] = dbAction(inv.++=(values)(_))
   }
 
-  override val profile: MemoryProfile = this
-
   override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
