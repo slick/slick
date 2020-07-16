@@ -19,10 +19,8 @@ import slick.lifted.*
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.{ConstArray, GlobalConfig, SlickLogger}
-import slick.util.ConfigExtensionMethods.*
 import slick.util.QueryInterpolator.queryInterpolator
-
-import com.typesafe.config.Config
+import slick.util.ConfigExtensionMethods._
 
 /** Slick profile for Microsoft SQL Server.
   *

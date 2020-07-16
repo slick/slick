@@ -13,6 +13,7 @@ import slick.dbio.*
 import slick.jdbc.meta.MTable
 import slick.lifted.*
 import slick.relational.RelationalCapabilities
+import slick.basic.Capability
 import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for IBM DB2 UDB.

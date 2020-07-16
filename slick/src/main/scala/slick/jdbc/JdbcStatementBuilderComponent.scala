@@ -11,7 +11,8 @@ import slick.compiler.{CodeGen, CompilerState, QueryCompiler, RewriteBooleans}
 import slick.lifted.*
 import slick.relational.{CompiledMapping, RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.sql.SqlProfile
-import slick.util.*
+
+import slick.util._
 import slick.util.QueryInterpolator.queryInterpolator
 
 trait JdbcStatementBuilderComponent { self: JdbcProfile =>
@@ -114,7 +115,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
     val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
-    protected val joins = new mutable.HashMap[TermSymbol, Join]
+
+    protected val joins = new HashMap[TermSymbol, Join]
     protected var currentUniqueFrom: Option[TermSymbol] = None
 
     private[this] var _skipParens = false
@@ -229,9 +231,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         case Nil | Seq((_, Pure(ProductNode(ConstArray()), _))) => scalarFrom.foreach { s => b"\nfrom $s" }
         case from =>
           b"\nfrom "
-          b.sep(from, ", ") { case (sym, n) =>
-            buildFrom(n, if(currentUniqueFrom.contains(sym)) None else Some(sym), false)
-          }
+          b.sep(from, ", ") { case (sym, n) => buildFrom(n, if(Some(sym) == currentUniqueFrom) None else Some(sym), false) }
       }
     }
 
@@ -292,7 +292,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       withSkipParens(skipParens)(buildFrom(n, alias))
 
     protected def buildFrom(n: Node, alias: Option[TermSymbol]): Unit = building(FromPart) {
-      def addAlias() = alias foreach { s => b += ' ' += symbolName(s) }
+
+      def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
         case t: TableNode =>
           b += quoteTableName(t)
@@ -301,7 +302,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           buildJoin(j)
         case n =>
           expr(n)
-          addAlias()
+
+          addAlias
       }
     }
 

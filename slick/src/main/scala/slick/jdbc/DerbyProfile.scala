@@ -178,7 +178,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
 
     override def expr(c: Node): Unit = c match {
-      case Library.Cast(ch*) =>
+      case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
         val (toVarchar, tn) = {

@@ -16,7 +16,9 @@ import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 import slick.lifted.*
 import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
-import slick.util.{ConstArray, GlobalConfig, SlickLogger}
+
+import slick.util.{SlickLogger, GlobalConfig, ConstArray}
+import slick.util.QueryInterpolator.queryInterpolator
 import slick.util.ConfigExtensionMethods.configExtensionMethods
 import slick.util.QueryInterpolator.queryInterpolator
 
@@ -229,18 +231,6 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         if (all) b"\nunion all " else b"\nunion "
         buildFrom(right, None, false)
         b"\}"
-      case Apply(Library.In, children) if children.exists(_.isInstanceOf[Union]) =>
-        b"\("
-        if(children.length == 1) {
-          b"${Library.In.name} ${children.head}"
-        } else b.sep(children, " " + Library.In.name + " ") {
-          case u @ Union(_,_,_) =>
-            b"(select t.* from ("
-            expr(u, skipParens)
-            b") t)"
-          case node => expr(node)
-        }
-        b"\)"
       case _ => super.expr(n)
     }
 

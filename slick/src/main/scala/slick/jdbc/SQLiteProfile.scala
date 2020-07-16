@@ -12,6 +12,9 @@ import slick.sql.SqlCapabilities
 import slick.SlickException
 import slick.ast.*
 import slick.basic.Capability
+import slick.dbio._
+import slick.ast._
+import slick.util.QueryInterpolator.queryInterpolator
 import slick.compiler.CompilerState
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
@@ -237,8 +240,9 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
 
     override def expr(c: Node): Unit = c match {
-      case Library.UCase(ch)                => b"upper(!$ch)"
-      case Library.LCase(ch)                => b"lower(!$ch)"
+
+      case Library.UCase(ch) => b"upper(!$ch)"
+      case Library.LCase(ch) => b"lower(!$ch)"
       case Library.Substring(n, start, end) =>
         val startNode = QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())
         val lengthNode = QueryParameter.constOp[Int]("-")(_ - _)(end, start)
@@ -266,7 +270,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
         buildFrom(right, None, skipParens = true)
         b"\]"
         b"\}"
-      case _                        => super.expr(c)
+      case _ => super.expr(c)
     }
   }
 

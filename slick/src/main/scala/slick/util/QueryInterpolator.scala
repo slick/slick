@@ -1,7 +1,11 @@
 package slick.util
 
 import scala.language.implicitConversions
+<<<<<<< HEAD
 
+=======
+import scala.language.experimental.macros
+>>>>>>> Macro-less b interpolator implementation
 import slick.ast.{Node, Symbol, SymbolNamer}
 
 object QueryInterpolator {
@@ -106,8 +110,7 @@ class QueryInterpolator(context: StringContext) {
           av match {
             case av: String => ic.sqlBuilder += ic.quoteIdentifier(av)
             case av: Symbol => ic.sqlBuilder += ic.symbolName(av)
-            case av =>
-              throw new IllegalArgumentException(s"Unsupported type ${av.getClass.getName}. Must be Node or Symbol.")
+            case av => throw new IllegalArgumentException(s"Unsupported type ${av.getClass.getName}. Must be Node or Symbol.")
           }
         case '!' =>
           appendString(s.substring(0, len-1))

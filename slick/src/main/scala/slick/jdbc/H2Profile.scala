@@ -10,6 +10,10 @@ import scala.concurrent.ExecutionContext
 
 import slick.ast.*
 import slick.basic.Capability
+import slick.relational.{RelationalCapabilities, RelationalProfile}
+import slick.sql.SqlCapabilities
+import slick.ast._
+import slick.util.QueryInterpolator.queryInterpolator
 import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.relational.{RelationalCapabilities, RelationalProfile}
