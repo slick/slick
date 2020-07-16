@@ -19,7 +19,7 @@ import slick.lifted._
 import slick.relational.{RelationalProfile, RelationalCapabilities}
 import slick.sql.SqlCapabilities
 import slick.util.{SlickLogger, GlobalConfig, ConstArray}
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 import slick.util.ConfigExtensionMethods.configExtensionMethods
 
 /** Slick profile for MySQL.
@@ -198,7 +198,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override protected val parenthesizeNestedRHSJoin = true
     override protected val quotedJdbcFns = Some(Nil)
 
-    override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+    override def expr(n: Node): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
         val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else if(ti == columnTypes.bigDecimalJdbcType) "DECIMAL" else ti.sqlTypeName(None)
         b"\({fn convert(!${ch},$tn)}\)"
@@ -209,11 +209,11 @@ trait MySQLProfile extends JdbcProfile { profile =>
       case RowNumGen(sym, init) => b"@`$sym := $init"
       case Union(left, right, all) =>
         b"\{"
-        buildFrom(left, None)
+        buildFrom(left, None, false)
         if (all) b"\nunion all " else b"\nunion "
-        buildFrom(right, None)
+        buildFrom(right, None, false)
         b"\}"
-      case _ => super.expr(n, skipParens)
+      case _ => super.expr(n)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
@@ -228,7 +228,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
         b"isnull($n),"
       else if(o.nulls.first && o.direction.desc)
         b"isnull($n) desc,"
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b" desc"
     }
 

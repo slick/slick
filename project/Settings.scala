@@ -25,12 +25,9 @@ object Settings {
   val DocTest = config("doctest") extend(Test)
   val CompileConfig = config("compile")
   val TestConfig = config("test")
-  val MacroConfig = config("macro")
 
   def slickProjectSettings = (
     slickGeneralSettings ++
-      compilerDependencySetting("macro") ++
-      inConfig(MacroConfig)(Defaults.configSettings) ++
       FMPP.preprocessorSettings ++
       mimaDefaultSettings ++
       extTarget("slick") ++
@@ -72,11 +69,7 @@ object Settings {
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$6"),
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$7")
         ),
-        ivyConfigurations += MacroConfig.hide.extend(Compile),
-        Compile / unmanagedClasspath  ++= (MacroConfig / products).value,
         libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
-        (Compile / packageSrc / mappings) ++= (MacroConfig / packageSrc / mappings).value,
-        (Compile / packageBin / mappings) ++= (MacroConfig / packageBin / mappings).value,
         OsgiKeys.exportPackage := Seq("slick", "slick.*", "scala.slick", "scala.slick.*"),
         OsgiKeys.importPackage := Seq(Osgi.osgiImport("scala*", scalaVersion.value), "*"),
         OsgiKeys.privatePackage := Nil
@@ -316,8 +309,7 @@ object Settings {
     // When using scala.home.local property adds all jars from <SCALA_HOME>/lib directory.
     unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
     CompileConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
-    TestConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
-    MacroConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq)
+    TestConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq)
   )
 
   def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
@@ -365,7 +357,5 @@ object Settings {
 
     Compile / unmanagedClasspath :=
       Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value,
-
-    Compile / unmanagedClasspath ++= (LocalProject("slick") / MacroConfig / products).value
   )
 }

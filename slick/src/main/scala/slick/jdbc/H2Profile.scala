@@ -12,7 +12,7 @@ import slick.basic.Capability
 import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
 import slick.ast._
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.{MColumn, MTable}
 
@@ -100,11 +100,11 @@ trait H2Profile extends JdbcProfile {
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns = Some(Nil)
 
-    override def expr(n: Node, skipParens: Boolean = false) = n match {
+    override def expr(n: Node) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval(schema(), '$name')"
       case RowNumber(_) => b"rownum"
-      case _ => super.expr(n, skipParens)
+      case _ => super.expr(n)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
