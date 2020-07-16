@@ -1,10 +1,6 @@
 package slick.ast
 
-import scala.annotation.{implicitNotFound, tailrec}
-import scala.collection.{mutable, Factory}
 import scala.language.implicitConversions
-import scala.reflect.{ClassTag, classTag as mkClassTag}
-
 import slick.SlickException
 import slick.util.{ConstArray, Dumpable, DumpInfo, TupleSupport}
 

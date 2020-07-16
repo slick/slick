@@ -3,6 +3,7 @@ package slick.sql
 import slick.ast.{ColumnOption, Symbol, SymbolNamer, TableNode}
 import slick.basic.{BasicAction, BasicStreamingAction}
 import slick.compiler.QueryCompiler
+import slick.relational.{RelationalActionComponent, RelationalTableComponent, RelationalProfile}
 import slick.dbio._
 import slick.relational.{RelationalActionComponent, RelationalProfile, RelationalTableComponent}
 import slick.util.DumpInfo

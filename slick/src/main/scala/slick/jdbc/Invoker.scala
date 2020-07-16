@@ -1,5 +1,6 @@
 package slick.jdbc
 
+import scala.collection.compat._
 import scala.annotation.unchecked.{uncheckedVariance => uV}
 import scala.collection.Factory
 

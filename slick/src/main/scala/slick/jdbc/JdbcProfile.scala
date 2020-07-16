@@ -1,6 +1,6 @@
 package slick.jdbc
 
-import scala.collection.mutable
+import scala.collection.mutable.Builder
 import scala.language.implicitConversions
 
 import slick.ast.*

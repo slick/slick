@@ -6,9 +6,12 @@ import scala.reflect.ClassTag
 import slick.ast.*
 import slick.basic.{BasicActionComponent, BasicProfile}
 import slick.compiler.{EmulateOuterJoins, Phase, QueryCompiler}
-import slick.dbio.*
-import slick.lifted.*
-import slick.lifted.FunctionSymbolExtensionMethods.*
+import slick.dbio._
+import slick.lifted.FunctionSymbolExtensionMethods._
+import slick.lifted._
+
+import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 /** A profile for relational databases that does not assume the existence
   * of SQL (or any other text-based language for executing statements).

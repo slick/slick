@@ -2,10 +2,10 @@ package slick.lifted
 
 import scala.language.implicitConversions
 
-import slick.ast.*
-import slick.ast.ScalaBaseType.*
-import slick.lifted.FunctionSymbolExtensionMethods.*
-import slick.util.ConstArray
+import scala.language.implicitConversions
+import slick.ast._
+import FunctionSymbolExtensionMethods._
+import ScalaBaseType._
 import slick.SlickException
 
 trait ExtensionMethods[B1, P1] extends Any {
