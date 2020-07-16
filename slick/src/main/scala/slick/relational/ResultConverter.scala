@@ -5,7 +5,7 @@ import slick.util.{Dumpable, DumpInfo, TupleSupport}
 
 /** A `ResultConverter` is used to read data from a result, update a result,
   * and set parameters of a query. */
-trait ResultConverter[M <: ResultConverterDomain, @specialized T] extends Dumpable {
+trait ResultConverter[M <: ResultConverterDomain, T] extends Dumpable {
   protected[this] type Reader = M#Reader
   protected[this] type Writer = M#Writer
   protected[this] type Updater = M#Updater
@@ -89,9 +89,7 @@ final case class ProductResultConverter[
 }
 
 /** Result converter that can write to multiple sub-converters and read from the first one */
-final case class CompoundResultConverter[
-  M <: ResultConverterDomain,
-  @specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T
+final case class CompoundResultConverter[M <: ResultConverterDomain, T
 ](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
   private[this] val cha = childConverters.toArray
   private[this] val len = cha.length
