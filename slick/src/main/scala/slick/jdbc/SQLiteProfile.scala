@@ -13,7 +13,7 @@ import slick.SlickException
 import slick.basic.Capability
 import slick.dbio._
 import slick.ast._
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 import slick.compiler.CompilerState
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 
@@ -188,7 +188,7 @@ trait SQLiteProfile extends JdbcProfile {
         b"($n) is null,"
       else if(o.nulls.first && o.direction.desc)
         b"($n) is null desc,"
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b" desc"
     }
 
@@ -199,7 +199,7 @@ trait SQLiteProfile extends JdbcProfile {
       case _ =>
     }
 
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+    override def expr(c: Node): Unit = c match {
       case Library.UCase(ch) => b"upper(!$ch)"
       case Library.LCase(ch) => b"lower(!$ch)"
       case Library.Substring(n, start, end) =>
@@ -226,7 +226,7 @@ trait SQLiteProfile extends JdbcProfile {
         buildFrom(right, None, true)
         b"\]"
         b"\}"
-      case _ => super.expr(c, skipParens)
+      case _ => super.expr(c)
     }
   }
 

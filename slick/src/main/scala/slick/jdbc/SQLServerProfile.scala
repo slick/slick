@@ -19,7 +19,7 @@ import slick.lifted._
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.{ConstArray, GlobalConfig, SlickLogger}
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 import slick.util.ConfigExtensionMethods._
 
 /** Slick profile for Microsoft SQL Server.
@@ -165,7 +165,7 @@ trait SQLServerProfile extends JdbcProfile {
         b"case when ($n) is null then 1 else 0 end,"
       else if(o.nulls.first && o.direction.desc)
         b"case when ($n) is null then 0 else 1 end,"
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b" desc"
     }
 
@@ -182,27 +182,27 @@ trait SQLServerProfile extends JdbcProfile {
       // SQLSever doesn't have "select for update" syntax, so use with (updlock,rowlock) in from clause
     }
 
-    override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+    override def expr(n: Node): Unit = n match {
       // Cast bind variables of type TIME to TIME (otherwise they're treated as TIMESTAMP)
       case c @ LiteralNode(_) if c.volatileHint && jdbcTypeFor(c.nodeType) == columnTypes.timeJdbcType =>
         b"cast("
-        super.expr(n, skipParens)
+        super.expr(n)
         b" as ${columnTypes.timeJdbcType.sqlTypeName(None)})"
       case QueryParameter(_, tpe, _) if jdbcTypeFor(tpe) == columnTypes.timeJdbcType =>
         b"cast("
-        super.expr(n, skipParens)
+        super.expr(n)
         b" as ${columnTypes.timeJdbcType.sqlTypeName(None)})"
       case Library.Substring(n, start) =>
         b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${Int.MaxValue})}\)"
       case Library.Repeat(str, count) =>
         b"replicate($str, $count)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
-        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
-      case n => super.expr(n, skipParens)
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
+      case n => super.expr(n)
     }
   }
 
