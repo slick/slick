@@ -38,8 +38,8 @@ trait Aliases {
   type NestedShapeLevel = lifted.NestedShapeLevel
   type FlatShapeLevel = lifted.FlatShapeLevel
   type ColumnsShapeLevel = lifted.ColumnsShapeLevel
-  type Isomorphism[A, B] = lifted.Isomorphism[A, B]
-  type MappedTo[T] = lifted.MappedTo[T]
+  //type Isomorphism[A, B] = lifted.Isomorphism[A, B]
+  //type MappedTo[T] = lifted.MappedTo[T]
   val ForeignKeyAction = slick.model.ForeignKeyAction
   type ForeignKeyAction = slick.model.ForeignKeyAction
 
