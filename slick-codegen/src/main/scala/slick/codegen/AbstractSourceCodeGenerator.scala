@@ -57,18 +57,15 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
   def codeForDDL: String = {
     if (ddlEnabled) {
       "\n/** DDL for all tables. Call .create to execute. */" +
-        (
-          if (tables.length > 5)
-            "\nlazy val schema: profile.SchemaDescription = Array(" +
-              tables.map(_.TableValue.name + ".schema").mkString(", ") +
-              ").reduceLeft(_ ++ _)"
-          else if (tables.nonEmpty)
-            "\nlazy val schema: profile.SchemaDescription = " +
-              tables.map(_.TableValue.name + ".schema").mkString(" ++ ")
-          else
-            "\nlazy val schema: profile.SchemaDescription = profile.DDL(Nil, Nil)"
-          ) +
-        "\n\n"
+      (
+        if(tables.length > 5)
+          "\nlazy val schema: profile.SchemaDescription = Array(" + tables.map(_.TableValue.name + ".schema").mkString(", ") + ").reduceLeft(_ ++ _)"
+        else if(tables.nonEmpty)
+          "\nlazy val schema: profile.SchemaDescription = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ")
+        else
+          "\nlazy val schema: profile.SchemaDescription = profile.DDL(Nil, Nil)"
+        ) +
+      "\n\n"
     } else ""
   }
 
