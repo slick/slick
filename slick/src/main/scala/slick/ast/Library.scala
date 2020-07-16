@@ -72,7 +72,6 @@ object Library {
   val Sum = new SqlAggregateFunction("sum")
   val Count = new SqlAggregateFunction("count")
   val CountAll = new AggregateFunction("count(*)")
-  val CountDistinct = new AggregateFunction("count distinct")
 
   val Exists = new SqlFunction("exists")
 

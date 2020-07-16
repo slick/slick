@@ -13,10 +13,6 @@ import com.typesafe.config.Config
 /** The basic functionality that has to be implemented by all profiles. */
 trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
 
-  /** The external interface of this profile which defines the API. */
-  @deprecated("Use the Profile object directly instead of calling `.profile` on it", "3.2")
-  val profile: BasicProfile = this
-
   /** The back-end type required by this profile */
   type Backend <: BasicBackend
   /** The back-end implementation for this profile */
@@ -46,8 +42,6 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
     type SlickException = slick.SlickException
 
     implicit val slickProfile: self.type = self
-    @deprecated("Use `slickProfile` instead of `slickDriver`", "3.2")
-    val slickDriver: self.type = slickProfile
 
     implicit final def anyToShapedValue[T, U](value: T)(implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]): ShapedValue[T, U] =
       new ShapedValue[T, U](value, shape)
@@ -125,11 +119,6 @@ trait BasicActionComponent { self: BasicProfile =>
 
   type ProfileAction[+R, +S <: NoStream, -E <: Effect] <: BasicAction[R, S, E]
   type StreamingProfileAction[+R, +T, -E <: Effect] <: BasicStreamingAction[R, T, E] with ProfileAction[R, Streaming[T], E]
-
-  @deprecated("Use `ProfileAction` instead of `DriverAction`", "3.2")
-  final type DriverAction[+R, +S <: NoStream, -E <: Effect] = ProfileAction[R, S, E]
-  @deprecated("Use `StreamingProfileAction` instead of `StreamingDriverAction`", "3.2")
-  final type StreamingDriverAction[+R, +T, -E <: Effect] = StreamingProfileAction[R, T, E]
 
   //////////////////////////////////////////////////////////// Query Actions
 
