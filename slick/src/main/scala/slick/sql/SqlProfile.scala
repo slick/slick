@@ -4,7 +4,6 @@ import slick.basic.{BasicStreamingAction, BasicAction}
 import slick.compiler.QueryCompiler
 import slick.relational.{RelationalActionComponent, RelationalTableComponent, RelationalProfile}
 
-import scala.language.higherKinds
 import slick.dbio._
 import slick.ast.{TableNode, Symbol, SymbolNamer, ColumnOption}
 import slick.util.DumpInfo

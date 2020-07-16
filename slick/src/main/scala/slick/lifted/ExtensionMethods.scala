@@ -2,7 +2,7 @@ package slick.lifted
 
 import slick.util.ConstArray
 
-import scala.language.{implicitConversions, higherKinds}
+import scala.language.implicitConversions
 import slick.ast._
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._

@@ -173,7 +173,6 @@ object OrmToSlick extends App {
       people.map(p => (p.name,p.age)) += ("S. Zeiger", 54321)
       //#slickInsert
     };{
-      import scala.language.higherKinds
       //#slickRelationships
       implicit class PersonExtensions[C[_]](q: Query[People, Person, C]) {
         // specify mapping of relationship to address

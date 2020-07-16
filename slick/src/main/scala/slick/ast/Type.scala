@@ -1,6 +1,6 @@
 package slick.ast
 
-import scala.language.{implicitConversions, higherKinds}
+import scala.language.implicitConversions
 import slick.SlickException
 import scala.collection.compat._
 import scala.collection.mutable.{Builder, ArrayBuilder}

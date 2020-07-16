@@ -1,7 +1,6 @@
 package slick.jdbc
 
 import scala.collection.compat._
-import scala.language.higherKinds
 import scala.annotation.unchecked.{uncheckedVariance => uV}
 import slick.util.CloseableIterator
 

@@ -1,6 +1,5 @@
 package slick.lifted
 
-import scala.language.higherKinds
 import scala.annotation.implicitNotFound
 import slick.ast.Node
 import slick.basic.BasicProfile

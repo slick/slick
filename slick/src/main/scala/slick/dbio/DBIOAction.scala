@@ -8,7 +8,6 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Try, Failure, Success}
 import scala.util.control.NonFatal
-import scala.language.higherKinds
 
 import slick.SlickException
 import slick.basic.BasicBackend

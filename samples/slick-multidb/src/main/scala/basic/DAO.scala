@@ -1,4 +1,3 @@
-import scala.language.higherKinds
 import slick.jdbc.JdbcProfile
 
 /** All database code goes into the DAO (data access object) class which

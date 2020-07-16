@@ -1,5 +1,3 @@
-import scala.language.higherKinds
-
 /** Common functionality that needs to work with types from the DAO
   * but in a DAO-independent way.
   */

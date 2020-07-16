@@ -1,6 +1,6 @@
 package slick.basic
 
-import scala.language.{higherKinds, implicitConversions, existentials}
+import scala.language.{implicitConversions, existentials}
 
 import slick.ast._
 import slick.compiler.QueryCompiler
