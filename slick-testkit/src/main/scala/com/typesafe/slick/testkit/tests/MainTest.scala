@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import scala.language.higherKinds
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>

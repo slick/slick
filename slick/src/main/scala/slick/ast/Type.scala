@@ -1,7 +1,6 @@
 package slick.ast
 
-import scala.language.{higherKinds, implicitConversions}
-
+import scala.language.implicitConversions
 import slick.SlickException
 import scala.collection.mutable.{ArrayBuilder, Builder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
