@@ -18,7 +18,7 @@ import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
 import slick.util.{ConstArray, GlobalConfig, SlickLogger}
 import slick.util.ConfigExtensionMethods.configExtensionMethods
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 import com.typesafe.config.Config
 
@@ -208,7 +208,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override protected val parenthesizeNestedRHSJoin = true
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
-    override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+    override def expr(n: Node): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
         val tn =
           if (ti == columnTypes.stringJdbcType)
@@ -225,9 +225,9 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       case RowNumGen(sym, init) => b"@`$sym := $init"
       case Union(left, right, all) =>
         b"\{"
-        buildFrom(left, None)
+        buildFrom(left, None, false)
         if (all) b"\nunion all " else b"\nunion "
-        buildFrom(right, None)
+        buildFrom(right, None, false)
         b"\}"
       case Apply(Library.In, children) if children.exists(_.isInstanceOf[Union]) =>
         b"\("
@@ -241,7 +241,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
           case node => expr(node)
         }
         b"\)"
-      case _ => super.expr(n, skipParens)
+      case _ => super.expr(n)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
@@ -256,7 +256,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         b"isnull($n),"
       else if(o.nulls.first && o.direction.desc)
         b"isnull($n) desc,"
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b" desc"
     }
 

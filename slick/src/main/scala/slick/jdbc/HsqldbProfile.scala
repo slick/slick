@@ -19,7 +19,7 @@ import slick.lifted.*
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.ConstArray
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for <a href="http://www.hsqldb.org/">HyperSQL</a>
   * (starting with version 2.0).
@@ -88,7 +88,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+    override def expr(c: Node): Unit = c match {
       case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.nodeType).sqlType != Types.CHAR =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
          * spaces in some expressions, so we cast all string literals to
@@ -96,13 +96,13 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
          * enough room for concatenating strings (which extends the size even if
          * it is not needed). */
         b"cast("
-        super.expr(c)
+        withSkipParens(false)(super.expr(c))
         b" as varchar(16777216))"
       /* Hsqldb uses the SQL:2008 syntax for NEXTVAL */
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Hsqldb does not support CURRVAL")
       case RowNumber(_) => b"rownum()" // Hsqldb uses Oracle ROWNUM semantics but needs parens
-      case _ => super.expr(c, skipParens)
+      case _ => super.expr(c)
     }
 
     override protected def buildJoin(j: Join): Unit = {

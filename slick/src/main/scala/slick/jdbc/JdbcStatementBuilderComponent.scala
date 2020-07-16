@@ -4,15 +4,15 @@ import scala.collection.mutable.HashMap
 import scala.language.existentials
 
 import slick.SlickException
-import slick.ast._
-import slick.ast.TypeUtil._
+import slick.ast.*
+import slick.ast.TypeUtil.*
 import slick.ast.Util.nodeToNodeOps
 import slick.compiler.{CodeGen, CompilerState, QueryCompiler, RewriteBooleans}
-import slick.lifted._
+import slick.lifted.*
 import slick.relational.{CompiledMapping, RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.sql.SqlProfile
-import slick.util._
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.*
+import slick.util.QueryInterpolator.queryInterpolator
 
 trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
@@ -90,7 +90,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   val scalarFrom: Option[String] = None
 
   /** Builder for SELECT and UPDATE statements. */
-  class QueryBuilder(val tree: Node, val state: CompilerState) { queryBuilder =>
+  class QueryBuilder(val tree: Node, val state: CompilerState) extends InterpolationContext { queryBuilder =>
 
     // Immutable config options (to be overridden by subclasses)
     protected val supportsTuples = true
@@ -107,9 +107,22 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
-    protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
+    val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new HashMap[TermSymbol, Join]
     protected var currentUniqueFrom: Option[TermSymbol] = None
+
+    private[this] var _skipParens = false
+
+    final def skipParens: Boolean = _skipParens
+
+    def quoteIdentifier(s: String): String = self.quoteIdentifier(s)
+    implicit def interpolationContext: InterpolationContext = this
+
+    final def withSkipParens[U](b: Boolean)(f: => U): U = {
+      val old = _skipParens
+      _skipParens = b
+      try f finally _skipParens = old
+    }
 
     def sqlBuilder = b
 
@@ -207,7 +220,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         case Nil | Seq((_, Pure(ProductNode(ConstArray()), _))) => scalarFrom.foreach { s => b"\nfrom $s" }
         case from =>
           b"\nfrom "
-          b.sep(from, ", ") { case (sym, n) => buildFrom(n, if(Some(sym) == currentUniqueFrom) None else Some(sym)) }
+          b.sep(from, ", ") { case (sym, n) => buildFrom(n, if(Some(sym) == currentUniqueFrom) None else Some(sym), false) }
       }
     }
 
@@ -264,7 +277,10 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         expr(n, true)
     }
 
-    protected def buildFrom(n: Node, alias: Option[TermSymbol], skipParens: Boolean = false): Unit = building(FromPart) {
+    protected final def buildFrom(n: Node, alias: Option[TermSymbol], skipParens: Boolean): Unit =
+      withSkipParens(skipParens)(buildFrom(n, alias))
+
+    protected def buildFrom(n: Node, alias: Option[TermSymbol]): Unit = building(FromPart) {
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
         case t: TableNode =>
@@ -273,13 +289,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         case j: Join =>
           buildJoin(j)
         case n =>
-          expr(n, skipParens)
+          expr(n)
           addAlias
       }
     }
 
     protected def buildJoin(j: Join): Unit = {
-      buildFrom(j.left, Some(j.leftGen))
+      buildFrom(j.left, Some(j.leftGen), false)
       val op = j.on match {
         case LiteralNode(true) if j.jt == JoinType.Inner => "cross"
         case _ => j.jt.sqlName
@@ -287,16 +303,19 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b"\n$op join "
       if(j.right.isInstanceOf[Join] && parenthesizeNestedRHSJoin) {
         b"\["
-        buildFrom(j.right, Some(j.rightGen))
+        buildFrom(j.right, Some(j.rightGen), false)
         b"\]"
-      } else buildFrom(j.right, Some(j.rightGen))
+      } else buildFrom(j.right, Some(j.rightGen), false)
       if(op != "cross") j.on match {
         case LiteralNode(true) => b"\non 1=1"
         case on => b"\non !$on"
       }
     }
 
-    def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+    final def expr(n: Node, skipParens: Boolean): Unit =
+      withSkipParens(skipParens)(expr(n))
+
+    def expr(n: Node): Unit = n match {
       case p @ Path(path) =>
         val (base, rest) = path.foldRight[(Option[TermSymbol], List[TermSymbol])]((None, Nil)) {
           case (ElementSymbol(idx), (Some(b), Nil)) => (Some(joins(b).generators(idx-1)._1), Nil)
@@ -316,7 +335,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         } else b += valueToSQLLiteral(v, n.nodeType)
       case ProductNode(ch) =>
         b"\("
-        b.sep(ch, ", ")(expr(_))
+        b.sep(ch, ", ")(expr(_, false))
         b"\)"
       case n: Apply => n match {
         case Library.Not(Library.==(l, LiteralNode(null))) =>
@@ -328,7 +347,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           if(supportsTuples) b"$left = $right"
           else {
             val cols = left.children.zip(right.children).force
-            b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
+            b.sep(cols, " and "){ case (l,r) => expr(l, false); b += "="; expr(r, false) }
           }
           b"\)"
         case RewriteBooleans.ToFakeBoolean(ch) =>
@@ -379,7 +398,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           b"\("
           if(ch.length == 1) {
             b"${sym.name} ${ch.head}"
-          } else b.sep(ch, " " + sym.name + " ")(expr(_))
+          } else b.sep(ch, " " + sym.name + " ")(expr(_, false))
           b"\)"
         case Apply(sym: Library.JdbcFunction, ch) =>
           val quote = quotedJdbcFns.map(_.contains(sym)).getOrElse(true)
@@ -440,7 +459,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     }
 
     protected def buildOrdering(n: Node, o: Ordering): Unit = {
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b" desc"
       if(o.nulls.first) b" nulls first"
       else if(o.nulls.last) b" nulls last"

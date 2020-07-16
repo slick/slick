@@ -13,7 +13,7 @@ import slick.dbio.*
 import slick.jdbc.meta.MTable
 import slick.lifted.*
 import slick.relational.RelationalCapabilities
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for IBM DB2 UDB.
   *
@@ -80,7 +80,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     override protected val hasRadDegConversion = false
     override protected val pi = "decfloat(3.1415926535897932384626433832)"
 
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+    override def expr(c: Node): Unit = c match {
       case RowNumber(by) =>
         b += "row_number() over("
         if(!by.isEmpty) buildOrderByClause(by)
@@ -94,12 +94,12 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
       case Library.Database() => b += "current server"
       case Library.CountAll(LiteralNode(1)) => b"count(*)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
-        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
-      case _ => super.expr(c, skipParens)
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
+      case _ => super.expr(c)
     }
 
     override protected def buildOrdering(n: Node, o: Ordering): Unit = {
@@ -107,14 +107,14 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
        * sorted after non-null values by default. */
       if(o.nulls.first && !o.direction.desc) {
         b += "case when ("
-        expr(n)
+        expr(n, false)
         b += ") is null then 0 else 1 end,"
       } else if(o.nulls.last && o.direction.desc) {
         b += "case when ("
-        expr(n)
+        expr(n, false)
         b += ") is null then 1 else 0 end,"
       }
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b += " desc"
     }
 
