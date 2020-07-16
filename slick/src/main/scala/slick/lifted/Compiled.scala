@@ -15,8 +15,6 @@ import slick.basic.BasicProfile
 sealed trait Compiled[T] {
   /** The profile which is used for compiling the query. */
   def profile: BasicProfile
-  @deprecated("Use `profile` instead of `driver`", "3.2")
-  final def driver: BasicProfile = profile
 
   /** Perform a transformation of the underlying value. The computed value must
     * be `Compilable`. The resulting `Compiled` instance will be recompiled when

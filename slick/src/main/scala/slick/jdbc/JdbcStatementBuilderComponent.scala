@@ -368,7 +368,6 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}*$ch)"
         case Library.Radians(ch) if!hasRadDegConversion => b"(!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}/180.0*$ch)"
         case Library.Between(left, start, end) => b"$left between $start and $end"
-        case Library.CountDistinct(e) => b"count(distinct $e)"
         case Library.CountAll(e) => b"count($e)"
         case Library.Like(l, r) => b"\($l like $r\)"
         case Library.Like(l, r, LiteralNode(esc: Char)) =>

@@ -196,8 +196,6 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     def ++= (values: Iterable[T]) = dbAction(inv.++=(values)(_))
   }
 
-  override val profile: MemoryProfile = this
-
   override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
