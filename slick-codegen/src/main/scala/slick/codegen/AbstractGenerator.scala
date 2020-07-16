@@ -142,7 +142,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def PlainSqlMapper: PlainSqlMapper
     /** Plain SQL GetResult mapper generator definition
         @group Basic customization overrides */
-    trait APlainSqlMapperDef extends ATermDef{
+    trait APlainSqlMapperDef extends ATermDef {
       def doc = s"GetResult implicit for fetching ${EntityType.name} objects using plain SQL queries"
       def rawName: String = "GetResult"+EntityType.rawName
     }

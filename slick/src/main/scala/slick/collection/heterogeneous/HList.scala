@@ -1,6 +1,7 @@
 package slick.collection.heterogeneous
 
-import scala.annotation.unchecked.uncheckedVariance as uv
+import scala.annotation.unchecked.{uncheckedVariance => uv}
+import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 import scala.reflect.ClassTag
 
 import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
@@ -45,7 +46,7 @@ sealed abstract class HList extends Product {
   }
 
   /** Prepend an element to this HList, returning a new HList. */
-  @inline final def :: [E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
+  @inline final def :: [@specialized E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
 
   /** Drop the first `n` elements from this HList. */
   final def drop(i: Int): HList = {
@@ -142,6 +143,6 @@ object HNil extends HList {
   def self = HNil
   def head = throw new NoSuchElementException("HNil.head")
   def tail = throw new NoSuchElementException("HNil.tail")
-  override def toList: Nil.type = Nil
+  def toList = Nil
   def nonEmpty = false
 }
