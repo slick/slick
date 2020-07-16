@@ -6,7 +6,6 @@ import com.typesafe.config.Config
 
 import org.reactivestreams.Subscriber
 
-import scala.collection.compat._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.{Future, ExecutionContext}
 

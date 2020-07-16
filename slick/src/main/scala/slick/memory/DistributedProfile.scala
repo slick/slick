@@ -1,7 +1,6 @@
 package slick.memory
 
 
-import scala.collection.compat._
 import scala.collection.mutable.{Builder, HashMap}
 
 import slick.SlickException

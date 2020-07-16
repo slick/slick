@@ -11,7 +11,6 @@ import com.typesafe.config.Config
 import scala.concurrent.{Promise, ExecutionContext, Future}
 import scala.util.{Success, Failure}
 import scala.util.control.NonFatal
-import scala.collection.compat._
 
 import org.slf4j.LoggerFactory
 import org.reactivestreams._

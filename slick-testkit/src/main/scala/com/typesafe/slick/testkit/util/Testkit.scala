@@ -29,7 +29,6 @@ import org.junit.Assert
 import org.slf4j.MDC
 
 import org.reactivestreams.{Subscription, Subscriber, Publisher}
-import scala.collection.compat._
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {

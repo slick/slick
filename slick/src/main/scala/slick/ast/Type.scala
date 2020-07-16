@@ -2,11 +2,13 @@ package slick.ast
 
 import scala.language.implicitConversions
 import slick.SlickException
-import scala.collection.compat._
-import scala.collection.mutable.{Builder, ArrayBuilder}
+
+import scala.collection.mutable.{ArrayBuilder, Builder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
 import scala.annotation.implicitNotFound
-import slick.util.{DumpInfo, Dumpable, TupleSupport, ConstArray}
+import slick.util.{ConstArray, DumpInfo, Dumpable, TupleSupport}
+
+import scala.collection.Factory
 
 /** Super-trait for all types */
 trait Type extends Dumpable {
