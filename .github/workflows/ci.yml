@@ -5,7 +5,7 @@ on:
     branches: [ '**' ]
   push:
     branches: [ 'main' ]
-    tags: [ v* ]
+    tags: [ 'v*' ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         java: [ 8, 17 ]
-        scala: [ 2.12.x, 2.13.x ]
+        scala: [ 2.13.x ]
 
     services:
       postgres:
