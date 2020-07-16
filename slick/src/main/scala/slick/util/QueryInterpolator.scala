@@ -1,7 +1,6 @@
 package slick.util
 
 import scala.language.implicitConversions
-import scala.language.experimental.macros
 import slick.ast.{Node, Symbol, SymbolNamer}
 
 object QueryInterpolator {
