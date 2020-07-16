@@ -663,8 +663,11 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): Seq[SingleInsertResult] = individual
 
-    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): Seq[RU] =
-      values.lazyZip(buildKeysResult(st).buildColl[Vector](null, implicitly)).map(mux).toSeq
+    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): Seq[RU] = {
+      //TODO 4.0.0: replace with the following
+      //values.lazyZip(buildKeysResult(st).buildColl[Vector](null, implicitly)).map(mux).toSeq
+      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
+    }
 
     protected def retQuery(st: Statement, updateCount: Int) =
       buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"

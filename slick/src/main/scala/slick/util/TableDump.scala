@@ -32,11 +32,15 @@ class TableDump(maxColumnWidth: Int = 20) {
     for((line, lno) <- texts.zipWithIndex) {
       if(lno < headers.length) {
         val color = if(lno % 2 == 0) cYellow else cGreen
-        buf += line.lazyZip(widths).map((s, len) => color+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
+        //TODO 4.0.0: replace with
+        //buf += line.lazyZip(widths).map((s, len) => color+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
+        buf += (line, widths).zipped.map((s, len) => color+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
         if(lno == headers.length - 1)
           buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(4), box(5), box(6)) + cNormal
       } else {
-        buf += line.lazyZip(widths).map((s, len) => cNormal+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
+        //TODO 4.0.0: replace with
+        //buf += line.lazyZip(widths).map((s, len) => cNormal+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
+        buf += (line, widths).zipped.map((s, len) => cNormal+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
       }
     }
     buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(7), box(8), box(9)) + cNormal

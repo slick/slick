@@ -162,7 +162,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
   }
   def toNode(value: Mixed): Node = ProductNode(ConstArray.from(shapes.iterator.zip(getIterator(value)).map {
     case (p, f) => p.toNode(f.asInstanceOf[p.Mixed])
-  }.to(Vector)))
+  }/*TODO 4.0.0: replace with .iterator.toVector*/.toIterable))
 }
 
 /** Base class for ProductNodeShapes with a type mapping */

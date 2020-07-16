@@ -69,7 +69,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Join(_, _, left, right, JoinType.Zip, LiteralNode(true)) =>
         val leftV = run(left).asInstanceOf[Coll]
         val rightV = run(right).asInstanceOf[Coll]
-        leftV.lazyZip(rightV).map { (l, r) => new ProductValue(Vector(l, r)) }
+        //TODO 4.0.0: use the following leftV.lazyZip(rightV).map { (l, r) => new ProductValue(Vector(l, r)) }
+        (leftV, rightV).zipped.map { (l, r) => new ProductValue(Vector(l, r)) }
       case Join(leftGen, rightGen, left, right, JoinType.Inner, by) =>
         val res = run(left).asInstanceOf[Coll].flatMap { l =>
           scope(leftGen) = l
@@ -404,9 +405,11 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       var len = s.length
       while(len > 0 && s.charAt(len-1) == ' ') len -= 1
       if(len == s.length) s else s.substring(0, len)
-    case Library.Sign =>
-      val n = args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric
-      n.toInt(n.sign(args(0)._2))
+    //TODO 4.0.0: replace the following case with the following
+//    case Library.Sign =>
+//      val n = args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric
+//      n.toInt(n.sign(args(0)._2))
+    case Library.Sign => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.signum(args(0)._2)
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
     case Library.User => ""

@@ -267,7 +267,10 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       }
       def code = {
         val pkTable = referencedTable.TableValue.name
-        val (pkColumns, fkColumns) = referencedColumns.lazyZip(referencingColumns).map { (p, f) =>
+        val (pkColumns, fkColumns) =
+          //TODO 4.0.0: replace with:
+          //referencedColumns.lazyZip(referencingColumns).map { (p, f) =>
+          (referencedColumns, referencingColumns).zipped.map { (p, f) =>
           val pk = s"r.${p.name}"
           val fk = f.name
           if(p.model.nullable && !f.model.nullable) (pk, s"Rep.Some($fk)")
