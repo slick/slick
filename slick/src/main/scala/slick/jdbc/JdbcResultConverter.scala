@@ -47,8 +47,8 @@ class OptionResultConverter[T](val ti: JdbcType[T],
     if(ti.scalaType.isPrimitive) new DefaultingResultConverter[T](ti, default, idx)
     else new DefaultingResultConverter[T](ti, default, idx) {
       override def read(pr: ResultSet) = {
-        val v = ti.getValue(pr, idx)
-        if(v.asInstanceOf[AnyRef] eq null) default() else v
+        val v = this.ti.getValue(pr, this.idx)
+        if(v.asInstanceOf[AnyRef] eq null) this.default() else v
       }
     }
   def isDefined = new IsDefinedResultConverter[T](ti, idx)

@@ -37,7 +37,7 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
 
     override def createGetOrElseResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]],
                                                    default: () => T) = rc match {
-      case rc: OptionResultConverter[?] => rc.getOrElse(default)
+      case rc: OptionResultConverter[T] => rc.getOrElse(default)
       case _                            => super.createGetOrElseResultConverter[T](rc, default)
     }
 
@@ -79,10 +79,4 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
         mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
     }
   }
-}
-
-trait JdbcResultConverterDomain extends ResultConverterDomain {
-  type Reader = ResultSet
-  type Writer = PreparedStatement
-  type Updater = ResultSet
 }

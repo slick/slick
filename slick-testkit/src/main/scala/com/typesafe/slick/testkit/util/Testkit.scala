@@ -116,7 +116,7 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
         false
     }
   }
-  lazy val tdb: TDB = _tdb
+  final lazy val tdb: TDB = _tdb
 
   private[testkit] var keepAliveSession: tdb.profile.Backend#Session = null
 
@@ -189,28 +189,28 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
   /** Test Action: Get the current database session */
   object GetSession
-    extends SynchronousDatabaseAction[TDB#Profile#Backend#Session, NoStream, TDB#Profile#Backend, Effect] {
+    extends SynchronousDatabaseAction[TDB#Profile#Backend#Session, NoStream, TDB#Profile#Backend#Context, TDB#Profile#Backend#StreamingContext, Effect] {
     def run(context: TDB#Profile#Backend#Context) = context.session
     def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
 
   /** Test Action: Check if the current database session is pinned */
-  object IsPinned extends SynchronousDatabaseAction[Boolean, NoStream, TDB#Profile#Backend, Effect] {
+  object IsPinned extends SynchronousDatabaseAction[Boolean, NoStream, TDB#Profile#Backend#Context, TDB#Profile#Backend#StreamingContext, Effect] {
     def run(context: TDB#Profile#Backend#Context) = context.isPinned
     def getDumpInfo = DumpInfo(name = "<IsPinned>")
   }
 
   /** Test Action: Get the current transactionality level and autoCommit flag */
-  object GetTransactionality extends SynchronousDatabaseAction[(Int, Boolean), NoStream, JdbcBackend, Effect] {
-    def run(context: JdbcBackend#Context) =
+  object GetTransactionality extends SynchronousDatabaseAction[(Int, Boolean), NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+    def run(context: JdbcBackend#JdbcActionContext) =
       context.session.asInstanceOf[JdbcBackend#BaseSession].getTransactionality
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
   /** Test Action: Get the current statement parameters, except for `statementInit` which is always set to null */
   object GetStatementParameters
-    extends SynchronousDatabaseAction[JdbcBackend.StatementParameters, NoStream, JdbcBackend, Effect] {
-    def run(context: JdbcBackend#Context) = {
+    extends SynchronousDatabaseAction[JdbcBackend.StatementParameters, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+    def run(context: JdbcBackend#JdbcActionContext) = {
       val s = context.session
       JdbcBackend.StatementParameters(
         s.resultSetType,

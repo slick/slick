@@ -1,5 +1,7 @@
 package slick.lifted
 
+import slick.util.ConstArray
+
 import scala.annotation.implicitNotFound
 import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
@@ -7,7 +9,6 @@ import scala.reflect.macros.blackbox
 import slick.ast.{Join as AJoin, *}
 import slick.ast.ScalaBaseType.*
 import slick.lifted.FunctionSymbolExtensionMethods.*
-import slick.util.ConstArray
 
 sealed trait QueryBase[T] extends Rep[T]
 
@@ -19,7 +20,7 @@ sealed trait QueryBase[T] extends Rep[T]
   * Additional extension methods for queries containing a single column are
   * defined in [[slick.lifted.SingleColumnQueryExtensionMethods]].
   */
-sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
+/*sealed*/ abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self => //TODO seal again after removing separate 2.13 sources
   def shaped: ShapedValue[? <: E, U]
   final lazy val packed = shaped.toNode
 
@@ -310,49 +311,4 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: TermSymbol,
   /** Add a join condition to a join operation. */
   def on[T <: Rep[?]](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
     new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(b1, b2)).toNode), base)
-}
-
-/** Represents a database table. Profiles add extension methods to TableQuery
-  * for operations that can be performed on tables but not on arbitrary
-  * queries, e.g. getting the table DDL. */
-class TableQuery[E <: AbstractTable[?]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
-  override lazy val shaped: ShapedValue[E, E#TableElementType] = {
-    val baseTable = cons(new BaseTag { base =>
-      def taggedAs(path: Node): AbstractTable[?] = cons(new RefTag(path) {
-        def taggedAs(path: Node) = base.taggedAs(path)
-      })
-    })
-    ShapedValue(baseTable, RepShape[FlatShapeLevel, E, E#TableElementType])
-  }
-
-  lazy val toNode = shaped.toNode
-
-  /** Get the "raw" table row that represents the table itself, as opposed to
-    * a Path for a variable of the table's type. This method should generally
-    * not be called from user code. */
-  def baseTableRow: E = shaped.value
-}
-
-object TableQuery {
-  /** Create a TableQuery for a table row class using an arbitrary constructor function. */
-  def apply[E <: AbstractTable[?]](cons: Tag => E): TableQuery[E] =
-    new TableQuery[E](cons)
-
-  /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
-  def apply[E <: AbstractTable[?]]: TableQuery[E] =
-    macro TableQueryMacroImpl.apply[E]
-}
-
-object TableQueryMacroImpl {
-  def apply[E <: AbstractTable[?]](c: blackbox.Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
-    import c.universe.*
-    val cons = c.Expr[Tag => E](Function(
-      List(ValDef(Modifiers(Flag.PARAM), TermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),
-      Apply(
-        Select(New(TypeTree(e.tpe)), termNames.CONSTRUCTOR),
-        List(Ident(TermName("tag")))
-      )
-    ))
-    reify { TableQuery.apply[E](cons.splice) }
-  }
 }

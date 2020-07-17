@@ -44,6 +44,7 @@ object Library {
   val > = new SqlOperator(">")
   val >= = new SqlOperator(">=")
   val == = new SqlOperator("=")
+  val equal = == //TODO Dotty doesn't see == as a stable symbol
 
   // Set membership
   val In = new SqlOperator("in")

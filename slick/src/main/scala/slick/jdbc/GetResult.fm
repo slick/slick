@@ -13,6 +13,7 @@ trait GetResult[+T] extends (PositionedResult => T) { self =>
 class GetTupleResult[+T <: Product](val children: GetResult[_]*) extends GetResult[T] {
   def apply(rs: PositionedResult) =
     TupleSupport.buildTuple(children.iterator.map(_.apply(rs)).toIndexedSeq).asInstanceOf[T]
+
   override def toString = "GetTupleResult<"+children.length+">"
 }
 

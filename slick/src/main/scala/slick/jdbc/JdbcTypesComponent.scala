@@ -473,6 +473,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def updateValue(v: BigDecimal, r: ResultSet, idx: Int) = r.updateBigDecimal(idx, v.bigDecimal)
     }
 
+    private[this] implicit def nullCt: ClassTag[Null] = ClassTag.Null
     class NullJdbcType extends DriverJdbcType[Null] {
       def sqlType = java.sql.Types.NULL
       def setValue(v: Null, p: PreparedStatement, idx: Int) = p.setString(idx, null)
@@ -484,30 +485,30 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   trait JdbcImplicitColumnTypes extends RelationalImplicitColumnTypes {
-    implicit def booleanColumnType: columnTypes.BooleanJdbcType = columnTypes.booleanJdbcType
-    implicit def blobColumnType: columnTypes.BlobJdbcType = columnTypes.blobJdbcType
-    implicit def byteColumnType: columnTypes.ByteJdbcType = columnTypes.byteJdbcType
-    implicit def byteArrayColumnType: columnTypes.ByteArrayJdbcType = columnTypes.byteArrayJdbcType
-    implicit def charColumnType: columnTypes.CharJdbcType = columnTypes.charJdbcType
-    implicit def clobColumnType: columnTypes.ClobJdbcType = columnTypes.clobJdbcType
-    implicit def dateColumnType: columnTypes.DateJdbcType = columnTypes.dateJdbcType
-    implicit def doubleColumnType: columnTypes.DoubleJdbcType = columnTypes.doubleJdbcType
-    implicit def floatColumnType: columnTypes.FloatJdbcType = columnTypes.floatJdbcType
-    implicit def intColumnType: columnTypes.IntJdbcType = columnTypes.intJdbcType
-    implicit def longColumnType: columnTypes.LongJdbcType = columnTypes.longJdbcType
-    implicit def shortColumnType: columnTypes.ShortJdbcType = columnTypes.shortJdbcType
-    implicit def stringColumnType: columnTypes.StringJdbcType = columnTypes.stringJdbcType
-    implicit def timeColumnType: columnTypes.TimeJdbcType = columnTypes.timeJdbcType
-    implicit def timestampColumnType: columnTypes.TimestampJdbcType = columnTypes.timestampJdbcType
-    implicit def uuidColumnType: columnTypes.UUIDJdbcType = columnTypes.uuidJdbcType
-    implicit def bigDecimalColumnType: columnTypes.BigDecimalJdbcType = columnTypes.bigDecimalJdbcType
-    implicit def offsetDateTimeColumnType: columnTypes.OffsetDateTimeJdbcType = columnTypes.offsetDateTimeType
-    implicit def zonedDateTimeColumnType: columnTypes.ZonedDateTimeJdbcType = columnTypes.zonedDateType
-    implicit def localTimeColumnType: columnTypes.LocalTimeJdbcType = columnTypes.localTimeType
-    implicit def localDateColumnType: columnTypes.LocalDateJdbcType = columnTypes.localDateType
-    implicit def localDateTimeColumnType: columnTypes.LocalDateTimeJdbcType = columnTypes.localDateTimeType
-    implicit def offsetTimeColumnType: columnTypes.OffsetTimeJdbcType = columnTypes.offsetTimeType
-    implicit def instantColumnType: columnTypes.InstantJdbcType = columnTypes.instantType
+    implicit def booleanColumnType:        DriverJdbcType[Boolean] = columnTypes.booleanJdbcType
+    implicit def blobColumnType:           DriverJdbcType[Blob] = columnTypes.blobJdbcType
+    implicit def byteColumnType:           DriverJdbcType[Byte] with NumericTypedType = columnTypes.byteJdbcType
+    implicit def byteArrayColumnType:      DriverJdbcType[Array[Byte]] = columnTypes.byteArrayJdbcType
+    implicit def charColumnType:           DriverJdbcType[Char] = columnTypes.charJdbcType
+    implicit def clobColumnType:           DriverJdbcType[Clob] = columnTypes.clobJdbcType
+    implicit def dateColumnType:           DriverJdbcType[Date] = columnTypes.dateJdbcType
+    implicit def doubleColumnType:         DriverJdbcType[Double] with NumericTypedType = columnTypes.doubleJdbcType
+    implicit def floatColumnType:          DriverJdbcType[Float] with NumericTypedType = columnTypes.floatJdbcType
+    implicit def intColumnType:            DriverJdbcType[Int] with NumericTypedType = columnTypes.intJdbcType
+    implicit def longColumnType:           DriverJdbcType[Long] with NumericTypedType = columnTypes.longJdbcType
+    implicit def shortColumnType:          DriverJdbcType[Short] with NumericTypedType = columnTypes.shortJdbcType
+    implicit def stringColumnType:         DriverJdbcType[String] = columnTypes.stringJdbcType
+    implicit def timeColumnType:           DriverJdbcType[Time] = columnTypes.timeJdbcType
+    implicit def timestampColumnType:      DriverJdbcType[Timestamp] = columnTypes.timestampJdbcType
+    implicit def uuidColumnType:           DriverJdbcType[UUID] = columnTypes.uuidJdbcType
+    implicit def bigDecimalColumnType:     DriverJdbcType[BigDecimal] with NumericTypedType = columnTypes.bigDecimalJdbcType
+    implicit def offsetDateTimeColumnType: DriverJdbcType[OffsetDateTime] = columnTypes.offsetDateTimeType
+    implicit def zonedDateTimeColumnType:  DriverJdbcType[ZonedDateTime] = columnTypes.zonedDateType
+    implicit def localTimeColumnType:      DriverJdbcType[LocalTime] = columnTypes.localTimeType
+    implicit def localDateColumnType:      DriverJdbcType[LocalDate] = columnTypes.localDateType
+    implicit def localDateTimeColumnType:  DriverJdbcType[LocalDateTime] = columnTypes.localDateTimeType
+    implicit def offsetTimeColumnType:     DriverJdbcType[OffsetTime] = columnTypes.offsetTimeType
+    implicit def instantColumnType:        DriverJdbcType[Instant] = columnTypes.instantType
   }
 }
 

@@ -1,10 +1,10 @@
 package slick.codegen
 
+import slick.model as m
 import slick.ast.ColumnOption
-import slick.{model => m}
 import slick.model.ForeignKeyAction
-import slick.sql.SqlProfile
 import slick.relational.RelationalProfile
+import slick.sql.SqlProfile
 
 /**
  * Slick code generator providing the base structure and facilities.
@@ -305,7 +305,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Referenced Table code generator */
       final lazy val referencedTable: Table = tablesByName(model.referencedTable)
       /** Referenced Columns code generators */
-      final lazy val referencedColumns: Seq[Table#Column] =
+      final lazy val referencedColumns: Seq[AbstractTableDef#Column] =
         model.referencedColumns.map(_.name).map(referencedTable.columnsByName)
       /** Name used in the db or a default name */
       def dbName = model.name.getOrElse( referencedTable.model.name.table + "_FK_" + id )
@@ -377,7 +377,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
         val newdoc = doc +
           (if(scalaKeywords.contains(rawName)) s"\nNOTE: The name was escaped because it collided with a Scala keyword." else "")+
           (if(slickTableTermMembersNoArgs.contains(rawName)) s"\nNOTE: The name was disambiguated because it collided with Slick's method Table#$rawName." else "")
-        codegen.docWithCode(newdoc, code)
+        codegen.docWithCode(newdoc, this.code)
       }
       /** Name (escaped if colliding with Scala keyword). */
       final def name: TermName = termName{
