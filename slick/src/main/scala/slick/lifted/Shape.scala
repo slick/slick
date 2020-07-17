@@ -1,6 +1,7 @@
 package slick.lifted
 
 
+<<<<<<< HEAD
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 import scala.language.experimental.macros
@@ -8,6 +9,11 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.reflect.macros.blackbox
 
+=======
+import scala.language.{existentials, implicitConversions}
+import scala.annotation.implicitNotFound
+import scala.annotation.unchecked.uncheckedVariance
+>>>>>>> Compile on Dotty
 import slick.SlickException
 import slick.ast.*
 import slick.util.{ConstArray, ProductWrapper, TupleSupport}
@@ -76,6 +82,7 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
 
+<<<<<<< HEAD
   // Need to be of higher priority than repColumnShape,
   // otherwise single-column ShapedValues and MappedProjections are ambiguous
   @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel]: Shape[
@@ -93,6 +100,11 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
     MappedProjection[T, P]
   ] =
     RepShape[Level, MappedProjection[T, P], T]
+=======
+  // Need to be of higher priority than repColumnShape, otherwise single-column ShapedValues and MappedProjections are ambiguous
+  @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel]: Shape[Level, ShapedValue[T, U], U, ShapedValue[T, U]] = RepShape[Level, ShapedValue[T, U], U]
+  @inline implicit def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P]: Shape[Level, MappedProjection[T, P], T, MappedProjection[T, P]] = RepShape[Level, MappedProjection[T, P], T]
+>>>>>>> Compile on Dotty
 
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Mixed) = ()
@@ -104,12 +116,16 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
 }
 
 trait AbstractTableShapeImplicits extends RepShapeImplicits {
+<<<<<<< HEAD
   @inline implicit final def tableShape[
     Level >: FlatShapeLevel <: ShapeLevel,
     T,
     C <: AbstractTable[?]
   ](implicit ev: C <:< AbstractTable[T]): Shape[Level, C, T, C] =
     RepShape[Level, C, T]
+=======
+  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]): Shape[Level, C, T, C] = RepShape[Level, C, T]
+>>>>>>> Compile on Dotty
 }
 
 trait ConstColumnShapeImplicits extends RepShapeImplicits {
@@ -117,14 +133,22 @@ trait ConstColumnShapeImplicits extends RepShapeImplicits {
     * ensures that a `ConstColumn[T]` packs to itself, not just to
     * `Rep[T]`. This allows ConstColumns to be used as fully packed
     * types when compiling query functions. */
+<<<<<<< HEAD
   @inline implicit def constColumnShape[T, Level <: ShapeLevel]: Shape[Level, ConstColumn[T], T, ConstColumn[T]] =
     RepShape[Level, ConstColumn[T], T]
+=======
+  @inline implicit def constColumnShape[T, Level <: ShapeLevel]: Shape[Level, ConstColumn[T], T, ConstColumn[T]] = RepShape[Level, ConstColumn[T], T]
+>>>>>>> Compile on Dotty
 }
 
 trait RepShapeImplicits extends OptionShapeImplicits {
   /** A Shape for single-column Reps. */
+<<<<<<< HEAD
   @inline implicit def repColumnShape[T : BaseTypedType, Level <: ShapeLevel]: Shape[Level, Rep[T], T, Rep[T]] =
     RepShape[Level, Rep[T], T]
+=======
+  @inline implicit def repColumnShape[T : BaseTypedType, Level <: ShapeLevel]: Shape[Level, Rep[T], T, Rep[T]] = RepShape[Level, Rep[T], T]
+>>>>>>> Compile on Dotty
 
   /** A Shape for Option-valued Reps. */
   @inline
@@ -336,6 +360,7 @@ trait FlatShapeLevel extends NestedShapeLevel
   * This level is used for parameters of compiled queries. */
 trait ColumnsShapeLevel extends FlatShapeLevel
 
+<<<<<<< HEAD
 /** A value together with its Shape */
 case class ShapedValue[T, U](value: T, shape: Shape[? <: FlatShapeLevel, T, U, ?]) extends Rep[U] {
   def encodeRef(path: Node): ShapedValue[T, U] = {
@@ -446,6 +471,8 @@ object ShapedValue {
     """
   }
 }
+=======
+>>>>>>> Compile on Dotty
 
 /** A limited version of ShapedValue which can be constructed for every type
   * that has a valid shape. We use it to enforce that a table's * projection
@@ -462,10 +489,16 @@ object ProvenShape {
   /** Convert an appropriately shaped value to a ProvenShape */
   implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[? <: FlatShapeLevel, T, U, ?]): ProvenShape[U] =
     new ProvenShape[U] {
+<<<<<<< HEAD
       def value: T = v
       val shape: Shape[? <: FlatShapeLevel, ?, U, ?] = sh
       def packedValue[R](implicit ev: Shape[? <: FlatShapeLevel, ?, U, R]): ShapedValue[R, U] =
         ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, ?]])
+=======
+      def value = v
+      val shape: Shape[_ <: FlatShapeLevel, _, U, _] = sh
+      def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, _, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value.asInstanceOf[sh.Mixed]).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
+>>>>>>> Compile on Dotty
     }
 
   /** The Shape for a ProvenShape */

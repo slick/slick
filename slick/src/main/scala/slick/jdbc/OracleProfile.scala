@@ -529,15 +529,16 @@ END;
 
   class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends JdbcSchemaActionExtensionMethodsImpl(schema) {
     override def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withStatement()(_.execute(s))
     }
     override def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withStatement()(_.execute(s))
     }
   }
 
+<<<<<<< HEAD
   override def createOptionResultConverter[T](ti: JdbcType[T],
                                               idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
     ti.scalaType match {
@@ -560,6 +561,17 @@ END;
                                                               mux: (U, QR) => RU
                                                              ): ReturningInsertActionComposer[U, RU] =
     new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
+=======
+  override def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
+    if(ti.scalaType == ScalaBaseType.stringType)
+      (new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
+        override def read(pr: ResultSet) = {
+          val v = this.ti.getValue(pr, this.idx)
+          if((v eq null) || v.length == 0) None else Some(v)
+        }
+      }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
+    else super.createOptionResultConverter(ti, idx)
+>>>>>>> Compile on Dotty
 
   // Does not work to get around the ORA-00904 issue when returning columns
   // with lower-case names

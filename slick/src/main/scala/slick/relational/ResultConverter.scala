@@ -6,9 +6,9 @@ import slick.util.{Dumpable, DumpInfo, TupleSupport}
 /** A `ResultConverter` is used to read data from a result, update a result,
   * and set parameters of a query. */
 trait ResultConverter[M <: ResultConverterDomain, T] extends Dumpable {
-  protected[this] type Reader = M#Reader
-  protected[this] type Writer = M#Writer
-  protected[this] type Updater = M#Updater
+  protected[this] type Reader = ResultConverterDomainReader[M]
+  protected[this] type Writer = ResultConverterDomainWriter[M]
+  protected[this] type Updater = ResultConverterDomainUpdater[M]
   def read(pr: Reader): T
   def update(value: T, pr: Updater): Unit
 
@@ -37,16 +37,6 @@ trait ResultConverter[M <: ResultConverterDomain, T] extends Dumpable {
     val name = if(sep == -1) cln else cln.substring(0, sep) + DumpInfo.highlight(cln.substring(sep))
     DumpInfo(name)
   }
-}
-
-/** The domain of a `ResultConverter` and associated classes. It defines the
-  * `Reader`, `Writer` and `Updater` types that are needed at the lowest
-  * level of ResultConverters for accessing the underlying profile-specific
-  * data structures. */
-trait ResultConverterDomain {
-  type Reader
-  type Writer
-  type Updater
 }
 
 /** An efficient (albeit boxed) ResultConverter for Product/Tuple values. */

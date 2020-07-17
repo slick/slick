@@ -13,7 +13,6 @@ import slick.util.Logging
 
 /** The backend for DistributedProfile. */
 trait DistributedBackend extends RelationalBackend with Logging {
-  type This = DistributedBackend
   type Database = DistributedDatabaseDef
   type Session = DistributedSessionDef
   type DatabaseFactory = DistributedDatabaseFactoryDef

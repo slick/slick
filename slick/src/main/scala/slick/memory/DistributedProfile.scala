@@ -53,9 +53,14 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   class DistributedQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends BasicQueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: ProfileAction[R, S, Effect.Read] =
+<<<<<<< HEAD
       new StreamingProfileAction[R, Any, Effect.Read]
         with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
         def run(ctx: Backend#Context) = exe.run(ctx.session)
+=======
+      new StreamingProfileAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], DistributedBackend#BasicActionContext, DistributedBackend#BasicStreamingActionContext, Effect.Read] {
+        def run(ctx: DistributedBackend#BasicActionContext) = exe.run(ctx.session)
+>>>>>>> Compile on Dotty
         def getDumpInfo = DumpInfo("DistributedProfile.ProfileAction")
         def head: ResultAction[Any, NoStream, Effect.Read] = ??
         def headOption: ResultAction[Option[Any], NoStream, Effect.Read] = ??
@@ -74,7 +79,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val idx = profiles.indexOf(profile)
         if(idx < 0) throw new SlickException("No session found for profile "+profile)
-        val profileSession = session.sessions(idx).asInstanceOf[profile.Backend#Session]
+        val profileSession = session.sessions(idx).asInstanceOf[profile.backend.Session]
         val dv = profile.runSynchronousQuery[Any](compiled, param)(profileSession)
         val wr = wrapScalaValue(dv, n.nodeType)
         if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)

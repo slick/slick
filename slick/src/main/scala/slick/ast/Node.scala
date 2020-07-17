@@ -360,8 +360,13 @@ object Ordering {
   case object NullsLast extends NullOrdering(false, true)
 
   sealed abstract class Direction(val desc: Boolean) { def reverse: Direction }
+<<<<<<< HEAD
   case object Asc extends Direction(false) { override def reverse: Desc.type = Desc }
   case object Desc extends Direction(true) { override def reverse: Asc.type = Asc }
+=======
+  case object Asc extends Direction(false) { def reverse = Desc }
+  case object Desc extends Direction(true) { def reverse = Asc }
+>>>>>>> Compile on Dotty
 }
 
 /** A .groupBy call. */

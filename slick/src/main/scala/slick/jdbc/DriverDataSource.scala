@@ -1,7 +1,15 @@
 package slick.jdbc
 
+<<<<<<< HEAD
 import java.io.{Closeable, PrintWriter}
 import java.sql.*
+=======
+import scala.language.reflectiveCalls
+import scala.reflect.Selectable.reflectiveSelectable
+
+import java.io.{PrintWriter, Closeable}
+import java.sql._
+>>>>>>> Compile on Dotty
 import java.util.Properties
 import java.util.logging.Logger
 

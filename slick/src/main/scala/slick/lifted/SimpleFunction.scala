@@ -25,7 +25,11 @@ object SimpleFunction {
       def children = ConstArray.from(params)
       protected[this] def rebuild(ch: ConstArray[Node]): Self = build(ch.toSeq)
     }
+<<<<<<< HEAD
     { (paramsC: Seq[Rep[_] ]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
+=======
+    { (paramsC: Seq[Rep[_]]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
+>>>>>>> Compile on Dotty
   }
   def nullary[R : TypedType](fname: String, fn: Boolean = false): Rep[R] =
     apply(fname, fn).apply(Seq())
@@ -82,7 +86,11 @@ object SimpleExpression {
       def children = ConstArray.from(params)
       protected[this] def rebuild(ch: ConstArray[Node]) = build(ch.toSeq)
     }
+<<<<<<< HEAD
     { (paramsC: Seq[Rep[_] ]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
+=======
+    { (paramsC: Seq[Rep[_]]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
+>>>>>>> Compile on Dotty
   }
 
   def nullary[R : TypedType](f: JdbcStatementBuilderComponent#QueryBuilder => Unit): Rep[R] = {

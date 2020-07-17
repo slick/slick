@@ -2,8 +2,8 @@ package slick.lifted
 
 import slick.util.ConstArray
 
-import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
+<<<<<<< HEAD
 import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
 
@@ -11,6 +11,11 @@ import slick.ast.{Join as AJoin, *}
 import slick.ast.ScalaBaseType.*
 import slick.lifted.FunctionSymbolExtensionMethods.*
 import slick.util.ConstArray
+=======
+import slick.ast.{Join => AJoin, _}
+import FunctionSymbolExtensionMethods._
+import ScalaBaseType._
+>>>>>>> Compile on Dotty
 
 sealed trait QueryBase[T] extends Rep[T]
 
@@ -22,8 +27,13 @@ sealed trait QueryBase[T] extends Rep[T]
   * Additional extension methods for queries containing a single column are
   * defined in [[slick.lifted.SingleColumnQueryExtensionMethods]].
   */
+<<<<<<< HEAD
 sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def shaped: ShapedValue[? <: E, U]
+=======
+/*sealed*/ abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self => //TODO seal again after removing separate 2.13 sources
+  def shaped: ShapedValue[_ <: E, U]
+>>>>>>> Compile on Dotty
   final lazy val packed = shaped.toNode
 
   /** Build a new query by applying a function to all elements of this query
@@ -165,7 +175,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def sortBy[T](f: E => T)(implicit ev: T => Ordered): Query[E, U, C] = {
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator))
-    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(f(aliased.value).columns)), shaped)
+    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(ev(f(aliased.value)).columns)), shaped)
   }
 
   /** Sort this query according to a the ordering of its elements. */
@@ -276,12 +286,16 @@ object Query {
     def shaped = ShapedValue((), Shape.unitShape[FlatShapeLevel])
   }
 
+<<<<<<< HEAD
   @inline implicit def queryShape[
     Level >: NestedShapeLevel <: ShapeLevel,
     T,
     Q <: QueryBase[?]
   ](implicit ev: Q <:< Rep[T]): Shape[Level, Q, T, Q] =
     RepShape[Level, Q, T]
+=======
+  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, T, Q <: QueryBase[_]](implicit ev: Q <:< Rep[T]): Shape[Level, Q, T, Q] = RepShape[Level, Q, T]
+>>>>>>> Compile on Dotty
 }
 
 /** A typeclass for types that can be used as predicates in `filter` calls. */
@@ -314,6 +328,7 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: TermSymbol,
   def on[T <: Rep[?]](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
     new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(b1, b2)).toNode), base)
 }
+<<<<<<< HEAD
 
 /** Represents a database table. Profiles add extension methods to TableQuery
   * for operations that can be performed on tables but not on arbitrary
@@ -359,3 +374,5 @@ object TableQueryMacroImpl {
     reify { TableQuery.apply[E](cons.splice) }
   }
 }
+=======
+>>>>>>> Compile on Dotty

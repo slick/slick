@@ -20,7 +20,11 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] & BaseTypedType[T]
   val columnTypes = new JdbcTypes
+<<<<<<< HEAD
   override lazy val MappedColumnType: MappedJdbcType.type = MappedJdbcType
+=======
+  override lazy val MappedColumnType = MappedJdbcType
+>>>>>>> Compile on Dotty
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcCapabilities.all
 
@@ -70,10 +74,17 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
   val api: JdbcAPI = new JdbcAPI {}
 
+<<<<<<< HEAD
   def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R = tree match {
     case rsm @ ResultSetMapping(_, _, CompiledMapping(_, _)) :@ CollectionType(cons, el) =>
       val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, R]]
       createQueryInvoker[Any](rsm, param, null).foreach({ x => b += x })(session)
+=======
+  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R = tree match {
+    case rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType)) :@ CollectionType(cons, el) =>
+      val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
+      createQueryInvoker[Any](rsm, param, null).foreach({ x => b += x }, 0)(session)
+>>>>>>> Compile on Dotty
       b.result()
     case First(rsm: ResultSetMapping)                                                    =>
       createQueryInvoker[R](rsm, param, null).first

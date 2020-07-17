@@ -7,6 +7,11 @@ import java.sql.{Array as _, *}
 import java.util.Calendar
 
 import scala.collection.mutable.ArrayBuffer
+<<<<<<< HEAD
+=======
+import scala.language.reflectiveCalls
+import scala.reflect.Selectable.reflectiveSelectable
+>>>>>>> Compile on Dotty
 
 import slick.jdbc.JdbcBackend.{benchmarkLogger, parameterLogger, statementAndParameterLogger, statementLogger}
 import slick.util.TableDump
