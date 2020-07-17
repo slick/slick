@@ -69,7 +69,10 @@ object Settings {
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$6"),
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$7")
         ),
-        libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
+        libraryDependencies ++= {
+          if(!scalaVersion.value.startsWith("2.")) Nil
+          else Seq("org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided")
+        },
         OsgiKeys.exportPackage := Seq("slick", "slick.*", "scala.slick", "scala.slick.*"),
         OsgiKeys.importPackage := Seq(Osgi.osgiImport("scala*", scalaVersion.value), "*"),
         OsgiKeys.privatePackage := Nil
@@ -276,7 +279,7 @@ object Settings {
   )
 
   def slickScalacSettings = Seq(
-    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
+    scalacOptions ++= List("-deprecation", "-feature", "-unchecked", "-language:implicitConversions"),
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,
@@ -291,9 +294,10 @@ object Settings {
 
   // set the scala-compiler dependency unless a local scala is in use
   def compilerDependencySetting(config: String) =
-    if (sys.props("scala.home.local") != null) Nil else Seq(
-      libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % config
-    )
+    libraryDependencies ++= {
+      if (sys.props("scala.home.local") != null || !scalaVersion.value.startsWith("2.")) Nil
+      else Seq("org.scala-lang" % "scala-compiler" % scalaVersion.value % config)
+    }
 
   def publishedScalaSettings = Seq(
     scalaVersion := Dependencies.scalaVersions.tail.head,

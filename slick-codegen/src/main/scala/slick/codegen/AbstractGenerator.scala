@@ -304,7 +304,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Referenced Table code generator */
       final lazy val referencedTable: Table = tablesByName(model.referencedTable)
       /** Referenced Columns code generators */
-      final lazy val referencedColumns: Seq[Table#Column] = model.referencedColumns.map(_.name).map(referencedTable.columnsByName)
+      final lazy val referencedColumns: Seq[ATableDef#Column] = model.referencedColumns.map(_.name).map(referencedTable.columnsByName)
       /** Name used in the db or a default name */
       def dbName = model.name.getOrElse( referencedTable.model.name.table + "_FK_" + id )
       def actionCode(action: ForeignKeyAction): Code
@@ -374,7 +374,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
         val newdoc = doc +
           (if(scalaKeywords.contains(rawName)) s"\nNOTE: The name was escaped because it collided with a Scala keyword." else "")+
           (if(slickTableTermMembersNoArgs.contains(rawName)) s"\nNOTE: The name was disambiguated because it collided with Slick's method Table#$rawName." else "")
-        codegen.docWithCode(newdoc, code)
+        codegen.docWithCode(newdoc, this.code)
       }
       /** Name (escaped if colliding with Scala keyword). */
       final def name: TermName = termName{

@@ -2,9 +2,7 @@ package slick.lifted
 
 import slick.util.ConstArray
 
-import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
-import scala.reflect.macros.blackbox.Context
 import slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
@@ -19,7 +17,7 @@ sealed trait QueryBase[T] extends Rep[T]
   * Additional extension methods for queries containing a single column are
   * defined in [[slick.lifted.SingleColumnQueryExtensionMethods]].
   */
-sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
+/*sealed*/ abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self => //TODO seal again after removing separate 2.13 sources
   def shaped: ShapedValue[_ <: E, U]
   final lazy val packed = shaped.toNode
 
@@ -147,7 +145,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def sortBy[T](f: E => T)(implicit ev: T => Ordered): Query[E, U, C] = {
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator))
-    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(f(aliased.value).columns)), shaped)
+    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(ev(f(aliased.value)).columns)), shaped)
   }
 
   /** Sort this query according to a the ordering of its elements. */
@@ -256,7 +254,7 @@ object Query {
     def shaped = ShapedValue((), Shape.unitShape[FlatShapeLevel])
   }
 
-  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, T, Q <: QueryBase[_]](implicit ev: Q <:< Rep[T]) = RepShape[Level, Q, T]
+  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, T, Q <: QueryBase[_]](implicit ev: Q <:< Rep[T]): Shape[Level, Q, T, Q] = RepShape[Level, Q, T]
 }
 
 /** A typeclass for types that can be used as predicates in `filter` calls. */
@@ -288,50 +286,4 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: TermSymbol,
   /** Add a join condition to a join operation. */
   def on[T <: Rep[_]](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
     new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(b1, b2)).toNode), base)
-}
-
-/** Represents a database table. Profiles add extension methods to TableQuery
-  * for operations that can be performed on tables but not on arbitrary
-  * queries, e.g. getting the table DDL. */
-class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
-  lazy val shaped = {
-    val baseTable = cons(new BaseTag { base =>
-      def taggedAs(path: Node): AbstractTable[_] = cons(new RefTag(path) {
-        def taggedAs(path: Node) = base.taggedAs(path)
-      })
-    })
-    ShapedValue(baseTable, RepShape[FlatShapeLevel, E, E#TableElementType])
-  }
-
-  lazy val toNode = shaped.toNode
-
-  /** Get the "raw" table row that represents the table itself, as opposed to
-    * a Path for a variable of the table's type. This method should generally
-    * not be called from user code. */
-  def baseTableRow: E = shaped.value
-}
-
-object TableQuery {
-  /** Create a TableQuery for a table row class using an arbitrary constructor function. */
-  def apply[E <: AbstractTable[_]](cons: Tag => E): TableQuery[E] =
-    new TableQuery[E](cons)
-
-  /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
-  def apply[E <: AbstractTable[_]]: TableQuery[E] =
-    macro TableQueryMacroImpl.apply[E]
-}
-
-object TableQueryMacroImpl {
-
-  def apply[E <: AbstractTable[_]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
-    import c.universe._
-    val cons = c.Expr[Tag => E](Function(
-      List(ValDef(Modifiers(Flag.PARAM), TermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),
-      Apply(
-        Select(New(TypeTree(e.tpe)), termNames.CONSTRUCTOR),
-        List(Ident(TermName("tag")))
-      )
-    ))
-    reify { TableQuery.apply[E](cons.splice) }
-  }
 }

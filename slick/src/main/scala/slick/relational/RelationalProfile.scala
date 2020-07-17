@@ -70,7 +70,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   /** Run a query synchronously on the provided session. This is used by DistributedProfile until we
     * can make it fully asynchronous. */
-  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R
+  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R
 
   class FastPathExtensionMethods[M <: ResultConverterDomain, T, P](val mp: MappedProjection[T, P]) {
     def fastPath(fpf: (TypeMappingResultConverter[M, T, _] => SimpleFastPathResultConverter[M, T])): MappedProjection[T, P] = mp.genericFastPath {
@@ -181,13 +181,13 @@ trait RelationalTypesComponent { self: RelationalProfile =>
   type ColumnType[T] <: TypedType[T]
   type BaseColumnType[T] <: ColumnType[T] with BaseTypedType[T]
 
-  val MappedColumnType: MappedColumnTypeFactory
+  lazy val MappedColumnType: MappedColumnTypeFactory = null //TODO should be abstract but 2.13 doesn't allow abstract lazy vals and Dotty doesn't allow overriding a non-lazy val with a lazy val
 
 
   trait MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T]
 
-    protected[this] def assertNonNullType(t: BaseColumnType[_]): Unit =
+    protected[this] def assertNonNullType[E](t: BaseColumnType[E]): Unit =
       if(t == null)
         throw new NullPointerException("implicit BaseColumnType[U] for MappedColumnType.base[T, U] is null. This may be an initialization order problem.")
   }

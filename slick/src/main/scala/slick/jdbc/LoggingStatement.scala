@@ -4,6 +4,7 @@ import slick.util.TableDump
 
 import scala.collection.mutable.ArrayBuffer
 import scala.language.reflectiveCalls
+import scala.reflect.Selectable.reflectiveSelectable
 
 import java.io.{InputStream, Reader}
 import java.util.Calendar

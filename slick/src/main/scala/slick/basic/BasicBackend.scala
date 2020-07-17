@@ -1,23 +1,21 @@
 package slick.basic
 
-import slick.util.AsyncExecutor.{Priority, Continuation, Fresh, WithConnection}
-
-
+import slick.util.AsyncExecutor.{Continuation, Fresh, Priority, WithConnection}
 import java.io.Closeable
-import java.util.concurrent.atomic.{AtomicReferenceArray, AtomicLong}
+import java.util.concurrent.atomic.{AtomicLong, AtomicReferenceArray}
 
 import com.typesafe.config.Config
 
-import scala.concurrent.{Promise, ExecutionContext, Future}
-import scala.util.{Success, Failure}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
-
 import org.slf4j.LoggerFactory
 import org.reactivestreams._
-
 import slick.SlickException
 import slick.dbio._
 import slick.util._
+
+import scala.collection.Factory
 
 /** Backend for the basic database and session handling features.
   * Concrete backends like `JdbcBackend` extend this type and provide concrete
@@ -26,11 +24,10 @@ trait BasicBackend { self =>
   protected lazy val actionLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".action"))
   protected lazy val streamLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".stream"))
 
-  type This >: this.type <: BasicBackend
   /** The type of database objects used by this backend. */
-  type Database <: BasicDatabaseDef
+  type Database >: Null <: BasicDatabaseDef
   /** The type of the database factory used by this backend. */
-  type DatabaseFactory
+  type DatabaseFactory >: Null
   /** The type of session objects used by this backend. */
   type Session >: Null <: BasicSessionDef
   /** The type of the context used for running SynchronousDatabaseActions */
@@ -186,7 +183,7 @@ trait BasicBackend { self =>
 
           def run(pos: Int): Future[Any] = {
             if (pos == len) Future.successful {
-              val b = sa.cbf.newBuilder
+              val b = sa.cbf.asInstanceOf[Factory[Any, R]].newBuilder
               var i = 0
               while (i < len) {
                 b += results.get(i)
@@ -234,11 +231,11 @@ trait BasicBackend { self =>
           p.future
         case NamedAction(a, _) =>
           runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
-        case a: SynchronousDatabaseAction[_, _, _, _] =>
+        case a: SynchronousDatabaseAction[_, _, _, _, _] =>
           if (streaming) {
-            if (a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]], ctx.asInstanceOf[StreamingContext], !topLevel).asInstanceOf[Future[R]]
+            if (a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, Context, StreamingContext, _ <: Effect]], ctx.asInstanceOf[StreamingContext], !topLevel).asInstanceOf[Future[R]]
             else runInContextSafe(CleanUpAction(AndThenAction(Vector(DBIO.Pin, a.nonFusedEquivalentAction)), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming, topLevel, stackLevel)
-          } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, _]], ctx, !topLevel)
+          } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, StreamingContext, _]], ctx, !topLevel)
         case a: DatabaseAction[_, _, _] =>
           throw new SlickException(s"Unsupported database action $a for $this")
       }
@@ -259,7 +256,7 @@ trait BasicBackend { self =>
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
-    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context, continuation: Boolean): Future[R] = {
+    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, Context, StreamingContext, _], ctx: Context, continuation: Boolean): Future[R] = {
       val promise = Promise[R]()
       ctx.getEC(synchronousExecutionContext).execute(new AsyncExecutor.PrioritizedRunnable {
         def priority = {
@@ -289,14 +286,14 @@ trait BasicBackend { self =>
     }
 
     /** Stream a `SynchronousDatabaseAction` on this database. */
-    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean): Future[Null] = {
+    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, Context, StreamingContext, _ <: Effect], ctx: StreamingContext, continuation: Boolean): Future[Null] = {
       ctx.streamingAction = a
       scheduleSynchronousStreaming(a, ctx, continuation)(null)
       ctx.streamingResultPromise.future
     }
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean)(initialState: a.StreamState): Unit =
+    protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, Context, StreamingContext, _ <: Effect], ctx: StreamingContext, continuation: Boolean)(initialState: a.StreamState): Unit =
       try {
         ctx.getEC(synchronousExecutionContext).execute(new AsyncExecutor.PrioritizedRunnable {
           private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
@@ -323,7 +320,7 @@ trait BasicBackend { self =>
               var demand = ctx.demandBatch
               var realDemand = if(demand < 0) demand - Long.MinValue else demand
 
-              do {
+              while({
                 try {
                   if(debug)
                     streamLogger.debug((if(state eq null) "Starting initial" else "Restarting ") + " streaming action, realDemand = " + str(realDemand))
@@ -368,7 +365,8 @@ trait BasicBackend { self =>
                 demand = ctx.delivered(demand)
                 realDemand = if(demand < 0) demand - Long.MinValue else demand
 
-              } while ((state ne null) && realDemand > 0)
+                ((state ne null) && realDemand > 0)
+              }) ()
 
               if(debug) {
                 if(state ne null) streamLogger.debug("Suspending streaming action with continuation (more data available)")
@@ -452,7 +450,7 @@ trait BasicBackend { self =>
   }
 
   /** A special DatabaseActionContext for streaming execution. */
-  protected[this] class BasicStreamingActionContext(subscriber: Subscriber[_], protected[BasicBackend] val useSameThread: Boolean, database: Database) extends BasicActionContext with StreamingActionContext with Subscription {
+  class BasicStreamingActionContext(subscriber: Subscriber[_], protected[BasicBackend] val useSameThread: Boolean, database: Database) extends BasicActionContext with StreamingActionContext with Subscription {
     /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
     private[this] var finished = false
 
@@ -473,7 +471,7 @@ trait BasicBackend { self =>
     private[BasicBackend] var streamState: AnyRef = null
 
     /** The streaming action which may need to be continued with the suspended state */
-    private[BasicBackend] var streamingAction: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect] = null
+    private[BasicBackend] var streamingAction: SynchronousDatabaseAction[_, _ <: NoStream, Context, StreamingContext, _ <: Effect] = null
 
     @volatile private[this] var cancelRequested = false
 

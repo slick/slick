@@ -1,5 +1,7 @@
 package slick.memory
 
+import scala.language.implicitConversions
+
 import java.util.concurrent.atomic.AtomicLong
 
 import com.typesafe.config.Config
@@ -17,7 +19,6 @@ import slick.util.Logging
 
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends RelationalBackend with Logging {
-  type This = HeapBackend
   type Database = HeapDatabaseDef
   type Session = HeapSessionDef
   type DatabaseFactory = HeapDatabaseFactoryDef

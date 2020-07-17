@@ -46,15 +46,15 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     }.flatMap { _ =>
       val q0 = ts.groupBy(_.a)
       val q1 = q0.map(_._2.length).sortBy(identity)
-      db.run(mark("q1", q1.result)).map { r0t: Seq[Int] => r0t shouldBe Vector(2, 3, 3) }
+      db.run(mark("q1", q1.result)).map { (r0t: Seq[Int]) => r0t shouldBe Vector(2, 3, 3) }
     }.flatMap { _ =>
       val q0 = ts.groupBy(_.a).map(_._1).length
-      db.run(mark("q0", q0.result)).map { r0t: Int => r0t shouldBe 3 }
+      db.run(mark("q0", q0.result)).map { (r0t: Int) => r0t shouldBe 3 }
     }.flatMap { _ =>
       val q = (for {
         (k, v) <- ts.groupBy(t => t.a)
       } yield (k, v.length, v.map(_.a).sum, v.map(_.b).sum)).sortBy(_._1)
-      db.run(mark("q", q.result)).map { rt: Seq[(Int, Int, Option[Int], Option[Int])] =>
+      db.run(mark("q", q.result)).map { (rt: Seq[(Int, Int, Option[Int], Option[Int])]) =>
         rt shouldBe Vector((1, 3, Some(3), Some(6)), (2, 3, Some(6), Some(8)), (3, 2, Some(6), Some(10)))
       }
     }.flatMap { _ =>
@@ -66,21 +66,21 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       } yield (u, t)).groupBy(_._1.id).map {
         case (id, q) => (id, q.length, q.map(_._2.a).sum, q.map(_._2.b).sum)
       }
-      db.run(mark("q2", q2.result)).map { r2t: Seq[(Int, Int, Option[Int], Option[Int])] =>
+      db.run(mark("q2", q2.result)).map { (r2t: Seq[(Int, Int, Option[Int], Option[Int])]) =>
         r2t.toSet shouldBe Set((1, 3, Some(3), Some(6)), (2, 3, Some(6), Some(8)), (3, 2, Some(6), Some(10)))
       }
     }.flatMap { _ =>
       val q3 = (for {
         (x, q) <- ts.map(t => (t.a + 10, t.b)).groupBy(_._1)
       } yield (x, q.map(_._2).sum)).sortBy(_._1)
-      db.run(mark("q3", q3.result)).map { r3t: Seq[(Int, Option[Int])] =>
+      db.run(mark("q3", q3.result)).map { (r3t: Seq[(Int, Option[Int])]) =>
         r3t shouldBe Vector((11, Some(6)), (12, Some(8)), (13, Some(10)))
       }
     }.flatMap { _ =>
       val q4 = (for {
         (x, q) <- ts.groupBy(t => (t.a, t.b))
       } yield (x, q.length)).sortBy(_._1)
-      db.run(mark("q4", q4.result)).map { r4t: Seq[((Int, Option[Int]), Int)] =>
+      db.run(mark("q4", q4.result)).map { (r4t: Seq[((Int, Option[Int]), Int)]) =>
         r4t shouldBe Vector(
           ((1,Some(1)),1), ((1,Some(2)),1), ((1,Some(3)),1),
           ((2,Some(1)),1), ((2,Some(2)),1), ((2,Some(5)),1),

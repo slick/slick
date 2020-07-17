@@ -109,7 +109,7 @@ trait DerbyProfile extends JdbcProfile {
   override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
     new JdbcSchemaActionExtensionMethodsImpl(schema){
       override def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
+        def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = {
           import java.sql.SQLException
           for(s <- sql) try{
             ctx.session.withPreparedStatement(s)(_.execute)
@@ -122,7 +122,7 @@ trait DerbyProfile extends JdbcProfile {
       }
 
       override def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
+        def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = {
           import java.sql.SQLException
           for(s <- sql) try{
             ctx.session.withPreparedStatement(s)(_.execute)

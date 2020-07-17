@@ -514,11 +514,11 @@ END;
     new OracleSchemaActionExtensionMethodsImpl(schema)
   class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends JdbcSchemaActionExtensionMethodsImpl(schema) {
     override def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withStatement()(_.execute(s))
     }
     override def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withStatement()(_.execute(s))
     }
   }
@@ -527,7 +527,7 @@ END;
     if(ti.scalaType == ScalaBaseType.stringType)
       (new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
         override def read(pr: ResultSet) = {
-          val v = ti.getValue(pr, idx)
+          val v = this.ti.getValue(pr, this.idx)
           if((v eq null) || v.length == 0) None else Some(v)
         }
       }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]

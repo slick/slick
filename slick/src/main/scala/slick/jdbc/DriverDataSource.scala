@@ -1,6 +1,7 @@
 package slick.jdbc
 
 import scala.language.reflectiveCalls
+import scala.reflect.Selectable.reflectiveSelectable
 
 import java.io.{PrintWriter, Closeable}
 import java.sql._
