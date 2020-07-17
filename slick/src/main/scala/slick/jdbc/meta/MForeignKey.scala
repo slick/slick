@@ -24,7 +24,7 @@ object MForeignKey {
       parentTable.catalog_?, parentTable.schema_?, parentTable.name,
       foreignTable.catalog_?, foreignTable.schema_?, foreignTable.name))
 
-  private[this] def createAction(f: JdbcBackend#Session => ResultSet) = ResultSetAction[MForeignKey](f) { r =>
+  private[this] def createAction(f: JdbcBackend#JdbcSessionDef => ResultSet) = ResultSetAction[MForeignKey](f) { r =>
     MForeignKey(MQName.from(r), r.<<, MQName.from(r), r.<<, r.<<, fkActionFor(r.<<), fkActionFor(r.<<), r.<<, r.<<, r.<<)
   }
 

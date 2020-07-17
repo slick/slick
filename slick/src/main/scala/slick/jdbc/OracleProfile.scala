@@ -516,12 +516,12 @@ END;
 
     override def create: ProfileAction[Unit, NoStream, Effect.Schema] =
       new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
           for (s <- sql) ctx.session.withStatement()(_.execute(s))
       }
     override def drop: ProfileAction[Unit, NoStream, Effect.Schema] =
       new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
           for (s <- sql) ctx.session.withStatement()(_.execute(s))
       }
   }

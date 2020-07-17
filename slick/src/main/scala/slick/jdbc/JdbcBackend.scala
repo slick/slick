@@ -22,7 +22,6 @@ import com.typesafe.config.{ConfigFactory, Config}
 
 /** A JDBC-based database back-end that is used by [[slick.jdbc.JdbcProfile]]. */
 trait JdbcBackend extends RelationalBackend {
-  type This = JdbcBackend
   type Database = JdbcDatabaseDef
   type Session = JdbcSessionDef
   type DatabaseFactory = DatabaseFactoryDef

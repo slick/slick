@@ -7,7 +7,7 @@ trait OptionMapper[BR, R] extends (Rep[BR] => Rep[R]) {
   def lift: Boolean
 
   def column(fs: FunctionSymbol, ch: Node*)(implicit bt: TypedType[BR]): Rep[R] = {
-    implicit val tt = liftedType
+    implicit val tt: TypedType[R] = liftedType
     Rep.forNode[R](fs.typed(tt, ch: _*))
   }
 
@@ -51,7 +51,7 @@ object OptionMapper3 {
     override def toString = "OptionMapper3.option"
   }
 
-  @inline implicit def getOptionMapper3TTT[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR        ] = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR]]
+  @inline implicit def getOptionMapper3TTT[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR]         = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR]]
   @inline implicit def getOptionMapper3TTO[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         P2,         Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         P2,         Option[P3], Option[BR]]]
   @inline implicit def getOptionMapper3TOT[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], P3,         Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], P3,         Option[BR]]]
   @inline implicit def getOptionMapper3TOO[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], Option[P3], Option[BR]]]

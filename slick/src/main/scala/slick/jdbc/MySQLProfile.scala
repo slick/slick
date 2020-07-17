@@ -449,12 +449,14 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 object MySQLProfile extends MySQLProfile {
   final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with SimplyTypedNode {
     type Self = RowNum
+    override def self = this
     override def buildType: ScalaNumericType[Long] = ScalaBaseType.longType
     def rebuild = copy()
   }
 
   final case class RowNumGen(sym: AnonSymbol, init: Long) extends NullaryNode with SimplyTypedNode {
     type Self = RowNumGen
+    override def self = this
     override def buildType: ScalaNumericType[Long] = ScalaBaseType.longType
     def rebuild = copy()
   }

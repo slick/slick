@@ -15,7 +15,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 trait DatabaseConfig[P <: BasicProfile] {
   /** Get the configured Database. It is instantiated lazily when this method is called for the
     * first time, and must be closed after use. */
-  def db: P#Backend#Database
+  def db: profile.backend.Database
 
   /** The configured Profile. */
   val profile: P
@@ -90,7 +90,7 @@ object DatabaseConfig {
       throw new SlickException(s"Configured profile $n does not conform to requested profile ${pClass.getName}")
     val root = config
     new DatabaseConfig[P] {
-      lazy val db: P#Backend#Database =
+      lazy val db: profile.backend.Database =
         profile.backend.createDatabase(root, (if(path.isEmpty) "" else path + ".") + "db")
       val profile: P = untypedP.asInstanceOf[P]
       val driver: P = untypedP.asInstanceOf[P]

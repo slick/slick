@@ -12,11 +12,11 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
   def compile(n: Node): ResultConverter[Domain, _] = n match {
     case InsertColumn(paths, fs, _) =>
-      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
-      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs.toSeq: _*)
+      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)).asInstanceOf[ResultConverter[Domain, Any]] }
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter[Domain, Any](1, pathConvs.toSeq: _*)
     case OptionApply(InsertColumn(paths, fs, _)) =>
-      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
-      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs.toSeq: _*)
+      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)).asInstanceOf[ResultConverter[Domain, Any]] }
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter[Domain, Any](1, pathConvs.toSeq: _*)
     case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, None)
     case cast @ Library.SilentCast(sel @ Select(_, ElementSymbol(idx))) =>
       createColumnConverter(sel :@ cast.nodeType, idx, None)
@@ -64,6 +64,7 @@ object ResultConverterCompiler {
 /** A node that wraps a ResultConverter */
 final case class CompiledMapping(converter: ResultConverter[_ <: ResultConverterDomain, _], buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = CompiledMapping
+  override def self = this
   def rebuild = copy()
   override def getDumpInfo = {
     val di = super.getDumpInfo
