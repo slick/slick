@@ -2,7 +2,6 @@ package slick.jdbc
 
 import java.io.{Closeable, PrintWriter}
 import java.sql.*
-
 import java.util.Properties
 import java.util.logging.Logger
 
