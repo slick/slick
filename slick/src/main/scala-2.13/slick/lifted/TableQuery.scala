@@ -33,8 +33,7 @@ object TableQuery {
     new TableQuery[E](cons)
 
   /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
-  def apply[E <: AbstractTable[_]]: TableQuery[E] =
-  macro TableQueryMacroImpl.apply[E]
+  def apply[E <: AbstractTable[_]]: TableQuery[E] = macro TableQueryMacroImpl.apply[E]
 }
 
 object TableQueryMacroImpl {

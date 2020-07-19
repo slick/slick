@@ -1,5 +1,7 @@
 package slick.lifted
 
+import scala.quoted._
+
 import slick.ast.Node
 
 /** Represents a database table. Profiles add extension methods to TableQuery
@@ -30,5 +32,23 @@ object TableQuery {
 
   type Extract[E] = E match {
     case AbstractTable[t] => t
+  }
+
+  /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
+  inline def apply[E <: AbstractTable[_]]: TableQuery[E] = ${ applyExpr[E] }
+
+  private def applyExpr[E <: AbstractTable[_]](using qctx: QuoteContext, e: Type[E]): Expr[TableQuery[E]] = {
+    import qctx.tasty._
+    val eTpe = e.unseal.tpe
+    val tagTpe = summon[scala.quoted.Type[Tag]].unseal.tpe
+    val mt = MethodType(List("tag"))(_ => List(tagTpe), _ => eTpe)
+    val cons = Lambda(mt, { tag =>
+      Select.overloaded(New(TypeIdent(eTpe.typeSymbol)), "<init>",
+        List(),
+        List(tag.head.asInstanceOf[Term])
+      )
+    })
+
+    '{ TableQuery.apply[E](${ cons.seal.cast[Tag => E] }) }
   }
 }
