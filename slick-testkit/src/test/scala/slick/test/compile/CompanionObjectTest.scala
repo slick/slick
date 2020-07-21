@@ -17,6 +17,19 @@ class CompanionObjectTest extends AsyncTest[RelationalTestDB] {
     }
   }
 
+  // This test should simply be able to compile.
+  def testMapToLocalExplicitTupled = {
+    object PersonLocal {
+      def tupled(t: (Long, String)): PersonLocal = ???
+    }
+    case class PersonLocal(id: Long, name: String)
+    class People(tag: Tag) extends Table[PersonLocal](tag, "people") {
+      def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+      def name = column[String]("name")
+      def * = (id, name).mapTo[PersonLocal]
+    }
+  }
+
   // Because the macro can't locate companion objects of method local case classes,
   // it's safer to leave them broken rather than make assumptions about the existence
   // of user-defined tupled methods.

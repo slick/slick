@@ -119,6 +119,16 @@ For case classes with hand-written companion objects, `.tupled` only works
 if you manually extend the correct Scala function type. Alternatively you can use
 `(User.apply _).tupled`. See [](SI:3664) and [](SI:4808).
 
+It is also possible to use the convenience method `mapTo` in most circumstances,
+which uses a compile-time macro to automatically fill in an implementation like the above.
+
+```scala src=../code/LiftedEmbedding.scala#maptotable
+```
+
+The macro should work for most case classes, even those with hand-written companion
+objects, however there are still come cases where you will have to fall back to the
+above `<>` operator with `(User.apply _).tupled`.
+
 Constraints {index="constraint; index; key,foreign; foreign,key; key,primary; primary;key"}
 -----------
 
