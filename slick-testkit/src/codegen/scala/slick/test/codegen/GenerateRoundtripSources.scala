@@ -3,6 +3,7 @@ package slick.test.codegen
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
+
 import slick.codegen.SourceCodeGenerator
 import slick.jdbc.JdbcProfile
 
@@ -18,8 +19,8 @@ object GenerateRoundtripSources {
     val url = "jdbc:h2:mem:test4"
     val jdbcDriver = "org.h2.Driver"
     object Tables extends Tables(profile)
-    import Tables._
-    import Tables.profile.api._
+    import Tables.*
+    import Tables.profile.api.*
     val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def parentType = Some("slick.test.codegen.EmptyTestTrait")
@@ -53,7 +54,7 @@ object GenerateRoundtripSources {
 }
 
 class Tables(val profile: JdbcProfile){
-  import profile.api._
+  import profile.api.*
   /** Tests single column table, scala keyword type name, non-dentifier column name and all nullable columns table*/
   class `null`(tag: Tag) extends Table[Option[String]](tag, "null") {
     def name = column[Option[String]]("na me")
