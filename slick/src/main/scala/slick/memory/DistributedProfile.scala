@@ -2,6 +2,7 @@ package slick.memory
 
 import scala.collection.mutable
 
+import scala.collection.mutable.{ArrayBuffer, Builder, HashMap}
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
@@ -89,7 +90,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, Any]]
         b ++= fromV.iterator.map { v =>
-          converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]]
+          converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]]
             .read(v.asInstanceOf[QueryInterpreter.ProductValue])
         }
         b.result()

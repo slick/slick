@@ -9,25 +9,28 @@ import slick.sql.SqlStreamingAction
 
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLActionBuilder via string interpolation */
-  def sql[P](param: P = ())(implicit pconv: SetParameter[P]): SQLActionBuilder[P] =
-    new SQLActionBuilder[P](s.parts, param, pconv)
+  def sql(params: TypedParameter[_]*): SQLActionBuilder =
+    new SQLActionBuilder(s.parts, params)
+
   /** Build an Action for an UPDATE statement via string interpolation */
-  def sqlu[P](param: P = ())(implicit pconv: SetParameter[P]) = sql(param).asUpdate
+  def sqlu(params: TypedParameter[_]*) = sql(params: _*).asUpdate
+}
+
+class TypedParameter[T](val param: T, val pconv: SetParameter[T])
+
+object TypedParameter {
+  implicit def typedParameter[T](param: T)(implicit pconv: SetParameter[T]): TypedParameter[T] =
+    new TypedParameter[T](param, pconv)
 }
 
 object SQLInterpolation {
-  def parse[P](strings: Seq[String], param: P, pconv: SetParameter[P]): (String, SetParameter[Unit]) = {
+  def parse(strings: Seq[String], tparams: Seq[TypedParameter[Any]]): (String, SetParameter[Unit]) = {
     if(strings.length == 1) (strings(0), SetParameter.SetUnit)
     else {
-      val (convs, params) = pconv match {
-        case pconv: SetTupleParameter[_] =>
-          (pconv.children.iterator, param.asInstanceOf[Product].productIterator)
-        case _ => (Iterator(pconv), Iterator(param))
-      }
       val b = new StringBuilder
       val remaining = new ArrayBuffer[SetParameter[Unit]]
-      convs.zip(params).zip(strings.iterator).foreach { zipped =>
-        val p = zipped._1._2
+      tparams.zip(strings.iterator).foreach { zipped =>
+        val p = zipped._1.param
         var literal = false
         def decode(s: String): String =
           if(s.endsWith("##")) decode(s.substring(0, s.length-2)) + "#"
@@ -37,7 +40,7 @@ object SQLInterpolation {
         if(literal) b.append(p.toString)
         else {
           b.append('?')
-          remaining += zipped._1._1.asInstanceOf[SetParameter[Any]].applied(p)
+          remaining += zipped._1.pconv.applied(p)
         }
       }
       b.append(strings.last)
@@ -49,9 +52,9 @@ object SQLInterpolation {
   }
 }
 
-case class SQLActionBuilder[P](strings: Seq[String], param: P, pconv: SetParameter[P]) {
+case class SQLActionBuilder(strings: Seq[String], params: Seq[TypedParameter[_]]) {
   def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
-    val (sql, unitPConv) = SQLInterpolation.parse(strings, param, pconv)
+    val (sql, unitPConv) = SQLInterpolation.parse(strings, params.asInstanceOf[Seq[TypedParameter[Any]]])
     new StreamingInvokerAction[Vector[R], R, Effect] {
       def statements = List(sql)
       protected[this] def createInvoker(statements: Iterable[String]) = new StatementInvoker[R] {

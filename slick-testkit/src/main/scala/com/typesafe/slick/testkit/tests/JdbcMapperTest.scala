@@ -1,7 +1,10 @@
 package com.typesafe.slick.testkit.tests
 
 
-import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
+import java.sql.ResultSet
+
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+
 import scala.reflect.ClassTag
 
 class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
@@ -130,7 +133,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         // We could do this without .shaped but then we'd have to write a type annotation for the parameters
         Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
       }, { (w: Whole) =>
-        def f(p: Part) = Part.unapply(p).get
+        def f(p: Part) = (p.i1, p.i2, p.i3, p.i4, p.i5, p.i6)
         Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
       })
       // HList-based wide case class mapping
@@ -247,9 +250,21 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       f: Option[Int]
     )
 
-    implicit object shape
-        extends CaseClassShape((LiftedB.apply _).tupled,
-                               (B.apply _).tupled)
+    implicit object shape extends CaseClassShape[Product, (
+      Rep[Option[Long]],
+      Rep[Option[Long]],
+      Rep[Option[Long]],
+      Rep[Option[Int]],
+      Rep[Option[Double]],
+      Rep[Option[Int]]
+    ), LiftedB, (
+      Option[Long],
+      Option[Long],
+      Option[Long],
+      Option[Int],
+      Option[Double],
+      Option[Int]
+    ), B]((LiftedB.apply _).tupled, (B.apply _).tupled)
 
     case class ARow(id: Int, s: Long)
 
@@ -278,7 +293,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   def testCaseClassShape = {
     case class C(a: Int, b: String)
     case class LiftedC(a: Rep[Int], b: Rep[String])
-    implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+    implicit object cShape extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedC, (Int, String), C](LiftedC.tupled, C.tupled)
 
     class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -311,7 +326,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         case _ => false
       }
     }
-    implicit object cShape extends ProductClassShape(
+    implicit object cShape extends ProductClassShape[C, LiftedC](
       Seq(columnShape[Int], columnShape[Option[String]]),
       seq => new LiftedC(seq(0).asInstanceOf[Rep[Int]], seq(1).asInstanceOf[Rep[Option[String]]]),
       seq => new C(seq(0).asInstanceOf[Int], seq(1).asInstanceOf[Option[String]])
@@ -337,7 +352,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
       def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
     }
-    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]) =
+    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]): PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]] =
       new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
 
     // Use it in a table definition
@@ -450,9 +465,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).<>(Data.tupled, Data.unapply _).fastPath(new FastPath(_) {
+      def * = (a, b).<>(Data.tupled, Data.unapply _).fastPath(new FastPath[Data](_) { //TODO Can we remove the type param from FastPath in Dotty? Scala 2 doesn't need it.
         val (a, b) = (next[Int], next[Int])
-        override def read(r: Reader) = Data(a.read(r), b.read(r))
+        override def read(r: ResultSet) = Data(a.read(r), b.read(r))
       })
       def auto = (a, b).mapTo[Data]
     }

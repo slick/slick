@@ -106,9 +106,6 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Function that constructs an entity object from the unmapped values
         @group Basic customization overrides */
     def factory: Code
-    /** Function that extracts the unmapped values from an entity object
-        @group Basic customization overrides */
-    def extractor: Code
 
     /** Entity case class or type alias generator virtual class */
     type EntityType <: AbstractEntityTypeDef

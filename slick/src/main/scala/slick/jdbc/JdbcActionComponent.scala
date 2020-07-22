@@ -1,11 +1,10 @@
 package slick.jdbc
 
-import java.sql.{PreparedStatement, Statement}
+import java.sql.{PreparedStatement, ResultSet, Statement}
 
 import scala.collection.mutable.Builder
 import scala.language.existentials
 import scala.util.control.NonFatal
-
 import slick.SlickException
 import slick.ast.*
 import slick.ast.ColumnOption.PrimaryKey
@@ -333,7 +332,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(_converter, _)) = tree
-    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+    protected[this] val converter = _converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, T]]
 
     /** An Action that updates the data selected by this query. */
     def update(value: T): ProfileAction[Int, NoStream, Effect.Write] = {

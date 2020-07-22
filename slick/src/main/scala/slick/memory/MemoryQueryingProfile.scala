@@ -45,7 +45,7 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
     case t => throw new SlickException("No ScalaType found for type "+t)
   }): ScalaType[?]).asInstanceOf[ScalaType[Any]]
 
-  class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
+  class MemoryCodeGen extends CodeGen with ResultConverterCompiler[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing] {
     override def apply(state: CompilerState): CompilerState =
       state.map(n => retype(apply(n, state))).withWellTyped(false)
 
@@ -83,12 +83,12 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
         typeInfoFor(t)
     }
 
-    override def compile(n: Node): ResultConverter[MemoryResultConverterDomain, ?] = n match {
+    override def compile(n: Node): ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, ?] = n match {
       // We actually get a Scala Option value from the interpreter, so the SilentCast is not silent after all
       case Library.SilentCast(sel @ Select(_, ElementSymbol(idx)) :@ OptionType(_)) :@ tpe
         if !tpe.isInstanceOf[OptionType] =>
         val base =
-          createColumnConverter(sel, idx, None).asInstanceOf[ResultConverter[MemoryResultConverterDomain, Option[Any]]]
+          createColumnConverter(sel, idx, None).asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Option[Any]]]
         createGetOrElseResultConverter(
           base,
           () => throw new SlickException("Read null value for non-nullable column in Option")
@@ -99,11 +99,11 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
 
     def createColumnConverter(n: Node,
                               idx: Int,
-                              column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, ?] =
+                              column: Option[FieldSymbol]): ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, ?] =
       new QueryResultConverter(idx, typeInfoFor(n.nodeType.structural).nullable)
 
-    class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
-      def read(pr: Reader) = {
+    class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
+      def read(pr: QueryInterpreter.ProductValue) = {
         val v = pr(ridx-1)
         if(!nullable && (v.asInstanceOf[AnyRef] eq null))
           throw new SlickException("Read null value for non-nullable column")

@@ -43,7 +43,7 @@ object StandardTestDBs {
     val url = "jdbc:h2:"+TestkitConfig.testDBPath+"/"+dbName
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
       cleanUpBefore()
     }
@@ -60,7 +60,7 @@ object StandardTestDBs {
     val url = "jdbc:hsqldb:file:"+TestkitConfig.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
       cleanUpBefore()
     }
@@ -123,7 +123,7 @@ object StandardTestDBs {
   lazy val MySQL = new ExternalJdbcTestDB("mysql") {
     val profile = MySQLProfile
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
       cleanUpBefore()
     }
@@ -133,8 +133,8 @@ object StandardTestDBs {
     type Profile = MemoryProfile
     val profile: Profile = MemoryProfile
     val confName: String = "heap"
-    override def createDB(): profile.Backend#Database = profile.backend.Database(ExecutionContext.global)
-    def dropUserArtifacts(implicit session: profile.Backend#Session): Unit = {
+    override def createDB(): profile.backend.Database = profile.backend.Database(ExecutionContext.global)
+    def dropUserArtifacts(implicit session: profile.backend.Session): Unit = {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))
     }
@@ -187,7 +187,7 @@ object StandardTestDBs {
       } yield ()))
     }
 
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
       cleanUpBefore()
     }
@@ -206,7 +206,7 @@ object StandardTestDBs {
       MTable.getTables(None, defaultSchema, None, Some(Seq("TABLE"))).map(_.map(_.name.name).sorted)
     }
 
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession { implicit ec =>
       for {
         tables <- localTables
         _ <- DBIO.sequence(tables.map(t => sqlu"exec sp_MSdropconstraints #$t"))
@@ -238,7 +238,7 @@ object StandardTestDBs {
       sql"select sequence_Name from user_sequences".as[String]
     }
 
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) =
+    override def dropUserArtifacts(implicit session: profile.backend.Session) =
       blockingRunOnSession { implicit ec =>
         for {
           tables <- localTables
@@ -258,7 +258,7 @@ abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJd
   val jdbcDriver = "org.h2.Driver"
   override def capabilities =
     super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
-  override def createDB(): profile.Backend#Database =
+  override def createDB(): profile.backend.Database =
     database.forURL(url, driver = jdbcDriver, keepAliveConnection = keepAlive)
 }
 
@@ -269,7 +269,7 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
   val jdbcDriver = "org.sqlite.JDBC"
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     super.localTables.map(_.filter(s => !s.toLowerCase.contains("sqlite_")))
-  override def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
+  override def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession { implicit ec =>
     for {
       tables <- localTables
       sequences <- localSequences
@@ -297,7 +297,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
     ResultSetAction[(String, String, String, String)](_.conn.getMetaData.getTables(null, "APP", null, null)).map { ts =>
       ts.map(_._3).sorted
     }
-  override def dropUserArtifacts(implicit session: profile.Backend#Session) = try {
+  override def dropUserArtifacts(implicit session: profile.backend.Session) = try {
     blockingRunOnSession { implicit ec =>
       for {
         _ <- sqlu"""create table "__derby_dummy"(x integer primary key)""".asTry
@@ -336,7 +336,7 @@ abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables(null, "PUBLIC", null, null))
       .map(ts => ts.map(_._3).sorted)
-  override def createDB(): profile.Backend#Database = {
+  override def createDB(): profile.backend.Database = {
     val db = super.createDB()
     Await.result(db.run(SimpleJdbcAction(_ => ())), Duration.Inf)
     Logger.getLogger("hsqldb.db").setLevel(Level.WARNING)

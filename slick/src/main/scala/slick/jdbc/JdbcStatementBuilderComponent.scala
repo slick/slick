@@ -1,5 +1,7 @@
 package slick.jdbc
 
+import java.sql.{PreparedStatement, ResultSet}
+
 import scala.collection.mutable
 import scala.language.existentials
 
@@ -28,7 +30,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   class JdbcCompiledInsert(source: Node) {
     class Artifacts(val compiled: Node,
-                    val converter: ResultConverter[JdbcResultConverterDomain, Any],
+                    val converter: ResultConverter[ResultSet, PreparedStatement, ResultSet, Any],
                     val ibr: InsertBuilderResult) {
       def table: TableNode = ibr.table
       def sql: String = ibr.sql
@@ -39,7 +41,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       val compiled = compiler.run(source).tree
       val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(conv, _)) =
         compiled: @unchecked
-      new Artifacts(compiled, conv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]], ibr)
+      new Artifacts(compiled, conv.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, Any]], ibr)
     }
 
     /** The compiled artifacts for standard insert statements. */
@@ -58,7 +60,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     lazy val updateInsert = compile(updateInsertCompiler)
 
     /** Build a list of columns and a matching `ResultConverter` for retrieving keys of inserted rows. */
-    def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[JdbcResultConverterDomain, _], Boolean) = {
+    def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[ResultSet, PreparedStatement, ResultSet, _], Boolean) = {
       if(!capabilities.contains(JdbcCapabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(rconv, _)) =
@@ -73,7 +75,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
             "This DBMS allows only a single column to be returned from an INSERT," +
               " and that column must be an AutoInc column."
           )
-      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]], returnOther)
+      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, _]], returnOther)
     }
   }
 

@@ -4,7 +4,7 @@ import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import slick.jdbc.OracleProfile
 
 class OracleExtraTests extends AsyncTest[JdbcTestDB] {
-  lazy val oracleProfile = tdb.profile.asInstanceOf[OracleProfile]
+  final lazy val oracleProfile = tdb.profile.asInstanceOf[OracleProfile]
   import oracleProfile.api._
 
   def testBlobCompare = {

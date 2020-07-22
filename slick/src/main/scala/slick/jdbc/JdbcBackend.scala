@@ -148,7 +148,7 @@ trait JdbcBackend extends RelationalBackend {
       )
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url: String, prop: Map[String, String]): Database = {
+    def forURL(url: String, prop: Map[String, String]): JdbcDatabaseDef = {
       val p = new Properties
       if(prop ne null)
         for((k,v) <- prop) if(k.ne(null) && v.ne(null)) p.setProperty(k, v)

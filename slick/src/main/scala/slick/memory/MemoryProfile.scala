@@ -1,6 +1,7 @@
 package slick.memory
 
 import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.language.existentials
 import scala.reflect.ClassTag
 
@@ -84,7 +85,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
           val fromV = run(from).asInstanceOf[IterableOnce[Any]]
           val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, Any]]
           b ++= fromV.iterator.map { v =>
-            converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, ?]]
+            converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, ?]]
               .read(v.asInstanceOf[QueryInterpreter.ProductValue])
           }
           b.result()
@@ -105,7 +106,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     def += (value: T)(implicit session: Backend#Session): Unit = {
       val heapTable = session.database.getTable(table.tableName)
       val buf = heapTable.createInsertRow
-      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf, 0)
+      converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]].set(value, buf, 0)
       heapTable.append(buf.toIndexedSeq)
     }
 
@@ -135,7 +136,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree: @unchecked
       val productValueIterator = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].iterator
-      productValueIterator.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read)
+      productValueIterator.map(converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, T]].read)
     }
     def run(ctx: HeapBackend#BasicActionContext): R =
       createInterpreter(ctx.session.database, param).run(tree).asInstanceOf[R]
@@ -225,20 +226,20 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
 
   override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
-  class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
+  class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing] {
     val Insert(_, table: TableNode, ProductNode(cols), _) = insert: @unchecked
     val tableColumnIndexes = table.profileTable.asInstanceOf[Table[?]].create_*.zipWithIndex.toMap
 
     def createColumnConverter(n: Node,
                               idx: Int,
-                              column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, ?] =
+                              column: Option[FieldSymbol]): ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, ?] =
       new InsertResultConverter(tableColumnIndexes(column.get))
 
-    class InsertResultConverter(tableIndex: Int) extends ResultConverter[MemoryResultConverterDomain, Any] {
-      override def read(pr: Reader): Nothing = ??
-      override def update(value: Any, pr: Updater): Nothing = ??
-      def set(value: Any, pp: Writer, offset: Int) = pp(tableIndex + offset) = value
-      override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tableIndex=$tableIndex")
+    class InsertResultConverter(tableIndex: Int) extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
+      override def read(pr: QueryInterpreter.ProductValue): Nothing = ??
+      override def update(value: Any, pr: Nothing): Nothing = ??
+      def set(value: Any, pp: ArrayBuffer[Any]) = pp(tableIndex) = value
+      override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tableIndex=$tidx")
       def width = 1
     }
   }
