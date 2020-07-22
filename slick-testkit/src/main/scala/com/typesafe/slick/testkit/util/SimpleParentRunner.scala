@@ -16,7 +16,7 @@ import org.junit.runners.model.*
 abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Filterable with Sortable {
 
   private var _children: Seq[T] = null
-  protected final def children = {
+  protected final def children: Seq[T] = {
     if(_children == null) _children = getChildren
     _children
   }

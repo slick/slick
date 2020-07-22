@@ -1,9 +1,10 @@
 package com.typesafe.slick.testkit.util
 
-import scala.language.experimental.macros
-import scala.reflect.macros.blackbox.Context
-import scala.reflect.macros.TypecheckException
 import java.util.regex.Pattern
+
+import scala.language.experimental.macros
+import scala.reflect.macros.TypecheckException
+import scala.reflect.macros.blackbox.Context
 
 /**
  * A macro that ensures that a code snippet does not typecheck.

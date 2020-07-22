@@ -1,14 +1,17 @@
 package com.typesafe.slick.testkit.tests
 
 
-import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
+import java.sql.ResultSet
+
 import scala.reflect.ClassTag
 
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+
 class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
-  import tdb.profile.api._
+  import tdb.profile.api.*
 
   def testMappedEntity = {
-    import TupleMethods._
+    import TupleMethods.*
 
     case class User(id: Option[Int], first: String, last: String)
     case class Foo[T](value: T)
@@ -17,7 +20,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
-      def * = (id.? ~: baseProjection).<>(User.tupled, User.unapply _)
+      def * = (id.? ~: baseProjection).mapTo[User]
       def baseProjection = first ~ last
       def forUpdate = baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { (u: User) => Some((u.first, u.last)) })
       def asFoo = forUpdate.<>((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
@@ -75,7 +78,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testWideMappedEntity = {
-    import slick.collection.heterogeneous._
+    import slick.collection.heterogeneous.*
 
     case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
     case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
@@ -115,7 +118,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def m1 = (
         id,
         (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6).mapTo[Part],
-        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6).<>(Part.tupled, Part.unapply _),
+        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6).mapTo[Part],
         (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6).mapTo[Part],
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6).mapTo[Part]
       ).mapTo[Whole]
@@ -128,9 +131,15 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
         ).shaped.<>({ case (id, p1, p2, p3, p4) =>
         // We could do this without .shaped but then we'd have to write a type annotation for the parameters
-        Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
+        Whole(
+          id,
+          (Part.apply _).tupled.apply(p1),
+          (Part.apply _).tupled.apply(p2),
+          (Part.apply _).tupled.apply(p3),
+          (Part.apply _).tupled.apply(p4)
+        )
       }, { (w: Whole) =>
-        def f(p: Part) = Part.unapply(p).get
+        def f(p: Part) = (p.i1, p.i2, p.i3, p.i4, p.i5, p.i6)
         Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
       })
       // HList-based wide case class mapping
@@ -171,9 +180,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def p2 = column[String]("p2")
       def p3 = column[String]("p3")
       def p4 = column[Int]("p4")
-      def part1 = (p1,p2).<>(Part1.tupled,Part1.unapply)
+      def part1 = (p1,p2).mapTo[Part1]
       def part2 = (p3,p4).mapTo[Part2]
-      def * = (part1, part2).<>(Whole.tupled,Whole.unapply)
+      def * = (part1, part2).mapTo[Whole]
     }
     val T = TableQuery[T]
 
@@ -247,9 +256,21 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       f: Option[Int]
     )
 
-    implicit object shape
-        extends CaseClassShape((LiftedB.apply _).tupled,
-                               (B.apply _).tupled)
+    implicit object shape extends CaseClassShape[Product, (
+      Rep[Option[Long]],
+      Rep[Option[Long]],
+      Rep[Option[Long]],
+      Rep[Option[Int]],
+      Rep[Option[Double]],
+      Rep[Option[Int]]
+    ), LiftedB, (
+      Option[Long],
+      Option[Long],
+      Option[Long],
+      Option[Int],
+      Option[Double],
+      Option[Int]
+    ), B]((LiftedB.apply _).tupled, (B.apply _).tupled)
 
     case class ARow(id: Int, s: Long)
 
@@ -278,7 +299,11 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   def testCaseClassShape = {
     case class C(a: Int, b: String)
     case class LiftedC(a: Rep[Int], b: Rep[String])
-    implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+    implicit object cShape
+      extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedC, (Int, String), C](
+        (LiftedC.apply _).tupled,
+        (C.apply _).tupled
+      )
 
     class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -311,7 +336,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         case _ => false
       }
     }
-    implicit object cShape extends ProductClassShape(
+    implicit object cShape extends ProductClassShape[C, LiftedC](
       Seq(columnShape[Int], columnShape[Option[String]]),
       seq => new LiftedC(seq(0).asInstanceOf[Rep[Int]], seq(1).asInstanceOf[Rep[Option[String]]]),
       seq => new C(seq(0).asInstanceOf[Int], seq(1).asInstanceOf[Option[String]])
@@ -337,7 +362,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
       def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
     }
-    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]) =
+    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]): PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]] =
       new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
 
     // Use it in a table definition
@@ -366,8 +391,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testHList = {
-    import slick.collection.heterogeneous._
-    import slick.collection.heterogeneous.syntax._
+    import slick.collection.heterogeneous.*
+    import slick.collection.heterogeneous.syntax.*
 
     case class Data(id: Int, b: Boolean, s: String)
 
@@ -403,8 +428,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testSingleElement = {
-    import slick.collection.heterogeneous._
-    import slick.collection.heterogeneous.syntax._
+    import slick.collection.heterogeneous.*
+    import slick.collection.heterogeneous.syntax.*
 
     class A(tag: Tag) extends Table[String](tag, "single_a") {
       def b = column[String]("b")
@@ -450,9 +475,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).<>(Data.tupled, Data.unapply _).fastPath(new FastPath(_) {
+      def * = (a, b).mapTo[Data].fastPath(new FastPath[Data](_) { //TODO Can we remove the type param from FastPath in Dotty? Scala 2 doesn't need it.
         val (a, b) = (next[Int], next[Int])
-        override def read(r: Reader) = Data(a.read(r), b.read(r))
+        override def read(r: ResultSet) = Data(a.read(r), b.read(r))
       })
       def auto = (a, b).mapTo[Data]
     }

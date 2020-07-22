@@ -185,7 +185,7 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
     }
 
     try {
-      MappedColumnType.base[Id, Int](_.toInt, Id)(implicitly, null.asInstanceOf[BaseColumnType[Int]])
+      MappedColumnType.base[Id, Int](_.toInt, Id.apply)(implicitly, null.asInstanceOf[BaseColumnType[Int]])
       ???
     } catch {
       case t: NullPointerException if (t.getMessage ne null) && (t.getMessage contains "initialization order") =>
