@@ -538,40 +538,16 @@ END;
     }
   }
 
-<<<<<<< HEAD
-  override def createOptionResultConverter[T](ti: JdbcType[T],
-                                              idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
-    ti.scalaType match {
-      case ScalaBaseType.stringType =>
-        new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
-          override def read(pr: ResultSet) = {
-            val v = ti.getValue(pr, idx)
-            if ((v eq null) || v.isEmpty) None else Some(v)
-          }
-        }.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
-      case _                        =>
-        super.createOptionResultConverter(ti, idx)
-    }
 
-  override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new CountingInsertActionComposerImpl[T](compiled)
-
-  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert,
-                                                              keys: Node,
-                                                              mux: (U, QR) => RU
-                                                             ): ReturningInsertActionComposer[U, RU] =
-    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
-=======
-  override def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
+  override def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]] =
     if(ti.scalaType == ScalaBaseType.stringType)
       (new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
         override def read(pr: ResultSet) = {
           val v = this.ti.getValue(pr, this.idx)
           if((v eq null) || v.length == 0) None else Some(v)
         }
-      }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
+      }).asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]]]
     else super.createOptionResultConverter(ti, idx)
->>>>>>> Compile on Dotty
 
   // Does not work to get around the ORA-00904 issue when returning columns
   // with lower-case names

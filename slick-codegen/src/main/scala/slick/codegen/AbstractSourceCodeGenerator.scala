@@ -124,9 +124,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         )
     }
 
-    def factory   =
-      if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType else s"${TableClass.elementType}.tupled"
-    def extractor = s"${TableClass.elementType}.unapply"
+    def factory   = if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType else s"${TableClass.elementType}.tupled"
 
     trait ASEntityTypeDef extends AEntityTypeDef{
       def code = {
@@ -193,7 +191,7 @@ implicit def $name(implicit $dependencies): GR[${TableClass.elementType}] = GR{
     trait ASTableClassDef extends ATableClassDef{
       def star = {
         val struct = compoundValue(columns.map(c=>if(c.asOption)s"Rep.Some(${c.name})" else s"${c.name}"))
-        val rhs = if (isMappedToHugeClass) s"($struct).mapTo[${typeName(entityName(model.name.table))}]" else if(mappingEnabled) s"$struct.<>($factory, $extractor)" else struct
+        val rhs = if (mappingEnabled) s"($struct).mapTo[${typeName(entityName(model.name.table))}]" else struct
         s"def * = $rhs"
       }
       def option = {

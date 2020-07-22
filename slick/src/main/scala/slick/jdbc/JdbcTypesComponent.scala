@@ -485,33 +485,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   trait JdbcImplicitColumnTypes extends RelationalImplicitColumnTypes {
-<<<<<<< HEAD
 
-    implicit def booleanColumnType = columnTypes.booleanJdbcType
-    implicit def blobColumnType = columnTypes.blobJdbcType
-    implicit def byteColumnType = columnTypes.byteJdbcType
-    implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
-    implicit def charColumnType = columnTypes.charJdbcType
-    implicit def clobColumnType = columnTypes.clobJdbcType
-    implicit def dateColumnType = columnTypes.dateJdbcType
-    implicit def doubleColumnType = columnTypes.doubleJdbcType
-    implicit def floatColumnType = columnTypes.floatJdbcType
-    implicit def intColumnType = columnTypes.intJdbcType
-    implicit def longColumnType = columnTypes.longJdbcType
-    implicit def shortColumnType = columnTypes.shortJdbcType
-    implicit def stringColumnType = columnTypes.stringJdbcType
-    implicit def timeColumnType = columnTypes.timeJdbcType
-    implicit def timestampColumnType = columnTypes.timestampJdbcType
-    implicit def uuidColumnType = columnTypes.uuidJdbcType
-    implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
-    implicit def offsetDateTimeColumnType = columnTypes.offsetDateTimeType
-    implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
-    implicit def localTimeColumnType = columnTypes.localTimeType
-    implicit def localDateColumnType = columnTypes.localDateType
-    implicit def localDateTimeColumnType = columnTypes.localDateTimeType
-    implicit def offsetTimeColumnType = columnTypes.offsetTimeType
-    implicit def instantColumnType = columnTypes.instantType
-=======
     implicit def booleanColumnType:        DriverJdbcType[Boolean] = columnTypes.booleanJdbcType
     implicit def blobColumnType:           DriverJdbcType[Blob] = columnTypes.blobJdbcType
     implicit def byteColumnType:           DriverJdbcType[Byte] with NumericTypedType = columnTypes.byteJdbcType
@@ -536,7 +510,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def localDateTimeColumnType:  DriverJdbcType[LocalDateTime] = columnTypes.localDateTimeType
     implicit def offsetTimeColumnType:     DriverJdbcType[OffsetTime] = columnTypes.offsetTimeType
     implicit def instantColumnType:        DriverJdbcType[Instant] = columnTypes.instantType
->>>>>>> Compile on Dotty
   }
 }
 

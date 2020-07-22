@@ -127,7 +127,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def id = column[Int]("id" , O.AutoInc , O.PrimaryKey)
       def email = column[String]("email" , O.Unique , O.Length(254))
 
-      def * = (email , id).<>(ARow.tupled , ARow.unapply )
+      def * = (email , id).mapTo[ARow]
     }
     val atq = TableQuery[A]
 

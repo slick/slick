@@ -22,6 +22,7 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
   @inline def shaped: ShapedValue[T, U] = this
 
   inline def mapTo[R]: MappedProjection[R, U] = ${ ShapedValue.mapToExpr[R, T, U]('{this}) }
+  override def toString = s"ShapedValue($value, $shape)"
 }
 
 object ShapedValue {
@@ -76,12 +77,21 @@ object ShapedValue {
 
     '{ new MappedProjection[R, U]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
   }
+
+  // Turn ConstColumn into Rep at the top level on Dotty to avoid ClassCastExceptions
+  type Unconst[P, P2] = P2 match {
+    case ConstColumn[t] => Rep[t]
+    case _ => P2
+  }
 }
 
 trait ToTuple[E, T] extends (E => Option[T])
 
-object ToTuple {
+object ToTuple extends ToTupleLowPriority {
   implicit def someToTuple[T]: ToTuple[Some[T], T] = identity
+}
+
+trait ToTupleLowPriority {
   implicit def optionToTuple[T]: ToTuple[Option[T], T] = identity
   implicit def productToTuple[T <: Product](using m: Mirror.ProductOf[T]): ToTuple[T, m.MirroredElemTypes] =
     (x => Some(Tuple.fromProductTyped(x)))

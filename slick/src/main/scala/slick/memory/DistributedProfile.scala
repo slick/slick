@@ -1,13 +1,12 @@
 package slick.memory
 
-import scala.collection.mutable.{Builder, HashMap}
-
+import scala.collection.mutable.{ArrayBuffer, Builder, HashMap}
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
-import slick.compiler.*
-import slick.dbio.*
+import slick.compiler._
+import slick.dbio._
 import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter}
 import slick.util.{??, DumpInfo, RefId}
 
@@ -53,14 +52,8 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   class DistributedQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends BasicQueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: ProfileAction[R, S, Effect.Read] =
-<<<<<<< HEAD
-      new StreamingProfileAction[R, Any, Effect.Read]
-        with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
-        def run(ctx: Backend#Context) = exe.run(ctx.session)
-=======
       new StreamingProfileAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], DistributedBackend#BasicActionContext, DistributedBackend#BasicStreamingActionContext, Effect.Read] {
         def run(ctx: DistributedBackend#BasicActionContext) = exe.run(ctx.session)
->>>>>>> Compile on Dotty
         def getDumpInfo = DumpInfo("DistributedProfile.ProfileAction")
         def head: ResultAction[Any, NoStream, Effect.Read] = ??
         def headOption: ResultAction[Option[Any], NoStream, Effect.Read] = ??
@@ -88,7 +81,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n                                                                                    => super.run(n)
     }

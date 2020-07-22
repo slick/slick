@@ -14,48 +14,37 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
   val mappingCompiler: MappingCompiler = new MappingCompiler
 
   /** Create a (possibly specialized) `ResultConverter` for the given `JdbcType`. */
-  def createBaseResultConverter[T](ti: JdbcType[T], name: String, idx: Int): ResultConverter[JdbcResultConverterDomain, T] =
+  def createBaseResultConverter[T](ti: JdbcType[T], name: String, idx: Int): ResultConverter[ResultSet, PreparedStatement, ResultSet, T] =
     new BaseResultConverter(ti, name, idx)
 
   /** Create a (possibly specialized) `ResultConverter` for `Option` values of the given `JdbcType`. */
-  def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
+  def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]] =
     new OptionResultConverter(ti, idx)
 
   /** A ResultConverterCompiler that builds JDBC-based converters. Instances of
     * this class use mutable state internally. They are meant to be used for a
     * single conversion only and must not be shared or reused. */
-  class MappingCompiler extends ResultConverterCompiler[JdbcResultConverterDomain] {
-    def createColumnConverter(n: Node,
-                              idx: Int,
-                              column: Option[FieldSymbol]): ResultConverter[JdbcResultConverterDomain, ?] = {
+  class MappingCompiler extends ResultConverterCompiler[ResultSet, PreparedStatement, ResultSet] {
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[ResultSet, PreparedStatement, ResultSet, _] = {
       val JdbcType(ti, option) = n.nodeType.structural
       if(option) createOptionResultConverter(ti, idx)
       else createBaseResultConverter(ti, column.fold("<computed>")(_.name), idx)
     }
 
-<<<<<<< HEAD
-    override def createGetOrElseResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]],
-                                                   default: () => T) = rc match {
-      case rc: OptionResultConverter[?] => rc.getOrElse(default)
-      case _                            => super.createGetOrElseResultConverter[T](rc, default)
-=======
-    override def createGetOrElseResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]], default: () => T) = rc match {
+    override def createGetOrElseResultConverter[T](rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]], default: () => T) = rc match {
       case rc: OptionResultConverter[T] => rc.getOrElse(default)
       case _ => super.createGetOrElseResultConverter[T](rc, default)
->>>>>>> Compile on Dotty
     }
 
-    override def createIsDefinedResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]]) =
-      rc match {
-        case rc: OptionResultConverter[?] => rc.isDefined
-        case _                            => super.createIsDefinedResultConverter(rc)
-      }
+    override def createIsDefinedResultConverter[T](rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]]) = rc match {
+      case rc: OptionResultConverter[_] => rc.isDefined
+      case _ => super.createIsDefinedResultConverter(rc)
+    }
 
-    override def createTypeMappingResultConverter(rc: ResultConverter[JdbcResultConverterDomain, Any],
-                                                  mapper: MappedScalaType.Mapper) = {
-      val tm = TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
+    override def createTypeMappingResultConverter(rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Any], mapper: MappedScalaType.Mapper) = {
+      val tm = new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
       mapper.fastPath match {
-        case Some(f) => f(tm).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]]
+        case Some(f) => f(tm).asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, Any]]
         case None => tm
       }
     }

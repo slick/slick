@@ -120,42 +120,6 @@ trait SQLiteProfile extends JdbcProfile {
 
       override def dbType: Some[String] = Some(extractedType)
       override def length = extractedLength
-<<<<<<< HEAD
-      override def varying = dbType.contains("VARCHAR")
-      override def default: Option[Option[Any]] =
-        meta.columnDef
-          .map((_, tpe))
-          .collect {
-            case ("null", _)               => Some(None) // 3.7.15-M1
-            case (v, "java.sql.Timestamp") =>
-              import scala.util.{Success, Try}
-              val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
-                (s: String) => Timestamp.valueOf(s),
-                (s: String) => Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s))),
-                (s: String) => Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s.replace(' ', 'T')))),
-                (s: String) =>
-                  Timestamp.from(
-                    LocalDate.from(DateTimeFormatter.ISO_LOCAL_DATE.parse(s)).atStartOfDay().toInstant(ZoneOffset.UTC)
-                  ),
-                (s: String) =>
-                  Timestamp.from(
-                    LocalTime.from(DateTimeFormatter.ISO_LOCAL_TIME.parse(s))
-                      .atDate(LocalDate.ofEpochDay(0)).toInstant(ZoneOffset.UTC)
-                  ),
-                (s: String) => {
-                  if (s == "now")
-                    "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
-                  else
-                    throw new Exception(s"Failed to parse timestamp - $s")
-                }
-              )
-              val v2 = v.replace("\"", "")
-              convertors.collectFirst(fn => Try(fn(v2)) match {
-                case Success(v) => Some(v)
-              })
-          }
-          .getOrElse(super.default)
-=======
       override def varying = dbType == Some("VARCHAR")
       override def default: Option[Option[Any]] = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
@@ -180,7 +144,6 @@ trait SQLiteProfile extends JdbcProfile {
           }
         }
       }.getOrElse{super.default}
->>>>>>> Compile on Dotty
       override def tpe = dbType match {
         case Some("DOUBLE") => "Double"
         case Some("DATE") => "java.sql.Date"
@@ -203,14 +166,8 @@ trait SQLiteProfile extends JdbcProfile {
     )
   }
 
-<<<<<<< HEAD
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
-=======
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new SQLiteModelBuilder(tables, ignoreInvalidDefaults)
->>>>>>> Compile on Dotty
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))

@@ -92,32 +92,6 @@ sealed abstract class HList extends Product {
 }
 
 object HList {
-<<<<<<< HEAD
-  import syntax.*
-
-  final class HListShape[
-    Level <: ShapeLevel,
-    M <: HList,
-    U <: HList : ClassTag,
-    P <: HList
-  ](val shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
-    override def buildValue(elems: IndexedSeq[Any]): HList = elems.foldRight(HNil: HList)(_ :: _)
-    override def copy(shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]): HListShape[Level, Nothing, U, Nothing] =
-      new HListShape(shapes)
-  }
-  implicit def hnilShape[Level <: ShapeLevel]: HListShape[Level, HNil.type, HNil.type, HNil.type] =
-    new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
-  implicit def hconsShape[
-    Level <: ShapeLevel,
-    M1,
-    M2 <: HList,
-    U1,
-    U2 <: HList,
-    P1,
-    P2 <: HList
-  ](implicit s1: Shape[? <: Level, M1, U1, P1],
-    s2: HListShape[? <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
-=======
   import syntax._
 
   final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
@@ -126,7 +100,6 @@ object HList {
   }
   implicit def hnilShape[Level <: ShapeLevel]: HListShape[Level, HNil.type, HNil.type, HNil.type] = new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
   implicit def hconsShape[Level <: ShapeLevel, M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: HListShape[_ <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
->>>>>>> Compile on Dotty
     new HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2](s1 +: s2.shapes)
 }
 

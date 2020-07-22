@@ -23,18 +23,6 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
   val api: MemoryQueryingAPI
 
   trait ImplicitColumnTypes {
-<<<<<<< HEAD
-    implicit def booleanColumnType: ScalaBaseType[Boolean] = ScalaBaseType.booleanType
-    implicit def bigDecimalColumnType: ScalaNumericType[BigDecimal] = ScalaBaseType.bigDecimalType
-    implicit def byteColumnType: ScalaNumericType[Byte] = ScalaBaseType.byteType
-    implicit def charColumnType: ScalaBaseType[Char] = ScalaBaseType.charType
-    implicit def doubleColumnType: ScalaNumericType[Double] = ScalaBaseType.doubleType
-    implicit def floatColumnType: ScalaNumericType[Float] = ScalaBaseType.floatType
-    implicit def intColumnType: ScalaNumericType[Int] = ScalaBaseType.intType
-    implicit def longColumnType: ScalaNumericType[Long] = ScalaBaseType.longType
-    implicit def shortColumnType: ScalaNumericType[Short] = ScalaBaseType.shortType
-    implicit def stringColumnType: ScalaBaseType[String] = ScalaBaseType.stringType
-=======
     implicit def booleanColumnType    : ScalaBaseType[Boolean]       = ScalaBaseType.booleanType
     implicit def bigDecimalColumnType : ScalaNumericType[BigDecimal] = ScalaBaseType.bigDecimalType
     implicit def byteColumnType       : ScalaNumericType[Byte]       = ScalaBaseType.byteType
@@ -45,7 +33,6 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
     implicit def longColumnType       : ScalaNumericType[Long]       = ScalaBaseType.longType
     implicit def shortColumnType      : ScalaNumericType[Short]      = ScalaBaseType.shortType
     implicit def stringColumnType     : ScalaBaseType[String]        = ScalaBaseType.stringType
->>>>>>> Compile on Dotty
   }
 
   /* internal: */
@@ -58,9 +45,8 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
     case t => throw new SlickException("No ScalaType found for type "+t)
   }): ScalaType[?]).asInstanceOf[ScalaType[Any]]
 
-  class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
-    override def apply(state: CompilerState): CompilerState =
-      state.map(n => retype(apply(n, state))).withWellTyped(false)
+  class MemoryCodeGen extends CodeGen with ResultConverterCompiler[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing] {
+    override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state))).withWellTyped(false)
 
     override def compileServerSideAndMapping(serverSide: Node,
                                              mapping: Option[Node],
@@ -96,27 +82,19 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
         typeInfoFor(t)
     }
 
-    override def compile(n: Node): ResultConverter[MemoryResultConverterDomain, ?] = n match {
+    override def compile(n: Node): ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, _] = n match {
       // We actually get a Scala Option value from the interpreter, so the SilentCast is not silent after all
-      case Library.SilentCast(sel @ Select(_, ElementSymbol(idx)) :@ OptionType(_)) :@ tpe
-        if !tpe.isInstanceOf[OptionType] =>
-        val base =
-          createColumnConverter(sel, idx, None).asInstanceOf[ResultConverter[MemoryResultConverterDomain, Option[Any]]]
-        createGetOrElseResultConverter(
-          base,
-          () => throw new SlickException("Read null value for non-nullable column in Option")
-        )
-      case n =>
-        super.compile(n)
+      case Library.SilentCast(sel @ Select(_, ElementSymbol(idx)) :@ OptionType(tpe2)) :@ tpe if !tpe.isInstanceOf[OptionType] =>
+        val base = createColumnConverter(sel, idx, None).asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Option[Any]]]
+        createGetOrElseResultConverter(base, () => throw new SlickException("Read null value for non-nullable column in Option"))
+      case n => super.compile(n)
     }
 
-    def createColumnConverter(n: Node,
-                              idx: Int,
-                              column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, ?] =
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, _] =
       new QueryResultConverter(idx, typeInfoFor(n.nodeType.structural).nullable)
 
-    class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
-      def read(pr: Reader) = {
+    class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
+      def read(pr: QueryInterpreter.ProductValue) = {
         val v = pr(ridx-1)
         if(!nullable && (v.asInstanceOf[AnyRef] eq null))
           throw new SlickException("Read null value for non-nullable column")
@@ -125,13 +103,8 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
         if(!nullable && v.isInstanceOf[Option[?]]) v.asInstanceOf[Option[?]].get
         else v
       }
-<<<<<<< HEAD
-      override def update(value: Any, pr: MemoryResultConverterDomain#Updater): Nothing = ??
-      override def set(value: Any, pp: MemoryResultConverterDomain#Writer, offset: Int): Nothing = ??
-=======
-      def update(value: Any, pr: Updater) = ??
-      def set(value: Any, pp: Writer) = ??
->>>>>>> Compile on Dotty
+      def update(value: Any, pr: Nothing) = ??
+      def set(value: Any, pp: ArrayBuffer[Any]) = ??
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"ridx=$ridx, nullable=$nullable")
       def width = 1
     }

@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 
 import scala.concurrent.Future
 
@@ -188,8 +188,8 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
 
     // Use Option.flatten
     val q1f1 = q1.map { to => Rep.Some(to) }
-    val q1f2 = q1.map { to => Rep.Some(to).flatten }
-    val q1f3 = q1.map { to => Rep.Some(to) }.map(_.flatten)
+    val q1f2 = q1.map { to => Rep.Some(to).flatten: Rep[Option[X]] } //TODO why do q1f2 and q1f3 need type annotations in Dotty?
+    val q1f3 = q1.map { to => Rep.Some(to) }.map(x => x.flatten: Rep[Option[X]])
     val q2f1 = q2.map { io => Rep.Some(io) }
     val q2f2 = q2.map { io => Rep.Some(io).flatten }
     val q2f3 = q2.map { io => Rep.Some(io) }.map(_.flatten)

@@ -1,39 +1,27 @@
 package slick.jdbc
 
-import java.sql.{PreparedStatement, Statement}
+import java.sql.{PreparedStatement, ResultSet, Statement}
 
 import scala.language.existentials
 import scala.collection.mutable.Builder
 import scala.language.existentials
 import scala.util.control.NonFatal
-
 import slick.SlickException
 import slick.ast.*
 import slick.ast.ColumnOption.PrimaryKey
 import slick.ast.TypeUtil.:@
-import slick.ast.Util.*
-import slick.dbio.*
 import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
-import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder}
-
+import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
   type ProfileAction[+R, +S <: NoStream, -E <: Effect] = FixedSqlAction[R, S, E]
   type StreamingProfileAction[+R, +T, -E <: Effect] = FixedSqlStreamingAction[R, T, E]
 
-<<<<<<< HEAD
-  type RowsPerStatement >: slick.jdbc.RowsPerStatement.One.type <: slick.jdbc.RowsPerStatement
-  def defaultRowsPerStatement: RowsPerStatement
-
-  abstract class SimpleJdbcProfileAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, Backend, Effect] with ProfileAction[R, NoStream, Effect] { self =>
-    def run(ctx: Backend#Context, sql: Vector[String]): R
-=======
   abstract class SimpleJdbcProfileAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] with ProfileAction[R, NoStream, Effect] { self =>
     def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): R
->>>>>>> Compile on Dotty
     final override def getDumpInfo = super.getDumpInfo.copy(name = _name)
     final def run(ctx: JdbcBackend#JdbcActionContext): R = run(ctx, statements)
     final def overrideStatements(_statements: Iterable[String]): ProfileAction[R, NoStream, Effect] = new SimpleJdbcProfileAction[R](_name, _statements.toVector) {
@@ -192,13 +180,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       override def toString = s"Mutator(state = $state, current = $current)"
     }
     type StreamState = Mutator
-<<<<<<< HEAD
-    override def statements: List[String] = List(sql)
-    def run(ctx: Backend#Context) =
-=======
     def statements = List(sql)
     def run(ctx: JdbcBackend#JdbcActionContext) =
->>>>>>> Compile on Dotty
       throw new SlickException("The result of .mutate can only be used in a streaming way")
     override def emitStream(ctx: JdbcBackend#JdbcStreamingActionContext, limit: Long, state: StreamState): StreamState = {
       val mu = if(state ne null) state else {
@@ -336,7 +319,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(_converter, _)) = tree
-    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+    protected[this] val converter = _converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, T]]
 
     /** An Action that updates the data selected by this query. */
     def update(value: T): ProfileAction[Int, NoStream, Effect.Write] = {
@@ -575,13 +558,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def preparedOther[T](sql: String, session: JdbcBackend#Session)(f: PreparedStatement => T) =
       session.withPreparedStatement(sql)(f)
 
-<<<<<<< HEAD
-    private def insertSingleRow(sql: Vector[String], ctx: Backend#Context, a: compiled.Artifacts, value: U) =
-      preparedInsert(sql.head, ctx.session) { st =>
-=======
     class SingleInsertAction(a: compiled.Artifacts, value: U) extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) = preparedInsert(a.sql, ctx.session) { st =>
->>>>>>> Compile on Dotty
         st.clearParameters()
         a.converter.set(value, st, 0)
         val count = st.executeUpdate()
@@ -594,26 +572,6 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         insertSingleRow(sql, ctx, a, value)
     }
 
-<<<<<<< HEAD
-    class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U], rowsPerStatement: slick.jdbc.RowsPerStatement)
-      extends SimpleJdbcProfileAction[MultiInsertResult](
-        _name = "MultiInsertAction",
-        statements = rowsPerStatement match {
-          case RowsPerStatement.One => Vector(a.sql)
-          case RowsPerStatement.All => Vector(a.ibr.buildMultiRowInsert(values.size))
-        }
-      ) {
-      protected def doUnbatched(ctx: Backend#Context, sql: Vector[String]) = {
-        val results =
-          for (value <- values.iterator) yield
-            insertSingleRow(sql, ctx, a, value)
-
-        retMany(values, results.toVector)
-      }
-
-      protected def doBatched(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) =
-        preparedInsert(sql.head, ctx.session) { st =>
-=======
     class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U]) extends SimpleJdbcProfileAction[MultiInsertResult]("MultiInsertAction", Vector(a.sql)) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) = {
         val sql1 = sql.head
@@ -626,7 +584,6 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
             }
           }.toVector)
         else preparedInsert(a.sql, ctx.session) { st =>
->>>>>>> Compile on Dotty
           st.clearParameters()
           for (value <- values) {
             a.converter.set(value, st, 0)

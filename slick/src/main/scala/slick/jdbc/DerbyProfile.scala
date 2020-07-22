@@ -130,19 +130,6 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
           }
         }
 
-<<<<<<< HEAD
-      override def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] =
-        new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
-          def run(ctx: Backend#Context, sql: Vector[String]): Unit = {
-            import java.sql.SQLException
-            for (s <- sql) try {
-              ctx.session.withPreparedStatement(s)(_.execute)
-            } catch {
-              //'<value>' cannot be performed on '<value>' because it does not exist.
-              case e: SQLException if e.getSQLState.equals("42Y55") => ()
-              case e: Throwable                                     => throw e
-            }
-=======
       override def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
         def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = {
           import java.sql.SQLException
@@ -152,7 +139,6 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
             //'<value>' cannot be performed on '<value>' because it does not exist.
             case e: SQLException if e.getSQLState().equals("42Y55") =>  ()
             case e: Throwable => throw e
->>>>>>> Compile on Dotty
           }
         }
     }
