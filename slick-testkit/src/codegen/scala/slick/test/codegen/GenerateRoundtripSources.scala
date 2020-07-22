@@ -235,8 +235,8 @@ class Tables(val profile: JdbcProfile){
       ).shaped.<>({ case (id, p1, p2, p3, p4, p5, p6) =>
       // We could do this without .shaped but then we'd have to write a type annotation for the parameters
       Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4), Part.tupled.apply(p5), Part.tupled.apply(p6))
-    }, { w: Whole =>
-      def f(p: Part) = Part.unapply(p).get
+    }, { (w: Whole) =>
+      def f(p: Part) = (p.i1, p.i2, p.i3, p.i4, p.i5, p.i6)
       Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4), f(w.p5), f(w.p6)))
     })
   }

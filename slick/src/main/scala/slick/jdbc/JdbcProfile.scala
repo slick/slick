@@ -1,19 +1,24 @@
 package slick.jdbc
 
+import java.sql.{PreparedStatement, ResultSet}
+
 import scala.collection.mutable.Builder
 import scala.language.implicitConversions
-
 import slick.ast._
 import slick.ast.TypeUtil.:@
-import slick.compiler.{Phase, QueryCompiler, InsertCompiler}
+import slick.compiler.{InsertCompiler, Phase, QueryCompiler}
 import slick.lifted._
-import slick.relational.{RelationalProfile, CompiledMapping}
+import slick.relational.{CompiledMapping, RelationalProfile}
 import slick.sql.SqlProfile
 
 /** Abstract profile for accessing SQL databases via JDBC. */
 trait JdbcProfile extends SqlProfile with JdbcActionComponent
   with JdbcInvokerComponent with JdbcTypesComponent with JdbcModelComponent
   /* internal: */ with JdbcStatementBuilderComponent with JdbcMappingCompilerComponent {
+
+  type ResultConverterReader = ResultSet
+  type ResultConverterWriter = PreparedStatement
+  type ResultConverterUpdater = ResultSet
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend

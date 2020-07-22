@@ -72,25 +72,22 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
   }
 
   /**
-    * Use (mix of Java/scala) reflection to retrieve the inUseCount field of the ManagedArrayBlockingQueue
+    * Use Java reflection to retrieve the inUseCount field of the ManagedArrayBlockingQueue
     */
   def inUseCount: Int = {
-    import scala.reflect.runtime.{universe => ru}
-    val mirror = ru.runtimeMirror(this.getClass.getClassLoader)
-
     val asyncExecutorField = database.getClass.getDeclaredField("executor")
     asyncExecutorField.setAccessible(true)
     val asyncExecutor = asyncExecutorField.get(database)
 
-    val threadPoolExecutorField = asyncExecutor.getClass.getDeclaredField("slick$util$AsyncExecutor$$anon$$executor")
+    val aeFields = Seq("slick$util$AsyncExecutor$$anon$$executor", "slick$util$AsyncExecutor$$anon$2$$executor")
+    val threadPoolExecutorField = asyncExecutor.getClass.getDeclaredFields.find(f => aeFields.contains(f.getName)).get
     threadPoolExecutorField.setAccessible(true)
     val threadPoolExecutor = threadPoolExecutorField.get(asyncExecutor)
 
     val queue = threadPoolExecutor.getClass.getMethod("getQueue").invoke(threadPoolExecutor)
 
-    val inUseCountMember = ru.typeOf[ManagedArrayBlockingQueue[_]].decl(ru.TermName("inUseCount")).asTerm
-    mirror.reflect(queue).reflectField(inUseCountMember).get.asInstanceOf[Int]
+    val inUseCountField = queue.getClass.getDeclaredField("inUseCount")
+    inUseCountField.setAccessible(true)
+    inUseCountField.get(queue).asInstanceOf[Int]
   }
-
-
 }

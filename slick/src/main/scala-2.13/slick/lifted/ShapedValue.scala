@@ -20,6 +20,7 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
   @inline def shaped: ShapedValue[T, U] = this
 
   def mapTo[R <: Product with Serializable](implicit rCT: ClassTag[R]): MappedProjection[R, U] = macro ShapedValue.mapToImpl[R, U]
+  override def toString = s"ShapedValue($value, $shape)"
 }
 
 object ShapedValue {
@@ -65,12 +66,12 @@ object ShapedValue {
       val ff = $f.asInstanceOf[_root_.scala.Any => _root_.scala.Any] // Resolving f first creates more useful type errors
       val gg = $g.asInstanceOf[_root_.scala.Any => _root_.scala.Any]
       val fpMatch: (_root_.scala.Any => _root_.scala.Any) = {
-        case tm @ _root_.slick.relational.TypeMappingResultConverter(_: _root_.slick.relational.ProductResultConverter[_, _], _, _) =>
-          new _root_.slick.relational.SimpleFastPathResultConverter[_root_.slick.relational.ResultConverterDomain, $rTag](tm.asInstanceOf[_root_.slick.relational.TypeMappingResultConverter[_root_.slick.relational.ResultConverterDomain, $rTag, _]]) {
+        case tm @ _root_.slick.relational.TypeMappingResultConverter(_: _root_.slick.relational.ProductResultConverter[_, _, _, _], _, _) =>
+          new _root_.slick.relational.SimpleFastPathResultConverter[_root_.scala.Any, _root_.scala.Any, _root_.scala.Any, $rTag](tm.asInstanceOf[_root_.slick.relational.TypeMappingResultConverter[_root_.scala.Any, _root_.scala.Any, _root_.scala.Any, $rTag, _]]) {
             ..$fpChildren
-            override def read(r: Reader): $rTag = new $rTag(..$fpReadChildren)
-            override def set(value: $rTag, pp: Writer): _root_.scala.Unit = {..$fpSetChildren}
-            override def update(value: $rTag, pr: Updater): _root_.scala.Unit = {..$fpUpdateChildren}
+            override def read(r: Any): $rTag = new $rTag(..$fpReadChildren)
+            override def set(value: $rTag, pp: Any): _root_.scala.Unit = {..$fpSetChildren}
+            override def update(value: $rTag, pr: Any): _root_.scala.Unit = {..$fpUpdateChildren}
             override def getDumpInfo = super.getDumpInfo.copy(name = $fpName)
           }
         case tm => tm
@@ -79,4 +80,6 @@ object ShapedValue {
         _root_.slick.ast.MappedScalaType.Mapper(gg, ff, _root_.scala.Some(fpMatch)), $rCT)
     """
   }
+
+  type Unconst[P, P2] = P
 }

@@ -1,16 +1,15 @@
 package slick.memory
 
 
-import scala.collection.mutable.{Builder, HashMap}
-
+import scala.collection.mutable.{ArrayBuffer, Builder, HashMap}
 import slick.SlickException
 import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler._
 import slick.dbio._
-import slick.relational.{RelationalProfile, ResultConverter, CompiledMapping}
-import slick.util.{DumpInfo, RefId, ??}
+import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter}
+import slick.util.{??, DumpInfo, RefId}
 
 /** A profile for distributed queries. */
 class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryingProfile { self: DistributedProfile =>
@@ -79,7 +78,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }

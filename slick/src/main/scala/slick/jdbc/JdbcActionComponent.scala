@@ -1,20 +1,19 @@
 package slick.jdbc
 
-import java.sql.{PreparedStatement, Statement}
+import java.sql.{PreparedStatement, ResultSet, Statement}
 
 import scala.language.existentials
 import scala.collection.mutable.Builder
 import scala.util.control.NonFatal
-
 import slick.SlickException
 import slick.ast.ColumnOption.PrimaryKey
 import slick.dbio._
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil.:@
-import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
-import slick.relational.{ResultConverter, CompiledMapping}
-import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
+import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
+import slick.relational.{CompiledMapping, ResultConverter}
+import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
 import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
@@ -321,7 +320,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(_converter, _)) = tree
-    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+    protected[this] val converter = _converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, T]]
 
     /** An Action that updates the data selected by this query. */
     def update(value: T): ProfileAction[Int, NoStream, Effect.Write] = {

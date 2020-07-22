@@ -1,16 +1,15 @@
 package slick.memory
 
 import scala.language.existentials
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
-
 import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler._
 import slick.dbio._
-import slick.relational.{RelationalProfile, ResultConverterCompiler, ResultConverter, CompiledMapping}
-import slick.util.{DumpInfo, ??}
+import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter, ResultConverterCompiler}
+import slick.util.{??, DumpInfo}
 
 /** A profile for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
@@ -74,7 +73,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }
@@ -92,7 +91,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     def += (value: T)(implicit session: Backend#Session): Unit = {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
-      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf)
+      converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]].set(value, buf)
       htable.append(buf.toIndexedSeq)
     }
 
@@ -119,7 +118,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
       val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].iterator
-      pvit.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read _)
+      pvit.map(converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, T]].read _)
     }
     def run(ctx: HeapBackend#BasicActionContext): R =
       createInterpreter(ctx.session.database, param).run(tree).asInstanceOf[R]
@@ -197,17 +196,17 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
 
   override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
-  class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
+  class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing] {
     val Insert(_, table: TableNode, ProductNode(cols), _) = insert
     val tableColumnIdxs = table.profileTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
-    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] =
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, _] =
       new InsertResultConverter(tableColumnIdxs(column.get))
 
-    class InsertResultConverter(tidx: Int) extends ResultConverter[MemoryResultConverterDomain, Any] {
-      def read(pr: Reader) = ??
-      def update(value: Any, pr: Updater) = ??
-      def set(value: Any, pp: Writer) = pp(tidx) = value
+    class InsertResultConverter(tidx: Int) extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
+      def read(pr: QueryInterpreter.ProductValue) = ??
+      def update(value: Any, pr: Nothing) = ??
+      def set(value: Any, pp: ArrayBuffer[Any]) = pp(tidx) = value
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tidx=$tidx")
       def width = 1
     }
