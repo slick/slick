@@ -142,7 +142,7 @@ object LiftedEmbedding extends App {
     def last = column[String]("last")
     def * = (id.?, first, last).mapTo[Person]
   }
-  val people = TableQuery[Person]
+  val people = TableQuery[People]
 //#maptotable
 
 //#index
