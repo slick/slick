@@ -2,6 +2,7 @@ package slick.memory
 
 import scala.collection.compat.*
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 import slick.SlickException
 import slick.ast.*
@@ -90,7 +91,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, Any]]
         b ++= fromV.iterator.map { v =>
-          converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]]
+          converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]]
             .read(v.asInstanceOf[QueryInterpreter.ProductValue])
         }
         b.result()
@@ -123,7 +124,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
       val needed = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
       val taints = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
       def collect(n: Node, scope: Scope): (Set[RelationalProfile], Set[RelationalProfile]) = {
-        val (dr: Set[RelationalProfile] @unchecked, tt: Set[RelationalProfile] @unchecked) = (n match {
+        val (dr: Set[RelationalProfile] @unchecked, tt: Set[RelationalProfile] @unchecked) = n match {
           case t: TableNode => (Set(t.profileTable.asInstanceOf[RelationalProfile#Table[?]].tableProvider), Set.empty)
           case Ref(sym) =>
             scope.get(sym) match {
@@ -143,7 +144,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
               n
             }, scope)
             (nnd, ntt)
-        }): @unchecked
+        }
         needed += RefId(n) -> dr
         taints += RefId(n) -> tt
         (dr, tt)

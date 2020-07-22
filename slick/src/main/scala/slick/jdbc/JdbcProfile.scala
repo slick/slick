@@ -1,8 +1,9 @@
 package slick.jdbc
 
+import java.sql.{PreparedStatement, ResultSet}
+
 import scala.collection.mutable
 import scala.language.implicitConversions
-
 import slick.ast.*
 import slick.ast.TypeUtil.:@
 import slick.compiler.{InsertCompiler, Phase, QueryCompiler}
@@ -14,6 +15,10 @@ import slick.sql.SqlProfile
 trait JdbcProfile extends SqlProfile with JdbcActionComponent
   with JdbcInvokerComponent with JdbcTypesComponent with JdbcModelComponent
   /* internal: */ with JdbcStatementBuilderComponent with JdbcMappingCompilerComponent {
+
+  type ResultConverterReader = ResultSet
+  type ResultConverterWriter = PreparedStatement
+  type ResultConverterUpdater = ResultSet
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend

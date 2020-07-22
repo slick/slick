@@ -527,7 +527,7 @@ END;
   }
 
   override def createOptionResultConverter[T](ti: JdbcType[T],
-                                              idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
+                                              idx: Int): ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]] =
     ti.scalaType match {
       case ScalaBaseType.stringType =>
         new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
@@ -535,7 +535,7 @@ END;
             val v = jdbcType.getValue(pr, index)
             if ((v eq null) || v.isEmpty) None else Some(v)
           }
-        }.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
+        }.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]]]
       case _                        =>
         super.createOptionResultConverter(ti, idx)
     }
