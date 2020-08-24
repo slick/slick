@@ -46,4 +46,35 @@ class SchemaSupportTest {
     s6.foreach(println)
     s6.foreach(s => assertTrue("DDL (createIfNotExists) uses schema name", s contains """ "myschema"."mytable""""))
   }
+
+
+  @Test def createIfNotExist: Unit = {
+
+    import slick.jdbc.PostgresProfile.api._
+
+    case class User1(index: Option[Int],
+                     auto_inc: Int,
+                     id: String,
+                     password: String)
+
+    class Users1(tag: Tag) extends Table[User1](tag, "users1") {
+      def index      = column[Int]("idx", O.PrimaryKey, O.AutoInc)
+      def auto_inc      = column[Int]("auto_inc", O.AutoInc)
+      def id         = column[String]("id", O.Unique)
+      def password   = column[String]("pw")
+      def * =
+        (index.?, auto_inc, id, password) <> ((User1.apply _).tupled, User1.unapply)
+    }
+
+    val users1 = TableQuery[Users1]
+
+    def create = users1.schema.createStatements.toSeq.head
+    def createIfNotExists = users1.schema.createIfNotExistsStatements.toSeq.head
+    assertFalse(create.contains("if not exists"))
+    assertTrue(createIfNotExists.contains("if not exists"))
+
+    val forCompare = createIfNotExists.replace("if not exists ", "")
+    assertEquals(create, forCompare)
+  }
+
 }
