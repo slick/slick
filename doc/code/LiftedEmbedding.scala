@@ -132,6 +132,19 @@ object LiftedEmbedding extends App {
     ({ t => User(None, t._1, t._2)}, { (u: User) => Some((u.first, u.last))}))
 //#insert2
 
+//#maptotable
+  object Person {}
+  case class Person(id: Option[Int], first: String, last: String)
+
+  class People(tag: Tag) extends Table[Person](tag, "person") {
+    def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+    def first = column[String]("first")
+    def last = column[String]("last")
+    def * = (id.?, first, last).mapTo[Person]
+  }
+  val people = TableQuery[People]
+//#maptotable
+
 //#index
 //#primarykey
   class A(tag: Tag) extends Table[(Int, Int)](tag, "a") {
