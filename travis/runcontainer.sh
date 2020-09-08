@@ -29,14 +29,6 @@ do
   shift
 done
 
-# This bit is properly weird and took me ages to find a workaround. Basically, without a connection
-# to the db in a shell that is kept alive, aggregate functions with nulls behave incorrectly
-# so the AggregateTest.testGroupBy test fails
-db2HackConnection () {
-  echo "Starting persistent db2 connection"
-  docker exec -i ${CONTAINER_NAME} bash -c "su - db2inst1 -c 'while true; do db2 connect to $DB2NAME && while sleep 65535;do :; done; sleep 5; done'" &
-}
-
 # sometimes, startup on travis fails, so retry up to 5 times.
 for try in 1 2 3 4 5
 do
@@ -50,10 +42,9 @@ do
       elif [ "${CONTAINER_NAME}" = "mssqlslicktest" ]; then
 	RESULT=$(docker run -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD=Freeslick18' -p 1401:1433 --name mssqlslicktest -d microsoft/mssql-server-linux:2017-latest && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "db2slick" ]; then
-	RESULT=$(docker run -d -p 50000:50000 --name ${CONTAINER_NAME} -e DB2INST1_PASSWORD=db2inst1-pwd -e LICENSE=accept  ibmcom/db2express-c:latest "db2start" &&
+	RESULT=$(docker run -d -p 50000:50000 --name ${CONTAINER_NAME} -e DB2INST1_PASSWORD=db2inst1-pwd -e DB2INSTANCE=db2inst1 -e DBNAME=${DB2NAME} -e LICENSE=accept --privileged=true ibmcom/db2:latest &&
 	# Extract non-free db2 jdbc driver jar
-	docker cp ${CONTAINER_NAME}:/home/db2inst1/sqllib/java/db2jcc4.jar . &&
-	docker exec -i -u db2inst1 -t ${CONTAINER_NAME} bash -l -c "db2 create database $DB2NAME" &&
+	docker cp ${CONTAINER_NAME}:/opt/ibm/db2/V11.5/java/db2jcc4.jar . &&
 	echo -e "\n${SUCCESS_TOKEN}")
       fi
     elif [ "$RUNNING" = "false" ]; then
@@ -67,8 +58,6 @@ do
     if [ "${LAST_LINE}" != "${SUCCESS_TOKEN}" ]; then
       echo "Container startup failed. Retry ..."
       break
-    elif [ "${CONTAINER_NAME}" = "db2slick" ]; then
-      db2HackConnection
     fi
   done
   if [ "${LAST_LINE}" = "${SUCCESS_TOKEN}" ]; then
