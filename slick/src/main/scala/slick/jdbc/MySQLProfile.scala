@@ -1,26 +1,26 @@
 package slick.jdbc
 
-import java.sql.{ResultSet, PreparedStatement}
-import java.time.{Instant, LocalDateTime, LocalTime}
+import java.sql.{PreparedStatement, ResultSet}
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, LocalDate, LocalDateTime}
 
 import com.typesafe.config.Config
+import slick.SlickException
+import slick.ast.TypeUtil._
+import slick.ast.Util._
+import slick.ast._
+import slick.basic.Capability
+import slick.compiler.{CompilerState, Phase, ResolveZipJoins}
+import slick.dbio.DBIO
+import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
+import slick.lifted._
+import slick.relational.{RelationalCapabilities, RelationalProfile}
+import slick.sql.SqlCapabilities
+import slick.util.ConfigExtensionMethods.configExtensionMethods
+import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.{ConstArray, GlobalConfig, SlickLogger}
 
 import scala.concurrent.ExecutionContext
-
-import slick.SlickException
-import slick.ast._
-import slick.ast.Util._
-import slick.ast.TypeUtil._
-import slick.basic.Capability
-import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
-import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
-import slick.dbio.DBIO
-import slick.lifted._
-import slick.relational.{RelationalProfile, RelationalCapabilities}
-import slick.sql.SqlCapabilities
-import slick.util.{SlickLogger, GlobalConfig, ConstArray}
-import slick.util.MacroSupport.macroSupportInterpolation
-import slick.util.ConfigExtensionMethods.configExtensionMethods
 
 /** Slick profile for MySQL.
   *
@@ -319,6 +319,11 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class JdbcTypes extends super.JdbcTypes {
+    override val stringJdbcType = new StringJdbcType
+    override val uuidJdbcType = new UUIDJdbcType
+    override val instantType : InstantJdbcType = new InstantJdbcType
+    override val localDateType : LocalDateJdbcType = new LocalDateJdbcType
+    override val localDateTimeType : LocalDateTimeJdbcType = new LocalDateTimeJdbcType
 
     @inline
     private[this] def stringToMySqlString(value : String) : String = {
@@ -344,73 +349,143 @@ trait MySQLProfile extends JdbcProfile { profile =>
       }
     }
 
-    override val stringJdbcType = new StringJdbcType {
+    class StringJdbcType extends super.StringJdbcType {
       override def valueToSQLLiteral(value: String) : String = {
         stringToMySqlString(value)
       }
     }
 
     import java.util.UUID
-
-    override val uuidJdbcType = new UUIDJdbcType {
-      override def sqlType = java.sql.Types.BINARY
+    class UUIDJdbcType extends super.UUIDJdbcType {
+      override def sqlType: Int = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
 
       override def valueToSQLLiteral(value: UUID): String =
         "x'"+value.toString.replace("-", "")+"'"
     }
 
-    override val instantType : InstantJdbcType = new InstantJdbcType {
+    trait MySQLTimeJdbcType [T] {
+
+      val min : T
+      val max : T
+      val serializeFiniteTime : (T => String)
+      val parseFiniteTime : (String => T)
+
+      @inline
+      private[this] val negativeInfinite = "-infinity"
+      @inline
+      private[this] val positiveInfinite = "infinity"
+
+      protected def serializeTime(time : T): String = {
+        time match {
+          case null => null
+          case `min` => negativeInfinite
+          case `max` => positiveInfinite
+          case _ => serializeFiniteTime(time)
+        }
+      }
+      protected def parseTime(time : String): T = {
+        time match {
+          case null => null.asInstanceOf[T]
+          case `negativeInfinite` => max
+          case `positiveInfinite` => min
+          case _ => parseFiniteTime(time)
+        }
+      }
+    }
+
+    class InstantJdbcType extends super.InstantJdbcType with MySQLTimeJdbcType[Instant] {
+
+      override val min: Instant = Instant.MAX
+      override val max: Instant = Instant.MIN
+      override val serializeFiniteTime: Instant => String = instant => if (instant == null) null else instant.toString
+      override val parseFiniteTime: String => Instant = Instant.parse(_)
+
       override def sqlType : Int = {
         /**
-         * [[Instant]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
-         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
-         * second precision, while [[Instant]] stores it with a millisecond one.
-         */
+          * [[Instant]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
+          * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
+          * second precision, while [[Instant]] stores it with a millisecond one.
+          */
         java.sql.Types.VARCHAR
       }
       override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, if (v == null) null else v.toString)
+        p.setString(idx, serializeFiniteTime(v))
       }
       override def getValue(r: ResultSet, idx: Int) : Instant = {
         r.getString(idx) match {
           case null => null
-          case iso8601String => Instant.parse(iso8601String)
+          case iso8601String => parseFiniteTime(iso8601String)
         }
       }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
-        r.updateString(idx, if (v == null) null else v.toString)
+      override def updateValue(v: Instant, r: ResultSet, idx: Int): Unit = {
+        r.updateString(idx, serializeFiniteTime(v))
       }
       override def valueToSQLLiteral(value: Instant) : String = {
         stringToMySqlString(value.toString)
       }
     }
 
-    override val localDateTimeType : LocalDateTimeJdbcType = new LocalDateTimeJdbcType {
+    class LocalDateJdbcType extends super.LocalDateJdbcType with MySQLTimeJdbcType[LocalDate] {
+
+      private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+
+      override val max: LocalDate = LocalDate.MAX
+      override val min: LocalDate = LocalDate.MIN
+      override val serializeFiniteTime : (LocalDate => String) = date => if (date == null) null else date.format(formatter)
+      override val parseFiniteTime : (String => LocalDate) = LocalDate.parse(_, formatter)
+
+      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int): Unit = {
+        p.setString(idx, serializeFiniteTime(v))
+      }
+      override def getValue(r: ResultSet, idx: Int): LocalDate = {
+        r.getString(idx) match {
+          case null => null
+          case iso8601String => parseFiniteTime(iso8601String)
+        }
+      }
+      override def updateValue(v: LocalDate, r: ResultSet, idx: Int): Unit = {
+        r.updateString(idx, serializeFiniteTime(v))
+      }
+      override def valueToSQLLiteral(value: LocalDate): String = {
+        stringToMySqlString(value.toString)
+      }
+    }
+
+    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType with MySQLTimeJdbcType[LocalDateTime] {
+
+      private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+
+      override val max: LocalDateTime = LocalDateTime.MAX
+      override val min: LocalDateTime = LocalDateTime.MIN
+      override val serializeFiniteTime : (LocalDateTime => String) = date => if (date == null) null else date.format(formatter)
+      override val parseFiniteTime : (String => LocalDateTime) = LocalDateTime.parse(_, formatter)
+
       override def sqlType : Int = {
         /**
-         * [[LocalDateTime]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
-         * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
-         * second precision, while [[LocalDateTime]] stores it with a millisecond one.
-         */
+          * [[LocalDateTime]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
+          * avoid losing precision, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
+          * second precision, while [[LocalDateTime]] stores it with a millisecond one.
+          */
         java.sql.Types.VARCHAR
       }
       override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, if (v == null) null else v.toString)
+        p.setString(idx, serializeFiniteTime(v))
       }
       override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
         r.getString(idx) match {
           case null => null
-          case iso8601String => LocalDateTime.parse(iso8601String)
+          case iso8601String => parseFiniteTime(iso8601String)
         }
       }
-      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) = {
-        r.updateString(idx, if (v == null) null else v.toString)
+      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int): Unit = {
+        r.updateString(idx, serializeFiniteTime(v))
       }
       override def valueToSQLLiteral(value: LocalDateTime) : String = {
         stringToMySqlString(value.toString)
       }
     }
+
   }
 }
 
