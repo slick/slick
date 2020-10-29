@@ -443,6 +443,14 @@ trait MySQLProfile extends JdbcProfile { profile =>
       override val serializeFiniteTime : (LocalDate => String) = date => if (date == null) null else date.format(formatter)
       override val parseFiniteTime : (String => LocalDate) = LocalDate.parse(_, formatter)
 
+      override def sqlType : Int = {
+        /**
+          * [[LocalDate]] will be persisted as a [[java.sql.Types.VARCHAR]] in order to
+          * avoid formatter problems, because MySQL stores [[java.sql.Types.TIMESTAMP]] with
+          * time precision, while [[LocalDate]] doesn't need the time precision.
+          */
+        java.sql.Types.VARCHAR
+      }
       override def setValue(v: LocalDate, p: PreparedStatement, idx: Int): Unit = {
         p.setString(idx, serializeFiniteTime(v))
       }
