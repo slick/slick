@@ -4,7 +4,6 @@ import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.core.{DirectMissingMethodProblem, IncompatibleMethTypeProblem, MissingClassProblem, ProblemFilters, ReversedMissingMethodProblem}
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaPreviousArtifacts}
 import com.typesafe.sbt.osgi.SbtOsgi.{OsgiKeys, osgiSettings}
-import com.typesafe.sbt.pgp.PgpKeys
 
 object Settings {
 //  val slickVersion =
@@ -166,11 +165,7 @@ object Settings {
       Docs.docSettings ++
       Seq(
         sourceDirectory := file(target.value + "/root-src"),
-        publishArtifact := false,
-        publish := {},
-        publishLocal := {},
-        PgpKeys.publishSigned := {},
-        PgpKeys.publishLocalSigned := {},
+        skip in publish := true,
         test := (), testOnly := () // suppress test status output
       )
   )
@@ -208,7 +203,7 @@ object Settings {
     Osgi.osgiBundleFiles ++=
       (dependencyClasspath in Test).value.map(_.data).
       filter(f => f.name.contains("logback-") || f.name.contains("h2")),
-    publishArtifact := false,
+    skip in publish := true,
     commonTestResourcesSetting
   )
 
