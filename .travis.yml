@@ -1,5 +1,3 @@
-dist: xenial
-sudo: required
 language: scala
 scala:
   - 2.11.12
