@@ -52,8 +52,8 @@ install:
       }
   - bash -v ./travis/extractNonPublicDeps
 build_script:
-  - sbt ++2.12.9 clean compile test:compile
+  - sbt ++2.12.12 clean compile test:compile
 test_script:
-  - sbt ++2.12.9 testkit/test:test
+  - sbt ++2.12.12 testkit/test:test
 cache:
   - C:\Users\appveyor\.ivy2
