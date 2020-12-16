@@ -30,7 +30,8 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
              (implicit session: JdbcBackend#Session): Either[Int, PositionedResultIterator[R]] = {
     //TODO Support multiple results
     val statement = getStatement
-    val st = session.prepareStatement(statement, defaultType, defaultConcurrency, defaultHoldability)
+    val fetchSizeOverride = if (maxRows == 1) Some(1) else None
+    val st = session.prepareStatement(statement, defaultType, defaultConcurrency, defaultHoldability, fetchSizeOverride)
     setParam(st)
     var doClose = true
     try {
@@ -49,6 +50,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
         var rowCount = 0
         val pr = new PositionedResult(rs) {
           def close() = {
+            rs.close()
             st.close()
             if(doLogResult) {
               StatementInvoker.tableDump(logHeader.toIndexedSeq.map(_.toIndexedSeq), logBuffer.toIndexedSeq.map(_.toIndexedSeq)).foreach(s => StatementInvoker.resultLogger.debug(s))
