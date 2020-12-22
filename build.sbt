@@ -68,6 +68,12 @@ lazy val aRootProject: Project = Project(id = "root", base = file(".")).settings
           sampleSlickTestkitExampleProject / Test / compile // running would require external setup
         ).value
         ()
+      },
+      libraryDependencies := {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, 12)) => libraryDependencies.value
+          case _ => libraryDependencies.value.filter(!_.configurations.contains(Ornate.name))
+        }
       }
     ).enablePlugins(OrnatePlugin, SbtOsgi).
     aggregate(slickProject,
