@@ -269,7 +269,15 @@ object Settings {
   )
 
   def slickScalacSettings = Seq(
-    scalacOptions ++= List("-deprecation", "-feature", "-unchecked", "-Xfuture"),
+    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
+    scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, v)) if v <= 12 =>
+          Seq("-Xfuture")
+        case _ =>
+          Nil
+      }
+    },
     scalacOptions in (Compile, doc) ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,

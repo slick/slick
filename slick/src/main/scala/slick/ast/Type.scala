@@ -48,7 +48,7 @@ trait AtomicType extends Type {
 }
 
 final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Type {
-  override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
+  override def toString = "{" + elements.iterator.map{ case (s, t) => s"${s}: ${t}" }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[TermSymbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }.toMap
   def children: ConstArray[Type] = elements.map(_._2)
@@ -128,7 +128,7 @@ final case class ProductType(elements: ConstArray[Type]) extends Type {
 }
 
 final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
-  override def toString = cons + "[" + elementType + "]"
+  override def toString = s"${cons}[${elementType}]"
   def mapChildren(f: Type => Type): CollectionType = {
     val e2 = f(elementType)
     if(e2 eq elementType) this
