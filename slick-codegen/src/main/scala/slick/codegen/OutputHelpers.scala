@@ -133,7 +133,7 @@ trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    */
   def packageContainerCode(profile: String, pkg: String, container: String = "Tables"): String = {
-    val tableTraits = codePerTable.keys.map(tableName => s"${handleQuotedNamed(tableName) }")
+    val tableTraits = parentType.toSeq ++ codePerTable.keys.map(tableName => s"${handleQuotedNamed(tableName) }")
     val allTraits = s"${container}Root" :: tableTraits.toList
     val mixinCode = allTraits.mkString("extends ", " with ", "")
     s"""
@@ -147,7 +147,7 @@ object ${container} extends ${container} {
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.)
     Each generated XXXXTable trait is mixed in this trait hence allowing access to all the TableQuery lazy vals.
   */
-trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} ${mixinCode} {
+trait ${container} ${mixinCode} {
   val profile: slick.jdbc.JdbcProfile
   import profile.api._
   ${indent(codeForContainer)}
