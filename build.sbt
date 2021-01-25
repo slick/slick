@@ -1,4 +1,4 @@
-import Settings._
+import Settings.{testSample1, testSample2, testSample3, testSample4, _}
 import Docs.docDir
 import BuildUtils._
 
@@ -21,6 +21,23 @@ lazy val overridesForSampleProjects: State => State = { s: State =>
   "project sample-slick-testkit-example" :: "update-sample" ::
   "project root" :: s
 }
+
+lazy val updateSampleHelloSlick: State => State = { s: State =>
+  "project sample-hello-slick" :: "update-sample" :: s
+}
+
+lazy val updateSampleSlickMultidb: State => State = { s: State =>
+  "project sample-slick-multidb" :: "update-sample" :: s
+}
+
+lazy val updateSampleSlickPlainsql: State => State = { s: State =>
+  "project sample-slick-plainsql" :: "update-sample" :: s
+}
+
+lazy val updateSampleSlickTestkitExample: State => State = { s: State =>
+  "project sample-slick-testkit-example" :: "update-sample" :: s
+}
+
 
 Global / onLoad := { state =>
   if (state.get(sampleOverridden) getOrElse false)
@@ -52,7 +69,44 @@ lazy val osgiTestProject = Project(id = "osgitests", base = file("osgi-tests")).
 
 lazy val aRootProject: Project = Project(id = "root", base = file(".")).settings(aRootProjectSettings).
     settings(
-      commands += testAll,
+      commands ++= Seq(testAll,
+        Command.command("updateSampleHelloSlick")(updateSampleHelloSlick),
+        Command.command("updateSampleSlickPlainsql")(updateSampleSlickPlainsql),
+        Command.command("updateSampleSlickMultidb")(updateSampleSlickMultidb),
+        Command.command("updateSampleSlickTestkitExample")(updateSampleSlickTestkitExample),
+
+      ),
+      testSample1 := {
+        val __ = Def.sequential(
+          sampleHelloSlickProject / Test / test,
+          (sampleHelloSlickProject / Compile / runMain).toTask(" HelloSlick"),
+          (sampleHelloSlickProject / Compile / runMain).toTask(" CaseClassMapping"),
+          (sampleHelloSlickProject / Compile / runMain).toTask(" QueryActions")
+        ).value
+        ()
+      },
+      testSample2 := {
+        val __ = Def.sequential(
+          (sampleSlickPlainsqlProject / Compile / runMain).toTask(" PlainSQL"),
+          (sampleSlickPlainsqlProject / Compile / runMain).toTask(" TypedSQL")
+        ).value
+        ()
+      },
+      testSample3 := {
+        val __ = Def.sequential(
+          (sampleSlickMultidbProject / Compile / runMain).toTask(" SimpleExample"),
+          (sampleSlickMultidbProject / Compile / runMain).toTask(" MultiDBExample"),
+          (sampleSlickMultidbProject / Compile / runMain).toTask(" MultiDBCakeExample"),
+          (sampleSlickMultidbProject / Compile / runMain).toTask(" CallNativeDBFunction")
+        ).value
+        ()
+      },
+      testSample4 := {
+        val __ = Def.sequential(
+          sampleSlickTestkitExampleProject / Test / compile // running would require external setup
+        ).value
+        ()
+      },
       testSamples := {
         val __ = Def.sequential(
           sampleHelloSlickProject / Test / test,
@@ -108,8 +162,8 @@ def testAll = Command.command("testAll") { state =>
     slickCodegenProject / Compile / packageDoc,
     slickHikariCPProject / Compile / packageDoc,
     slickTestkitProject / Compile / packageDoc,
-    slickProject / Compile / mimaReportBinaryIssues, // enable for minor versions
-    aRootProject / testSamples
+    slickProject / Compile / mimaReportBinaryIssues // enable for minor versions
+//    aRootProject / testSamples
   )
 
   /* val withSdlc =

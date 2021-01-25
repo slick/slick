@@ -11,6 +11,10 @@ object Settings {
 //  val slickVersion =
 
   val testSamples = taskKey[Unit]("Run tests in the sample apps")
+  val testSample1 = taskKey[Unit]("Run tests in the sample app")
+  val testSample2 = taskKey[Unit]("Run tests in the sample app")
+  val testSample3 = taskKey[Unit]("Run tests in the sample app")
+  val testSample4 = taskKey[Unit]("Run tests in the sample app")
 
   lazy val sampleOverridden = AttributeKey[Boolean]("sample-settings-overridden")
   lazy val updateSampleCommand = Command.command("update-sample")(updateSampleSettings)
