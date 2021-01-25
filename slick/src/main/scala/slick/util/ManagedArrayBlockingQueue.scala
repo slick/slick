@@ -186,7 +186,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
 
     // copy all items from queues and build a snapshot
     val items = locked {
-      (highPrioItemQueue.iterator.asScala ++ itemQueue.iterator.asScala).toList.toIterator
+      (highPrioItemQueue.iterator.asScala ++ itemQueue.iterator.asScala).toList.iterator
     }
 
     new util.Iterator[E] {
