@@ -4,17 +4,17 @@ The easiest way to get started is with a working sample application. The followi
 Slick distribution. You can either clone Slick from github or download pre-packaged zip files with an individual
 sample plus an [sbt] launcher.
 
-* To learn the basics of Slick, start with the **Hello Slick** sample ([github](samplerepo:hello-slick),
+* To learn the basics of Slick, start with the **Hello Slick** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/hello-slick),
   [zip](samplezip:hello-slick)). This is the one we are using in this chapter.
 
-* The **Plain SQL Queries** sample ([github](samplerepo:slick-plainsql), [zip](samplezip:slick-plainsql)) shows you how
+* The **Plain SQL Queries** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/slick-plainsql), [zip](samplezip:slick-plainsql)) shows you how
   to do SQL queries with Slick. See [](sql.md) for details.
 
-* The **Multi-DB Patterns** sample ([github](samplerepo:slick-multidb), [zip](samplezip:slick-multidb)) shows you how
+* The **Multi-DB Patterns** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/slick-multidb), [zip](samplezip:slick-multidb)) shows you how
   to write Slick applications that can use different database systems and how to use custom database functions in
   Slick queries.
 
-* The **TestKit** sample ([github](samplerepo:slick-testkit-example), [zip](samplezip:slick-testkit-example)) shows you
+* The **TestKit** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/slick-testkit-example), [zip](samplezip:slick-testkit-example)) shows you
   how to use Slick TestKit to test your own database profiles.
 
 ## Hello Slick
