@@ -10,10 +10,10 @@ libraryDependencies ++= List(
 
 scalacOptions += "-deprecation"
 
-parallelExecution in Test := false
+Test / parallelExecution := false
 
 logBuffered := false
 
-fork in run := true
+run / fork := true
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")

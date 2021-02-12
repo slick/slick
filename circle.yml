@@ -22,4 +22,15 @@ dependencies:
 
 test:
   override:
-    - sbt +testAll
+    - sbt +testAll "++2.11.12 ;updateSampleHelloSlick ;root/testSample1 project root"
+          "++2.12.12 ;updateSampleHelloSlick ;root/testSample1 project root"
+          "++2.13.4  ;updateSampleHelloSlick ;root/testSample1 project root"
+          "++2.11.12 ;updateSampleSlickPlainsql ;root/testSample2 project root"
+          "++2.12.12 ;updateSampleSlickPlainsql ;root/testSample2 project root"
+          "++2.13.4  ;updateSampleSlickPlainsql ;root/testSample2 project root"
+          "++2.11.12 ;updateSampleSlickMultidb ;root/testSample3 project root"
+          "++2.12.12 ;updateSampleSlickMultidb ;root/testSample3 project root"
+          "++2.13.4  ;updateSampleSlickMultidb ;root/testSample3 project root"
+          "++2.11.12 ;updateSampleSlickTestkitExample ;root/testSample4 project root"
+          "++2.12.12 ;updateSampleSlickTestkitExample ;root/testSample4 project root"
+          "++2.13.4  ;updateSampleSlickTestkitExample ;root/testSample4 project root"
