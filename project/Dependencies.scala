@@ -9,8 +9,8 @@ object Dependencies {
   val scalaVersions = Seq("2.11.12", "2.12.12", "2.13.4") // When updating these also update .travis.yml and appveyor.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.26"
-  val typesafeConfig = "com.typesafe" % "config" % "1.3.4"
-  val reactiveStreamsVersion = "1.0.3"
+  val typesafeConfig = "com.typesafe" % "config" % "1.4.1"
+  val reactiveStreamsVersion = "1.0.2"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.1"
