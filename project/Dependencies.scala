@@ -28,7 +28,7 @@ object Dependencies {
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
   val hikariCP = "com.zaxxer" % "HikariCP" % "3.3.1"
 
-  val h2 = "com.h2database" % "h2" % "1.4.199"
+  val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
     val javaVersion = System.getProperty("java.version")
     val jreVersionToUse = if (javaVersion.startsWith("11") || javaVersion.startsWith("12")) {
