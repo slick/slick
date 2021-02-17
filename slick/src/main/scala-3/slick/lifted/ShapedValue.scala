@@ -29,8 +29,8 @@ object ShapedValue {
   def mapToExpr[R : Type, T : Type, U : Type](sv: Expr[ShapedValue[T, U]])(implicit qctx: QuoteContext): Expr[MappedProjection[R, U]] = {
     val rtpe = summon[Type[R]]
     val utpe = summon[Type[U]]
-    val rct = Expr.summon[ClassTag[R]].getOrElse(Reporting.throwError(s"No ClassTag available for ${rtpe}"))
-    val rpm = Expr.summon[Mirror.ProductOf[R]].getOrElse(Reporting.throwError(s"${rtpe.show} is not a product type"))
+    val rct = Expr.summon[ClassTag[R]].getOrElse(report.throwError(s"No ClassTag available for ${rtpe}"))
+    val rpm = Expr.summon[Mirror.ProductOf[R]].getOrElse(report.throwError(s"${rtpe.show} is not a product type"))
 
     def decomposeTuple(tpe: Type[_ <: Tuple]): List[Type[_]] = tpe match {
       case '[ $t *: $ts ] => t :: decomposeTuple(ts)
@@ -65,14 +65,14 @@ object ShapedValue {
             val g = '{ ((r: R) => r.asInstanceOf[Product].productElement(0)).asInstanceOf[Any => Any] }
             (f, g, targetElemTpes)
           case _ =>
-            Reporting.throwError(s"Source type ${utpe.show} must be a product, HList or single value")
+            report.throwError(s"Source type ${utpe.show} must be a product, HList or single value")
         }
     }
 
     if(elemTpes.length != targetElemTpes.length) {
       val src = elemTpes.iterator.map(_.show).mkString("(", ", ", ")")
       val target = targetElemTpes.iterator.map(_.show).mkString("(", ", ", ")")
-      Reporting.throwError(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
+      report.throwError(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
     }
 
     '{ new MappedProjection[R, U]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
