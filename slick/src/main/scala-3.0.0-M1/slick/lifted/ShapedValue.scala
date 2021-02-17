@@ -33,23 +33,23 @@ object ShapedValue {
     val rpm = Expr.summon[Mirror.ProductOf[R]].getOrElse(report.throwError(s"${rtpe.show} is not a product type"))
 
     def decomposeTuple(tpe: Type[_ <: Tuple]): List[Type[_]] = tpe match {
-      case '[ $t *: $ts ] => t :: decomposeTuple(ts)
+      case '[ $t *: $ts ] => Type[t] :: decomposeTuple(Type[ts])
       case '[ EmptyTuple ] => Nil
     }
 
     def decomposeHList(tpe: Type[_ <: HList]): List[Type[_]] = tpe match {
-      case '[ HCons[$t, $ts] ] => t :: decomposeHList(ts)
+      case '[ HCons[$t, $ts] ] => Type[t] :: decomposeHList(Type[ts])
       case '[ HNil.type ] => Nil
     }
 
     val targetElemTpes = rpm match {
       case '{ $m: Mirror.ProductOf[R] { type MirroredElemTypes = $ts }} =>
-        decomposeTuple(ts.asInstanceOf[Type[_ <: Tuple]])
+        decomposeTuple(Type[ts].asInstanceOf[Type[_ <: Tuple]])
     }
 
     val (f, g, elemTpes) = Expr.summon[Mirror.ProductOf[U]] match {
       case Some(upm @ '{ $m: Mirror.ProductOf[U] { type MirroredElemTypes = $elementTypes }}) =>
-        val elemTpes = decomposeTuple(elementTypes.asInstanceOf[Type[_ <: Tuple]])
+        val elemTpes = decomposeTuple(Type[elementTypes].asInstanceOf[Type[_ <: Tuple]])
         val f = '{ ((u: U) => $rpm.fromProduct(u.asInstanceOf[Product])).asInstanceOf[Any => Any] }
         val g = '{ ((r: R) => $upm.fromProduct(r.asInstanceOf[Product])).asInstanceOf[Any => Any] }
         (f, g, elemTpes)
