@@ -1,4 +1,4 @@
-scalaVersion := "2.12.12"
+scalaVersion := "2.12.13"
 
 libraryDependencies ++= List(
   "com.typesafe.slick" %% "slick" % "3.3.0",
