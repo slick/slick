@@ -1,6 +1,6 @@
 machine:
   environment:
-    SBT_VERSION: 0.13.18
+    SBT_VERSION: 1.4.7
     _JAVA_OPTIONS: "-Xms1g -Xmx2g"
   services:
     - postgresql
@@ -24,13 +24,13 @@ test:
   override:
     - sbt +testAll "++2.11.12 ;updateSampleHelloSlick ;root/testSample1 project root"
           "++2.12.13 ;updateSampleHelloSlick ;root/testSample1 project root"
-          "++2.13.4  ;updateSampleHelloSlick ;root/testSample1 project root"
+          "++2.13.5  ;updateSampleHelloSlick ;root/testSample1 project root"
           "++2.11.12 ;updateSampleSlickPlainsql ;root/testSample2 project root"
           "++2.12.13 ;updateSampleSlickPlainsql ;root/testSample2 project root"
-          "++2.13.4  ;updateSampleSlickPlainsql ;root/testSample2 project root"
+          "++2.13.5  ;updateSampleSlickPlainsql ;root/testSample2 project root"
           "++2.11.12 ;updateSampleSlickMultidb ;root/testSample3 project root"
           "++2.12.13 ;updateSampleSlickMultidb ;root/testSample3 project root"
-          "++2.13.4  ;updateSampleSlickMultidb ;root/testSample3 project root"
+          "++2.13.5  ;updateSampleSlickMultidb ;root/testSample3 project root"
           "++2.11.12 ;updateSampleSlickTestkitExample ;root/testSample4 project root"
           "++2.12.13 ;updateSampleSlickTestkitExample ;root/testSample4 project root"
-          "++2.13.4  ;updateSampleSlickTestkitExample ;root/testSample4 project root"
+          "++2.13.5  ;updateSampleSlickTestkitExample ;root/testSample4 project root"
