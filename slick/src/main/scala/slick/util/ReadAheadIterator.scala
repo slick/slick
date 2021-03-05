@@ -1,5 +1,7 @@
 package slick.util
 
+import scala.collection.BufferedIterator
+
 /**
  * An iterator on top of a data source which does not offer a hasNext()
  * method without doing a next()

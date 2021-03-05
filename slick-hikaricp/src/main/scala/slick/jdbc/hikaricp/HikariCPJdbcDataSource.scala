@@ -27,13 +27,13 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     // Essential settings
 
     // Use HikariCP `dataSourceClassName` as the main configuration and fallback to
-    // `dataSourceClass`, `driverClassName` and finally `drive`.
+    // `dataSourceClass`, `driverClassName` and finally `driver`.
     c.getStringOpt("dataSourceClassName").orElse(c.getStringOpt("dataSourceClass")) match {
       case Some(className) => hconf.setDataSourceClassName(className)
       case None => c.getStringOpt("driverClassName").orElse(c.getStringOpt("driver")).foreach(hconf.setDriverClassName)
     }
 
-    // Use `jdbcUrl` an then `url` to configure the pool. According to HikariCP docs, when
+    // Use `jdbcUrl` and then `url` to configure the pool. According to HikariCP docs, when
     // using this property with "old" drivers, you may also need to set the driverClassName
     // property.
     c.getStringOpt("jdbcUrl").orElse(c.getStringOpt("url")).foreach(hconf.setJdbcUrl)

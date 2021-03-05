@@ -1,4 +1,4 @@
-scalaVersion := "2.12.7"
+scalaVersion := "2.12.13"
 
 libraryDependencies ++= List(
   "com.typesafe.slick" %% "slick" % "3.2.3",
@@ -9,4 +9,4 @@ libraryDependencies ++= List(
 
 scalacOptions += "-deprecation"
 
-fork in run := true
+run / fork := true

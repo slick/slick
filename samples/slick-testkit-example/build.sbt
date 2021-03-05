@@ -1,4 +1,4 @@
-scalaVersion := "2.12.7"
+scalaVersion := "2.12.13"
 
 libraryDependencies ++= List(
   "com.typesafe.slick" %% "slick" % "3.2.3",
@@ -10,10 +10,10 @@ libraryDependencies ++= List(
 
 scalacOptions += "-deprecation"
 
-parallelExecution in Test := false
+Test / parallelExecution := false
 
 logBuffered := false
 
-fork in run := true
+run / fork := true
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")
