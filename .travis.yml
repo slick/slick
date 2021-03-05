@@ -2,7 +2,7 @@ language: scala
 scala:
   - 2.11.12
   - 2.12.13
-  - 2.13.4
+  - 2.13.5
 env:
   matrix:
     - ADOPTOPENJDK=8
