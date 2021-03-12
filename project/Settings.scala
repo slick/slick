@@ -4,7 +4,6 @@ import Keys._
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.core.{DirectMissingMethodProblem, IncompatibleMethTypeProblem, MissingClassProblem, ProblemFilters, ReversedMissingMethodProblem}
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaPreviousArtifacts}
-import com.typesafe.sbt.osgi.SbtOsgi.autoImport.{OsgiKeys, osgiSettings}
 import com.jsuereth.sbtpgp.PgpKeys
 
 object Settings {
@@ -39,7 +38,6 @@ object Settings {
       mimaDefaultSettings ++
       extTarget("slick") ++
       Docs.scaladocSettings ++
-      osgiSettings ++
       Seq(
         name := "Slick",
         description := "Scala Language-Integrated Connection Kit",
@@ -81,10 +79,6 @@ object Settings {
         libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
         (Compile / packageSrc / mappings) ++= (MacroConfig / packageSrc / mappings).value,
         (Compile / packageBin / mappings) ++= (MacroConfig / packageBin / mappings).value,
-        OsgiKeys.exportPackage := Seq("slick", "slick.*", "scala.slick", "scala.slick.*", "oracle.sql", "oracle.core.lmx",
-          "oracle.jdbc", "oracle.jdbc.aq", "oracle.i18n.text.converter", "oracle.jdbc.dcn", "org.postgresql.util"),
-        OsgiKeys.importPackage := Seq(Osgi.osgiImport("scala*", scalaVersion.value), "*"),
-        OsgiKeys.privatePackage := Nil
       )
   )
 
@@ -155,7 +149,6 @@ object Settings {
     slickGeneralSettings ++
       extTarget("hikaricp") ++
       Docs.scaladocSettings ++
-      osgiSettings ++
       Seq(
         name := "Slick-HikariCP",
         description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
@@ -164,13 +157,6 @@ object Settings {
         ),
         test := {}, testOnly := {}, // suppress test status output
         libraryDependencies += Dependencies.hikariCP,
-        OsgiKeys.exportPackage := Seq("slick.jdbc.hikaricp"),
-        OsgiKeys.importPackage := Seq(
-          Osgi.osgiImport("slick*", (ThisBuild / version).value),
-          Osgi.osgiImport("scala*", scalaVersion.value),
-          "*"
-        ),
-        OsgiKeys.privatePackage := Nil
       )
   )
 
@@ -200,30 +186,6 @@ object Settings {
       Test / parallelExecution := false,
       commonTestResourcesSetting
     )
-  )
-
-  def osgiTestProjectSettings = slickGeneralSettings ++ Seq(
-    name := "Slick-OsgiTests",
-    libraryDependencies ++= (
-      Dependencies.h2 +: Dependencies.logback +: Dependencies.reactiveStreams +:
-        (Dependencies.junit ++: Dependencies.paxExam)
-    ).map(_ % "test"),
-    Test / fork := true,
-    testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
-    Test / javaOptions ++= Seq(
-      // Use '@' as a seperator that shouldn't appear in any filepaths or names
-      "-Dslick.osgi.bundlepath=" + Osgi.osgiBundleFiles.value.map(_.getCanonicalPath).mkString("@"),
-      "-Dorg.ops4j.pax.logging.DefaultServiceLog.level=WARN"
-    ),
-    Osgi.osgiBundleFiles := Seq((LocalProject("slick") / OsgiKeys.bundle).value),
-    Osgi.osgiBundleFiles ++=
-      (LocalProject("slick") / Compile / dependencyClasspath).value.
-      map(_.data).filterNot(_.isDirectory),
-    Osgi.osgiBundleFiles ++=
-      (Test / dependencyClasspath).value.map(_.data).
-      filter(f => f.name.contains("logback-") || f.name.contains("h2")),
-    skip in publish := true,
-    commonTestResourcesSetting
   )
 
   def slickGeneralSettings =

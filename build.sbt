@@ -48,7 +48,7 @@ Global / onLoad := { state =>
   }
 }
 
-lazy val slickProject: Project = Project(id = "slick", base =  file("slick")).settings(slickProjectSettings).enablePlugins(SbtOsgi, SDLCPlugin)
+lazy val slickProject: Project = Project(id = "slick", base =  file("slick")).settings(slickProjectSettings).enablePlugins(SDLCPlugin)
 
 lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit")).settings(slickTestkitProjectSettings).configs(DocTest).enablePlugins(SDLCPlugin).
     dependsOn(slickProject,
@@ -58,14 +58,11 @@ lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testki
 lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen")).settings(slickCodegenProjectSettings).enablePlugins(SDLCPlugin).
     dependsOn(slickProject)
 
-lazy val slickHikariCPProject = Project(id = "hikaricp", base = file("slick-hikaricp")).settings(slickHikariCPProjectSettings).enablePlugins(SbtOsgi, SDLCPlugin).
+lazy val slickHikariCPProject = Project(id = "hikaricp", base = file("slick-hikaricp")).settings(slickHikariCPProjectSettings).enablePlugins(SDLCPlugin).
     dependsOn(slickProject)
 
 lazy val reactiveStreamsTestProject = Project(id = "reactive-streams-tests", base = file("reactive-streams-tests")).settings(reactiveStreamsTestProjectSettings).
     dependsOn(slickTestkitProject)
-
-lazy val osgiTestProject = Project(id = "osgitests", base = file("osgi-tests")).settings(osgiTestProjectSettings).
-    dependsOn(slickProject % "test")
 
 lazy val aRootProject: Project = Project(id = "root", base = file(".")).settings(aRootProjectSettings).
     settings(
@@ -129,7 +126,7 @@ lazy val aRootProject: Project = Project(id = "root", base = file(".")).settings
           case _ => libraryDependencies.value.filter(!_.configurations.contains(Ornate.name))
         }
       }
-    ).enablePlugins(OrnatePlugin, SbtOsgi).
+    ).enablePlugins(OrnatePlugin).
     aggregate(slickProject,
               slickCodegenProject,
               slickHikariCPProject,
@@ -156,7 +153,6 @@ def testAll = Command.command("testAll") { state =>
   val tasks = List(
     slickTestkitProject / Test / test,
     slickTestkitProject / DocTest / test,
-    osgiTestProject / Test / test,
     reactiveStreamsTestProject / Test / test,
     slickProject / Compile / packageDoc,
     slickCodegenProject / Compile / packageDoc,
