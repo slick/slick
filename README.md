@@ -31,4 +31,10 @@ Accessing other database systems is possible, with a reduced feature set.
 The [manual and scaladocs](http://slick.lightbend.com/docs/) for Slick can be
 found on the [Slick web site](http://slick.lightbend.com/).
 
-Licensing conditions (BSD-style) can be found in LICENSE.txt.
+## Maintenance status
+
+Slick is community-maintained by a loose assortment of volunteers.
+Please help if you can.
+
+Lightbend staff (such as @SethTisue) may be able to assist with
+administrative issues.
