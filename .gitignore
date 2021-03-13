@@ -24,3 +24,4 @@ doc/capabilities.md
 /admin/secring.asc
 /secrets.tar
 /publish-settings.sbt
+/.bsp/
