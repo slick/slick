@@ -1,9 +1,8 @@
 package slick.memory
 
-import scala.language.{implicitConversions, existentials}
+import scala.language.existentials
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
-import scala.util.control.NonFatal
 
 import slick.ast._
 import slick.ast.TypeUtil._
@@ -12,6 +11,7 @@ import slick.compiler._
 import slick.dbio._
 import slick.relational.{RelationalProfile, ResultConverterCompiler, ResultConverter, CompiledMapping}
 import slick.util.{DumpInfo, ??}
+import scala.collection.compat._
 
 /** A profile for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
@@ -73,9 +73,9 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   protected def createInterpreter(db: Backend#Database, param: Any): QueryInterpreter = new QueryInterpreter(db, param) {
     override def run(n: Node) = n match {
       case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>
-        val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
+        val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }
@@ -90,11 +90,11 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
 
-    def += (value: T)(implicit session: Backend#Session) {
+    def += (value: T)(implicit session: Backend#Session): Unit = {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
       converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf)
-      htable.append(buf)
+      htable.append(buf.toIndexedSeq)
     }
 
     def ++= (values: Iterable[T])(implicit session: Backend#Session): Unit =
@@ -119,7 +119,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     protected[this] def getIterator(ctx: Backend#Context): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
-      val pvit = inter.run(from).asInstanceOf[TraversableOnce[QueryInterpreter.ProductValue]].toIterator
+      val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].iterator
       pvit.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read _)
     }
     def run(ctx: Backend#Context): R =
@@ -158,6 +158,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
     protected[this] val tables = schema.asInstanceOf[DDL].tables
+    import slick.SlickException
     def create = dbAction { session =>
       tables.foreach(t =>
         session.database.createTable(t.tableName,
@@ -165,8 +166,25 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
           t.indexes.toIndexedSeq, t.tableConstraints.toIndexedSeq)
       )
     }
+
+    def createIfNotExists = dbAction { session =>
+      tables.foreach(t =>
+        session.database.createTableIfNotExists(t.tableName,
+          t.create_*.map { fs => new HeapBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq,
+          t.indexes.toIndexedSeq, t.tableConstraints.toIndexedSeq)
+      )
+    }
+
     def drop = dbAction { session =>
       tables.foreach(t => session.database.dropTable(t.tableName))
+    }
+
+    def dropIfExists = dbAction { session =>
+      tables.foreach(t => session.database.dropTableIfExists(t.tableName))
+    }
+
+    def truncate = dbAction{ session =>
+      tables.foreach(t => session.database.truncateTable(t.tableName) )
     }
   }
 

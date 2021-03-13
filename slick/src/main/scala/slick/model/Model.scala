@@ -95,7 +95,7 @@ case class Model(
    * Verifies consistency of the model by checking for duplicate names and references to non-existing entities.
    * In case such things are found, throws an AssertionError.
    */
-  def assertConsistency() {
+  def assertConsistency(): Unit = {
     assert(tables.size == tables.map(_.name).distinct.size, "duplicate tables names detected")
     tables.foreach{ table =>
       import table._

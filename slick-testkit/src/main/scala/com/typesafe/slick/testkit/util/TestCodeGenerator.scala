@@ -24,6 +24,8 @@ trait TestCodeGenerator {
     new OutputHelpers {
       def indent(code: String): String = code
       def code: String = ""
+      def codePerTable:Map[String,String] = Map()
+      def codeForContainer:String = ""
     }.writeStringToFile(
       s"""
          |package $packageName
@@ -97,7 +99,7 @@ trait TestCodeGenerator {
            |  import scala.concurrent.ExecutionContext.Implicits.global
            |  $testCode
            |}
-         """.stripMargin + super.code
+           |""".stripMargin + super.code
       }
     }
   }

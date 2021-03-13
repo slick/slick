@@ -1,9 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.{Test, Assert}
-import org.junit.Assert._
 import slick.jdbc.meta._
-import com.typesafe.slick.testkit.util.{TestDB, JdbcTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
@@ -33,7 +31,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     MTypeInfo.getTypeInfo.named("Type info from DatabaseMetaData"),
 
     ifCap(tcap.jdbcMetaGetFunctions) {
-      /* Not supported by PostgreSQL and H2. */
+      /* Not supported by PostgreSQL, SQLite and H2. */
       MFunction.getFunctions(MQName.local("%")).flatMap { fs =>
         DBIO.sequence(fs.map(_.getFunctionColumns()))
       }
@@ -45,7 +43,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
       DBIO.sequence(ps.map(_.getProcedureColumns()))
     }.named("Procedures from DatabaseMetaData"),
 
-    MTable.getTables(None, None, None, None).flatMap { ts =>
+    tdb.profile.defaultTables.flatMap { ts =>
       DBIO.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
         DBIO.seq(
           t.getColumns.flatMap { cs =>
@@ -68,7 +66,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     ifCap(tcap.jdbcMetaGetClientInfoProperties)(MClientInfoProperty.getClientInfoProperties)
       .named("Client Info Properties from DatabaseMetaData"),
 
-    MTable.getTables(None, None, None, None).map(_.should(ts =>
+    tdb.profile.defaultTables.map(_.should(ts =>
       Set("orders_xx", "users_xx") subsetOf ts.map(_.name.name).toSet
     )).named("Tables before deleting")
 

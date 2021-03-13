@@ -2,11 +2,9 @@ package slick.ast
 
 import scala.language.{implicitConversions, higherKinds}
 import slick.SlickException
-import scala.collection.generic.CanBuild
+import scala.collection.compat._
 import scala.collection.mutable.{Builder, ArrayBuilder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
-import Util._
-import scala.collection.mutable.ArrayBuffer
 import scala.annotation.implicitNotFound
 import slick.util.{DumpInfo, Dumpable, TupleSupport, ConstArray}
 
@@ -50,7 +48,7 @@ trait AtomicType extends Type {
 }
 
 final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Type {
-  override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
+  override def toString = "{" + elements.iterator.map{ case (s, t) => s"${s}: ${t}" }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[TermSymbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }.toMap
   def children: ConstArray[Type] = elements.map(_._2)
@@ -130,7 +128,7 @@ final case class ProductType(elements: ConstArray[Type]) extends Type {
 }
 
 final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
-  override def toString = cons + "[" + elementType + "]"
+  override def toString = s"${cons}[${elementType}]"
   def mapChildren(f: Type => Type): CollectionType = {
     val e2 = f(elementType)
     if(e2 eq elementType) this
@@ -159,7 +157,7 @@ trait CollectionTypeConstructor {
   def iterableSubstitute: CollectionTypeConstructor =
     if(isUnique && !isSequential) TypedCollectionTypeConstructor.set
     else TypedCollectionTypeConstructor.seq
-    //TODO We should have a better substitute for (isUnique && isSequential)
+  //TODO We should have a better substitute for (isUnique && isSequential)
 }
 
 @implicitNotFound("Cannot use collection in a query\n            collection type: ${C}[_]\n  requires implicit of type: slick.ast.TypedCollectionTypeConstructor[${C}]")
@@ -176,10 +174,10 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]
   }
 }
 
-class ErasedCollectionTypeConstructor[C[_]](canBuildFrom: CanBuild[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
+class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
   val isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(classTag.runtimeClass)
   val isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(classTag.runtimeClass)
-  def createBuilder[E : ClassTag] = canBuildFrom().asInstanceOf[Builder[E, C[E]]]
+  def createBuilder[E : ClassTag] = factory.newBuilder.asInstanceOf[Builder[E, C[E]]]
 }
 
 object TypedCollectionTypeConstructor {
@@ -189,7 +187,7 @@ object TypedCollectionTypeConstructor {
   /** The standard TypedCollectionTypeConstructor for Set */
   def set = forColl[Set]
   /** Get a TypedCollectionTypeConstructor for an Iterable type */
-  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: CanBuild[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
+  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
     new ErasedCollectionTypeConstructor[C](cbf, tag)
   /** Get a TypedCollectionTypeConstructor for an Array type */
   implicit val forArray: TypedCollectionTypeConstructor[Array] = new TypedCollectionTypeConstructor[Array](arrayClassTag) {
@@ -226,11 +224,11 @@ case object UnassignedType extends AtomicType {
 }
 
 /** A type with a name, as used by tables.
- *
- * Compiler phases which change types may keep their own representation
- * of the structural view but must update the AST at the end of the phase
- * so that all NominalTypes with the same symbol have the same structural
- * view. */
+  *
+  * Compiler phases which change types may keep their own representation
+  * of the structural view but must update the AST at the end of the phase
+  * so that all NominalTypes with the same symbol have the same structural
+  * view. */
 final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type {
   override def toString = s"$sym<$structuralView>"
   def withStructuralView(t: Type): NominalType =

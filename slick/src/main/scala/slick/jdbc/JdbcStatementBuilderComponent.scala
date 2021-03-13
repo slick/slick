@@ -1,18 +1,17 @@
 package slick.jdbc
 
-import scala.language.{existentials, implicitConversions, higherKinds}
+import scala.language.existentials
 import scala.collection.mutable.HashMap
 import slick.SlickException
 import slick.ast._
 import slick.ast.Util.nodeToNodeOps
 import slick.ast.TypeUtil._
-import slick.compiler.{RewriteBooleans, CodeGen, Phase, CompilerState, QueryCompiler}
+import slick.compiler.{RewriteBooleans, CodeGen, CompilerState, QueryCompiler}
 import slick.lifted._
 import slick.relational.{RelationalProfile, RelationalCapabilities, ResultConverter, CompiledMapping}
 import slick.sql.SqlProfile
 import slick.util._
 import slick.util.MacroSupport.macroSupportInterpolation
-import slick.util.SQLBuilder.Result
 
 trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
@@ -65,7 +64,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           ibr.table.baseIdentity+" != "+standardInsert.table.baseIdentity+")")
       val returnOther = ibr.fields.length > 1 || !ibr.fields.head.options.contains(ColumnOption.AutoInc)
       if(!capabilities.contains(JdbcCapabilities.returnInsertOther) && returnOther)
-        throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
+        throw new SlickException("This DBMS allows only a single column to be returned from an INSERT, and that column must be an AutoInc column.")
       (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]], returnOther)
     }
   }
@@ -195,7 +194,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       }
     }
 
-    protected def scanJoins(from: ConstArray[(TermSymbol, Node)]) {
+    protected def scanJoins(from: ConstArray[(TermSymbol, Node)]): Unit = {
       for((sym, j: Join) <- from) {
         joins += sym -> j
         scanJoins(j.generators)
@@ -332,7 +331,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           }
           b"\)"
         case RewriteBooleans.ToFakeBoolean(ch) =>
-          expr(IfThenElse(ConstArray(ch, LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
+          expr(RewriteBooleans.rewriteFakeBoolean(ch), skipParens)
         case RewriteBooleans.ToRealBoolean(ch) =>
           expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
         case Library.Exists(c: Comprehension) =>
@@ -425,9 +424,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         b"\}"
       case Union(left, right, all) =>
         b"\{"
+        b"\["
         buildFrom(left, None, true)
+        b"\]"
         if(all) b"\nunion all " else b"\nunion "
+        b"\["
         buildFrom(right, None, true)
+        b"\]"
         b"\}"
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)
@@ -435,7 +438,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       case n => throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
 
-    protected def buildOrdering(n: Node, o: Ordering) {
+    protected def buildOrdering(n: Node, o: Ordering): Unit = {
       expr(n)
       if(o.direction.desc) b" desc"
       if(o.nulls.first) b" nulls first"
@@ -464,6 +467,10 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b.build
     }
 
+    protected def buildDeleteFrom(tableName: String): Unit = {
+      b"delete from $tableName"
+    }
+
     def buildDelete: SQLBuilder.Result = {
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
@@ -479,7 +486,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       }
       val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
-      b"delete from $qtn"
+      buildDeleteFrom(qtn)
       if(!where.isEmpty) {
         b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
@@ -529,7 +536,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   /** Builder for upsert statements, builds standard SQL MERGE statements by default. */
   class UpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
-    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition(_.options.contains(ColumnOption.PrimaryKey))
+    /* NOTE: pk defined by using method `primaryKey` and pk defined with `PrimaryKey` can only have one,
+             here we let table ddl to help us ensure this. */
+    private lazy val funcDefinedPKs = table.profileTable.asInstanceOf[Table[_]].primaryKeys
+    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition { sym =>
+      sym.options.contains(ColumnOption.PrimaryKey) || funcDefinedPKs.exists(pk => pk.columns.collect {
+        case Select(_, f: FieldSymbol) => f
+      }.exists(_.name == sym.name)) }
     protected lazy val pkNames = pkSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val softNames = softSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val nonAutoIncSyms = syms.filter(s => !(s.options contains ColumnOption.AutoInc))
@@ -546,11 +559,14 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def buildMergeStart: String = s"merge into $tableName t using ("
 
     protected def buildMergeEnd: String = {
-      val updateCols = softNames.map(n => s"t.$n=s.$n").mkString(", ")
+      val updateCols = softNames.toList match {
+        case Nil => ""
+        case list => s"when matched then update set ${list.map(n => s"t.$n=s.$n").mkString(", ")}"
+      }
       val insertCols = nonAutoIncNames /*.map(n => s"t.$n")*/ .mkString(", ")
       val insertVals = nonAutoIncNames.map(n => s"s.$n").mkString(", ")
       val cond = pkNames.map(n => s"t.$n=s.$n").mkString(" and ")
-      s") s on ($cond) when matched then update set $updateCols when not matched then insert ($insertCols) values ($insertVals)"
+      s") s on ($cond) $updateCols  when not matched then insert ($insertCols) values ($insertVals)"
     }
   }
 
@@ -576,7 +592,10 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   /** Builder for various DDL statements. */
   class TableDDLBuilder(val table: Table[_]) { self =>
     protected val tableNode = table.toNode.asInstanceOf[TableExpansion].table.asInstanceOf[TableNode]
-    protected val columns: Iterable[ColumnDDLBuilder] = table.create_*.map(fs => createColumnDDLBuilder(fs, table))
+
+    /** new instance on access to avoid sharing mutable state during createPhase1 or createIfNotExistsPhase */
+    protected def columns: Iterable[ColumnDDLBuilder] = table.create_*.map(fs => createColumnDDLBuilder(fs, table))
+
     protected val indexes: Iterable[Index] = table.indexes
     protected val foreignKeys: Iterable[ForeignKey] = table.foreignKeys
     protected val primaryKeys: Iterable[PrimaryKey] = table.primaryKeys
@@ -585,16 +604,19 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       if(primaryKeys.size > 1)
         throw new SlickException("Table "+tableNode.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
-      DDL(createPhase1, createPhase2, dropPhase1, dropPhase2)
+      DDL(createPhase1, createIfNotExistsPhase, createPhase2, dropPhase1, dropIfExistsPhase, dropPhase2 , truncatePhase)
     }
 
-    protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createPhase1 = Iterable(createTable(false)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
-    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
+    protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(true))
+    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable(false))
+    protected def truncatePhase = Iterable(truncateTable)
 
-    protected def createTable: String = {
-      val b = new StringBuilder append "create table " append quoteTableName(tableNode) append " ("
+    protected def createTable(checkNotExists: Boolean): String = {
+      val b = new StringBuilder append "create table " append (if(checkNotExists) "if not exists " else "") append quoteTableName(tableNode) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -605,9 +627,11 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       b.toString
     }
 
-    protected def addTableOptions(b: StringBuilder) {}
+    protected def addTableOptions(b: StringBuilder): Unit = {}
 
-    protected def dropTable: String = "drop table "+quoteTableName(tableNode)
+    protected def dropTable(ifExists: Boolean): String = "drop table "+(if(ifExists) "if exists " else "")+quoteTableName(tableNode)
+
+    protected def truncateTable: String = "truncate table "+ quoteTableName(tableNode)
 
     protected def createIndex(idx: Index): String = {
       val b = new StringBuilder append "create "
@@ -624,7 +648,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       sb.toString
     }
 
-    protected def addForeignKey(fk: ForeignKey, sb: StringBuilder) {
+    protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit = {
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, tableNode.tableName)
       sb append ") references " append quoteTableName(fk.targetTable) append "("
@@ -639,7 +663,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       sb.toString
     }
 
-    protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder) {
+    protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder): Unit = {
       sb append "constraint " append quoteIdentifier(pk.name) append " primary key("
       addPrimaryKeyColumnList(pk.columns, sb, tableNode.tableName)
       sb append ")"
@@ -660,7 +684,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def addPrimaryKeyColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "foreign key constraint")
 
-    protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) {
+    protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String): Unit = {
       var first = true
       for(c <- columns) c match {
         case Select(t: TableNode, field: FieldSymbol) =>
@@ -684,10 +708,11 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected var notNull = !isOption
     protected var autoIncrement = false
     protected var primaryKey = false
+    protected var unique     = false
     protected var defaultLiteral: String = null
     init()
 
-    protected def init() {
+    protected def init(): Unit = {
       for(o <- column.options) handleColumnOption(o)
       if(sqlType ne null) {
         size.foreach(l => sqlType += s"($l)")
@@ -704,22 +729,24 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       case SqlProfile.ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.PrimaryKey => primaryKey = true
+      case ColumnOption.Unique      => unique = true
       case RelationalProfile.ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
     }
 
     def appendType(sb: StringBuilder): Unit = sb append sqlType
 
-    def appendColumn(sb: StringBuilder) {
+    def appendColumn(sb: StringBuilder): Unit = {
       sb append quoteIdentifier(column.name) append ' '
       appendType(sb)
       appendOptions(sb)
     }
 
-    protected def appendOptions(sb: StringBuilder) {
+    protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(autoIncrement) sb append " GENERATED BY DEFAULT AS IDENTITY(START WITH 1)"
       if(notNull) sb append " NOT NULL"
       if(primaryKey) sb append " PRIMARY KEY"
+      if( unique )   sb append " UNIQUE"
     }
   }
 

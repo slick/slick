@@ -7,7 +7,7 @@ Slick uses the standard Typesafe Project & Developer Guidelines below for contri
 - We have the standard Github [issue tracker](https://github.com/slick/slick/issues?state=open) for bug reports. When you're referencing an issue number in a commit, please prefix it with "issue #".
 - Branches starting with "tmp/" or "wip/" on the official repo are considered unstable and should not be used as a basis for your work. Their history may be rewritten at any time without notice.
 
-# Typesafe Project & Developer Guidelines
+## Typesafe Project & Developer Guidelines
 
 These guidelines are meant to be a living document that should be changed and adapted as needed. We encourage changes that makes it easier to achieve our goals in an efficient way.
 
@@ -17,7 +17,7 @@ These guidelines mainly applies to Typesafe’s “mature” projects - not nece
 
 This is the process for committing code into master. There are of course exceptions to these rules, for example minor changes to comments and documentation, fixing a broken build etc.
 
-1. Make sure you have signed the [Typesafe CLA](http://www.typesafe.com/contribute/cla), if not, sign it online.
+1. Make sure you have signed the [Typesafe CLA](http://www.lightbend.com/contribute/cla), if not, sign it online.
 2. Before starting to work on a feature or a fix, you have to make sure that:
     1. There is a ticket for your work in the project's issue tracker. If not, create it first.
     2. The ticket has been scheduled for the current milestone.

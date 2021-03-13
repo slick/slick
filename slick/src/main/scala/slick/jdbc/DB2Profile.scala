@@ -1,13 +1,15 @@
 package slick.jdbc
 
-import scala.concurrent.ExecutionContext
+import java.sql.{PreparedStatement, ResultSet}
+import java.time.Instant
+import java.util.UUID
 
+import scala.concurrent.ExecutionContext
 import slick.ast._
-import slick.compiler.{CompilerState, QueryCompiler, Phase}
+import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio._
 import slick.jdbc.meta.MTable
 import slick.lifted._
-import slick.model.Model
 import slick.relational.RelationalCapabilities
 import slick.basic.Capability
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -90,10 +92,16 @@ trait DB2Profile extends JdbcProfile {
       case Library.User() => b += "current user"
       case Library.Database() => b += "current server"
       case Library.CountAll(LiteralNode(1)) => b"count(*)"
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
       case _ => super.expr(c, skipParens)
     }
 
-    override protected def buildOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       /* DB2 does not have explicit NULLS FIST/LAST clauses. Nulls are
        * sorted after non-null values by default. */
       if(o.nulls.first && !o.direction.desc) {
@@ -131,10 +139,36 @@ trait DB2Profile extends JdbcProfile {
         sb.toString
       } else super.createIndex(idx)
     }
+
+    //For compatibility with all versions of DB2
+    //http://stackoverflow.com/questions/3006999/sql-query-to-truncate-table-in-ibm-db2
+    override def truncateTable = s"DELETE FROM ${quoteTableName(tableNode)}"
+
+    override def createIfNotExistsPhase = {
+      //
+      Iterable(
+        "begin\n"
+      + "declare continue handler for sqlstate '42710' begin end; \n"
+      + ((createPhase1 ++ createPhase2).map{s =>
+        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+      }.mkString("\n"))
+      + "\nend")
+    }
+
+    override def dropIfExistsPhase = {
+      //
+      Iterable(
+        "begin\n"
+      + "declare continue handler for sqlstate '42704' begin end; \n"
+      + ((dropPhase1 ++ dropPhase2).map{s =>
+        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+      }.mkString("\n"))
+      + "\nend")
+    }
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    override def appendColumn(sb: StringBuilder) {
+    override def appendColumn(sb: StringBuilder): Unit = {
       val qname = quoteIdentifier(column.name)
       sb append qname append ' '
       appendType(sb)
@@ -161,10 +195,14 @@ trait DB2Profile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val uuidJdbcType = new UUIDJdbcType
+    override val instantType = new InstantJdbcType
 
     class UUIDJdbcType extends super.UUIDJdbcType {
-      override def sqlType = java.sql.Types.CHAR
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
+      override def hasLiteralForm = true
+      override def valueToSQLLiteral(value: UUID): String =
+        "x'" + value.toString.replace("-", "") + "'"
+      override def sqlType = java.sql.Types.VARBINARY
     }
 
     /* DB2 does not have a proper BOOLEAN type. The suggested workaround is
@@ -173,6 +211,30 @@ trait DB2Profile extends JdbcProfile {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
+
+    class InstantJdbcType extends super.InstantJdbcType {
+      // Can't use Timestamp as the type here as subject to 2 hours DST loss each year
+      override def sqlType : Int = {
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : Instant = {
+        r.getString(idx) match {
+          case null => null
+          case instantStr => Instant.parse(instantStr)
+        }
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) = {
+        s"'${value.toString}'"
+      }
+    }
+
+
   }
 }
 

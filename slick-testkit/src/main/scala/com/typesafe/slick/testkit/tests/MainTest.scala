@@ -113,12 +113,20 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
       ) yield (u.first, (LiteralColumn(1) + o.orderID, 1), o.product)
       q4d.result.statements.toSeq.length.should(_ >= 1)
 
+      val q4e = for (
+        u <- users if u.first inSetBind List("Homer", "Marge");
+        o <- orders if o.userID in (u.id, u.id)
+      ) yield (u.first, o.orderID)
+      q4e.result.statements.toSeq.length.should(_ >= 1)
+
       db.run(for {
         r4 <- q4.to[Set].result.named("Latest Order per User")
         _ = r4 shouldBe Set(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10))
         r4b <- q4b.to[Set].result.named("Latest Order per User, using maxOfPer")
         _ = r4b shouldBe Set(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10))
         _ <- q4d.result.map(r => r.length shouldBe 4)
+        r4e <- q4e.to[Set].result.named("Orders matched using in(...) syntax")
+        _ = r4e shouldBe Set(("Homer",1), ("Homer",2), ("Marge",3), ("Marge",4))
       } yield ())
     }.flatMap { _ =>
       val b1 = orders.filter( o => o.shipped && o.shipped ).map( o => o.shipped && o.shipped )

@@ -1,24 +1,21 @@
 package slick.jdbc
 
-import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
-
-import scala.language.{existentials, higherKinds}
-
 import java.sql.{PreparedStatement, Statement}
 
+import scala.language.{existentials, higherKinds}
 import scala.collection.mutable.Builder
-import scala.concurrent.Future
-import scala.util.Try
 import scala.util.control.NonFatal
 
 import slick.SlickException
+import slick.ast.ColumnOption.PrimaryKey
 import slick.dbio._
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil.:@
 import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
 import slick.relational.{ResultConverter, CompiledMapping}
-import slick.util.{CloseableIterator, DumpInfo, SQLBuilder, ignoreFollowOnError}
+import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
+import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
@@ -108,7 +105,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       * @param rsHoldability The JDBC `ResultSetHoldability`
       * @param statementInit A function which is run on every `Statement` or `PreparedStatement`
       *                      directly after creating it. This can be used to set additional
-      *                      statement parameters (e.g. `setQueryTimeout`). When multuple
+      *                      statement parameters (e.g. `setQueryTimeout`). When multiple
       *                      `withStatementParameters` Actions are nested, all init functions
       *                      are run, starting with the outermost one.
       * @param fetchSize The fetch size for all statements or 0 for the default. */
@@ -290,7 +287,22 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
 
+    def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+    }
+
+    def truncate: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.truncate" , schema.truncateStatements.toVector ){
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+    }
+
     def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+    }
+
+    def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
@@ -322,7 +334,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         }
       }
     }
-    /** Get the statement usd by `update` */
+    /** Get the statement used by `update` */
     def updateStatement: String = sres.sql
   }
 
@@ -346,7 +358,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
   /** Extension methods to generate the JDBC-specific insert actions. */
   trait SimpleInsertActionComposer[U] extends super.InsertActionExtensionMethodsImpl[U] {
-    /** The return type for `insertOrUpdate` operations */
+    /** The return type for `insertOrUpdate` operations. Note that the Option return value will be None if it was an update and Some if it was an insert*/
     type SingleInsertOrUpdateResult
 
     /** Get the SQL statement for a standard (soft) insert */
@@ -380,7 +392,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def forceInsertAll(values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write]
 
     /** Insert a single row if its primary key does not exist in the table,
-      * otherwise update the existing record. */
+      * otherwise update the existing record.
+      * Note that the return value will be None if an update was performed and Some if the operation was insert
+      */
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write]
   }
 
@@ -512,13 +526,13 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       def run(ctx: Backend#Context, sql: Vector[String]) = {
         val sql1 = sql.head
         if(!useBatchUpdates(ctx.session) || (values.isInstanceOf[IndexedSeq[_]] && values.asInstanceOf[IndexedSeq[_]].length < 2))
-          retMany(values, values.map { v =>
+          retMany(values, values.iterator.map { v =>
             preparedInsert(sql1, ctx.session) { st =>
               st.clearParameters()
               a.converter.set(v, st)
               retOne(st, v, st.executeUpdate())
             }
-          }(collection.breakOut): Vector[SingleInsertResult])
+          }.toVector)
         else preparedInsert(a.sql, ctx.session) { st =>
           st.clearParameters()
           for(value <- values) {
@@ -533,6 +547,17 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     class InsertOrUpdateAction(value: U) extends SimpleJdbcProfileAction[SingleInsertOrUpdateResult]("InsertOrUpdateAction",
       if(useServerSideUpsert) Vector(compiled.upsert.sql) else Vector(compiled.checkInsert.sql, compiled.updateInsert.sql, compiled.standardInsert.sql)) {
+
+      private def tableHasPrimaryKey: Boolean =
+        List(compiled.upsert, compiled.checkInsert, compiled.updateInsert)
+          .filter(_ != null)
+          .exists(artifacts =>
+            artifacts.ibr.table.profileTable.asInstanceOf[Table[_]].primaryKeys.nonEmpty
+              || artifacts.ibr.fields.exists(_.options.contains(PrimaryKey))
+          )
+
+      if (!tableHasPrimaryKey)
+        throw new SlickException("InsertOrUpdate is not supported on a table without PK.")
 
       def run(ctx: Backend#Context, sql: Vector[String]) = {
         def f: SingleInsertOrUpdateResult =
@@ -636,10 +661,10 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     protected def retOne(st: Statement, value: U, updateCount: Int) = mux(value, buildKeysResult(st).first(null))
 
-    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = individual
+    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): Seq[SingleInsertResult] = individual
 
-    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) =
-      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux)(collection.breakOut)
+    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): Seq[RU] =
+      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
 
     protected def retQuery(st: Statement, updateCount: Int) =
       buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"

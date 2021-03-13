@@ -1,8 +1,8 @@
 package slick.compiler
 
 import slick.ast._
-import Util.nodeToNodeOps
 import TypeUtil._
+import slick.util.ConstArray
 
 /** For SQL back-ends which do not support real boolean types for fields and general expressions
   * but which do have special boolean expressions and operators, this phase injects conversions
@@ -71,4 +71,13 @@ class RewriteBooleans extends Phase {
 object RewriteBooleans {
   val ToFakeBoolean = new FunctionSymbol("RewriteBooleans.ToFakeBoolean")
   val ToRealBoolean = new FunctionSymbol("RewriteBooleans.ToRealBoolean")
+
+  def rewriteFakeBoolean(n: Node): Node =
+    IfThenElse(ConstArray(n, LiteralNode(1).infer(), LiteralNode(0).infer()))
+  def rewriteFakeBooleanWithEquals(n: Node): Node =
+    IfThenElse(ConstArray(Library.==.typed[Boolean](n, LiteralNode(1).infer()), LiteralNode(1).infer(), LiteralNode(0).infer()))
+
+  def rewriteFakeBooleanEqOne(n: Node): Node =
+    Library.==.typed[Boolean](rewriteFakeBooleanWithEquals(n), LiteralNode(1).infer())
+
 }

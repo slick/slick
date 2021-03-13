@@ -43,10 +43,12 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
 
   def in[P2, R, C[_]](e: Query[Rep[P2], _, C])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.In, n, e.toNode)
-  def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
+  def in[P2, R](first: Rep[P2], second: Rep[P2], rest: Rep[P2]*)(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
+    om.column(Library.In, n, ProductNode(ConstArray.from(first.toNode +: second.toNode +: rest.map(_.toNode))))
+  def inSet[R](seq: Iterable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(LiteralColumn(false))
     else om.column(Library.In, n, ProductNode(ConstArray.from(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) })))
-  def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
+  def inSetBind[R](seq: Iterable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(LiteralColumn(false))
     else om.column(Library.In, n, ProductNode(ConstArray.from(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)))))
 
@@ -232,6 +234,8 @@ trait ExtensionMethodConversions {
   implicit def numericOptionColumnExtensionMethods[B1](c: Rep[Option[B1]])(implicit tm: BaseTypedType[B1] with NumericTypedType): OptionNumericColumnExtensionMethods[B1] = new OptionNumericColumnExtensionMethods[B1](c)
   implicit def stringColumnExtensionMethods(c: Rep[String]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c)
   implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c)
+  implicit def mappedToStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[B1]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c.asInstanceOf[Rep[String]])
+  implicit def mappedToOptionStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[Option[B1]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c.asInstanceOf[Rep[Option[String]]])
   implicit def booleanColumnExtensionMethods(c: Rep[Boolean]): BooleanColumnExtensionMethods[Boolean] = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]): BooleanColumnExtensionMethods[Option[Boolean]] = new BooleanColumnExtensionMethods[Option[Boolean]](c)
 

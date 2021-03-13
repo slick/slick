@@ -19,3 +19,9 @@ lib
 *.autosave
 src/sphinx/capabilities.csv
 slick/src/sphinx/capabilities.csv
+doc/capabilities.md
+/sonatype.sbt
+/admin/secring.asc
+/secrets.tar
+/publish-settings.sbt
+/.bsp/

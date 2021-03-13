@@ -8,7 +8,7 @@ object JdbcCapabilities {
   val createModel = Capability("jdbc.createModel")
   /** Can insert into AutoInc columns. */
   val forceInsert = Capability("jdbc.forceInsert")
-  /** Supports a native insertOrUpdate command. Ootherwise the functionality
+  /** Supports a native insertOrUpdate command. Otherwise the functionality
     * is emulated on the client side. The emulation uses transactions for
     * consistency but does not guarantee atomicity, so it may fail if another
     * insert for the same key happens concurrently. */

@@ -4,7 +4,7 @@ import slick.SlickException
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.util.{ConstArray, Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis}
 
 import scala.util.control.NonFatal
 
@@ -17,12 +17,12 @@ class HoistClientOps extends Phase {
     from1 match {
       case Bind(s2, from2, Pure(StructNode(defs2), ts2)) =>
         // Extract client-side operations into ResultSetMapping
-        val hoisted = defs2.map { case (ts, n) => (ts, n, unwrap(n, true)) }
+        val hoisted = defs2.map { case (ts, n) => (ts, n, unwrap(n, topLevel = true)) }
         logger.debug("Hoisting operations from defs: " + hoisted.iterator.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
-        val newDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
+        val newDefsM = hoisted.iterator.zipWithIndex.map { case ((ts, n, (n2, wrap)), idx) => (idx, (n2, new AnonSymbol)) }.toMap
         logger.debug("New defs: "+newDefsM)
-        val oldDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (ts, wrap(Select(Ref(rsm.generator), newDefsM(n2)))) }.toMap
-        val bind2 = rewriteDBSide(Bind(s2, from2, Pure(StructNode(ConstArray.from(newDefsM.map(_.swap))), new AnonTypeSymbol)).infer())
+        val oldDefsM = hoisted.iterator.zipWithIndex.map { case ((ts, n, (n2, wrap)), idx) => (ts, wrap(Select(Ref(rsm.generator), newDefsM(idx)._2))) }.toMap
+        val bind2 = rewriteDBSide(Bind(s2, from2, Pure(StructNode(ConstArray.from(newDefsM.map(_._2.swap))), new AnonTypeSymbol)).infer())
         val rsm2 = rsm.copy(from = bind2, map = rsm.map.replace {
           case Select(Ref(s), f) if s == rsm.generator => oldDefsM(f)
         }).infer()

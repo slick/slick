@@ -6,7 +6,7 @@ import java.lang.reflect.Method
 import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.{Promise, ExecutionContext, Await, Future, blocking}
+import scala.concurrent.{Promise, ExecutionContext, Await, Future}
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
@@ -15,11 +15,11 @@ import scala.util.control.NonFatal
 import slick.SlickTreeException
 import slick.basic.Capability
 import slick.dbio._
-import slick.jdbc.{JdbcProfile, JdbcCapabilities, JdbcBackend}
+import slick.jdbc.{JdbcCapabilities, JdbcBackend}
 import slick.lifted.Rep
 import slick.util.DumpInfo
-import slick.relational.{RelationalProfile, RelationalCapabilities}
-import slick.sql.{SqlProfile, SqlCapabilities}
+import slick.relational.RelationalCapabilities
+import slick.sql.SqlCapabilities
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
@@ -29,11 +29,12 @@ import org.junit.Assert
 import org.slf4j.MDC
 
 import org.reactivestreams.{Subscription, Subscriber, Publisher}
+import scala.collection.compat._
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
 
-  val profileTest = clazz.newInstance
+  val profileTest = clazz.getConstructor().newInstance()
   var tdb: TestDB = profileTest.tdb
 
   def describeChild(ch: TestMethod) = ch.desc
@@ -53,7 +54,7 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) exte
   override def runChildren(notifier: RunNotifier) = if(!children.isEmpty) {
     tdb.cleanUpBefore()
     try {
-      val is = children.iterator.map(ch => (ch, ch.cl.newInstance()))
+      val is = children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance()))
         .filter{ case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
       val last = is.length - 1
       var previousTestObject: GenericTest[_ >: Null <: TestDB] = null
@@ -143,9 +144,11 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     if(keepAliveSession ne null) keepAliveSession.close()
   }
 
-  implicit class StringContextExtensionMethods(s: StringContext) {
+  implicit class StringExtensionMethods(s: String) {
     /** Generate a unique name suitable for a database entity */
-    def u(args: Any*) = s.standardInterpolator(identity, args) + "_" + unique.incrementAndGet()
+    def withUniquePostFix: String = {
+      s"${s}_${unique.incrementAndGet()}"
+    }
   }
 
   final def mark[T](id: String, f: => T): T = {
@@ -203,7 +206,7 @@ abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TD
     if(succeeded) Assert.fail("Exception expected")
   }
 
-  def assertAllMatch[T](t: TraversableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
+  def assertAllMatch[T](t: IterableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
     if(!f.isDefinedAt(x)) Assert.fail("Expected shape not matched by: "+x)
   }
 }
@@ -299,9 +302,10 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
         Thread.sleep(delay.toMillis)
         thunk
       }(ec)
-      f.onFailure { case t =>
+      f.onComplete { case scala.util.Failure(t) =>
         pr.tryFailure(t)
         sub.cancel()
+                    case _ => ()
       }
       f
     }
@@ -354,7 +358,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     }
   }
 
-  implicit class CollectionAssertionExtensionMethods[T](v: TraversableOnce[T]) {
+  implicit class CollectionAssertionExtensionMethods[T](v: IterableOnce[T]) {
     private[this] val cln = getClass.getName
     private[this] def fixStack(f: => Unit): Unit = try f catch {
       case ex: AssertionError =>
@@ -362,8 +366,18 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
         throw ex
     }
 
-    def shouldAllMatch(f: PartialFunction[T, _]) = v.foreach { x =>
+    def shouldAllMatch(f: PartialFunction[T, _]) = v.iterator.foreach { x =>
       if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
     }
+  }
+
+  implicit class DBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[T, S, E]) {
+    @inline def shouldYield(t: T) = action.map(_.shouldBe(t))
+  }
+
+  implicit class CollectionDBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[Vector[T], S, E]) {
+    @inline def shouldYield(t: Set[T]) = action.map(_.toSet.shouldBe(t))
+    @inline def shouldYield(t: Seq[T]) = action.map(_.toSeq.shouldBe(t))
+    @inline def shouldYield(t: List[T]) = action.map(_.toList.shouldBe(t))
   }
 }

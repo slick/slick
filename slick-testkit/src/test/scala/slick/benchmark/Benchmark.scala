@@ -5,13 +5,13 @@ import slick.jdbc.H2Profile.api._
 object Benchmark {
   val COUNT = 2000
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     for(i <- 0 to COUNT) test1(i == 0)
     val t0 = System.nanoTime()
     for(i <- 0 to COUNT) test1(false)
     val t1 = System.nanoTime()
     val total = (t1-t0)/1000000.0
-    println(COUNT+" runs tooks "+total+" ms ("+(total*1000.0/COUNT)+" µs per run)")
+    println(s"$COUNT runs tooks "+total+" ms ("+(total*1000.0/COUNT)+" µs per run)")
   }
 
   class Users(tag: Tag) extends Table[(Int, String, String)](tag, "users") {
@@ -29,7 +29,7 @@ object Benchmark {
   }
   val orders = TableQuery[Orders]
 
-  def test1(print: Boolean) {
+  def test1(print: Boolean): Unit = {
     val q1 = for(u <- users) yield u
     val q2 = for {
       u <- users

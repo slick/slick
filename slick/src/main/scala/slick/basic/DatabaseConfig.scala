@@ -62,7 +62,7 @@ object DatabaseConfig {
     * in a future release.
     *
     * @param path The path in the configuration file for the database configuration (e.g. `foo.bar`
-    *             would find a profile name at config key `foo.bar.pfoile`) or an empty string
+    *             would find a profile name at config key `foo.bar.profile`) or an empty string
     *             for the top level of the `Config` object.
     * @param config The `Config` object to read from. This defaults to the global app config
     *               (e.g. in `application.conf` at the root of the class path) if not specified.
@@ -90,7 +90,7 @@ object DatabaseConfig {
 
     val untypedP = try {
       if(n.endsWith("$")) classLoader.loadClass(n).getField("MODULE$").get(null)
-      else classLoader.loadClass(n).newInstance()
+      else classLoader.loadClass(n).getConstructor().newInstance()
     } catch { case NonFatal(ex) =>
       throw new SlickException(s"""Error getting instance of profile "$n"""", ex)
     }
@@ -124,7 +124,7 @@ object DatabaseConfig {
       else (s.substring(0, s.length-f.length-1), uri.getFragment)
     }
     val root =
-      if(base eq null) ConfigFactory.load()
+      if(base eq null) ConfigFactory.load(classLoader)
       else ConfigFactory.parseURL(new URL(base)).resolve()
     forConfig[P](path, root, classLoader)
   }

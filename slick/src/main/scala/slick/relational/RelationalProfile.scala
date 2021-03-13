@@ -7,7 +7,7 @@ import slick.dbio._
 import slick.lifted.FunctionSymbolExtensionMethods._
 import slick.lifted._
 
-import scala.language.{existentials, higherKinds, implicitConversions}
+import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.ClassTag
 
 /** A profile for relational databases that does not assume the existence
@@ -90,7 +90,7 @@ object RelationalProfile {
   /** Extra column options for RelationalProfile */
   object ColumnOption {
     /** Default value for the column. Needs to wrap an Option for nullable Columns. */
-    case class Default[T](val defaultValue: T) extends ColumnOption[T]
+    case class Default[T](defaultValue: T) extends ColumnOption[T]
 
     /** Number of unicode characters for string-like types. Unlike DBType this is portable
       * between different DBMS. Note that for DDL Slick currently picks type CHAR when
@@ -110,6 +110,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
+    val Unique = ColumnOption.Unique
     val Length = RelationalProfile.ColumnOption.Length
   }
 
@@ -244,7 +245,16 @@ trait RelationalActionComponent extends BasicActionComponent { self: RelationalP
     /** Create an Action that creates the entities described by this schema description. */
     def create: ProfileAction[Unit, NoStream, Effect.Schema]
 
+    /** Create an Action that creates the entities described by this schema description if the entities do not exist. */
+    def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema]
+
     /** Create an Action that drops the entities described by this schema description. */
     def drop: ProfileAction[Unit, NoStream, Effect.Schema]
+
+    /** Create an Action that drops the entities described by this schema description only if the entities exist. */
+    def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema]
+
+    /** Create an Action that truncates entries described by this schema description */
+    def truncate: ProfileAction[Unit, NoStream, Effect.Schema]
   }
 }

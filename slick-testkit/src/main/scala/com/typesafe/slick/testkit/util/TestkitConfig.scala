@@ -3,8 +3,7 @@ package com.typesafe.slick.testkit.util
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{ConfigValueFactory, Config, ConfigFactory}
-import java.io.{FileInputStream, File}
-import java.util.Properties
+import java.io.File
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import slick.SlickException
@@ -64,7 +63,7 @@ object TestkitConfig {
   def getStrings(config: Config, path: String): Option[Seq[String]] = {
     if(config.hasPath(path)) {
       config.getValue(path).unwrapped() match {
-        case l: java.util.List[_] => Some(l.asScala.map(_.toString))
+        case l: java.util.List[_] => Some(l.asScala.iterator.map(_.toString).toSeq)
         case o => Some(List(o.toString))
       }
     } else None

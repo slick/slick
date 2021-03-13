@@ -29,7 +29,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   var indent = 0
   type Coll = Iterable[Any]
 
-  def logDebug(msg: String) {
+  def logDebug(msg: String): Unit = {
     logger.debug(Iterator.fill(indent)("  ").mkString("", "", msg))
   }
 
@@ -144,7 +144,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         }
         scope.remove(gen)
         res
-      case First(ch) => run(ch).asInstanceOf[Coll].toIterator.next()
+      case First(ch) => run(ch).asInstanceOf[Coll].iterator.next()
       case Distinct(gen, from, on) =>
         val fromV = run(from).asInstanceOf[Coll]
         val seen = mutable.HashSet[Any]()
@@ -196,13 +196,13 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val fromV = run(from).asInstanceOf[Coll]
         val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.take(numV.toInt)
+        b ++= fromV.iterator.take(numV.toInt)
         b.result()
       case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
         val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.drop(numV.toInt)
+        b ++= fromV.iterator.drop(numV.toInt)
         b.result()
       case Union(left, right, all) =>
         val leftV = run(left).asInstanceOf[Coll]
@@ -448,7 +448,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case t: ScalaType[_] => if(t.nullable) None else null
     case StructType(el) =>
       new StructValue(el.toSeq.map{ case (_, tpe) => createNullRow(tpe) },
-        el.toSeq.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
+        el.toSeq.zipWithIndex.iterator.map{ case ((sym, _), idx) => (sym, idx) }.toMap)
     case ProductType(el) =>
       new ProductValue(el.toSeq.map(tpe => createNullRow(tpe)))
   }

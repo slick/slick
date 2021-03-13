@@ -1,9 +1,8 @@
 package slick.jdbc
 
+import scala.collection.compat._
 import scala.language.higherKinds
 import scala.annotation.unchecked.{uncheckedVariance => uV}
-import scala.collection.immutable.Map
-import scala.collection.generic.CanBuildFrom
 import slick.util.CloseableIterator
 
 /** Base trait for all statement invokers of result element type R. */
@@ -36,15 +35,15 @@ trait Invoker[+R] { self =>
   }
 
   /** Execute the statement and return a fully materialized collection. */
-  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] = {
-    val b = canBuildFrom()
+  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: Factory[R, C[R @uV]]): C[R @uV] = {
+    val b = canBuildFrom.newBuilder
     foreach({ x => b += x }, 0)
     b.result()
   }
 
   /** Execute the statement and call f for each converted row of the result set.
    * @param maxRows Maximum number of rows to read from the result (0 for unlimited). */
-  final def foreach(f: R => Unit, maxRows: Int = 0)(implicit session: JdbcBackend#Session) {
+  final def foreach(f: R => Unit, maxRows: Int = 0)(implicit session: JdbcBackend#Session): Unit = {
     val it = iteratorTo(maxRows)
     try { it.foreach(f) } finally { it.close() }
   }
@@ -55,7 +54,7 @@ trait ResultSetMutator[T] {
     * the end of the result set. */
   def row: T
   /** Update the current row. */
-  def row_=(value: T)
+  def row_=(value: T): Unit
   /** Insert a new row. */
   def += (value: T): Unit
   /** Insert multiple new rows. */

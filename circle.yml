@@ -1,4 +1,7 @@
 machine:
+  environment:
+    SBT_VERSION: 1.4.7
+    _JAVA_OPTIONS: "-Xms1g -Xmx2g"
   services:
     - postgresql
     - mysql
@@ -7,9 +10,27 @@ machine:
 
 dependencies:
   pre:
+    - wget --output-document=$HOME/bin/sbt-launch.jar
+          https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/"$SBT_VERSION"/sbt-launch.jar
+    - echo "java $SBT_OPTS -jar \`dirname \$0\`/sbt-launch.jar \"\$@\""
+      > $HOME/bin/sbt
+    - chmod u+x $HOME/bin/sbt
+    - which sbt
+    - sbt sbt-version
     - sudo apt-get update -qq
     - sudo apt-get install -y python-sphinx
 
 test:
   override:
-    - sbt +testAll
+    - sbt +testAll "++2.11.12 ;updateSampleHelloSlick ;root/testSample1 project root"
+          "++2.12.13 ;updateSampleHelloSlick ;root/testSample1 project root"
+          "++2.13.5  ;updateSampleHelloSlick ;root/testSample1 project root"
+          "++2.11.12 ;updateSampleSlickPlainsql ;root/testSample2 project root"
+          "++2.12.13 ;updateSampleSlickPlainsql ;root/testSample2 project root"
+          "++2.13.5  ;updateSampleSlickPlainsql ;root/testSample2 project root"
+          "++2.11.12 ;updateSampleSlickMultidb ;root/testSample3 project root"
+          "++2.12.13 ;updateSampleSlickMultidb ;root/testSample3 project root"
+          "++2.13.5  ;updateSampleSlickMultidb ;root/testSample3 project root"
+          "++2.11.12 ;updateSampleSlickTestkitExample ;root/testSample4 project root"
+          "++2.12.13 ;updateSampleSlickTestkitExample ;root/testSample4 project root"
+          "++2.13.5  ;updateSampleSlickTestkitExample ;root/testSample4 project root"

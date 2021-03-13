@@ -4,8 +4,7 @@ import scala.collection.mutable.ListBuffer
 import scala.language.existentials
 import scala.reflect.ClassTag
 import slick.SlickException
-import slick.util.{Logging, Dumpable, DumpInfo, GlobalConfig, ConstArray}
-import Util._
+import slick.util.{Dumpable, DumpInfo, GlobalConfig, ConstArray}
 import TypeUtil._
 
 /** A node in the Slick AST.
@@ -668,19 +667,8 @@ final case class IfThenElse(clauses: ConstArray[Node]) extends SimplyTypedNode {
   def mapResultClauses(f: Node => Node, keepType: Boolean = false) =
     mapClauses(f, keepType, (i => i%2 == 1 || i == clauses.length-1))
   def ifThenClauses: Iterator[(Node, Node)] =
-    clauses.iterator.grouped(2).withPartial(false).map { case List(i, t) => (i, t) }
+    clauses.iterator.grouped(2).withPartial(false).map { case Seq(i, t) => (i, t) }
   def elseClause = clauses.last
-  /** Return a null-extended version of a single-column IfThenElse expression */
-  def nullExtend: IfThenElse = { //TODO 3.2: Remove this method. It is only preserved for binary compatibility in 3.1.1
-    def isOpt(n: Node) = n match {
-      case LiteralNode(null) => true
-      case _ :@ OptionType(_) => true
-      case _ => false
-    }
-    val hasOpt = (ifThenClauses.map(_._2) ++ Iterator(elseClause)).exists(isOpt)
-    if(hasOpt) mapResultClauses(ch => if(isOpt(ch)) ch else OptionApply(ch)).infer()
-    else this
-  }
 }
 
 /** Lift a value into an Option as Some (or None if the value is a `null` column). */
