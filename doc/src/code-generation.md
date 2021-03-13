@@ -29,7 +29,7 @@ For Maven projects add the following to your `<dependencies>`:
 ```xml expandVars=true
 <dependency>
   <groupId>com.typesafe.slick</groupId>
-  <artifactId>slick-codegen_2.11</artifactId>
+  <artifactId>slick-codegen_2.13</artifactId>
   <version>{{version}}</version>
 </dependency>
 ```
