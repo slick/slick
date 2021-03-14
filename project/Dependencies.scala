@@ -26,7 +26,7 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % v
   }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "3.3.1"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "3.4.5"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
@@ -41,9 +41,9 @@ object Dependencies {
     h2,
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
-    "org.xerial" % "sqlite-jdbc" % "3.27.2.1",
+    "org.xerial" % "sqlite-jdbc" % "3.34.0",
     "org.hsqldb" % "hsqldb" % "2.4.1",
-    "org.postgresql" % "postgresql" % "42.2.5",
+    "org.postgresql" % "postgresql" % "42.2.19",
     "mysql" % "mysql-connector-java" % "5.1.46",
     "net.sourceforge.jtds" % "jtds" % "1.3.1"
   )
