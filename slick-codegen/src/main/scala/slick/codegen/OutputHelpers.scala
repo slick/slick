@@ -29,18 +29,20 @@ trait OutputHelpers{
    *  Ensures the file ends with a newline character.
    *  @group Output
    */
-  def writeStringToFile(content: String, folder:String, pkg: String, fileName: String): Unit = {
-    val folder2 : String = folder + "/" + (pkg.replace(".", "/")) + "/"
+  def writeStringToFile(content: String, folder: String, pkg: String, fileName: String): Unit = {
+    val folder2: String = folder + "/" + pkg.replace(".", "/") + "/"
     new File(folder2).mkdirs()
-    val file = new File( folder2+fileName )
+    val file = new File(folder2 + fileName)
     if (!file.exists()) {
-      file.createNewFile();
+      file.createNewFile()
     }
+    file.setWritable(true)
     val fw = new FileWriter(file.getAbsoluteFile());
-    val bw = new BufferedWriter(fw);
-    bw.write(content);
-    if (!content.endsWith("\n")) bw.write("\n");
-    bw.close();
+    val bw = new BufferedWriter(fw)
+    bw.write(content)
+    if (!content.endsWith("\n")) bw.write("\n")
+    bw.close()
+    file.setWritable(false)
   }
 
   /**
