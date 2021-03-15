@@ -1,7 +1,7 @@
 Slick
 =====
 
-[![Build Status](https://travis-ci.org/slick/slick.png?branch=master)](https://travis-ci.org/slick/slick) [![Stories in Ready](https://badge.waffle.io/slick/slick.png?label=1%20-%20Ready)](https://waffle.io/slick/slick) [![Maven](https://img.shields.io/maven-central/v/com.typesafe.slick/slick_2.12.svg)](http://mvnrepository.com/artifact/com.typesafe.slick/slick_2.12) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Build Status](https://travis-ci.org/slick/slick.png?branch=master)](https://travis-ci.org/slick/slick) [![Maven](https://img.shields.io/maven-central/v/com.typesafe.slick/slick_2.12.svg)](http://mvnrepository.com/artifact/com.typesafe.slick/slick_2.12) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 Slick is a modern database query and access library for Scala. It allows you
 to work with stored data almost as if you were using Scala collections while
@@ -31,4 +31,10 @@ Accessing other database systems is possible, with a reduced feature set.
 The [manual and scaladocs](http://slick.lightbend.com/docs/) for Slick can be
 found on the [Slick web site](http://slick.lightbend.com/).
 
-Licensing conditions (BSD-style) can be found in LICENSE.txt.
+## Maintenance status
+
+Slick is community-maintained by a loose assortment of volunteers.
+Please help if you can.
+
+Lightbend staff (such as @SethTisue) may be able to assist with
+administrative issues.

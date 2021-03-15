@@ -76,4 +76,8 @@ object RewriteBooleans {
     IfThenElse(ConstArray(n, LiteralNode(1).infer(), LiteralNode(0).infer()))
   def rewriteFakeBooleanWithEquals(n: Node): Node =
     IfThenElse(ConstArray(Library.==.typed[Boolean](n, LiteralNode(1).infer()), LiteralNode(1).infer(), LiteralNode(0).infer()))
+
+  def rewriteFakeBooleanEqOne(n: Node): Node =
+    Library.==.typed[Boolean](rewriteFakeBooleanWithEquals(n), LiteralNode(1).infer())
+
 }

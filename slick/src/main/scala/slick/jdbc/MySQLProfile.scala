@@ -145,7 +145,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  override def quoteIdentifier(id: String) = '`' + id + '`'
+  override def quoteIdentifier(id: String) = s"`${id}`"
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
