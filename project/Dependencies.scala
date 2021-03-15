@@ -44,7 +44,7 @@ object Dependencies {
     "org.xerial" % "sqlite-jdbc" % "3.34.0",
     "org.hsqldb" % "hsqldb" % "2.4.1",
     "org.postgresql" % "postgresql" % "42.2.19",
-    "mysql" % "mysql-connector-java" % "5.1.46",
+    "mysql" % "mysql-connector-java" % "5.1.49",
     "net.sourceforge.jtds" % "jtds" % "1.3.1"
   )
 
