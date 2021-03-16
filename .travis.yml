@@ -1,15 +1,13 @@
-dist: xenial
-sudo: required
 language: scala
 scala:
   - 2.11.12
-  - 2.12.9
-  - 2.13.0
+  - 2.12.13
+  - 2.13.5
 env:
   matrix:
     - ADOPTOPENJDK=8
     - ADOPTOPENJDK=11
-    - ADOPTOPENJDK=12
+    - ADOPTOPENJDK=15
 services:
   - mysql
   - postgresql
@@ -29,13 +27,22 @@ before_install:
   - export TZ=Asia/Kamchatka
   - docker version
 install:
-  - sdk install java $(sdk list java | grep -o "$ADOPTOPENJDK\.[0-9\.]*hs-adpt" | head -1)
+  - sdk install java $(sdk list java | grep -oP "(?<=\s)$ADOPTOPENJDK\.[0-9\.]*hs-adpt" | head -1)
   - unset JAVA_HOME
   - java -Xmx32m -version
   - javac -J-Xmx32m -version
   - sh -v travis/runcontainer.sh oracle db2
   - docker ps
   - sh -v ./travis/extractNonPublicDeps
+  # as per sbt release notes (https://github.com/sbt/sbt/releases/tag/v1.4.9)
+  - |
+    # update this only when sbt-the-bash-script needs to be updated
+    export SBT_LAUNCHER=1.4.9
+    export SBT_OPTS="-Dfile.encoding=UTF-8"
+    curl -L --silent "https://github.com/sbt/sbt/releases/download/v$SBT_LAUNCHER/sbt-$SBT_LAUNCHER.tgz" > $HOME/sbt.tgz
+    tar zxf $HOME/sbt.tgz -C $HOME
+    sudo rm /usr/local/bin/sbt
+    sudo ln -s $HOME/sbt/bin/sbt /usr/local/bin/sbt
 script:
   - admin/build.sh
 before_cache:
@@ -45,4 +52,4 @@ cache:
   directories:
     - "$HOME/.sbt"
     - "$HOME/.ivy2"
-    - "$HOME/.sdkman"
+    - "$HOME/.sdkman/archives"

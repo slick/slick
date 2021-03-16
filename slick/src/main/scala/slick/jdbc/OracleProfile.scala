@@ -152,6 +152,10 @@ trait OracleProfile extends JdbcProfile {
         b"\(dbms_lob.compare($l, $r) = 0\)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+      case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
       case _ => super.expr(c, skipParens)
     }
   }
@@ -167,7 +171,7 @@ trait OracleProfile extends JdbcProfile {
 BEGIN
 
 """+ ((createPhase1 ++ createPhase2).map{s =>
-      "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+      "execute immediate '"+ s.replaceAll("'", "''") + " ';"
   }.mkString("\n")) +"""
 EXCEPTION
     WHEN OTHERS THEN

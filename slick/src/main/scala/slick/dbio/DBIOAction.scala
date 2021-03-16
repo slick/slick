@@ -156,14 +156,14 @@ object DBIOAction {
     var state = 0 // no current = 0, sync = 1, async = 2
     var current: mutable.Builder[DBIOAction[R, NoStream, E], Vector[DBIOAction[R, NoStream, E]]] = null
     val total = Vector.newBuilder[Vector[DBIOAction[R, NoStream, E]]]
-    (in: IterableOnce[Any]).foreach { a =>
+    in.iterator.foreach { a =>
       val msgState = if(a.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) 1 else 2
       if(msgState != state) {
         if(state != 0) total += current.result()
         current = Vector.newBuilder
         state = msgState
       }
-      current += a.asInstanceOf[DBIOAction[R, NoStream, E]]
+      current += a
     }
     if(state != 0) total += current.result()
     total.result()

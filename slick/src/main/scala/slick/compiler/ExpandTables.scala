@@ -51,8 +51,14 @@ class ExpandTables extends Phase {
           t :@ CollectionType(cons, NominalType(i, structs(b)))
         case r: Ref => r.untyped
         case d: Distinct =>
-          if(d.nodeType.existsType { case NominalType(_: TableIdentitySymbol, _) => true; case _ => false })
-            expandDistinct = true
+          expandDistinct = d.children.toSeq match {
+            case Seq(n1, n2: Ref) =>
+              logger.debug(s"expandDistinct true: ${n1}, ${n2}")
+              true
+            case a =>
+              logger.debug(s"expandDistinct false: ${a.mkString(",")}")
+              false
+          }
           d.mapChildren(tr)
       }
       val tree2 = tr(tree).infer()

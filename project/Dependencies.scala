@@ -6,14 +6,14 @@ object Dependencies {
   // NOTE: remember to change the version numbers in the sample projects
   // when changing them here
 
-  val scalaVersions = Seq("2.11.12", "2.12.9", "2.13.0") // When updating these also update .travis.yml and appveyor.yml
+  val scalaVersions = Seq("2.11.12", "2.12.13", "2.13.5") // When updating these also update .travis.yml and appveyor.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.26"
-  val typesafeConfig = "com.typesafe" % "config" % "1.3.4"
-  val reactiveStreamsVersion = "1.0.2"
+  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.30"
+  val typesafeConfig = "com.typesafe" % "config" % "1.4.1"
+  val reactiveStreamsVersion = "1.0.3"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.0.0"
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
@@ -26,9 +26,9 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % v
   }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "3.3.1"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "3.4.5"
 
-  val h2 = "com.h2database" % "h2" % "1.4.199"
+  val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
     val javaVersion = System.getProperty("java.version")
     val jreVersionToUse = if (javaVersion.startsWith("11") || javaVersion.startsWith("12")) {
@@ -36,15 +36,15 @@ object Dependencies {
     } else "8"
     "com.microsoft.sqlserver" % "mssql-jdbc" % s"7.2.2.jre$jreVersionToUse"
   }
-  
+
   val testDBs = Seq(
     h2,
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
-    "org.xerial" % "sqlite-jdbc" % "3.27.2.1",
+    "org.xerial" % "sqlite-jdbc" % "3.34.0",
     "org.hsqldb" % "hsqldb" % "2.4.1",
-    "org.postgresql" % "postgresql" % "42.2.5",
-    "mysql" % "mysql-connector-java" % "5.1.46",
+    "org.postgresql" % "postgresql" % "42.2.19",
+    "mysql" % "mysql-connector-java" % "5.1.49",
     "net.sourceforge.jtds" % "jtds" % "1.3.1"
   )
 

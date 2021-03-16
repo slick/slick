@@ -88,6 +88,9 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     }).toMap
   }
 
+  def foreignKeysPerTable: Map[String, List[String]] = tables.map(t =>
+    t.TableValue.name -> t.model.foreignKeys.map(k => tableName(k.referencedTable.table)).toList
+  ).toMap
 
   protected def tuple(i: Int) = termName(s"_${i+1}")
 
