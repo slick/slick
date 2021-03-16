@@ -21,10 +21,6 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.novocode" % "junit-interface" % "0.11"
   )
-  def scalaTestFor(scalaVersion: String) = {
-    val v = "3.0.8"
-    "org.scalatest" %% "scalatest" % v
-  }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
   val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 

@@ -179,7 +179,7 @@ object Settings {
     slickGeneralSettings ++ Seq(
       name := "Slick-ReactiveStreamsTests",
       resolvers += Resolver.sbtPluginRepo("releases"),
-      libraryDependencies += Dependencies.scalaTestFor(scalaVersion.value),
+      libraryDependencies += "org.scalatestplus" %% "testng-6-7" % "3.2.6.0",
       libraryDependencies ++=
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test"),
       libraryDependencies += Dependencies.reactiveStreamsTCK,

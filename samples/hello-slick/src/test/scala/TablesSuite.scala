@@ -4,7 +4,7 @@ import org.scalatest.time.{Seconds, Span}
 import slick.jdbc.H2Profile.api._
 import slick.jdbc.meta._
 
-class TablesSuite extends FunSuite with BeforeAndAfter with ScalaFutures {
+class TablesSuite extends funsuite.AnyFunSuite with BeforeAndAfter with ScalaFutures {
   implicit override val patienceConfig = PatienceConfig(timeout = Span(5, Seconds))
 
   val suppliers = TableQuery[Suppliers]

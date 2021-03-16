@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.reactivestreams._
 import org.reactivestreams.tck._
 import org.testng.annotations.{AfterClass, BeforeClass}
-import org.scalatest.testng.TestNGSuiteLike
+import org.scalatestplus.testng.TestNGSuiteLike
 
 import slick.relational.RelationalProfile
 
