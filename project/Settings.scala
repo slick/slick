@@ -1,7 +1,6 @@
 import sbt._
 import sbt.nio.Keys.fileTreeView
 import Keys._
-import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.core.{DirectMissingMethodProblem, IncompatibleMethTypeProblem, MissingClassProblem, ProblemFilters, ReversedMissingMethodProblem}
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaPreviousArtifacts}
 import com.jsuereth.sbtpgp.PgpKeys
@@ -26,8 +25,6 @@ object Settings {
 
   /* Test Configuration for running tests on doc sources */
   val DocTest = config("doctest") extend(Test)
-  val CompileConfig = config("compile")
-  val TestConfig = config("test")
   val MacroConfig = config("macro")
 
   def slickProjectSettings = (
@@ -35,7 +32,6 @@ object Settings {
       compilerDependencySetting("macro") ++
       inConfig(MacroConfig)(Defaults.configSettings) ++
       FMPP.preprocessorSettings ++
-      mimaDefaultSettings ++
       extTarget("slick") ++
       Docs.scaladocSettings ++
       Seq(
@@ -99,8 +95,8 @@ object Settings {
         //scalacOptions in Compile += "-Yreify-copypaste",
         libraryDependencies ++=
           Dependencies.junit ++:
-          (Dependencies.reactiveStreamsTCK % "test") +:
-          (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
+          (Dependencies.reactiveStreamsTCK % Test) +:
+          (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
         Test / parallelExecution := false,
         run / fork := true,
@@ -181,7 +177,7 @@ object Settings {
       resolvers += Resolver.sbtPluginRepo("releases"),
       libraryDependencies += "org.scalatestplus" %% "testng-6-7" % "3.2.6.0",
       libraryDependencies ++=
-        (Dependencies.logback +: Dependencies.testDBs).map(_ % "test"),
+        (Dependencies.logback +: Dependencies.testDBs).map(_ % Test),
       libraryDependencies += Dependencies.reactiveStreamsTCK,
       Test / parallelExecution := false,
       commonTestResourcesSetting
@@ -290,8 +286,8 @@ object Settings {
     autoScalaLibrary := false,
     // When using scala.home.local property adds all jars from <SCALA_HOME>/lib directory.
     unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
-    CompileConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
-    TestConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
+    Compile / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
+    Test / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
     MacroConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq)
   )
 
