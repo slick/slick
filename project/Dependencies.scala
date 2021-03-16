@@ -26,7 +26,7 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % v
   }
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "3.4.5"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
