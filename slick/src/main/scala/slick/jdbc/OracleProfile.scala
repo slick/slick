@@ -171,7 +171,7 @@ trait OracleProfile extends JdbcProfile {
 BEGIN
 
 """+ ((createPhase1 ++ createPhase2).map{s =>
-      "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
+      "execute immediate '"+ s.replaceAll("'", "''") + " ';"
   }.mkString("\n")) +"""
 EXCEPTION
     WHEN OTHERS THEN
