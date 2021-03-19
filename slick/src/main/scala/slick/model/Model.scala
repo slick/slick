@@ -99,7 +99,7 @@ case class Model(
     assert(tables.size == tables.map(_.name).distinct.size, "duplicate tables names detected")
     tables.foreach{ table =>
       import table._
-      assert(columns.size == columns.map(_.name).distinct.size, "duplicate column names detected")
+      assert(columns.size == columns.map(_.name).distinct.size, "duplicate column names detected in table: " + table.name.table )
       def msg( what: String, where: String ) = s"Reference to non-existent $what in $where of table $table."
       primaryKey.foreach{ pk =>
         assert( tablesByName.isDefinedAt(pk.table), msg("table "+pk.table,"primary key "+pk) )
