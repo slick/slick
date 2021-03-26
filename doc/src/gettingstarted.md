@@ -44,12 +44,12 @@ libraryDependencies ++= Seq(
 ```
 
 ```xml expandVars=true tab=Maven
-<!-- Make sure to use the correct Scala version suffix "_2.11" or "_2.12"
+<!-- Make sure to use the correct Scala version suffix "_2.12" or "_2.13"
      to match your project's Scala version. -->
 <dependencies>
   <dependency>
     <groupId>com.typesafe.slick</groupId>
-    <artifactId>slick_2.11</artifactId>
+    <artifactId>slick_2.13</artifactId>
     <version>{{version}}</version>
   </dependency>
   <dependency>
@@ -59,7 +59,7 @@ libraryDependencies ++= Seq(
   </dependency>
   <dependency>
     <groupId>com.typesafe.slick</groupId>
-    <artifactId>slick-hikaricp_2.11</artifactId>
+    <artifactId>slick-hikaricp_2.13</artifactId>
     <version>{{version}}</version>
   </dependency>
 </dependencies>

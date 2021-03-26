@@ -162,9 +162,5 @@ def testAll = Command.command("testAll") { state =>
 //    aRootProject / testSamples
   )
 
-  /* val withSdlc =
-   if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
-   else tasks */
-
   runTasksSequentially(tasks)(state)
 }
