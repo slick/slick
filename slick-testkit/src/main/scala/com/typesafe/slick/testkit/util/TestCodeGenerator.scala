@@ -25,6 +25,7 @@ trait TestCodeGenerator {
       def indent(code: String): String = code
       def code: String = ""
       def codePerTable:Map[String,String] = Map()
+      def foreignKeysPerTable: Map[String, List[String]] = Map()
       def codeForContainer:String = ""
     }.writeStringToFile(
       s"""

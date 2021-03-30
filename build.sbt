@@ -48,7 +48,7 @@ Global / onLoad := { state =>
   }
 }
 
-lazy val slickProject: Project = Project(id = "slick", base =  file("slick")).settings(slickProjectSettings).enablePlugins(SDLCPlugin)
+lazy val slickProject: Project = Project(id = "slick", base =  file("slick")).settings(slickProjectSettings).enablePlugins(SDLCPlugin, MimaPlugin)
 
 lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit")).settings(slickTestkitProjectSettings).configs(DocTest).enablePlugins(SDLCPlugin).
     dependsOn(slickProject,
@@ -161,10 +161,6 @@ def testAll = Command.command("testAll") { state =>
     slickProject / Compile / mimaReportBinaryIssues // enable for minor versions
 //    aRootProject / testSamples
   )
-
-  /* val withSdlc =
-   if(extracted.get(scalaVersion).startsWith("2.11.")) tasks :+ (sdlc in aRootProject)
-   else tasks */
 
   runTasksSequentially(tasks)(state)
 }

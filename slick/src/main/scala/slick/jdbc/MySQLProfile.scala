@@ -111,7 +111,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
       override def catalog = meta.name.schema 
     }
 
-    //https://dev.mysql.com/doc/connector-j/5.1/en/connector-j-reference-type-conversions.html
+    //https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
     import scala.reflect.{ClassTag, classTag}
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
       import java.sql.Types._

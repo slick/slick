@@ -38,12 +38,12 @@ following to your build definition - ``build.sbt`` or ``project/Build.scala``:
   )
 
 For Maven projects add the following to your ``<dependencies>`` (make sure to use the correct Scala
-version prefix, ``_2.11`` or ``_2.12``, to match your project's Scala version):
+version prefix, ``_2.12`` or ``_2.13``, to match your project's Scala version):
 
 .. parsed-literal::
   <dependency>
     <groupId>com.typesafe.slick</groupId>
-    <artifactId>slick_2.11</artifactId>
+    <artifactId>slick_2.13</artifactId>
     <version>\ |release|\ </version>
   </dependency>
   <dependency>

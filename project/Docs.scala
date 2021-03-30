@@ -19,7 +19,7 @@ object Docs {
     ornateResourceDir := Some(docDir.value / "resources"),
     ornateSettings := Map(
       "version" -> version.value,
-      "shortVersion" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1"""),
+      "shortVersion" -> version.value.replaceFirst("""(\d+\.\d+)\.\d+.*""", """$1.x"""),
       "tag" -> versionTag(version.value), // for snippet links
       "branch" -> "master", // for "Edit page" links
       "scalaVersion" -> scalaVersion.value // for "scalaapi:" links
