@@ -14,10 +14,10 @@ object FMPP {
     ),
     ivyConfigurations += FmppConfig,
     FmppConfig / fullClasspath := update.map { _ select configurationFilter(FmppConfig.name) map Attributed.blank }.value,
-    mappings in (Compile, packageSrc) ++= {
-      val fmppSrc = (sourceDirectory in Compile).value / "scala"
+    Compile / packageSrc / mappings ++= {
+      val fmppSrc = (Compile / sourceDirectory).value / "scala"
       val inFiles = fmppSrc ** "*.fm"
-      ((managedSources in Compile).value.pair(Path.relativeTo((sourceManaged in Compile).value) | Path.flat)) ++ // Add generated sources to sources JAR
+      ((Compile / managedSources).value.pair(Path.relativeTo((Compile / sourceManaged).value) | Path.flat)) ++ // Add generated sources to sources JAR
       (inFiles pair (Path.relativeTo(fmppSrc) | Path.flat)) // Add *.fm files to sources JAR
     }
   )

@@ -18,8 +18,8 @@ object TypeProviders {
       (Test / compile) := ((Test / compile) dependsOn (TypeProvidersConfig / compile)).value,
       TypeProvidersConfig / unmanagedClasspath ++= (CompileConfig / fullClasspath).value,
       TypeProvidersConfig / unmanagedClasspath ++= (LocalProject("codegen") / Test / fullClasspath).value,
-      Test / unmanagedClasspath ++= (fullClasspath in TypeProvidersConfig).value,
-      (Test / packageSrc / mappings) ++= {
+      Test / unmanagedClasspath ++= (TypeProvidersConfig / fullClasspath).value,
+      Test / packageSrc / mappings ++= {
         val src = (Test / sourceDirectory).value / "codegen"
         val inFiles = src ** "*.scala"
         ((Test / managedSources).value.pair(Path.relativeTo((Test / sourceManaged).value) | Path.flat)) ++ // Add generated sources to sources JAR
