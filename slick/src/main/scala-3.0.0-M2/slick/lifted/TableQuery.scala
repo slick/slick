@@ -37,18 +37,19 @@ object TableQuery {
   /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
   inline def apply[E <: AbstractTable[_]]: TableQuery[E] = ${ applyExpr[E] }
 
-  private def applyExpr[E <: AbstractTable[_]](using qctx: QuoteContext, e: Type[E]): Expr[TableQuery[E]] = {
-    import qctx.tasty._
-    val eTpe = e.unseal.tpe
-    val tagTpe = summon[scala.quoted.Type[Tag]].unseal.tpe
+  private def applyExpr[E <: AbstractTable[_]](using quotes: Quotes, e: Type[E]): Expr[TableQuery[E]] = {
+    import quotes.reflect._
+    val eTpe = TypeRepr.of(using e)
+    val tagTpe = TypeRepr.of[Tag]
     val mt = MethodType(List("tag"))(_ => List(tagTpe), _ => eTpe)
-    val cons = Lambda(mt, { tag =>
+
+    val cons = Lambda(Symbol.spliceOwner, mt, { (meth, tag) =>
       Select.overloaded(New(TypeIdent(eTpe.typeSymbol)), "<init>",
         List(),
         List(tag.head.asInstanceOf[Term])
       )
     })
 
-    '{ TableQuery.apply[E](${ cons.seal.cast[Tag => E] }) }
+    '{ TableQuery.apply[E](${ cons.asExprOf[Tag => E] }) }
   }
 }
