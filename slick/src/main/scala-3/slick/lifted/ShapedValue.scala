@@ -4,7 +4,7 @@ import slick.ast.{MappedScalaType, Node}
 import slick.collection.heterogeneous._
 
 import scala.compiletime._
-import scala.deriving.{ArrayProduct, Mirror}
+import scala.deriving.{Mirror}
 import scala.quoted._
 import scala.reflect.ClassTag
 
@@ -26,30 +26,31 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
 }
 
 object ShapedValue {
-  def mapToExpr[R : Type, T : Type, U : Type](sv: Expr[ShapedValue[T, U]])(implicit qctx: QuoteContext): Expr[MappedProjection[R, U]] = {
+  def mapToExpr[R : Type, T : Type, U : Type](sv: Expr[ShapedValue[T, U]])(using Quotes): Expr[MappedProjection[R, U]] = {
+    import quotes.reflect._
     val rtpe = summon[Type[R]]
     val utpe = summon[Type[U]]
-    val rct = Expr.summon[ClassTag[R]].getOrElse(report.throwError(s"No ClassTag available for ${rtpe}"))
-    val rpm = Expr.summon[Mirror.ProductOf[R]].getOrElse(report.throwError(s"${rtpe.show} is not a product type"))
+    val rct = Expr.summon[ClassTag[R]].getOrElse(report.throwError(s"No ClassTag available for ${Type.show[R]}"))
+    val rpm = Expr.summon[Mirror.ProductOf[R]].getOrElse(report.throwError(s"${Type.show[R]} is not a product type"))
 
     def decomposeTuple(tpe: Type[_ <: Tuple]): List[Type[_]] = tpe match {
-      case '[ $t *: $ts ] => Type[t] :: decomposeTuple(Type[ts])
+      case '[ t *: ts ] => Type.of[t] :: decomposeTuple(Type.of[ts])
       case '[ EmptyTuple ] => Nil
     }
 
     def decomposeHList(tpe: Type[_ <: HList]): List[Type[_]] = tpe match {
-      case '[ HCons[$t, $ts] ] => Type[t] :: decomposeHList(Type[ts])
+      case '[ HCons[t, ts] ] => Type.of[t] :: decomposeHList(Type.of[ts])
       case '[ HNil.type ] => Nil
     }
 
     val targetElemTpes = rpm match {
-      case '{ $m: Mirror.ProductOf[R] { type MirroredElemTypes = $ts }} =>
-        decomposeTuple(Type[ts].asInstanceOf[Type[_ <: Tuple]])
+      case '{ $m: Mirror.ProductOf[R] { type MirroredElemTypes = ts }} =>
+        decomposeTuple(Type.of[ts].asInstanceOf[Type[_ <: Tuple]])
     }
 
     val (f, g, elemTpes) = Expr.summon[Mirror.ProductOf[U]] match {
-      case Some(upm @ '{ $m: Mirror.ProductOf[U] { type MirroredElemTypes = $elementTypes }}) =>
-        val elemTpes = decomposeTuple(Type[elementTypes].asInstanceOf[Type[_ <: Tuple]])
+      case Some(upm @ '{ $m: Mirror.ProductOf[U] { type MirroredElemTypes = elementTypes }}) =>
+        val elemTpes = decomposeTuple(Type.of[elementTypes].asInstanceOf[Type[_ <: Tuple]])
         val f = '{ ((u: U) => $rpm.fromProduct(u.asInstanceOf[Product])).asInstanceOf[Any => Any] }
         val g = '{ ((r: R) => $upm.fromProduct(r.asInstanceOf[Product])).asInstanceOf[Any => Any] }
         (f, g, elemTpes)
@@ -61,17 +62,18 @@ object ShapedValue {
             val g = '{ ((r: R) => r.asInstanceOf[Product].productIterator.foldRight(HNil: HList) { case (n, z) => new HCons(n, z) }).asInstanceOf[Any => Any] }
             (f, g, elemTpes)
           case _ if targetElemTpes.length == 1 =>
-            val f = '{ ((u: U) => $rpm.fromProduct(new ArrayProduct(Array(u.asInstanceOf[AnyRef])))).asInstanceOf[Any => Any] }
+            val f = '{ ((u: U) => $rpm.fromProduct(Tuple.fromArray(Array(u.asInstanceOf[AnyRef])))).asInstanceOf[Any => Any] }
             val g = '{ ((r: R) => r.asInstanceOf[Product].productElement(0)).asInstanceOf[Any => Any] }
             (f, g, targetElemTpes)
           case _ =>
-            report.throwError(s"Source type ${utpe.show} must be a product, HList or single value")
+            report.throwError(s"Source type ${Type.show[U]} must be a product, HList or single value")
         }
     }
 
     if(elemTpes.length != targetElemTpes.length) {
-      val src = elemTpes.iterator.map(_.show).mkString("(", ", ", ")")
-      val target = targetElemTpes.iterator.map(_.show).mkString("(", ", ", ")")
+      // todo: change
+      val src = elemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
+      val target = targetElemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
       report.throwError(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
     }
 

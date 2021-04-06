@@ -500,7 +500,7 @@ object QueryInterpreter {
 
   /** The representation for StructType values in the interpreter */
   class StructValue(data: IndexedSeq[Any], symbolToIndex: (TermSymbol => Int)) extends ProductValue(data) {
-    def getBySymbol(sym: TermSymbol): Any = apply(symbolToIndex(sym))
+    def getBySymbol(sym: TermSymbol): Any = super.apply(symbolToIndex(sym))
     override def toString = "StructValue("+data.mkString(", ")+"){"+symbolToIndex+"}"
   }
 }
