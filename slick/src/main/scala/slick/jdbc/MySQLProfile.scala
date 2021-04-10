@@ -252,7 +252,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
-    // Method kept for binary compatibility. Otherwise unused
+    @deprecated("Method kept for binary compatibility in 3.x, but should be removed in 3.4.x")
     def buildInsertIgnoreStart: String = allNames.iterator.mkString(s"insert ignore into $tableName (", ",", ") ")
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
