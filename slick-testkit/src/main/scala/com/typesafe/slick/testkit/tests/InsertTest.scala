@@ -242,7 +242,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     case class V(id: Int, value: String)
     class T2(tag: Tag) extends Table[V](tag, "mytable2") {
       def id = column[Int]("id")
-      def value = column[String]("value", O.SqlType("varchar(20)"))
+      def value = column[String]("value", O.Length(20))
       def * = (id, value) <> ((V.apply _).tupled, V.unapply)
       def pk = primaryKey("pk", (id, value))
     }
@@ -265,8 +265,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     case class Book(id: Long, title: String, code: Option[String] = None)
     class BooksTable(tag: Tag) extends Table[Book](tag, "books") {
       def id = column[Long]("id", O.PrimaryKey)
-      def title = column[String]("title", O.SqlType("varchar(20)"))
-      def code = column[Option[String]]("code", O.SqlType("varchar(20)"))
+      def title = column[String]("title", O.Length(20))
+      def code = column[Option[String]]("code", O.Length(20))
       override def * = (id, title, code) <> ((Book.apply _).tupled, Book.unapply)
     }
     val books = TableQuery[BooksTable]
@@ -282,20 +282,21 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val meta = TableQuery[BookMetaTable]
 
     import scala.util.{Success, Failure}
-    val data = BookMeta(-1, -1, 0)// fail, because there are no books.
+    val bookMeta = BookMeta(-1, -1, 0) // fail, because there are no books.
     DBIO.seq(
-      (meta += data).asTry.map {
+      (meta.insertOrUpdate(bookMeta)).asTry.map {
         case Success(_) => throw new Exception("Insertion should be failed.")
         case _ => ()
       }
     )
   }
 
-  def testInsertAndUpdateShouldNotTruncateData = {
+  // sqlite donesn't care this case
+  def testInsertAndUpdateShouldNotTruncateData = if (!tdb.confName.contains("sqlite")) {
     case class Test(id: Int, name: String)
     class TestTable(tag: Tag) extends Table[Test](tag, "test") {
       def id = column[Int]("id", O.PrimaryKey)
-      def name = column[String]("name", O.SqlType("varchar(2)"))
+      def name = column[String]("name", O.Length(2))
       def * = (id, name) <> (Test.tupled, Test.unapply)
     }
     val ts = TableQuery[TestTable]
@@ -303,19 +304,18 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     DBIO.seq(
       ts.schema.create,
       ts ++= Seq(Test(1, "a")),
-      // sqlite donesn't care this case
       (ts ++= Seq(Test(2, "123"))).asTry.map {
-        case Success(_) if !tdb.confName.contains("sqlite") => throw new Exception("Data is truncated. It shouldn't be succeeded.")
+        case Success(_) => throw new Exception("Data is truncated. It shouldn't be succeeded.")
         case _ => ()
       },
       ts.filter(_.id === 1).map(_.name).update("123").asTry.map {
-        case Success(_) if !tdb.confName.contains("sqlite") => throw new Exception("Data is truncated. It shouldn't be succeeded.")
+        case Success(_) => throw new Exception("Data is truncated. It shouldn't be succeeded.")
         case _ => ()
       },
       ts.insertOrUpdate(Test(1, "123")).asTry.map {
-        case Success(_) if !tdb.confName.contains("sqlite") => throw new Exception("Data is truncated. It shouldn't be succeeded.")
+        case Success(_) => throw new Exception("Data is truncated. It shouldn't be succeeded.")
         case _ => ()
       }
     )
-  }
+  } else DBIO.seq()
 }
