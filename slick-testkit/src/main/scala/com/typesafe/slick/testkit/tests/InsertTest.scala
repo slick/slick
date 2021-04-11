@@ -231,7 +231,9 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession
   }
 
-  // TODO DerbyProfile and PostgresProfile seems to have a problem in this case. check #2206 and #2207
+  // Regression test for https://github.com/slick/slick/issues/1627
+  // TODO DerbyProfile and PostgresProfile seems to have a problem in this case, so we skip testing them.
+  // See https://github.com/slick/slick/issues/2206 and https://github.com/slick/slick/issues/2207
   def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = if (!tdb.confName.matches("(derby|postgres).*")) {
     class T(tag: Tag) extends Table[Int](tag, "mytable") {
       def id = column[Int]("id", O.PrimaryKey)
