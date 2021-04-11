@@ -22,6 +22,7 @@ object GenerateRoundtripSources {
     import Tables.profile.api._
     val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+      override def parentType = Some("slick.test.codegen.EmptyTestTrait")
       override def Table = new Table(_)
       {
         override def hugeClassEnabled = false // HList type instead of case classes (like with Slick before 3.3)
