@@ -14,7 +14,7 @@ class CompanionObjectTest extends AsyncTest[RelationalTestDB] {
     class People(tag: Tag) extends Table[Person](tag, "people") {
       def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
       def name = column[String]("name")
-      def * = (id, name).mapTo[Person]
+      def * = (id, name).<>((Person.apply _).tupled, Person.unapply)
     }
   }
 
