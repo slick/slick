@@ -20,7 +20,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
-      def * = (id.? ~: baseProjection).<>(User.tupled, User.unapply _)
+      def * = (id.? ~: baseProjection).mapTo[User]
       def baseProjection = first ~ last
       def forUpdate = baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { (u: User) => Some((u.first, u.last)) })
       def asFoo = forUpdate.<>((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
@@ -118,7 +118,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def m1 = (
         id,
         (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6).mapTo[Part],
-        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6).<>(Part.tupled, Part.unapply _),
+        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6).mapTo[Part],
         (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6).mapTo[Part],
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6).mapTo[Part]
       ).mapTo[Whole]
@@ -131,7 +131,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
         ).shaped.<>({ case (id, p1, p2, p3, p4) =>
         // We could do this without .shaped but then we'd have to write a type annotation for the parameters
-        Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
+        Whole(id, Part.apply.tupled.apply(p1), Part.apply.tupled.apply(p2), Part.apply.tupled.apply(p3), Part.apply.tupled.apply(p4))
       }, { (w: Whole) =>
         def f(p: Part) = (p.i1, p.i2, p.i3, p.i4, p.i5, p.i6)
         Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
@@ -174,9 +174,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def p2 = column[String]("p2")
       def p3 = column[String]("p3")
       def p4 = column[Int]("p4")
-      def part1 = (p1,p2).<>(Part1.tupled,Part1.unapply)
+      def part1 = (p1,p2).mapTo[Part1]
       def part2 = (p3,p4).mapTo[Part2]
-      def * = (part1, part2).<>(Whole.tupled,Whole.unapply)
+      def * = (part1, part2).mapTo[Whole]
     }
     val T = TableQuery[T]
 
@@ -293,7 +293,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   def testCaseClassShape = {
     case class C(a: Int, b: String)
     case class LiftedC(a: Rep[Int], b: Rep[String])
-    implicit object cShape extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedC, (Int, String), C](LiftedC.tupled, C.tupled)
+    implicit object cShape extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedC, (Int, String), C](LiftedC.apply.tupled, C.apply.tupled)
 
     class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -465,7 +465,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).<>(Data.tupled, Data.unapply _).fastPath(new FastPath[Data](_) { //TODO Can we remove the type param from FastPath in Dotty? Scala 2 doesn't need it.
+      def * = (a, b).mapTo[Data].fastPath(new FastPath[Data](_) { //TODO Can we remove the type param from FastPath in Dotty? Scala 2 doesn't need it.
         val (a, b) = (next[Int], next[Int])
         override def read(r: ResultSet) = Data(a.read(r), b.read(r))
       })
