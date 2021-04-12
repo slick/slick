@@ -361,7 +361,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       def applyOption(v: Option[String]): Option[StrWrapper] = v.map(StrWrapper(_))
       def unapplyOption(v: Option[StrWrapper]): Option[Option[String]] = Some(v.map(_.v))
     }
-    
+
     case class BData(id: String, a: String, b: String, c: Option[StrWrapper])
     class B(t: Tag) extends Table[BData](t, None, "B_DISTINCT") {
       def id = column[String]("id")
@@ -371,7 +371,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
 
       def cWrapped = c <> (StrWrapper.applyOption, StrWrapper.unapplyOption)
 
-      def * = (id, a, b, cWrapped) <> ((BData.apply _).tupled, BData.unapply)
+      def * = (id, a, b, cWrapped).mapTo[BData]
     }
 
     val bs = TableQuery[B]

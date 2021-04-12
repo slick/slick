@@ -131,7 +131,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
         ).shaped.<>({ case (id, p1, p2, p3, p4) =>
         // We could do this without .shaped but then we'd have to write a type annotation for the parameters
-        Whole(id, Part.apply.tupled.apply(p1), Part.apply.tupled.apply(p2), Part.apply.tupled.apply(p3), Part.apply.tupled.apply(p4))
+        Whole(id, (Part.apply _).tupled.apply(p1), (Part.apply _).tupled.apply(p2), (Part.apply _).tupled.apply(p3), (Part.apply _).tupled.apply(p4))
       }, { (w: Whole) =>
         def f(p: Part) = (p.i1, p.i2, p.i3, p.i4, p.i5, p.i6)
         Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
@@ -293,7 +293,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   def testCaseClassShape = {
     case class C(a: Int, b: String)
     case class LiftedC(a: Rep[Int], b: Rep[String])
-    implicit object cShape extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedC, (Int, String), C](LiftedC.apply.tupled, C.apply.tupled)
+    implicit object cShape extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedC, (Int, String), C]((LiftedC.apply _).tupled, (C.apply _).tupled)
 
     class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
       def id = column[Int]("id", O.PrimaryKey)
