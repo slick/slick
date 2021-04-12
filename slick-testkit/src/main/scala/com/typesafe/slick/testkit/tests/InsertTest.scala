@@ -261,6 +261,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession
   } else DBIO.seq()
 
+  // Regression test for https://github.com/slick/slick/issues/2045
   def testInsertOrUpdateWithIntegrityError: DBIOAction[Unit, NoStream, Effect.All] = {
     case class Book(id: Long, title: String, code: Option[String] = None)
     class BooksTable(tag: Tag) extends Table[Book](tag, "books") {
