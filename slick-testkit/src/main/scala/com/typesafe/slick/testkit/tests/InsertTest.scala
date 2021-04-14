@@ -232,34 +232,37 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   // Regression test for https://github.com/slick/slick/issues/1627
-  // TODO DerbyProfile and PostgresProfile seems to have a problem in this case, so we skip testing them.
-  // See https://github.com/slick/slick/issues/2206 and https://github.com/slick/slick/issues/2207
-  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = if (!tdb.confName.matches("(derby|postgres).*")) {
-    class T(tag: Tag) extends Table[Int](tag, "mytable") {
-      def id = column[Int]("id", O.PrimaryKey)
-      def * = id
-    }
-    case class V(id: Int, value: String)
-    class T2(tag: Tag) extends Table[V](tag, "mytable2") {
-      def id = column[Int]("id")
-      def value = column[String]("value", O.Length(20))
-      def * = (id, value) <> ((V.apply _).tupled, V.unapply)
-      def pk = primaryKey("pk", (id, value))
-    }
-    val ts1 = TableQuery[T]
-    val ts2 = TableQuery[T2]
-    (for {
-      _ <- ts1.schema.create
-      _ <- ts1 ++= Seq((1), (2))
-      _ <- ts1.insertOrUpdate((0)).map(_ shouldBe 1)
-      _ <- ts1.insertOrUpdate((1)).map(_ shouldBe 1)
-      _ <- ts2.schema.create
-      _ <- ts2 ++= Seq(V(1, "a"), V(2, "b"))
-      _ <- ts2.insertOrUpdate(V(0, "c")).map(_ shouldBe 1)
-      _ <- ts2.insertOrUpdate(V(1, "a")).map(_ shouldBe 1)
-      _ <- ts2.insertOrUpdate(V(2, "d")).map(_ shouldBe 1)
-    } yield ()).withPinnedSession
-  } else DBIO.seq()
+  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = tdb.confName match {
+    case "postgres" | "derbymem" | "derbydisk" =>
+      // TODO DerbyProfile and PostgresProfile seems to have a problem in this case, so we skip testing them.
+      // See https://github.com/slick/slick/issues/2206 and https://github.com/slick/slick/issues/2207
+      DBIO.seq()
+    case _ =>
+      class T(tag: Tag) extends Table[Int](tag, "mytable") {
+        def id = column[Int]("id", O.PrimaryKey)
+        def * = id
+      }
+      case class V(id: Int, value: String)
+      class T2(tag: Tag) extends Table[V](tag, "mytable2") {
+        def id = column[Int]("id")
+        def value = column[String]("value", O.Length(20))
+        def * = (id, value) <> ((V.apply _).tupled, V.unapply)
+        def pk = primaryKey("pk", (id, value))
+      }
+      val ts1 = TableQuery[T]
+      val ts2 = TableQuery[T2]
+      (for {
+        _ <- ts1.schema.create
+        _ <- ts1 ++= Seq((1), (2))
+        _ <- ts1.insertOrUpdate((0)).map(_ shouldBe 1)
+        _ <- ts1.insertOrUpdate((1)).map(_ shouldBe 1)
+        _ <- ts2.schema.create
+        _ <- ts2 ++= Seq(V(1, "a"), V(2, "b"))
+        _ <- ts2.insertOrUpdate(V(0, "c")).map(_ shouldBe 1)
+        _ <- ts2.insertOrUpdate(V(1, "a")).map(_ shouldBe 1)
+        _ <- ts2.insertOrUpdate(V(2, "d")).map(_ shouldBe 1)
+      } yield ()).withPinnedSession
+  }
 
   // Regression test for https://github.com/slick/slick/issues/2045
   def testInsertOrUpdateWithIntegrityError: DBIOAction[Unit, NoStream, Effect.All] = {
