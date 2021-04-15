@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.GetResult
+import slick.jdbc.{GetResult, SetParameter}
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class PlainSQLTest extends AsyncTest[JdbcTestDB] {
@@ -121,5 +121,36 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
       userForIdAndName(2, "guest").head shouldYield User(2,"guest"), //TODO Support `head` and `headOption` in Plain SQL Actions
       userForIdAndName(2, "foo").headOption shouldYield None //TODO Support `head` and `headOption` in Plain SQL Actions
     )
+  }
+
+  def testEdgeTypes = ifCap(tcap.plainSql) {
+    object Const
+    case class Weird(u: Unit, x: (Int, String), c: Const.type)
+
+    implicit val getC = GetResult.const[Const.type](Const)
+    implicit val get = GetResult[Weird](r => new Weird(r.<<[Unit], r.<<, r.<<[Const.type]))
+
+    implicit val setC = SetParameter.const[Const.type]
+    implicit val setU = SetParameter[User]{(u, p) => println(u); p.setInt(u.id); p.setString(u.name)}
+    implicit val setT = setU.contramap((User.apply _).tupled)
+    implicit val set  = SetParameter[Weird]{(w, p) =>
+      SetParameter.SetUnit(w.u, p)
+      setT(w.x, p)
+      setC(w.c, p)
+    }
+
+    val w = Weird((), (3, "Ah"), Const)
+
+    val create =
+      sqlu"create table USERS2(ID int not null primary key, NAME varchar(255))".map(_ shouldBe 0)
+
+    def testSet =
+      sqlu"insert into USERS2 values (${w.x._1}, ${w.x._2})".map(_ shouldBe 1)
+      //sqlu"insert into USERS2 values ($w)".map(_ shouldBe 1)
+
+    def testGet =
+      sql"select id, name from USERS2 where id = ${w.x._1}".as[Weird].map(_.head shouldBe w)
+
+    seq(create, testSet, testGet)
   }
 }

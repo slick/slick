@@ -9,6 +9,9 @@ trait SetParameter[-T] extends ((T, PositionedParameters) => Unit) { self =>
       self.apply(value, pp)
     }
   }
+
+  def contramap[S](f: S => T): SetParameter[S] =
+    SetParameter[S]((v, pp) => self.apply(f(v), pp))
 }
 
 /** SetParameter for tuple types. */
@@ -69,7 +72,11 @@ object SetParameter {
 
   implicit object SetUnit extends SetParameter[Unit] { def apply(none: Unit, pp: PositionedParameters) = () }
 
-  def apply[T](implicit f: (T, PositionedParameters) => Unit) = new SetParameter[T] {
-    def apply(v: T, pp: PositionedParameters) = f(v, pp)
-  }
+  def apply[T](implicit f: (T, PositionedParameters) => Unit): SetParameter[T] =
+    new SetParameter[T] { def apply(v: T, pp: PositionedParameters) = f(v, pp) }
+
+  object SetNothing extends SetParameter[Any] { def apply(a: Any, pp: PositionedParameters) = () }
+
+  def const[T]: SetParameter[T] =
+    SetNothing
 }
