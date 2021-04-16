@@ -25,3 +25,6 @@ doc/capabilities.md
 /secrets.tar
 /publish-settings.sbt
 /.bsp/
+.bloop/
+/.metals/
+metals.sbt
