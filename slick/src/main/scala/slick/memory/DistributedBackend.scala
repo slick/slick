@@ -59,7 +59,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     /** Create a new distributed database instance that uses the supplied ExecutionContext for
       * asynchronous execution of database actions. */
     def apply(dbs: IterableOnce[BasicBackend#DatabaseDef], executionContext: ExecutionContext): Database =
-      new DatabaseDef(dbs.toVector, executionContext)
+      new DatabaseDef(dbs.iterator.toVector, executionContext)
   }
 
   class SessionDef(val sessions: Vector[BasicBackend#Session]) extends super.SessionDef {

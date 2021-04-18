@@ -207,7 +207,7 @@ class RewriteJoins extends Phase {
       logger.debug("Eliminated illegal refs ["+illegal.mkString(", ")+"] in:", j2)
       val m = l1m.map { case (p, n) => (ElementSymbol(1) :: p, n) } ++
         r1m.map { case (p, n) => (ElementSymbol(2) :: p, n) }
-      val m2 = m.mapValues(_.replace({
+      val m2 = m.transform((_, v) => v.replace({
         case Ref(s) :@ tpe if s == j.leftGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(1)) :@ tpe
         case Ref(s) :@ tpe if s == j.rightGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(2)) :@ tpe
       }, keepType = true)).toMap
