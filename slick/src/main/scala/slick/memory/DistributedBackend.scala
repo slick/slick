@@ -71,7 +71,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
       throw new SlickException("DistributedBackend does not currently support transactions")
 
     def force(): Unit = {
-      sessions.foreach(_.force)
+      sessions.foreach(_.force())
     }
 
     def withTransaction[T](f: => T) =

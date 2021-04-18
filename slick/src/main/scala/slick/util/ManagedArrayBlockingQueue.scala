@@ -191,7 +191,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
 
     new util.Iterator[E] {
       override def hasNext: Boolean = items.hasNext
-      override def next: E = items.next
+      override def next: E = items.next()
       override def remove(): Unit = throw new UnsupportedOperationException
     }
   }

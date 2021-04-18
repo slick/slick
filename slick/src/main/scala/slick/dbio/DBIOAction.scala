@@ -219,7 +219,7 @@ object DBIOAction {
       case n =>
         grouped.foldLeft(DBIO.successful(cbf.newBuilder): DBIOAction[mutable.Builder[R, M[R]], NoStream, E]) { (ar, g) =>
           for (r <- ar; ge <- sequenceGroupAsSeq(g)) yield r ++= ge
-        } map (_.result)
+        } map (_.result())
     }
   }
 

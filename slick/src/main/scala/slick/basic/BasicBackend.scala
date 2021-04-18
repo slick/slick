@@ -147,7 +147,7 @@ trait BasicBackend { self =>
       if (stackLevel < 100) {
         runInContextInline(a, ctx, streaming, topLevel, stackLevel + 1)
       } else {
-        val promise = Promise[R]
+        val promise = Promise[R]()
         val runnable = new Runnable {
           override def run() = {
             try {

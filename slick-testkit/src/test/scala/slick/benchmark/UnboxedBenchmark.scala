@@ -88,7 +88,7 @@ object UnboxedBenchmark extends App {
     var count: Long = 0
     var lastRow: AnyRef = null
     while(pr.hasNext) {
-      lastRow = pr.next.asInstanceOf[AnyRef]
+      lastRow = pr.next().asInstanceOf[AnyRef]
       count += 1
     }
     val time = System.currentTimeMillis() - t0

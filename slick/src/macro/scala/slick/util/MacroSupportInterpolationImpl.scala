@@ -19,6 +19,9 @@ object MacroSupportInterpolationImpl {
     def symbolName(t: Tree) = Apply(Ident(TermName("symbolName")), List(t))
     def toStr(t: Tree) = Apply(Select(Ident(definitions.StringClass.companion), TermName("valueOf")), List(t))
     def append(t: Tree) = Apply(Select(sqlBuilder, TermName("+=").encodedName), List(t))
+    def newLineOrSpace = Apply(Select(sqlBuilder, TermName("newLineOrSpace")), Nil)
+    def newLineDedent = Apply(Select(sqlBuilder, TermName("newLineDedent")), Nil)
+    def newLineIndent = Apply(Select(sqlBuilder, TermName("newLineIndent")), Nil)
 
     def appendString(str: String): List[Tree] = {
       val exprs = new ListBuffer[Tree]
@@ -48,7 +51,7 @@ object MacroSupportInterpolationImpl {
                     Select(skipParens, TermName(NameTransformer.encode("unary_!"))),
                     Block(List(
                       append(Literal(Constant('('))),
-                      Select(sqlBuilder, TermName("newLineIndent"))
+                      newLineIndent
                     ), Literal(Constant(()))),
                     ctx.universe.EmptyTree
                   )
@@ -57,7 +60,7 @@ object MacroSupportInterpolationImpl {
                   exprs += If(
                     Select(skipParens, TermName(NameTransformer.encode("unary_!"))),
                     Block(List(
-                      Select(sqlBuilder, TermName("newLineDedent")),
+                      newLineDedent,
                       append(Literal(Constant(')')))
                     ), Literal(Constant(()))),
                     ctx.universe.EmptyTree
@@ -65,14 +68,14 @@ object MacroSupportInterpolationImpl {
                 case '[' => // open parenthesis with indent
                   sb append '('
                   flushSB
-                  exprs += Select(sqlBuilder, TermName("newLineIndent"))
+                  exprs += newLineIndent
                 case ']' => // close parenthesis with dedent
                   flushSB
-                  exprs += Select(sqlBuilder, TermName("newLineDedent"))
+                  exprs += newLineDedent
                   sb append ')'
                 case 'n' =>
                   flushSB
-                  exprs += Select(sqlBuilder, TermName("newLineOrSpace"))
+                  exprs += newLineOrSpace
                 case c2 =>
                   ctx.abort(ctx.enclosingPosition, "Invalid escaped character '"+c2+"' in literal \""+str+"\"")
               }

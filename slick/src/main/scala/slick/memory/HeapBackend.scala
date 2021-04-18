@@ -66,7 +66,7 @@ trait HeapBackend extends RelationalBackend with Logging {
       case e: Throwable => throw e
     }
     def truncateTable(name: String): Unit = synchronized{
-      getTable(name).data.clear
+      getTable(name).data.clear()
     }
     def getTables: IndexedSeq[HeapTable] = synchronized {
       tables.values.toVector

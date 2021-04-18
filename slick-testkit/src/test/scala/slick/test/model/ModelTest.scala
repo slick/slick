@@ -7,7 +7,7 @@ import slick.model._
 class ModelTest {
 
   @Test def testConsistencyCheck: Unit = {
-    Model(Seq()).assertConsistency
+    Model(Seq()).assertConsistency()
 
     val A = QualifiedName("A")
     val B = QualifiedName("B")
@@ -25,6 +25,6 @@ class ModelTest {
         ForeignKey(None,B,Seq(b_a_id),A,Seq(a_id),ForeignKeyAction.NoAction,ForeignKeyAction.NoAction)
       ),Seq()),
       Table(A,Seq(a_id),None,Seq(),Seq())
-    )).assertConsistency
+    )).assertConsistency()
   }
 }
