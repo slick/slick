@@ -608,7 +608,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     }
 
     protected def createPhase1 = Iterable(createTable(false)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
-    protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex) ++ foreignKeys.map(dropForeignKeyIfExists) ++ foreignKeys.map(createForeignKey)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
     protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(true))
@@ -671,6 +671,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     protected def dropForeignKey(fk: ForeignKey): String =
       "alter table " + quoteTableName(tableNode) + " drop constraint " + quoteIdentifier(fk.name)
+
+    protected def dropForeignKeyIfExists(fk: ForeignKey): String =
+      "alter table " + quoteTableName(tableNode) + " drop constraint if exists " + quoteIdentifier(fk.name)
 
     protected def dropPrimaryKey(pk: PrimaryKey): String =
       "alter table " + quoteTableName(tableNode) + " drop constraint " + quoteIdentifier(pk.name)
