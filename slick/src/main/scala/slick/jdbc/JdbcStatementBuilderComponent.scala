@@ -559,11 +559,14 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def buildMergeStart: String = s"merge into $tableName t using ("
 
     protected def buildMergeEnd: String = {
-      val updateCols = softNames.map(n => s"t.$n=s.$n").mkString(", ")
+      val updateCols = softNames.toList match {
+        case Nil => ""
+        case list => s"when matched then update set ${list.map(n => s"t.$n=s.$n").mkString(", ")}"
+      }
       val insertCols = nonAutoIncNames /*.map(n => s"t.$n")*/ .mkString(", ")
       val insertVals = nonAutoIncNames.map(n => s"s.$n").mkString(", ")
       val cond = pkNames.map(n => s"t.$n=s.$n").mkString(" and ")
-      s") s on ($cond) when matched then update set $updateCols when not matched then insert ($insertCols) values ($insertVals)"
+      s") s on ($cond) $updateCols  when not matched then insert ($insertCols) values ($insertVals)"
     }
   }
 
