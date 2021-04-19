@@ -1,7 +1,7 @@
 # Getting Started {index="sample;download"}
 
 The easiest way to get started is with a working sample application. The following samples are part of the official
-Slick distribution. You can either clone Slick from github or download pre-packaged zip files with an indiviual
+Slick distribution. You can either clone Slick from github or download pre-packaged zip files with an individual
 sample plus an [sbt] launcher.
 
 * To learn the basics of Slick, start with the **Hello Slick** sample ([github](samplerepo:hello-slick),
