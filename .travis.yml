@@ -9,7 +9,7 @@ env:
   matrix:
     - ADOPTOPENJDK=8
     - ADOPTOPENJDK=11
-    - ADOPTOPENJDK=12
+    - ADOPTOPENJDK=13
 services:
   - mysql
   - postgresql
