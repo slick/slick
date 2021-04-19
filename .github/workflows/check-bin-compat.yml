@@ -11,48 +11,6 @@ jobs:
       fail-fast: false
       matrix:
         hash:
-          - bdd2a5abdfdae69dd24717b50fc6b4708bbd9dec
-          - 96f0195fce87d30d0b7cacce75bb396315129812
-          - 8af2e950807322335688e8b1725b2786102c8843
-          - 9d877a30a063a2227015c7828539b8e034debd40
-          - c8c3b9e4f1efbf25813ddf70d17f4c81d98c7dc1
-          - 2cdb0f0789ef6f193a18e644af36d5cbb4c39e99
-          - b528b87bb2096e5d385e0b4f8cc6920a75710ba3
-          - 7f23bea3e107ef6c1bbf809d63ea9060ace04483
-          - a27edc074dcddd8844f29ff1ce42e78e910948bb
-          - 6c2106122f6f647aeead4d9db7cca890c6befd90
-          - fd0fd1e30ac59e79dfc584757bea0b95329bf308
-          - e3311c458f36511f28f8afa56b336f57b6863899
-          - 98ded3a777372d0783dbb42233b08ff51f6da3a7
-          - 7a59281f66bf5717e6b2c659faf5777512391515
-          - d4bf8e48e052f3820f783389210267b9858d2974
-          - dabd8d5773cd1d321ea141f40439a8df3a8983e7
-          - a3174160dfac84f249d9c08ef54316405d561bf7
-          - 0f9f5fda5135ab6dd4b8a3fc0257d8ce475e275e
-          - 5174dc737e5ed5276ad0cb7535b1cce2228d6619
-          - f0def05440e3e7b8d267211da8a029eb98027be1
-          - 326e17bc270e60e1607cf0424850854d2c20fae3
-          - b6c4112ac09e9fdef58ce2b21a6df1614be23e87
-          - 59e5b37b2d912f629fab278e95e6bef2a41e283b
-          - 4bbd187763be052683d7b4ad73f5a803229765ec
-          - 42dc4c6f22f9f2e4c63df42d6fedc0f6ac958a24
-          - a32d5fb59fcb5043fda79809721aaaa89a593b32
-          - 379b4b8597b5f82e99e9cbcd1cc1647474a90e2b
-          - fdfd3493c3ff3634ea93fc58875d647be43ea084
-          - 75666ca128bcb61b6713a395e24a14213f4358be
-          - 1ccf5ef1ec6eb535ce74769d940e3717115eaab7
-          - 6102c40d89906502be6ca87e2425499d1aa0587c
-          - 4c8e7f0f445de75ffa04e8eaf9fb3b901438d4e8
-          - b4827c993f069cd772ce03b6f238c4cc0ea374c8
-          - d54f5e36386d0e778f975ab71586c438e59d1326
-          - ff5169f3d4700dbbd0ae1da34bebb8285d7c6d4d
-          - b98b97a25f4dce679937147799253b85eb23decf
-          - d54449ed5c5a9666d9f2c7c47cc507d95d361a5a
-          - 3bdb5ed0b479a7baf4ff6f4843a950ce085fb72f
-          - 79ca88d07d12b9098935e975fcba6d9862f3c981
-          - e8d2dc96b133a48e8f53b90a065fc8e2ca8f1a97
-          - 6cc5cbb96116f9a54bca3421cdb18454d9577d27
-          - f1adb6227033ce7e2643ec5f7d721fa7dfcf9f04
           - 01edffd29a3afdd0931d0de765db3cab0dca41f6
           - 304b14b64e8214c282e0d07d5e403cca2b9be8ec
           - d850aa679d07786e59ecd337a0da5a5d23548cc6
@@ -134,16 +92,16 @@ jobs:
 
     - run: git log -1
 
-    - uses: actions/setup-java@v2
+    - name: Setup Java and Scala
+      uses: olafurpg/setup-scala@v10
       with:
-        java-version: '8'
-        distribution: 'adopt'
+        java-version: 1.8.0
 
     - run: sbt +slick/compile
 
     - name: Check 2.12
       run: |
-        sbt \
+        sbt -Dsbt.launcher.coursier=false \
           'project slick' \
           'set mimaPreviousArtifacts := Set("3.3.0", "3.3.1", "3.3.2", "3.3.3").map { v: String =>
             "com.typesafe.slick" % ("slick_2.12") % v
