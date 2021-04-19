@@ -15,11 +15,11 @@ object Docs {
     ornateSourceDir := Some(docDir.value / "src"),
     ornateTargetDir := Some(docDir.value / "target"),
     // TODO: when moving to slick 1.x start using the `cleanFiles` setting instead of `cleanFIlesTask`
-    cleanFilesTask += docDir.value / "target", 
+    cleanFilesTask += docDir.value / "target",
     ornateResourceDir := Some(docDir.value / "resources"),
     ornateSettings := Map(
       "version" -> version.value,
-      "shortVersion" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1"""),
+      "shortVersion" -> version.value.replaceFirst("""(\d+\.\d+)\.\d+.*""", """$1.x"""),
       "tag" -> versionTag(version.value), // for snippet links
       "branch" -> "master", // for "Edit page" links
       "scalaVersion" -> scalaVersion.value // for "scalaapi:" links
