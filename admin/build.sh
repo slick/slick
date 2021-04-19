@@ -31,7 +31,7 @@ if [[ "$TRAVIS_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
   ls -l *.sbt project/*.scala
 fi
 
-sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf "$publishVersion" ++$TRAVIS_SCALA_VERSION testAll $extraTarget
+sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf "$publishVersion" ++$TRAVIS_SCALA_VERSION testAll updateSampleHelloSlick "root/testSample1" updateSampleSlickPlainsql "root/testSample2" updateSampleSlickMultidb "root/testSample3" updateSampleSlickTestkitExample "root/testSample4" $extraTarget
 
 if test "$publish_docs" = "1" ; then
   slick_dir=$(pwd)
