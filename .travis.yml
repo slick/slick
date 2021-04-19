@@ -4,10 +4,10 @@ language: scala
 before_install:
 # TZ needed for Oracle driver!
 - export TZ=Asia/Kamchatka
-- sh -v ./travis/extractNonPublicDeps
 - docker version
 - sh -v travis/runcontainer.sh oracle db2
 - docker ps
+- sh -v ./travis/extractNonPublicDeps
 jdk:
   - openjdk8
 notifications:
