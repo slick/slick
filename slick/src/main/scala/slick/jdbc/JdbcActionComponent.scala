@@ -105,7 +105,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       * @param rsHoldability The JDBC `ResultSetHoldability`
       * @param statementInit A function which is run on every `Statement` or `PreparedStatement`
       *                      directly after creating it. This can be used to set additional
-      *                      statement parameters (e.g. `setQueryTimeout`). When multuple
+      *                      statement parameters (e.g. `setQueryTimeout`). When multiple
       *                      `withStatementParameters` Actions are nested, all init functions
       *                      are run, starting with the outermost one.
       * @param fetchSize The fetch size for all statements or 0 for the default. */
