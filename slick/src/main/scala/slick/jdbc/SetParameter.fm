@@ -69,7 +69,6 @@ object SetParameter {
 
   implicit object SetUnit extends SetParameter[Unit] { def apply(none: Unit, pp: PositionedParameters) = () }
 
-  def apply[T](implicit f: (T, PositionedParameters) => Unit) = new SetParameter[T] {
-    def apply(v: T, pp: PositionedParameters) = f(v, pp)
-  }
+  def apply[T](implicit f: (T, PositionedParameters) => Unit): SetParameter[T] =
+    new SetParameter[T] { def apply(v: T, pp: PositionedParameters) = f(v, pp) }
 }

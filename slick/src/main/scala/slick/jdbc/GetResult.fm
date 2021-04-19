@@ -52,5 +52,6 @@ object GetResult {
       throw new SlickException("Update statements should not return a ResultSet")
   }
 
-  def apply[T](implicit f: (PositionedResult => T)) = new GetResult[T] { def apply(rs: PositionedResult) = f(rs) }
+  def apply[T](implicit f: (PositionedResult => T)): GetResult[T] =
+    new GetResult[T] { def apply(rs: PositionedResult) = f(rs) }
 }
