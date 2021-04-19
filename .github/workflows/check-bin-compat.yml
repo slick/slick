@@ -139,26 +139,21 @@ jobs:
         distribution: 'adopt'
 
     - name: Check 2.12
-      run: >
-        sbt
-          -d
-          -v
-          -no-colors
-          -x
-          -batch
-          'project slick'
+      run: |
+        sbt \
+          'project slick' \
           'set mimaPreviousArtifacts := Set("3.3.0", "3.3.1", "3.3.2", "3.3.3").map { v: String =>
             "com.typesafe.slick" % ("slick_2.12") % v
-           }'
-          'set mimaCheckDirection := "both"'
+           }' \
+          'set mimaCheckDirection := "both"' \
           '++2.12.13 slick/mimaReportBinaryIssues'
 
     - name: Check 2.13
-      run: >
-        sbt
-          'project slick'
+      run: |
+        sbt \
+          'project slick' \
           'set mimaPreviousArtifacts := Set("3.3.1", "3.3.2", "3.3.3").map { v: String =>
             "com.typesafe.slick" % ("slick_2.13") % v
-           }'
-          'set mimaCheckDirection := "both"'
+           }' \
+          'set mimaCheckDirection := "both"' \
           '++2.13.5 slick/mimaReportBinaryIssues'
