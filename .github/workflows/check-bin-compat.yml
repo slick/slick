@@ -141,6 +141,11 @@ jobs:
     - name: Check 2.12
       run: >
         sbt
+          -d
+          -v
+          -no-colors
+          -x
+          -batch
           'project slick'
           'set mimaPreviousArtifacts := Set("3.3.0", "3.3.1", "3.3.2", "3.3.3").map { v: String =>
             "com.typesafe.slick" % ("slick_2.12") % v
