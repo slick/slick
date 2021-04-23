@@ -188,9 +188,9 @@ END; """)
       Iterable(
 """
 BEGIN
-"""+ ((dropPhase1 ++ dropPhase2).map{s =>
+"""+ dropPhase2.map{s =>
 "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
-            }.mkString("\n")) +
+            }.mkString("\n") +
 """
 EXCEPTION
    WHEN OTHERS THEN
