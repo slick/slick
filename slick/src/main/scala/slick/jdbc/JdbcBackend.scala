@@ -491,7 +491,7 @@ trait JdbcBackend extends RelationalBackend {
 
     def isInTransaction = inTransactionally > 0
 
-    val conn = database.source.createConnection
+    val conn = database.source.createConnection()
 
     lazy val metaData = conn.getMetaData()
 

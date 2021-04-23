@@ -147,7 +147,7 @@ trait BasicBackend { self =>
       if (stackLevel < 100) {
         runInContextInline(a, ctx, streaming, topLevel, stackLevel + 1)
       } else {
-        val promise = Promise[R]
+        val promise = Promise[R]()
         val runnable = new Runnable {
           override def run() = {
             try {
@@ -262,7 +262,7 @@ trait BasicBackend { self =>
     /** Run a `SynchronousDatabaseAction` on this database. */
     protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context, continuation: Boolean): Future[R] = {
       val promise = Promise[R]()
-      ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
+      ctx.getEC(synchronousExecutionContext).execute(new AsyncExecutor.PrioritizedRunnable {
         def priority = {
           ctx.readSync
           ctx.priority(continuation)
@@ -299,7 +299,7 @@ trait BasicBackend { self =>
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
     protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean)(initialState: a.StreamState): Unit =
       try {
-        ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
+        ctx.getEC(synchronousExecutionContext).execute(new AsyncExecutor.PrioritizedRunnable {
           private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
 
           def priority = {

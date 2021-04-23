@@ -16,7 +16,7 @@ import slick.relational.RelationalProfile
  */
 abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
   extends GeneratorHelpers[Code,TermName,TypeName]{ codegen =>
-  model.assertConsistency
+  model.assertConsistency()
 
   /** Enables DDL Generation. */
   val ddlEnabled = true

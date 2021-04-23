@@ -126,18 +126,18 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
 
     for {
       _ <- (posts.schema ++ categories.schema ++ defaultTest.schema ++ noDefaultTest.schema ++ typeTest.schema).create
-      _ <- createModel(ignoreInvalidDefaults=false).map(_.assertConsistency)
+      _ <- createModel(ignoreInvalidDefaults=false).map(_.assertConsistency())
       tables <- tdb.profile.defaultTables
-      _ <- createModel(Some(tables), ignoreInvalidDefaults = false).map(_.assertConsistency)
+      _ <- createModel(Some(tables), ignoreInvalidDefaults = false).map(_.assertConsistency())
       // checks that createModel filters out foreign keys pointing out
       _ <- createModel(Some(tables.filter(_.name.name.toUpperCase=="POSTS")), ignoreInvalidDefaults = false).map { model =>
-        model.assertConsistency
+        model.assertConsistency()
         assertEquals( 0, model.tables.map(_.foreignKeys.size).sum )
       }
-      _ <- createModel(Some(tables.filter(_.name.name.toUpperCase=="CATEGORIES")), ignoreInvalidDefaults = false).map(_.assertConsistency)
+      _ <- createModel(Some(tables.filter(_.name.name.toUpperCase=="CATEGORIES")), ignoreInvalidDefaults = false).map(_.assertConsistency())
       // checks that assertConsistency fails when manually feeding the model with inconsistent tables
       _ <- createModel(Some(tables), ignoreInvalidDefaults = false).map { m =>
-        Model(m.tables.filter(_.name.table.toUpperCase=="POSTS")).shouldFail(_.assertConsistency)
+        Model(m.tables.filter(_.name.table.toUpperCase=="POSTS")).shouldFail(_.assertConsistency())
       }
       model <- createModel(ignoreInvalidDefaults=false)
       _ = {

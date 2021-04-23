@@ -143,8 +143,8 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
    */
   def view1: PositionedResult = {
     val discPos = pos
-    val disc = nextObject
-    view(discPos, discPos+1, { r => disc != null && disc == r.nextObject })
+    val disc = nextObject()
+    view(discPos, discPos+1, { r => disc != null && disc == r.nextObject() })
   }
 
   final def build[C[_], R](gr: GetResult[R])(implicit canBuildFrom: Factory[R, C[R]]): C[R] = {
