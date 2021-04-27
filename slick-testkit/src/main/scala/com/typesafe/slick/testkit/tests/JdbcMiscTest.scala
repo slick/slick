@@ -74,13 +74,13 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       a1.result.head.map(_ shouldBe 1),
       a1.result.head.overrideStatements(a2.result.head.statements).map(_ shouldBe 2),
       /* Build an action that inserts a single value into table "t".
-         Then, override its insert statement. */
-      (t += 4).overrideStatements(Seq(s"""insert into "u" ("id") values (?)""")),
+         Then, override its statement with: "insert into u (id) values (?)". */
+      (t += 4).overrideStatements(Seq(u.insertStatement)),
       /* Check that the statement passed to "overrideStatements" has been executed,
          i.e. that the value has been inserted into table "u". */
       u.result.map(_ shouldBe Seq(4)),
       /* Now do the same for a multi-insert action. */
-      (t ++= Seq(5, 6)).overrideStatements(Seq(s"""insert into "u" ("id") values (?)""")),
+      (t ++= Seq(5, 6)).overrideStatements(Seq(u.insertStatement)),
       /* Check that the values have been appended to the "u" table. */
       u.result.map(_ shouldBe Seq(4, 5, 6))
     )
