@@ -1,7 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-import slick.jdbc.DerbyProfile
+import slick.jdbc.{DerbyProfile, PostgresProfile}
+
 import scala.collection.compat._
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -232,8 +233,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   // Regression test for https://github.com/slick/slick/issues/1627
-  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = tdb.confName match {
-    case "postgres" | "derbymem" | "derbydisk" =>
+  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = tdb.profile match {
+    case _: PostgresProfile | _: DerbyProfile =>
       // TODO DerbyProfile and PostgresProfile seems to have a problem in this case, so we skip testing them.
       // See https://github.com/slick/slick/issues/2206 and https://github.com/slick/slick/issues/2207
       DBIO.seq()

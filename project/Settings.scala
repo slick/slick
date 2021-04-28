@@ -68,7 +68,9 @@ object Settings {
           // #2025 default parameters for AsyncExecutor.apply have been removed and replaced by overloads
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$5"),
           ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$6"),
-          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$7")
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$7"),
+          // #2221 Removing unused method for 3.3.x -> 3.4.x or 4.0.0 release
+          ProblemFilters.exclude[DirectMissingMethodProblem]("slick.jdbc.MySQLProfile#UpsertBuilder.buildInsertIgnoreStart")
         ),
         ivyConfigurations += MacroConfig.hide.extend(Compile),
         Compile / unmanagedClasspath  ++= (MacroConfig / products).value,
