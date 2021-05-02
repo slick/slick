@@ -42,6 +42,7 @@ object Dependencies {
     "org.postgresql" % "postgresql" % "42.2.20",
     "mysql" % "mysql-connector-java" % "8.0.24",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.1.0.0"
   )
 
   val paxExamVersion = "4.13.1"

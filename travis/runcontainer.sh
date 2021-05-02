@@ -38,14 +38,14 @@ do
     RUNNING=$(docker inspect  --format="{{ .State.Running}}" ${CONTAINER_NAME}  2> /dev/null)
     if [ $? -eq 1 ]; then
       if [ "${CONTAINER_NAME}" = "oracleslick" ]; then
-	RESULT=$(docker run -d -p 49160:22 -p 49161:1521 --name ${CONTAINER_NAME} oracleinanutshell/oracle-xe-11g && echo -e "\n${SUCCESS_TOKEN}")
+        RESULT=$(docker run -d -p 49160:22 -p 49161:1521 --name ${CONTAINER_NAME} oracleinanutshell/oracle-xe-11g && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "mssqlslicktest" ]; then
-	RESULT=$(docker run -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD=Freeslick18' -p 1401:1433 --name mssqlslicktest -d microsoft/mssql-server-linux:2017-latest && echo -e "\n${SUCCESS_TOKEN}")
+        RESULT=$(docker run -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD=Freeslick18' -p 1401:1433 --name mssqlslicktest -d microsoft/mssql-server-linux:2017-latest && echo -e "\n${SUCCESS_TOKEN}")
       elif [ "${CONTAINER_NAME}" = "db2slick" ]; then
-	RESULT=$(docker run -d -p 50000:50000 --name ${CONTAINER_NAME} -e DB2INST1_PASSWORD=db2inst1-pwd -e DB2INSTANCE=db2inst1 -e DBNAME=${DB2NAME} -e LICENSE=accept --privileged=true ibmcom/db2:latest &&
-	# Extract non-free db2 jdbc driver jar
-	docker cp ${CONTAINER_NAME}:/opt/ibm/db2/V11.5/java/db2jcc4.jar . &&
-	echo -e "\n${SUCCESS_TOKEN}")
+        RESULT=$(docker run -d -p 50000:50000 --name ${CONTAINER_NAME} -e DB2INST1_PASSWORD=db2inst1-pwd -e DB2INSTANCE=db2inst1 -e DBNAME=${DB2NAME} -e LICENSE=accept --privileged=true ibmcom/db2:latest &&
+        # Extract non-free db2 jdbc driver jar
+        docker cp ${CONTAINER_NAME}:/opt/ibm/db2/V11.5/java/db2jcc4.jar . &&
+        echo -e "\n${SUCCESS_TOKEN}")
       fi
     elif [ "$RUNNING" = "false" ]; then
       echo "Container ${CONTAINER_NAME} exists, but stopped. Starting ..."

@@ -30,4 +30,4 @@ install:
   - sh -v ./travis/extractNonPublicDeps
 
 script:
-  - admin/build.sh
+  - CI_TAG="$TRAVIS_TAG" SCALA_VERSION=$TRAVIS_SCALA_VERSION TESTKIT_CONF=test-dbs/testkit.travis.conf admin/build.sh
