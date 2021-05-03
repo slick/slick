@@ -187,7 +187,7 @@ object Settings {
   )
 
   def slickGeneralSettings =
-    slickPublishSettings ++ slickScalacSettings ++ slickScalaSettings ++ Seq(
+    slickPublishSettings ++ slickScalacSettings ++ Seq(
       logBuffered := false
     )
 
@@ -195,15 +195,6 @@ object Settings {
     Test / unmanagedResourceDirectories +=
       (LocalProject("root") / baseDirectory).value / "common-test-resources"
   )
-
-  def slickScalaSettings = {
-    sys.props("scala.home.local") match {
-      case null => publishedScalaSettings
-      case path =>
-        scala.Console.err.println("Using local scala at " + path)
-        localScalaSettings(path)
-    }
-  }
 
   def slickPublishSettings = Seq(
     organizationName := "Typesafe",
@@ -278,19 +269,6 @@ object Settings {
   def publishedScalaSettings = Seq(
     scalaVersion := Dependencies.scalaVersions.tail.head,
     crossScalaVersions := Dependencies.scalaVersions
-  )
-
-  def localScalaSettings(path: String): Seq[Setting[_]] = Seq(
-    scalaVersion := "2.10.0-unknown",
-    scalaBinaryVersion := "2.10.0-unknown",
-    crossVersion := CrossVersion.disabled,
-    scalaHome := Some(file(path)),
-    autoScalaLibrary := false,
-    // When using scala.home.local property adds all jars from <SCALA_HOME>/lib directory.
-    unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
-    Compile / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
-    Test / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq),
-    MacroConfig / unmanagedJars := Attributed.blankSeq(scalaInstance.value.allJars.toSeq)
   )
 
   def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
