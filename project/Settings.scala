@@ -187,7 +187,7 @@ object Settings {
   )
 
   def slickGeneralSettings =
-    slickPublishSettings ++ slickScalacSettings ++ Seq(
+    slickPublishSettings ++ slickScalacSettings ++ publishedScalaSettings ++ Seq(
       logBuffered := false
     )
 
