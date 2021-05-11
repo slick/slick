@@ -279,6 +279,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
       "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP PRIMARY KEY"
     }
 
+    // primary key will be dropped when the table is dropped
     override protected def dropIfExistsPhase = Iterable(dropTable(true))
 
   }

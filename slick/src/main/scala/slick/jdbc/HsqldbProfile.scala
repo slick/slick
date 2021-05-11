@@ -306,6 +306,8 @@ trait HsqldbProfile extends JdbcProfile {
         sb.toString
       } else super.createIndex(idx)
     }
+    // primary key will be dropped when the table is dropped
+    override protected def dropIfExistsPhase = Iterable(dropTable(true))
   }
 
   class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {

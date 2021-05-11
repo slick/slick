@@ -235,6 +235,9 @@ trait PostgresProfile extends JdbcProfile {
       if(dropLobs.isEmpty) super.dropPhase1
       else Seq("delete from "+quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
     }
+
+    // primary key will be dropped when the table is dropped
+    override protected def dropIfExistsPhase = Iterable(dropTable(true))
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
