@@ -366,7 +366,7 @@ trait JdbcBackend extends RelationalBackend {
                                defaultType: ResultSetType = ResultSetType.ForwardOnly,
                                defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                                defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default,
-                               fetchSizeOverride: Option[Int]): PreparedStatement = {
+                               fetchSizeOverride: Option[Int] = None): PreparedStatement = {
       JdbcBackend.logStatement("Preparing statement", sql)
       val s = loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
@@ -423,7 +423,7 @@ trait JdbcBackend extends RelationalBackend {
                                        defaultType: ResultSetType = ResultSetType.ForwardOnly,
                                        defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                                        defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)(f: (PreparedStatement => T)): T = {
-      val st = prepareStatement(sql, defaultType, defaultConcurrency, defaultHoldability, None)
+      val st = prepareStatement(sql, defaultType, defaultConcurrency, defaultHoldability)
       try f(st) finally st.close()
     }
 
