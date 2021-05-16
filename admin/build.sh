@@ -31,7 +31,11 @@ if [[ "$CI_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
   ls -l *.sbt project/*.scala
 fi
 
-sbt -Dslick.testkit-config=$TESTKIT_CONF "$publishVersion" ++$SCALA_VERSION testAll updateSampleHelloSlick "root/testSample1" "project root" updateSampleSlickPlainsql "root/testSample2" "project root" updateSampleSlickMultidb "root/testSample3"  "project root" updateSampleSlickTestkitExample "root/testSample4" "project root" $extraTarget
+sbt -Dslick.testkit-config=$TESTKIT_CONF \
+  coverage "$publishVersion" ++$SCALA_VERSION testAll coverageReport \
+  updateSampleHelloSlick "root/testSample1" "project root" updateSampleSlickPlainsql \
+  "root/testSample2" "project root" updateSampleSlickMultidb "root/testSample3" \
+  "project root" updateSampleSlickTestkitExample "root/testSample4" "project root" $extraTarget
 
 if test "$publish_docs" = "1" ; then
   slick_dir=$(pwd)

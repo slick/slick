@@ -26,8 +26,8 @@ object FMPP {
   val FmppConfig = config("fmpp").hide
   def fmppTask = Def.task {
     val s = streams.value
-    val output = sourceManaged.value
-    val fmppSrc = sourceDirectory.value / "scala"
+    val output = (Compile / sourceManaged).value
+    val fmppSrc = (Compile / sourceDirectory).value / "scala"
     val inFiles = (fmppSrc ** "*.fm").get.toSet
     val fmppRunner = (fmpp / runner).value
     val fmppClasspath = (FmppConfig / fullClasspath).value
