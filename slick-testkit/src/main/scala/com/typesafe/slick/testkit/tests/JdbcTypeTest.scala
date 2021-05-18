@@ -312,7 +312,9 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
         Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
         generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
-        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
+        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC),
+        Instant.MIN,
+        Instant.MAX),
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
     )
 
