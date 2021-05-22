@@ -193,7 +193,8 @@ object Settings {
 
   def scoverageSettings = Seq(
     scoverage.ScoverageKeys.coverageMinimumStmtTotal := 58,
-    scoverage.ScoverageKeys.coverageFailOnMinimum    := true
+    scoverage.ScoverageKeys.coverageFailOnMinimum    := true,
+    scoverage.ScoverageKeys.coverageExcludedFiles    := ".*src_managed.*;.*slick-hikaricp.*;.*target.*"
   )
 
   def commonTestResourcesSetting = (
