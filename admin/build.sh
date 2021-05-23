@@ -32,7 +32,8 @@ if [[ "$CI_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9-]+)? ]]; then
 fi
 
 sbt -Dslick.testkit-config=$TESTKIT_CONF \
-  coverage "$publishVersion" ++$SCALA_VERSION testAll coverageReport \
+  "$publishVersion" ++$SCALA_VERSION \
+  coverage testAll coverageReport \
   updateSampleHelloSlick "root/testSample1" \
   "project root" updateSampleSlickPlainsql "root/testSample2" \
   "project root" updateSampleSlickMultidb "root/testSample3" \
