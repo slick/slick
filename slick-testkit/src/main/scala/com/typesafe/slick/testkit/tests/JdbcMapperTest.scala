@@ -20,7 +20,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def * = id.? ~: baseProjection <> (User.tupled, User.unapply _)
       def baseProjection = first ~ last
       def forUpdate = baseProjection.shaped <>
-        ({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
+        ({ case (f, l) => User(None, f, l) }, { (u:User) => Some((u.first, u.last)) })
       def asFoo = forUpdate <> ((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
     object users extends TableQuery(new Users(_)) {
@@ -130,7 +130,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         ).shaped <> ({ case (id, p1, p2, p3, p4) =>
         // We could do this without .shaped but then we'd have to write a type annotation for the parameters
         Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
-      }, { w: Whole =>
+      }, { (w: Whole) =>
         def f(p: Part) = Part.unapply(p).get
         Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
       })

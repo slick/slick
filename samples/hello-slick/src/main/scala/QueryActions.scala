@@ -21,7 +21,7 @@ object QueryActions extends App {
     //#upTo
     // Define a pre-compiled parameterized query for reading all key/value
     // pairs up to a given key.
-    val upTo = Compiled { k: Rep[Int] =>
+    val upTo = Compiled { (k: Rep[Int]) =>
       dict.filter(_.key <= k).sortBy(_.key)
     }
     //#upTo
