@@ -52,7 +52,7 @@ class ExpandTables extends Phase {
         case r: Ref => r.untyped
         case d: Distinct =>
           expandDistinct = d.children.toSeq match {
-            case Seq(n1, n2: Ref) =>
+            case Seq(n1: TableExpansion, n2: Ref) =>
               logger.debug(s"expandDistinct true: ${n1}, ${n2}")
               true
             case a =>

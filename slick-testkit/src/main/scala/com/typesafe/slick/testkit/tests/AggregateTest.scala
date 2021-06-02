@@ -335,6 +335,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val q5c = as.distinct.map(a => (a.id, a.a))
     val q6 = as.distinct.length
     val q7 = as.map(a => (a.a, a.b)).distinct.take(10)
+    val q8 = as.map(a => (a.a, a.b)).distinct.take(10)
 
     if(tdb.profile == H2Profile) {
       assertNesting(q1a, 1)
@@ -356,32 +357,44 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       assertNesting(q7, 1)
     }
 
-    case class BData(id: String, a: String, b: String)
+    case class StrWrapper(v: String)
+    object StrWrapper {
+      def applyOption(v: Option[String]): Option[StrWrapper] = v.map(StrWrapper(_))
+      def unapplyOption(v: Option[StrWrapper]): Option[Option[String]] = Some(v.map(_.v))
+    }
+    
+    case class BData(id: String, a: String, b: String, c: Option[StrWrapper])
     class B(t: Tag) extends Table[BData](t, None, "B_DISTINCT") {
       def id = column[String]("id")
       def a = column[String]("a")
       def b = column[String]("b")
+      def c = column[Option[String]]("c")
 
-      def * = (id, a, b) <> ((BData.apply _).tupled, BData.unapply)
+      def cWrapped = c <> (StrWrapper.applyOption, StrWrapper.unapplyOption)
+
+      def * = (id, a, b, cWrapped) <> ((BData.apply _).tupled, BData.unapply)
     }
 
     val bs = TableQuery[B]
 
-    val datab = Set( BData("1", "a", "a")
-                   , BData("2", "a", "b")
-                   , BData("3", "c", "b")
+    val datab = Set( BData("1", "a", "a", Some(StrWrapper("v1")))
+                   , BData("2", "a", "b", None)
+                   , BData("3", "c", "b", Some(StrWrapper("v1")))
                    )
 
-    val qb1a = bs.map(_.a).distinct
+    val qb1a = bs.map(_.a).distinctOn(identity)
     val qb1b = bs.distinctOn(_.a).map(_.a)
     val qb2 = bs.distinctOn(_.a).map(a => (a.a, 5))
     val qb3a = bs.distinctOn(_.a).map(_.id).filter(_ === "1") unionAll bs.distinctOn(_.a).map(_.id).filter(_ === "2")
-    val qb4 = bs.map(a => (a.a, a.b)).distinct.map(_._1)
+    val qb4 = bs.map(a => (a.a, a.b)).distinctOn(a => (a._1, a._2)).map(_._1)
     val qb5a = bs.groupBy(_.a).map(_._2.map(_.id).min.get)
     val qb5b = bs.distinctOn(_.a).map(_.id)
     val qb5c = bs.distinctOn(_.a).map(a => (a.id, a.a))
     val qb6 = bs.distinctOn(_.a).length
-    val qb7 = bs.map(a => (a.a, a.b)).distinct.take(10)
+    val qb7 = bs.map(a => (a.a, a.b)).distinctOn(a => (a._1, a._2)).take(10)
+    val qb8a = bs.filter(_.c.nonEmpty).map(_.cWrapped).distinct
+    val qb8b = bs.filter(_.c.nonEmpty).map(_.cWrapped).distinctOn(identity)
+    val qb8c = bs.distinctOn(_.c).filter(_.c.nonEmpty).map(_.cWrapped)
 
     DBIO.seq(
       as.schema.create,
@@ -408,7 +421,10 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       mark("qb5b", qb5b.result).map(_.sortBy(identity) should (r => r == Seq("1", "3") || r == Seq("2", "3"))),
       mark("qb5c", qb5c.result).map(_.sortBy(identity) should (r => r == Seq(("1", "a"), ("3", "c")) || r == Seq(("2", "a"), ("3", "c")))),
       mark("qb6", qb6.result).map(_ shouldBe 2),
-      mark("qb7", qb7.result).map(_.sortBy(identity) shouldBe Seq(("a", "a"), ("a", "b"), ("c", "b")))
+      mark("qb7", qb7.result).map(_.sortBy(identity) shouldBe Seq(("a", "a"), ("a", "b"), ("c", "b"))),
+      mark("qb8a", qb8a.result).map(_.sortBy(a => a.map(_.v)) shouldBe Seq(Some(StrWrapper("v1")))),
+      mark("qb8b", qb8b.result).map(_.sortBy(a => a.map(_.v)) shouldBe Seq(Some(StrWrapper("v1")))),
+      mark("qb8c", qb8c.result).map(_.sortBy(a => a.map(_.v)) shouldBe Seq(Some(StrWrapper("v1"))))
     )
   }
 }
