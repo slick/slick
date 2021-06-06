@@ -184,7 +184,7 @@ object Settings {
   )
 
   def slickGeneralSettings =
-    slickPublishSettings ++ slickScalacSettings ++ publishedScalaSettings ++ Seq(
+    slickPublishSettings ++ slickScalacSettings ++ Seq(
       logBuffered := false
     )
 
@@ -263,14 +263,7 @@ object Settings {
       libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % config
     )
 
-  def publishedScalaSettings = Seq(
-    scalaVersion := Dependencies.scalaVersions.tail.head,
-    crossScalaVersions := Dependencies.scalaVersions
-  )
-
-  def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
-     scalaVersion := Dependencies.scalaVersions.tail.head
-  )
+  def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s))
 
   def extTarget(extName: String): Seq[Setting[File]] = {
     sys.props("slick.build.target") match {

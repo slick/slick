@@ -2,7 +2,11 @@ import Settings.{testSample1, testSample2, testSample3, testSample4, _}
 import Docs.docDir
 import BuildUtils._
 
+
 ThisBuild / version := "3.4.0-SNAPSHOT"
+
+ThisBuild / crossScalaVersions := Dependencies.scalaVersions
+ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 
 // Slick base version for binary compatibility checks.
 // The next release to be cut from master will be 3.4.0 during develop of 3.4.0 we check compatibility with 3.3.0.
