@@ -14,9 +14,6 @@ object Settings {
   val testSample3 = taskKey[Unit]("Run tests in the sample app")
   val testSample4 = taskKey[Unit]("Run tests in the sample app")
 
-  lazy val sampleOverridden = AttributeKey[Boolean]("sample-settings-overridden")
-  lazy val updateSampleCommand = Command.command("update-sample")(updateSampleSettings)
-
   val cleanCompileTimeTests = taskKey[Unit]("Delete files used for compile-time tests which should be recompiled every time.")
 
   val repoKind = settingKey[String]("""Maven repository kind ("snapshots" or "releases")""")
@@ -272,7 +269,7 @@ object Settings {
   )
 
   def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
-    commands += updateSampleCommand
+     scalaVersion := Dependencies.scalaVersions.tail.head
   )
 
   def extTarget(extName: String): Seq[Setting[File]] = {
@@ -281,42 +278,4 @@ object Settings {
       case path => Seq(target := file(path + "/" + extName))
     }
   }
-
-  def updateSampleSettings(state: State): State = {
-
-    if(state.get(sampleOverridden) getOrElse false) {
-      state
-    } else {
-      val nst = state.put(sampleOverridden, true)
-      val extracted = Project.extract(nst)
-
-      extracted.appendWithSession(
-        sampleSettingsOverride,
-        nst
-      ).put(sampleOverridden, false)
-    }
-  }
-
-  // Override settings of sample projects when they are used as subprojects of the main Slick build.
-  //
-  // The sample projects are packaged as standalone sbt projects via the Example Code Service
-  // (https://example.lightbend.com) so they have to be complete and usable on their own and they must
-  // not contain any unnecessary code that is only needed when they are run as part of the main build.
-  // The settings here (which are loaded after build.sbt) ensure that the Scala version and the Slick
-  // version match the ones of the main build.
-  def sampleSettingsOverride = Seq(
-    crossScalaVersions := (LocalProject("slick") / crossScalaVersions).value,
-
-    scalaVersion := (LocalProject("slick") / scalaVersion).value,
-
-    libraryDependencies := libraryDependencies.value.map { m =>
-      if (m.organization != (LocalProject("slick") / organization).value) m
-      else m.withRevision((ThisBuild / version).value)
-    },
-
-    Compile / unmanagedClasspath :=
-      Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value,
-
-    Compile / unmanagedClasspath ++= (LocalProject("slick") / MacroConfig / products).value
-  )
 }
