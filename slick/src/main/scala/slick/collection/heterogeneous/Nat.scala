@@ -161,7 +161,7 @@ object Nat {
 }
 
 /** The zero value and type for `Nat` */
-final object Zero extends Nat {
+object Zero extends Nat {
   type Self = Zero.type
   type Fold[U, F[_ <: U] <: U, Z <: U] = Z
   type + [X <: Nat] = X

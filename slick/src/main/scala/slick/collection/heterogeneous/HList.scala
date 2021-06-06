@@ -124,19 +124,20 @@ sealed abstract class HList extends Product {
   final def canEqual(that: Any) = that.isInstanceOf[HList]
 }
 
-final object HList {
+object HList {
   import syntax._
 
   final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
     def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
     def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new HListShape(shapes)
   }
-  implicit def hnilShape[Level <: ShapeLevel] = new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
-  implicit def hconsShape[Level <: ShapeLevel, M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: HListShape[_ <: Level, M2, U2, P2]) =
+  implicit def hnilShape[Level <: ShapeLevel]: HListShape[Level, HNil.type, HNil.type, HNil.type] =
+    new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
+  implicit def hconsShape[Level <: ShapeLevel, M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: HListShape[_ <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
     new HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2](s1 +: s2.shapes)
 }
 // Separate object for macro impl to avoid dependency of companion class on scala.reflect, see https://github.com/xeno-by/sbt-example-paradise210/issues/1#issuecomment-21021396
-final object HListMacros{
+object HListMacros{
   def applyImpl(ctx: Context { type PrefixType = HList })(n: ctx.Expr[Int]): ctx.Expr[Any] = {
     import ctx.universe._
     val _Succ = typeOf[Succ[_]].typeSymbol
@@ -179,7 +180,7 @@ object HCons {
 }
 
 /** The empty `HList` */
-final object HNil extends HList {
+object HNil extends HList {
   type Self = HNil.type
   type Head = Nothing
   type Tail = Nothing

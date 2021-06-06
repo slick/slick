@@ -73,13 +73,13 @@ class TemplateTest extends AsyncTest[RelationalTestDB] {
     val byIdAndS = { (id: Rep[Int], s: ConstColumn[String]) => ts.filter(t => t.id === id && t.s === s) }
     val byIdAndSC = Compiled(byIdAndS)
     val byIdAndFixedSC = byIdAndSC.map(f => f((_: Rep[Int]), "b"))
-    val byIdC = Compiled { id: Rep[Int] => ts.filter(_.id === id) }
+    val byIdC = Compiled { (id: Rep[Int]) => ts.filter(_.id === id) }
     val byId = byIdC.extract
     val byIdC3 = byIdC(3)
     val byId3 = byIdC3.extract
     val countBelow = { (id: Rep[Int]) => ts.filter(_.id < id).length }
     val countBelowC = Compiled(countBelow)
-    val joinC = Compiled { id: Rep[Int] => ts.filter(_.id === id).join(ts.filter(_.id === id)) }
+    val joinC = Compiled { (id: Rep[Int]) => ts.filter(_.id === id).join(ts.filter(_.id === id)) }
 
     implicitly[slick.lifted.Executable[(Rep[Int], Rep[Int]), _]]
     implicitly[slick.lifted.Compilable[(Rep[Int], Rep[Int]), _]]

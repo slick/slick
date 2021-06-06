@@ -25,9 +25,9 @@ object MBestRowIdentifierColumn {
   sealed abstract class Scope(val value: Int)
 
   object Scope {
-    final case object Temporary extends Scope(DatabaseMetaData.bestRowTemporary)
-    final case object Transaction extends Scope(DatabaseMetaData.bestRowTransaction)
-    final case object Session extends Scope(DatabaseMetaData.bestRowSession)
+    case object Temporary extends Scope(DatabaseMetaData.bestRowTemporary)
+    case object Transaction extends Scope(DatabaseMetaData.bestRowTransaction)
+    case object Session extends Scope(DatabaseMetaData.bestRowSession)
     private[MBestRowIdentifierColumn] def apply(value: Short) = value match {
       case DatabaseMetaData.bestRowTemporary => Temporary
       case DatabaseMetaData.bestRowTransaction => Transaction
