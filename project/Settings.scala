@@ -187,15 +187,9 @@ object Settings {
   )
 
   def slickGeneralSettings =
-    slickPublishSettings ++ slickScalacSettings ++ scoverageSettings ++ publishedScalaSettings ++ Seq(
+    slickPublishSettings ++ slickScalacSettings ++ publishedScalaSettings ++ Seq(
       logBuffered := false
     )
-
-  def scoverageSettings = Seq(
-    scoverage.ScoverageKeys.coverageMinimumStmtTotal := 58,
-    scoverage.ScoverageKeys.coverageFailOnMinimum    := true,
-    scoverage.ScoverageKeys.coverageExcludedFiles    := "<empty>;.*src_managed.*;.*slick-hikaricp.*;.*target.*;"
-  )
 
   def commonTestResourcesSetting = (
     Test / unmanagedResourceDirectories +=
