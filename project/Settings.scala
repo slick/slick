@@ -263,8 +263,6 @@ object Settings {
       libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % config
     )
 
-  def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s))
-
   def extTarget(extName: String): Seq[Setting[File]] = {
     sys.props("slick.build.target") match {
       case null => Seq.empty

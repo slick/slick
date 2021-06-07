@@ -96,6 +96,12 @@ lazy val aRootProject: Project = Project(id = "root", base = file(".")).settings
               slickHikariCPProject,
               slickTestkitProject)
 
+def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
+  Compile / unmanagedClasspath :=
+    Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value,
+  Compile / unmanagedClasspath  ++= (slickProject / MacroConfig / products).value
+)
+
 // sample projects under ./samples
 lazy val sampleHelloSlickProject =
   sampleProject("hello-slick").dependsOn(slickProject)
