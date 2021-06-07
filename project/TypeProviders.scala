@@ -32,7 +32,7 @@ object TypeProviders {
     val r = (typeProviders / runner).value
     val output = (Test / sourceManaged).value
     val s = streams.value
-    val srcDir = sourceDirectory.value
+    val srcDir = (Compile / sourceDirectory).value
     val slickSrc = (LocalProject("slick") / sourceDirectory).value
     val src = srcDir / "codegen"
     val outDir = (output/"slick-codegen").getPath
