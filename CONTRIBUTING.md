@@ -3,7 +3,7 @@
 Slick uses the standard Typesafe Project & Developer Guidelines below for contributions. Some Slick-specific clarifications/additions:
 
 - External contributions are generally reviewed by one core developer.
-- We have Travis-CI for continuous integration testing.
+- We have GitHub Actions and Appveyor for continuous integration testing.
 - We have the standard Github [issue tracker](https://github.com/slick/slick/issues?state=open) for bug reports. When you're referencing an issue number in a commit, please prefix it with "issue #".
 - Branches starting with "tmp/" or "wip/" on the official repo are considered unstable and should not be used as a basis for your work. Their history may be rewritten at any time without notice.
 

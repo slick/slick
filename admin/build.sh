@@ -33,7 +33,7 @@ fi
 
 sbt -Dslick.testkit-config=$TESTKIT_CONF \
   "$publishVersion" ++$SCALA_VERSION \
-  testAll \
+  coverage testAll coverageReport \
   root/testSample1 \
   root/testSample2 \
   root/testSample3 \
