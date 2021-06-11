@@ -2,7 +2,11 @@ import Settings.{testSample1, testSample2, testSample3, testSample4, _}
 import Docs.docDir
 import BuildUtils._
 
+
 ThisBuild / version := "3.4.0-SNAPSHOT"
+
+ThisBuild / crossScalaVersions := Dependencies.scalaVersions
+ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 
 // Slick base version for binary compatibility checks.
 // The next release to be cut from master will be 3.4.0 during develop of 3.4.0 we check compatibility with 3.3.0.
@@ -13,40 +17,6 @@ ThisBuild / binaryCompatSlickVersion := {
 }
 
 ThisBuild / docDir := (aRootProject / baseDirectory).value / "doc"
-
-lazy val overridesForSampleProjects: State => State = { s: State =>
-  "project sample-hello-slick" :: "update-sample" ::
-  "project sample-slick-multidb" :: "update-sample" ::
-  "project sample-slick-plainsql" :: "update-sample" ::
-  "project sample-slick-testkit-example" :: "update-sample" ::
-  "project root" :: s
-}
-
-lazy val updateSampleHelloSlick: State => State = { s: State =>
-  "project sample-hello-slick" :: "update-sample" :: s
-}
-
-lazy val updateSampleSlickMultidb: State => State = { s: State =>
-  "project sample-slick-multidb" :: "update-sample" :: s
-}
-
-lazy val updateSampleSlickPlainsql: State => State = { s: State =>
-  "project sample-slick-plainsql" :: "update-sample" :: s
-}
-
-lazy val updateSampleSlickTestkitExample: State => State = { s: State =>
-  "project sample-slick-testkit-example" :: "update-sample" :: s
-}
-
-
-Global / onLoad := { state =>
-  if (state.get(sampleOverridden) getOrElse false)
-    (Global / onLoad).value(state)
-  else {
-    val old = (Global / onLoad).value
-    (overridesForSampleProjects compose old)(state)
-  }
-}
 
 lazy val slickProject: Project = Project(id = "slick", base =  file("slick")).settings(slickProjectSettings).enablePlugins(SDLCPlugin, MimaPlugin)
 
@@ -66,13 +36,7 @@ lazy val reactiveStreamsTestProject = Project(id = "reactive-streams-tests", bas
 
 lazy val aRootProject: Project = Project(id = "root", base = file(".")).settings(aRootProjectSettings).
     settings(
-      commands ++= Seq(testAll,
-        Command.command("updateSampleHelloSlick")(updateSampleHelloSlick),
-        Command.command("updateSampleSlickPlainsql")(updateSampleSlickPlainsql),
-        Command.command("updateSampleSlickMultidb")(updateSampleSlickMultidb),
-        Command.command("updateSampleSlickTestkitExample")(updateSampleSlickTestkitExample),
-
-      ),
+      commands += testAll,
       testSample1 := {
         val __ = Def.sequential(
           sampleHelloSlickProject / Test / test,
@@ -132,6 +96,12 @@ lazy val aRootProject: Project = Project(id = "root", base = file(".")).settings
               slickHikariCPProject,
               slickTestkitProject)
 
+def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
+  Compile / unmanagedClasspath :=
+    Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value,
+  Compile / unmanagedClasspath  ++= (slickProject / MacroConfig / products).value
+)
+
 // sample projects under ./samples
 lazy val sampleHelloSlickProject =
   sampleProject("hello-slick").dependsOn(slickProject)
@@ -143,7 +113,7 @@ lazy val sampleSlickPlainsqlProject =
   sampleProject("slick-plainsql").dependsOn(slickProject)
 
 lazy val sampleSlickTestkitExampleProject =
-  sampleProject("slick-testkit-example").dependsOn(slickProject, slickTestkitProject)
+  sampleProject("slick-testkit-example").dependsOn(slickProject, slickTestkitProject % "test")
 
 /* A command that runs all tests sequentially */
 def testAll = Command.command("testAll") { state =>
