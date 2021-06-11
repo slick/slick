@@ -251,7 +251,6 @@ trait PostgresProfile extends JdbcProfile {
         sb append (if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL")
       } else appendType(sb)
       appendOptions(sb)
-      autoIncrement = originalAutoIncrement
     }
 
     def lobTrigger(tname: String) =
