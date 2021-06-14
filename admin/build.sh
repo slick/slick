@@ -34,10 +34,10 @@ fi
 sbt -Dslick.testkit-config=$TESTKIT_CONF \
   "$publishVersion" ++$SCALA_VERSION \
   coverage testAll coverageReport \
-  root/testSample1 \
-  root/testSample2 \
-  root/testSample3 \
-  root/testSample4 \
+  root/testSampleHelloSlick \
+  root/testSamplePlainSql \
+  root/testSampleMultiDb \
+  root/testSampleTestkit \
   $extraTarget
 
 if test "$publish_docs" = "1" ; then
