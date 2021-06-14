@@ -418,16 +418,16 @@ trait MySQLProfile extends JdbcProfile { profile =>
         java.sql.Types.VARCHAR
       }
       override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, serializeFiniteTime(v))
+        p.setString(idx, serializeTime(v))
       }
       override def getValue(r: ResultSet, idx: Int) : Instant = {
         r.getString(idx) match {
           case null => null
-          case iso8601String => parseFiniteTime(iso8601String)
+          case iso8601String => parseTime(iso8601String)
         }
       }
       override def updateValue(v: Instant, r: ResultSet, idx: Int): Unit = {
-        r.updateString(idx, serializeFiniteTime(v))
+        r.updateString(idx, serializeTime(v))
       }
       override def valueToSQLLiteral(value: Instant) : String = {
         stringToMySqlString(value.toString)
@@ -452,16 +452,16 @@ trait MySQLProfile extends JdbcProfile { profile =>
         java.sql.Types.VARCHAR
       }
       override def setValue(v: LocalDate, p: PreparedStatement, idx: Int): Unit = {
-        p.setString(idx, serializeFiniteTime(v))
+        p.setString(idx, serializeTime(v))
       }
       override def getValue(r: ResultSet, idx: Int): LocalDate = {
         r.getString(idx) match {
           case null => null
-          case iso8601String => parseFiniteTime(iso8601String)
+          case iso8601String => parseTime(iso8601String)
         }
       }
       override def updateValue(v: LocalDate, r: ResultSet, idx: Int): Unit = {
-        r.updateString(idx, serializeFiniteTime(v))
+        r.updateString(idx, serializeTime(v))
       }
       override def valueToSQLLiteral(value: LocalDate): String = {
         stringToMySqlString(value.toString)
@@ -486,16 +486,16 @@ trait MySQLProfile extends JdbcProfile { profile =>
         java.sql.Types.VARCHAR
       }
       override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, serializeFiniteTime(v))
+        p.setString(idx, serializeTime(v))
       }
       override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
         r.getString(idx) match {
           case null => null
-          case iso8601String => parseFiniteTime(iso8601String)
+          case iso8601String => parseTime(iso8601String)
         }
       }
       override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int): Unit = {
-        r.updateString(idx, serializeFiniteTime(v))
+        r.updateString(idx, serializeTime(v))
       }
       override def valueToSQLLiteral(value: LocalDateTime) : String = {
         stringToMySqlString(value.toString)
