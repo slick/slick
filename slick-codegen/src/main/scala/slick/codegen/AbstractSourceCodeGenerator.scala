@@ -128,7 +128,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     }
 
     def factory   =
-      if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType else s"${TableClass.elementType}.tupled"
+      if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType else s"(${TableClass.elementType}.apply _).tupled"
 
     trait AbstractSourceCodeEntityTypeDef extends AbstractEntityTypeDef {
       def code = {
