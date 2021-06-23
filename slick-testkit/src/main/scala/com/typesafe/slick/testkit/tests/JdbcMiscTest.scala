@@ -69,4 +69,18 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       a1.result.head.overrideStatements(a2.result.head.statements).map(_ shouldBe 2)
     )
   }
+
+  def testAutoIncrementCreateIfNotExists = {
+    class TAutoIncrement(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+      def id = column[Int]("a", O.AutoInc)
+      def * = id
+    }
+
+    val records = TableQuery[TAutoIncrement]
+
+    DBIO.seq(
+      records.schema.createIfNotExists,
+      records += 1
+    )
+  }
 }
