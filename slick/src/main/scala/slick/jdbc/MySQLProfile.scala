@@ -227,7 +227,19 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         if (all) b"\nunion all " else b"\nunion "
         buildFrom(right, None, false)
         b"\}"
-      case _ => super.expr(n)
+      case Apply(Library.In, children) if children.exists(_.isInstanceOf[Union]) =>
+        b"\("
+        if(children.length == 1) {
+          b"${Library.In.name} ${children.head}"
+        } else b.sep(children, " " + Library.In.name + " ") {
+          case u @ Union(_,_,_) =>
+            b"(select t.* from ("
+            expr(u, skipParens)
+            b") t)"
+          case node => expr(node)
+        }
+        b"\)"
+      case _ => super.expr(n, skipParens)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {

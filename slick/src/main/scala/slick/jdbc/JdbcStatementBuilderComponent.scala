@@ -680,14 +680,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       DDL(createPhase1, createIfNotExistsPhase, createPhase2, dropPhase1, dropIfExistsPhase, dropPhase2 , truncatePhase)
     }
 
-    protected def createPhase1 =
-      Iterable(createTable(false)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
-    protected def createIfNotExistsPhase =
-      Iterable(createTable(true)) ++
-        primaryKeys.map(createPrimaryKey) ++
-        indexes.map(createIndex) ++
-        foreignKeys.map(dropForeignKeyIfExists) ++
-        foreignKeys.map(createForeignKey)
+    protected def createPhase1 = Iterable(createTable(false)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex) ++ foreignKeys.map(dropForeignKeyIfExists) ++ foreignKeys.map(createForeignKey)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
     protected def dropIfExistsPhase = Iterable(dropTable(true))

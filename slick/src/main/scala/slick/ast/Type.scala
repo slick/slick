@@ -379,18 +379,18 @@ class ErasedScalaBaseType[T, E](implicit val erasure: ScalaBaseType[E], val ct: 
 }
 
 object ScalaBaseType {
-  implicit val booleanType    : ScalaBaseType[Boolean]       = new ScalaBaseType[Boolean]
-  implicit val bigDecimalType : ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
-  implicit val byteType       : ScalaNumericType[Byte]       = new ScalaNumericType[Byte](_.toByte)
-  implicit val charType       : ScalaBaseType[Char]          = new ScalaBaseType[Char]
-  implicit val doubleType     : ScalaNumericType[Double]     = new ScalaNumericType[Double](identity)
-  implicit val floatType      : ScalaNumericType[Float]      = new ScalaNumericType[Float](_.toFloat)
-  implicit val intType        : ScalaNumericType[Int]        = new ScalaNumericType[Int](_.toInt)
-  implicit val longType       : ScalaNumericType[Long]       = new ScalaNumericType[Long](_.toLong)
-  implicit val nullType       : ScalaBaseType[Null]          = { implicit val c: ClassTag[Null] = scala.reflect.ClassTag.Null; new ScalaBaseType[Null] }
-  implicit val shortType      : ScalaNumericType[Short]      = new ScalaNumericType[Short](_.toShort)
-  implicit val stringType     : ScalaBaseType[String]        = new ScalaBaseType[String]
-  implicit val optionDiscType : ErasedScalaBaseType[OptionDisc, Int] = new ErasedScalaBaseType[OptionDisc, Int]
+  implicit val booleanType: ScalaBaseType[Boolean] = new ScalaBaseType[Boolean]
+  implicit val bigDecimalType: ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
+  implicit val byteType: ScalaNumericType[Byte] = new ScalaNumericType[Byte](_.toByte)
+  implicit val charType: ScalaBaseType[Char] = new ScalaBaseType[Char]
+  implicit val doubleType: ScalaNumericType[Double] = new ScalaNumericType[Double](identity)
+  implicit val floatType: ScalaNumericType[Float] = new ScalaNumericType[Float](_.toFloat)
+  implicit val intType: ScalaNumericType[Int] = new ScalaNumericType[Int](_.toInt)
+  implicit val longType: ScalaNumericType[Long] = new ScalaNumericType[Long](_.toLong)
+  implicit val nullType: ScalaBaseType[Null] = { implicit val c: ClassTag[Null] = scala.reflect.ClassTag.Null; new ScalaBaseType[Null] }
+  implicit val shortType: ScalaNumericType[Short] = new ScalaNumericType[Short](_.toShort)
+  implicit val stringType: ScalaBaseType[String] = new ScalaBaseType[String]
+  implicit val optionDiscType: ErasedScalaBaseType[OptionDisc, Int] = new ErasedScalaBaseType[OptionDisc, Int]
 
   private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,

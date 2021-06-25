@@ -5,7 +5,8 @@ import scala.util.{Failure, Success}
 import slick.jdbc.{DerbyProfile, JdbcCapabilities}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-import slick.jdbc.DerbyProfile
+import slick.jdbc.{DerbyProfile, PostgresProfile}
+
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
 
@@ -60,66 +61,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       as.result.map(_ shouldBe Seq(1))
     )
   }
-
-  def testInsertAllTupleWithSingleInsert = ifCap(jcap.insertMultipleRowsWithSingleStatement) {
-    class A(tag: Tag) extends Table[(Int, Int)](tag, "insert_all") {
-      def id = column[Int]("id", O.PrimaryKey)
-      def v1 = column[Int]("v1")
-      def * = (id, v1)
-    }
-    val as = TableQuery[A]
-    val records = Seq((1, 10), (2, 20), (3, 30))
-    DBIO.seq(
-      as.schema.create,
-      as.insertAll(records).map(_ shouldBe Some(3)),
-      as.sortBy(_.id).result.map(_ shouldBe records)
-    )
-  }
-  def testInsertAllProduct = ifCap(jcap.insertMultipleRowsWithSingleStatement) {
-    case class E(id: Int, v1: Int)
-    class A(tag: Tag) extends Table[E](tag, "insert_all_product") {
-      def id = column[Int]("id", O.PrimaryKey)
-      def v1 = column[Int]("v1")
-      def * = (id, v1).mapTo[E]
-    }
-    val as = TableQuery[A]
-    val records = Seq(E(1, 10), E(2, 20), E(3, 30))
-    DBIO.seq(
-      as.schema.create,
-      as.insertAll(records).map(_ shouldBe Some(3)),
-      as.sortBy(_.id).result.map(_ shouldBe records)
-    )
-  }
-  def testInsertAllAutoInc = ifCap (jcap.returnInsertKey, jcap.insertMultipleRowsWithSingleStatement) {
-    class A(tag: Tag) extends Table[(Int, Int)](tag, "insert_all_auto_inc") {
-      def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
-      def v1 = column[Int]("V1")
-      def * = (id, v1)
-    }
-    val as = TableQuery[A]
-    val records = Seq((10, 10), (20, 20), (30, 30))
-    for {
-      _ <- as.schema.create
-      result <- as.returning(as.map(_.id)).insertAll(records)
-      _ <- ifCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Seq(1, 2, 3)))
-      _ <- ifNotCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Nil))
-      _ <- as.sortBy(_.id).result.map(_ shouldBe Seq((1, 10), (2, 20), (3, 30)))
-    } yield ()
-  }
-
-  def testInsertAllDefaultValue = ifCap(jcap.insertMultipleRowsWithSingleStatement) {
-    class A(tag: Tag) extends Table[Int](tag, "insert_all_default") {
-      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
-      def * = id
-    }
-    val as = TableQuery[A]
-    DBIO.seq(
-      as.schema.create,
-      as.insertAll(Seq(1, 2, 3)),
-      as.result.map(_ shouldBe Seq(1, 2, 3))
-    )
-  }
-
 
   def testUniqueInsert = {
     case class ARow(email: String , id: Int = 0)
@@ -321,10 +262,12 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   // Regression test for https://github.com/slick/slick/issues/1627
-  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] =
-    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly))
-      DBIO.successful(())
-    else {
+  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = tdb.profile match {
+    case _: PostgresProfile | _: DerbyProfile =>
+      // TODO DerbyProfile and PostgresProfile seems to have a problem in this case, so we skip testing them.
+      // See https://github.com/slick/slick/issues/2206 and https://github.com/slick/slick/issues/2207
+      DBIO.seq()
+    case _ =>
       class T(tag: Tag) extends Table[Int](tag, "mytable") {
         def id = column[Int]("id", O.PrimaryKey)
         def * = id
@@ -340,16 +283,16 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       val ts2 = TableQuery[T2]
       (for {
         _ <- ts1.schema.create
-        _ <- ts1 ++= Seq(1, 2)
-        _ <- ts1.insertOrUpdate(0).map(_ shouldBe 1)
-        _ <- ts1.insertOrUpdate(1).map(_ shouldBe 1)
+        _ <- ts1 ++= Seq((1), (2))
+        _ <- ts1.insertOrUpdate((0)).map(_ shouldBe 1)
+        _ <- ts1.insertOrUpdate((1)).map(_ shouldBe 1)
         _ <- ts2.schema.create
         _ <- ts2 ++= Seq(V(1, "a"), V(2, "b"))
         _ <- ts2.insertOrUpdate(V(0, "c")).map(_ shouldBe 1)
         _ <- ts2.insertOrUpdate(V(1, "a")).map(_ shouldBe 1)
         _ <- ts2.insertOrUpdate(V(2, "d")).map(_ shouldBe 1)
       } yield ()).withPinnedSession
-    }
+  }
 
   // Regression test for https://github.com/slick/slick/issues/2045
   def testInsertOrUpdateWithIntegrityError: DBIOAction[Unit, NoStream, Effect.All] = {
@@ -372,9 +315,10 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val meta = TableQuery[BookMetaTable]
 
+    import scala.util.{Success, Failure}
     val bookMeta = BookMeta(-1, -1, 0) // fail, because there are no books.
     DBIO.seq(
-      meta.insertOrUpdate(bookMeta).asTry.map {
+      (meta.insertOrUpdate(bookMeta)).asTry.map {
         case Success(_) => throw new Exception("Insertion should be failed.")
         case _ => ()
       }
@@ -387,9 +331,10 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     class TestTable(tag: Tag) extends Table[Test](tag, "test") {
       def id = column[Int]("id", O.PrimaryKey)
       def name = column[String]("name", O.Length(2))
-      def * = (id, name) <> (Test.tupled, Test.unapply)
+      def * = (id, name) <> ((Test.apply _).tupled, Test.unapply)
     }
     val ts = TableQuery[TestTable]
+    import scala.util.{Success, Failure}
     DBIO.seq(
       ts.schema.create,
       ts ++= Seq(Test(1, "a")),

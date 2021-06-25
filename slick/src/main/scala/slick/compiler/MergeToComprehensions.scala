@@ -271,7 +271,7 @@ class MergeToComprehensions extends Phase {
         createTopLevel(n)
 
       case n =>
-        val (c, rep) = mergeTakeDrop(n, buildBase = false)
+        val (c, rep) = mergeTakeDrop(n, false)
         val mappings = ConstArray.from(rep.transform((_, v) => v :: Nil))
         logger.debug("Mappings are: "+mappings)
         val c2 = c.select match {
@@ -327,7 +327,7 @@ class MergeToComprehensions extends Phase {
     (res, replacements)
   }
 
-  def toSubquery(n: Comprehension.Base, r: Replacements): (Comprehension.Base, Replacements) =
+  def toSubquery(n: Comprehension, r: Replacements): (Comprehension, Replacements) =
     buildSubquery(n, ConstArray.from(r.transform((_, v) => v :: Nil)))
 
   /** Merge the common operations Bind, Filter and CollectionCast into an existing Comprehension.

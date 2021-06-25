@@ -583,7 +583,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
               retOne(st, v, st.executeUpdate())
             }
           }.toVector)
-        else preparedInsert(a.sql, ctx.session) { st =>
+        else preparedInsert(sql1, ctx.session) { st =>
           st.clearParameters()
           for (value <- values) {
             a.converter.set(value, st, 0)

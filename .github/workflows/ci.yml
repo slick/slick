@@ -1,25 +1,22 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [ '**' ]
   push:
-    branches: [ 'main' ]
-    tags: [ 'v*' ]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main ]
+  pull_request:
+    branches: [ main, nafg/build-fixes ]
 
 jobs:
-  build:
-    name: Build and Test
+  test:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
         java: [ 8, 17 ]
-        scala: [ 2.13.x ]
+        scala: [2.13.10, 3.0.0]
+        exclude:
+        - java: 1.16.0
+          scala: 2.12.3
 
     services:
       postgres:
@@ -32,23 +29,23 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+        - 5432:5432
       oracle:
         image: oracleinanutshell/oracle-xe-11g
         ports:
-          - 49160:22
-          - 49161:1521
+        - 49160:22
+        - 49161:1521
       sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
+        image: microsoft/mssql-server-linux:2017-latest
         env:
           ACCEPT_EULA: Y
           MSSQL_SA_PASSWORD: Freeslick18
         ports:
-          - 1401:1433
+        - 1401:1433
       db2:
-        image: ibmcom/db2:11.5.8.0
+        image: ibmcom/db2:latest
         ports:
-          - 50000:50000
+        - 50000:50000
         env:
           DB2INST1_PASSWORD: db2inst1-pwd
           DB2INSTANCE: db2inst1
@@ -58,92 +55,27 @@ jobs:
           --privileged
 
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+    - uses: ts-graphviz/setup-graphviz@v1
 
-      - name: Start MySQL
-        run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
-      - uses: ts-graphviz/setup-graphviz@v1
+    - name: Copy DB2 jar file out of docker container
+      run: mkdir -p slick-testkit/lib && docker cp ${{ job.services.db2.id }}:/opt/ibm/db2/V11.5/java/db2jcc4.jar slick-testkit/lib/
 
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          distribution: adopt
-          java-version: ${{ matrix.java }}
-          cache: sbt
+    - name: Start MySQL
+      run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
-      - name: Build and test
-        run: |
-          sbt ++${{ matrix.scala }} coverage testAll coverageReport
-        env:
-          SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
-          TZ: Asia/Kamchatka
+    - name: Setup Java and Scala
+      uses: olafurpg/setup-scala@v10
+      with:
+        java-version: ${{ matrix.java }}
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v2
-        if: always()    # run this step even if previous step failed
-        with:
-          name: test-results
-          path: '**/target/test-reports/TEST-*.xml'
+    - if: ${{ startsWith('refs/tags/', github.ref) }}
+      run: export CI_TAG="${GITHUB_REF#refs/tags/}"
 
-  deploy_docs:
-    name: Deploy Docs
-    needs: [ build ]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - uses: ts-graphviz/setup-graphviz@v1
-
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          distribution: adopt
-          java-version: 11
-          cache: sbt
-
-      - name: Create deploy key
-        run: |
-          echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
-          chmod 600 deploy-key
-
-      - name: Set git user config to github actions bot
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-      - name: Publish docs to website
-        run: GIT_SSH_COMMAND="ssh -i $(pwd)/deploy-key" sbt site/deployDocs
-
-  publish:
-    name: Release
-    needs: [ build ]
-    if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v'))
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - uses: ts-graphviz/setup-graphviz@v1
-
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          distribution: adopt
-          java-version: 8
-          cache: sbt
-
-      - name: Publish artifacts to Maven Central
-        env:
-          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-          PGP_SECRET: ${{ secrets.PGP_SECRET }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-        run: sbt ci-release
+    - name: Build and test
+      run: SCALA_VERSION=${{ matrix.scala }} TESTKIT_CONF=test-dbs/testkit.github-actions.conf admin/build.sh
+      env:
+        TZ: Asia/Kamchatka

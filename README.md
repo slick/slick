@@ -1,13 +1,21 @@
 # Slick
 
-[![Sponsor1Badge]][Sponsor1Link]
+[![Maven](https://img.shields.io/maven-central/v/com.typesafe.slick/slick_2.13.svg)](http://mvnrepository.com/artifact/com.typesafe.slick/slick_2.13) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 
 [![MavenBadge]][MavenLink]
 
-[![DiscussionsBadge]][DiscussionsLink]
-[![DiscordBadge]][DiscordLink]
-[![GitterBadge]][GitterLink]
+|Database|JDBC Driver|
+|--------|-----------|
+|SQLServer 2008, 2012, 2014, 2017|[jtds:1.3.1](http://sourceforge.net/projects/jtds/files/jtds/) and [msjdbc:7.2.2](https://docs.microsoft.com/en-us/sql/connect/jdbc/download-microsoft-jdbc-driver-for-sql-server?view=sql-server-2017)|
+|Oracle 11g|[ojdbc7:12.1.0.2](http://www.oracle.com/technetwork/database/features/jdbc/index-091264.html)|
+|DB2 10.5|[db2jcc4:4.19.20](http://www-01.ibm.com/support/docview.wss?uid=swg21363866)|
+|MySQL|mysql-connector-java:8.0.16|
+|PostgreSQL|postgresql:42.2.5|
+|SQLite|sqlite-jdbc:3.27.2.1|
+|Derby/JavaDB|derby:10.14.2.0|
+|HSQLDB/HyperSQL|hsqldb:2.4.1|
+|H2|com.h2database.h2:1.4.199|
 
 [Sponsor1Badge]: https://img.shields.io/github/sponsors/nafg?label=Sponsor%20@nafg
 [Sponsor1Link]: https://github.com/sponsors/nafg
