@@ -22,6 +22,59 @@ val repoKind = settingKey[String]("""Maven repository kind ("snapshots" or "rele
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
 
+lazy val sampleOverridden = AttributeKey[Boolean]("sample-settings-overridden")
+lazy val updateSampleCommand = Command.command("update-sample")(updateSampleSettings)
+
+lazy val updateSampleHelloSlick: State => State = { s: State =>
+  "project sample-hello-slick" :: "update-sample" :: s
+}
+
+lazy val updateSampleSlickMultidb: State => State = { s: State =>
+  "project sample-slick-multidb" :: "update-sample" :: s
+}
+
+lazy val updateSampleSlickPlainsql: State => State = { s: State =>
+  "project sample-slick-plainsql" :: "update-sample" :: s
+}
+
+lazy val updateSampleSlickTestkitExample: State => State = { s: State =>
+  "project sample-slick-testkit-example" :: "update-sample" :: s
+}
+
+def sampleSettingsOverride = Seq(
+  crossScalaVersions := (LocalProject("slick") / crossScalaVersions).value,
+
+  scalaVersion := (LocalProject("slick") / scalaVersion).value,
+
+  libraryDependencies := libraryDependencies.value.map { m =>
+    if (m.organization != (LocalProject("slick") / organization).value) m
+    else m.withRevision((ThisBuild / version).value)
+  },
+
+  Compile / unmanagedClasspath :=
+    Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value,
+)
+
+def sampleProject(s: String): Project = Project(id = "sample-"+s, base = file("samples/"+s)).settings(
+  commands += updateSampleCommand
+)
+
+
+def updateSampleSettings(state: State): State = {
+
+  if(state.get(sampleOverridden) getOrElse false) {
+    state
+  } else {
+    val nst = state.put(sampleOverridden, true)
+    val extracted = Project.extract(nst)
+
+    extracted.appendWithSession(
+      sampleSettingsOverride,
+      nst
+    ).put(sampleOverridden, false)
+  }
+}
+
 
 def scaladocSourceUrl(dir: String) =
   Compile / doc / scalacOptions ++= Seq(
@@ -287,6 +340,12 @@ lazy val root =
       // suppress test status output
       test := {},
       testOnly := {},
+      commands ++= Seq(
+        Command.command("updateSampleHelloSlick")(updateSampleHelloSlick),
+        Command.command("updateSampleSlickPlainsql")(updateSampleSlickPlainsql),
+        Command.command("updateSampleSlickMultidb")(updateSampleSlickMultidb),
+        Command.command("updateSampleSlickTestkitExample")(updateSampleSlickTestkitExample),
+      ),
       testSampleHelloSlick := {
         Def.sequential(
           `sample-hello-slick` / Test / test,
@@ -347,22 +406,27 @@ lazy val `sample-hello-slick` =
   project
     .in(file("samples/hello-slick"))
     .settings(sampleSettings)
+    .settings(commands += updateSampleCommand)
     .dependsOn(slick)
 
 lazy val `sample-slick-multidb` =
   project
     .in(file("samples/slick-multidb"))
     .settings(sampleSettings)
+    .settings(commands += updateSampleCommand)
     .dependsOn(slick)
 
 lazy val `sample-slick-plainsql` =
   project
     .in(file("samples/slick-plainsql"))
     .settings(sampleSettings)
+    .settings(commands += updateSampleCommand)
+
     .dependsOn(slick)
 
 lazy val `sample-slick-testkit-example` =
   project
     .in(file("samples/slick-testkit-example"))
     .settings(sampleSettings)
+    .settings(commands += updateSampleCommand)
     .dependsOn(slick, testkit % "test")
