@@ -257,7 +257,7 @@ lazy val hikaricp =
       libraryDependencies += Dependencies.hikariCP,
     )
 
-lazy val `reactive-streams-test` =
+lazy val `reactive-streams-tests` =
   project
     .dependsOn(testkit)
     .settings(
@@ -329,7 +329,7 @@ lazy val root =
         Def.sequential(
           testkit / Test / test,
           testkit / DocTest / test,
-          `reactive-streams-test` / Test / test,
+          `reactive-streams-tests` / Test / test,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
