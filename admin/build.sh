@@ -33,11 +33,8 @@ fi
 
 sbt -Dslick.testkit-config=$TESTKIT_CONF \
   "$publishVersion" ++$SCALA_VERSION \
-  updateSampleHelloSlick root/testSampleHelloSlick \
-  "project root" updateSampleSlickPlainsql root/testSamplePlainSql \
-  "project root" updateSampleSlickMultidb root/testSampleMultiDb \
-  "project root" updateSampleSlickTestkitExample root/testSampleTestkit \
-  "project root" $extraTarget
+  testAll \
+  $extraTarget
 
 if test "$publish_docs" = "1" ; then
   slick_dir=$(pwd)
