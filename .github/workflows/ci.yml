@@ -13,11 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [1.8.0, 1.11.0, 1.16.0]
+        java: [8, 11, 17-ea]
         scala: [2.12.14, 2.13.6]
-        exclude:
-        - java: 1.16.0
-          scala: 2.12.3
 
     services:
       postgres:
