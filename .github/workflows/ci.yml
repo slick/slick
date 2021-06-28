@@ -65,9 +65,10 @@ jobs:
     - name: Start MySQL
       run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
-    - name: Setup Java and Scala
-      uses: olafurpg/setup-scala@v10
+    - name: Set up JDK
+      uses: actions/setup-java@v2
       with:
+        distribution: adopt
         java-version: ${{ matrix.java }}
 
     - if: ${{ startsWith('refs/tags/', github.ref) }}
