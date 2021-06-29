@@ -13,11 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [1.8.0, 1.11.0, 1.16.0]
+        java: [8, 11, 17-ea]
         scala: [2.12.14, 2.13.6]
-        exclude:
-        - java: 1.16.0
-          scala: 2.12.3
 
     services:
       postgres:
@@ -68,9 +65,10 @@ jobs:
     - name: Start MySQL
       run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
-    - name: Setup Java and Scala
-      uses: olafurpg/setup-scala@v10
+    - name: Set up JDK
+      uses: actions/setup-java@v2
       with:
+        distribution: adopt
         java-version: ${{ matrix.java }}
 
     - if: ${{ startsWith('refs/tags/', github.ref) }}
