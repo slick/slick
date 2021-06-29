@@ -37,14 +37,14 @@ jobs:
         - 49160:22
         - 49161:1521
       sqlserver:
-        image: microsoft/mssql-server-linux:2017-latest
+        image: mcr.microsoft.com/mssql/server:2017-latest
         env:
           ACCEPT_EULA: Y
           MSSQL_SA_PASSWORD: Freeslick18
         ports:
         - 1401:1433
       db2:
-        image: ibmcom/db2:latest
+        image: ibmcom/db2:11.5.5.1
         ports:
         - 50000:50000
         env:
