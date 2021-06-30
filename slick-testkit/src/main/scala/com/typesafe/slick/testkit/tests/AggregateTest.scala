@@ -335,7 +335,6 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val q5c = as.distinct.map(a => (a.id, a.a))
     val q6 = as.distinct.length
     val q7 = as.map(a => (a.a, a.b)).distinct.take(10)
-    val q8 = as.map(a => (a.a, a.b)).distinct.take(10)
 
     if(tdb.profile == H2Profile) {
       assertNesting(q1a, 1)
