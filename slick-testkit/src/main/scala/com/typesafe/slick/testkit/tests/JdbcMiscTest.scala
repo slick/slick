@@ -72,7 +72,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
 
   def testAutoIncrementCreateIfNotExists = {
     class TAutoIncrement(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
-      def id = column[Int]("a", O.AutoInc)
+      def id = column[Int]("a", O.AutoInc, O.PrimaryKey)
       def * = id
     }
 
