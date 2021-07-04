@@ -359,7 +359,6 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     for {
       _ <- s1s.schema.create
       _ <- s2s.schema.dropIfExists
-      _ <- s2s.schema.dropIfExists
     } yield ()
   }
 
@@ -384,10 +383,42 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     for {
       _ <- t1.schema.create
       _ <- t1.schema.dropIfExists
-      _ <- t1.schema.dropIfExists
       _ <- t2.schema.create
-      _ <- t2.schema.dropIfExists
       _ <- t2.schema.dropIfExists
     } yield ()
   }
+
+
+  def testDropIfExistsWithoutTableCreation = {
+    case class D(a: Int, b: Int)
+    class T1(tag: Tag) extends Table[D](tag, "t1") {
+      def a: Rep[Int] = column[Int]("a")
+      def b: Rep[Int] = column[Int]("b")
+      def pk = primaryKey("books_pk", a)
+      override def * : ProvenShape[D] =
+        (a, b) <> ((D.apply _).tupled, D.unapply)
+    }
+    class T2(tag: Tag) extends Table[D](tag, "t2") {
+      def a: Rep[Int] = column[Int]("a", O.PrimaryKey)
+      def b: Rep[Int] = column[Int]("b")
+      override def * : ProvenShape[D] =
+        (a, b) <> ((D.apply _).tupled, D.unapply)
+    }
+    class T3(tag: Tag) extends Table[D](tag, "t3") {
+      def a: Rep[Int] = column[Int]("a")
+      def b: Rep[Int] = column[Int]("b")
+      def pk = primaryKey("pk", (a, b))
+      override def * : ProvenShape[D] =
+        (a, b) <> ((D.apply _).tupled, D.unapply)
+    }
+    val t1 = TableQuery[T1]
+    val t2 = TableQuery[T2]
+    val t3 = TableQuery[T3]
+      for {
+        _ <- t1.schema.dropIfExists
+        _ <- t2.schema.dropIfExists
+        _ <- t3.schema.dropIfExists
+      } yield ()
+  }
+
 }
