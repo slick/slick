@@ -85,4 +85,18 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       u.result.map(_ shouldBe Seq(4, 5, 6))
     )
   }
+
+  def testAutoIncrementCreateIfNotExists = {
+    class TAutoIncrement(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+      def id = column[Int]("a", O.AutoInc, O.PrimaryKey)
+      def * = id
+    }
+
+    val records = TableQuery[TAutoIncrement]
+
+    DBIO.seq(
+      records.schema.createIfNotExists,
+      records += 1
+    )
+  }
 }

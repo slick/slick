@@ -238,12 +238,18 @@ trait PostgresProfile extends JdbcProfile {
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+    override protected def appendOptions(sb: StringBuilder): Unit = {
+      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if(notNull) sb append " NOT NULL"
+      if(primaryKey) sb append " PRIMARY KEY"
+      if(unique) sb append " UNIQUE"
+    }
+
     override def appendColumn(sb: StringBuilder): Unit = {
       sb append quoteIdentifier(column.name) append ' '
       if(autoIncrement && !customSqlType) {
         sb append (if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL")
       } else appendType(sb)
-      autoIncrement = false
       appendOptions(sb)
     }
 
