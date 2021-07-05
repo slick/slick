@@ -24,13 +24,15 @@ trait Invoker[+R] { self =>
     res
   }
 
+  protected def debuggingId: Option[String] = None
+
   /** Execute the statement and return the first row of the result set.
     * If the result set is empty, a NoSuchElementException is thrown. */
   final def first(implicit session: JdbcBackend#Session): R = {
     val it = iteratorTo(0)
     try {
       if(it.hasNext) it.next()
-      else throw new NoSuchElementException("Invoker.first")
+      else throw new NoSuchElementException("empty result set" + debuggingId.map(" when invoking " + _))
     } finally it.close
   }
 

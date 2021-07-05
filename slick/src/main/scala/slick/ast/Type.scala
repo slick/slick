@@ -48,7 +48,7 @@ trait AtomicType extends Type {
 }
 
 final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Type {
-  override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
+  override def toString = "{" + elements.iterator.map{ case (s, t) => s"${s}: ${t}" }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[TermSymbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }.toMap
   def children: ConstArray[Type] = elements.map(_._2)
@@ -128,7 +128,7 @@ final case class ProductType(elements: ConstArray[Type]) extends Type {
 }
 
 final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
-  override def toString = cons + "[" + elementType + "]"
+  override def toString = s"${cons}[${elementType}]"
   def mapChildren(f: Type => Type): CollectionType = {
     val e2 = f(elementType)
     if(e2 eq elementType) this
@@ -372,18 +372,18 @@ class ErasedScalaBaseType[T, E](implicit val erasure: ScalaBaseType[E], val ct: 
 }
 
 object ScalaBaseType {
-  implicit val booleanType = new ScalaBaseType[Boolean]
-  implicit val bigDecimalType = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
-  implicit val byteType = new ScalaNumericType[Byte](_.toByte)
-  implicit val charType = new ScalaBaseType[Char]
-  implicit val doubleType = new ScalaNumericType[Double](identity)
-  implicit val floatType = new ScalaNumericType[Float](_.toFloat)
-  implicit val intType = new ScalaNumericType[Int](_.toInt)
-  implicit val longType = new ScalaNumericType[Long](_.toLong)
-  implicit val nullType = new ScalaBaseType[Null]
-  implicit val shortType = new ScalaNumericType[Short](_.toShort)
-  implicit val stringType = new ScalaBaseType[String]
-  implicit val optionDiscType = new ErasedScalaBaseType[OptionDisc, Int]
+  implicit val booleanType: ScalaBaseType[Boolean] = new ScalaBaseType[Boolean]
+  implicit val bigDecimalType: ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
+  implicit val byteType: ScalaNumericType[Byte] = new ScalaNumericType[Byte](_.toByte)
+  implicit val charType: ScalaBaseType[Char] = new ScalaBaseType[Char]
+  implicit val doubleType: ScalaNumericType[Double] = new ScalaNumericType[Double](identity)
+  implicit val floatType: ScalaNumericType[Float] = new ScalaNumericType[Float](_.toFloat)
+  implicit val intType: ScalaNumericType[Int] = new ScalaNumericType[Int](_.toInt)
+  implicit val longType: ScalaNumericType[Long] = new ScalaNumericType[Long](_.toLong)
+  implicit val nullType: ScalaBaseType[Null] = new ScalaBaseType[Null]
+  implicit val shortType: ScalaNumericType[Short] = new ScalaNumericType[Short](_.toShort)
+  implicit val stringType: ScalaBaseType[String] = new ScalaBaseType[String]
+  implicit val optionDiscType: ErasedScalaBaseType[OptionDisc, Int] = new ErasedScalaBaseType[OptionDisc, Int]
 
   private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,

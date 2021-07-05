@@ -149,8 +149,8 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     // Use Option.map
     val q1d = q1.map(_.map(_.a))
     val q1d2 = q1.map(_.map(x => (x.a, x.b, x.c)))
-    val q2d = q2.map { io: Rep[Option[Int]] =>
-      io.map { i: Rep[Int] =>
+    val q2d = q2.map { (io: Rep[Option[Int]]) =>
+      io.map { (i: Rep[Int]) =>
         i + 1
       }
     }

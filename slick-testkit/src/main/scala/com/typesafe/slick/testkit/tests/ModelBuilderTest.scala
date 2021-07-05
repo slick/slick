@@ -126,18 +126,18 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
 
     for {
       _ <- (posts.schema ++ categories.schema ++ defaultTest.schema ++ noDefaultTest.schema ++ typeTest.schema).create
-      _ <- createModel(ignoreInvalidDefaults=false).map(_.assertConsistency)
+      _ <- createModel(ignoreInvalidDefaults=false).map(_.assertConsistency())
       tables <- tdb.profile.defaultTables
-      _ <- createModel(Some(tables), ignoreInvalidDefaults = false).map(_.assertConsistency)
+      _ <- createModel(Some(tables), ignoreInvalidDefaults = false).map(_.assertConsistency())
       // checks that createModel filters out foreign keys pointing out
       _ <- createModel(Some(tables.filter(_.name.name.toUpperCase=="POSTS")), ignoreInvalidDefaults = false).map { model =>
-        model.assertConsistency
+        model.assertConsistency()
         assertEquals( 0, model.tables.map(_.foreignKeys.size).sum )
       }
-      _ <- createModel(Some(tables.filter(_.name.name.toUpperCase=="CATEGORIES")), ignoreInvalidDefaults = false).map(_.assertConsistency)
+      _ <- createModel(Some(tables.filter(_.name.name.toUpperCase=="CATEGORIES")), ignoreInvalidDefaults = false).map(_.assertConsistency())
       // checks that assertConsistency fails when manually feeding the model with inconsistent tables
       _ <- createModel(Some(tables), ignoreInvalidDefaults = false).map { m =>
-        Model(m.tables.filter(_.name.table.toUpperCase=="POSTS")).shouldFail(_.assertConsistency)
+        Model(m.tables.filter(_.name.table.toUpperCase=="POSTS")).shouldFail(_.assertConsistency())
       }
       model <- createModel(ignoreInvalidDefaults=false)
       _ = {
@@ -168,12 +168,8 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
         val posts = model.tables.filter(_.name.table.toUpperCase=="POSTS").head
         assertEquals( 5, posts.columns.size )
         assertEquals( posts.indices.toString, 0, posts.indices.size )
-        if(tdb.profile != SQLiteProfile) {
-          // Reporting of multi-column primary keys through JDBC metadata is broken in Xerial SQLite 3.8:
-          // https://bitbucket.org/xerial/sqlite-jdbc/issue/107/databasemetadatagetprimarykeys-does-not
-          assertEquals( Some(2), posts.primaryKey.map(_.columns.size) )
-          assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
-        }
+        assertEquals( Some(2), posts.primaryKey.map(_.columns.size) )
+        assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
         assertEquals( 1, posts.foreignKeys.size )
         if(tdb.profile != slick.jdbc.SQLiteProfile){
           assertEquals( "CATEGORY_FK", posts.foreignKeys.head.name.get.toUpperCase )

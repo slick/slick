@@ -33,7 +33,7 @@ class MergeToComprehensions extends Phase {
     // Find all references into tables so we can convert TableNodes to Comprehensions
     val tableFields =
       tree.collect { case Select(_ :@ NominalType(t: TableIdentitySymbol, _), f) => (t, f) }
-        .toSeq.groupBy(_._1).mapValues(_.map(_._2).distinct.toVector)
+        .toSeq.groupBy(_._1).transform((_, v) => v.map(_._2).distinct.toVector)
     logger.debug("Table fields: " + tableFields)
 
     /** Merge Take, Drop, Bind and CollectionCast into an existing Comprehension */
@@ -263,7 +263,7 @@ class MergeToComprehensions extends Phase {
 
       case n =>
         val (c, rep) = mergeTakeDrop(n, false)
-        val mappings = ConstArray.from(rep.mapValues(_ :: Nil).toSeq)
+        val mappings = ConstArray.from(rep.transform((_, v) => v :: Nil))
         logger.debug("Mappings are: "+mappings)
         val c2 = c.select match {
           // Ensure that the select clause is non-empty
@@ -319,7 +319,7 @@ class MergeToComprehensions extends Phase {
   }
 
   def toSubquery(n: Comprehension, r: Replacements): (Comprehension, Replacements) =
-    buildSubquery(n, ConstArray.from(r.mapValues(_ :: Nil).toSeq))
+    buildSubquery(n, ConstArray.from(r.transform((_, v) => v :: Nil)))
 
   /** Merge the common operations Bind, Filter and CollectionCast into an existing Comprehension.
     * This method is used at different stages of the pipeline. If the Comprehension already contains

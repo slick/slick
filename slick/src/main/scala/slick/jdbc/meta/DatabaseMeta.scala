@@ -12,7 +12,7 @@ object DatabaseMeta {
 
   def getTableTypes = ResultSetAction[String](_.metaData.getTableTypes())
 
-  private[meta] def yesNoOpt(r: PositionedResult) = if(r.hasMoreColumns) r.nextString match {
+  private[meta] def yesNoOpt(r: PositionedResult) = if(r.hasMoreColumns) r.nextString() match {
     case "YES" => Some(true)
     case "NO" => Some(false)
     case _ => None

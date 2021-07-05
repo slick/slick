@@ -105,7 +105,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       * @param rsHoldability The JDBC `ResultSetHoldability`
       * @param statementInit A function which is run on every `Statement` or `PreparedStatement`
       *                      directly after creating it. This can be used to set additional
-      *                      statement parameters (e.g. `setQueryTimeout`). When multuple
+      *                      statement parameters (e.g. `setQueryTimeout`). When multiple
       *                      `withStatementParameters` Actions are nested, all init functions
       *                      are run, starting with the outermost one.
       * @param fetchSize The fetch size for all statements or 0 for the default. */
@@ -514,7 +514,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       session.withPreparedStatement(sql)(f)
 
     class SingleInsertAction(a: compiled.Artifacts, value: U) extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
-      def run(ctx: Backend#Context, sql: Vector[String]) = preparedInsert(a.sql, ctx.session) { st =>
+      def run(ctx: Backend#Context, sql: Vector[String]) = preparedInsert(sql.head, ctx.session) { st =>
         st.clearParameters()
         a.converter.set(value, st)
         val count = st.executeUpdate()
@@ -533,7 +533,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
               retOne(st, v, st.executeUpdate())
             }
           }.toVector)
-        else preparedInsert(a.sql, ctx.session) { st =>
+        else preparedInsert(sql1, ctx.session) { st =>
           st.clearParameters()
           for(value <- values) {
             a.converter.set(value, st)

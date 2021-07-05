@@ -88,6 +88,9 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     }).toMap
   }
 
+  def foreignKeysPerTable: Map[String, List[String]] = tables.map(t =>
+    t.TableValue.name -> t.model.foreignKeys.map(k => tableName(k.referencedTable.table)).toList
+  ).toMap
 
   protected def tuple(i: Int) = termName(s"_${i+1}")
 
@@ -172,7 +175,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
     trait TableClassDef extends super.TableClassDef{
       def star = {
         val struct = compoundValue(columns.map(c=>if(c.asOption)s"Rep.Some(${c.name})" else s"${c.name}"))
-        val rhs = if (isMappedToHugeClass) s"($struct).mapTo[${typeName(entityName(model.name.table))}]" else if(mappingEnabled) s"$struct <> ($factory, $extractor)" else struct
+        val rhs = if (isMappedToHugeClass) s"($struct).mapTo[${typeName(entityName(model.name.table))}]" else if(mappingEnabled) s"$struct.<>($factory, $extractor)" else struct
         s"def * = $rhs"
       }
       def option = {

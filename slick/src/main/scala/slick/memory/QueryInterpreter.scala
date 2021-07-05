@@ -144,7 +144,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         }
         scope.remove(gen)
         res
-      case First(ch) => run(ch).asInstanceOf[Coll].toIterator.next()
+      case First(ch) => run(ch).asInstanceOf[Coll].iterator.next()
       case Distinct(gen, from, on) =>
         val fromV = run(from).asInstanceOf[Coll]
         val seen = mutable.HashSet[Any]()
@@ -196,13 +196,13 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val fromV = run(from).asInstanceOf[Coll]
         val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.take(numV.toInt)
+        b ++= fromV.iterator.take(numV.toInt)
         b.result()
       case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
         val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.drop(numV.toInt)
+        b ++= fromV.iterator.drop(numV.toInt)
         b.result()
       case Union(left, right, all) =>
         val leftV = run(left).asInstanceOf[Coll]

@@ -1,20 +1,20 @@
 # Getting Started {index="sample;download"}
 
 The easiest way to get started is with a working sample application. The following samples are part of the official
-Slick distribution. You can either clone Slick from github or download pre-packaged zip files with an indiviual
+Slick distribution. You can either clone Slick from github or download pre-packaged zip files with an individual
 sample plus an [sbt] launcher.
 
-* To learn the basics of Slick, start with the **Hello Slick** sample ([github](samplerepo:hello-slick),
+* To learn the basics of Slick, start with the **Hello Slick** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/hello-slick),
   [zip](samplezip:hello-slick)). This is the one we are using in this chapter.
 
-* The **Plain SQL Queries** sample ([github](samplerepo:slick-plainsql), [zip](samplezip:slick-plainsql)) shows you how
+* The **Plain SQL Queries** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/slick-plainsql), [zip](samplezip:slick-plainsql)) shows you how
   to do SQL queries with Slick. See [](sql.md) for details.
 
-* The **Multi-DB Patterns** sample ([github](samplerepo:slick-multidb), [zip](samplezip:slick-multidb)) shows you how
+* The **Multi-DB Patterns** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/slick-multidb), [zip](samplezip:slick-multidb)) shows you how
   to write Slick applications that can use different database systems and how to use custom database functions in
   Slick queries.
 
-* The **TestKit** sample ([github](samplerepo:slick-testkit-example), [zip](samplezip:slick-testkit-example)) shows you
+* The **TestKit** sample ([github](https://github.com/slick/slick/blob/v3.3.2/samples/slick-testkit-example), [zip](samplezip:slick-testkit-example)) shows you
   how to use Slick TestKit to test your own database profiles.
 
 ## Hello Slick
@@ -38,28 +38,28 @@ build definition (`build.sbt` for [sbt] or `pom.xml` for Maven):
 ```scala expandVars=true tab=sbt
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "{{version}}",
-  "org.slf4j" % "slf4j-nop" % "1.6.4",
+  "org.slf4j" % "slf4j-nop" % "1.7.26",
   "com.typesafe.slick" %% "slick-hikaricp" % "{{version}}"
 )
 ```
 
 ```xml expandVars=true tab=Maven
-<!-- Make sure to use the correct Scala version suffix "_2.11" or "_2.12"
+<!-- Make sure to use the correct Scala version suffix "_2.12" or "_2.13"
      to match your project's Scala version. -->
 <dependencies>
   <dependency>
     <groupId>com.typesafe.slick</groupId>
-    <artifactId>slick_2.11</artifactId>
+    <artifactId>slick_2.13</artifactId>
     <version>{{version}}</version>
   </dependency>
   <dependency>
     <groupId>org.slf4j</groupId>
     <artifactId>slf4j-nop</artifactId>
-    <version>1.6.4</version>
+    <version>1.7.26</version>
   </dependency>
   <dependency>
     <groupId>com.typesafe.slick</groupId>
-    <artifactId>slick-hikaricp_2.11</artifactId>
+    <artifactId>slick-hikaricp_2.13</artifactId>
     <version>{{version}}</version>
   </dependency>
 </dependencies>

@@ -49,8 +49,8 @@ class CreateAggregates extends Phase {
             }
             logger.debug("Replacement paths: " + repl)
             val scope = Type.Scope(s1 -> from2.nodeType.asCollectionType.elementType)
-            val replNodes = repl.mapValues(ss => FwdPath(ss).infer(scope))
-            logger.debug("Replacement path nodes: ", StructNode(ConstArray.from(replNodes.toSeq)))
+            val replNodes = repl.transform((_, ss) => FwdPath(ss).infer(scope))
+            logger.debug("Replacement path nodes: ", StructNode(ConstArray.from(replNodes)))
             val sel3 = sel2.replace({ case n @ Ref(s) => replNodes.getOrElse(s, n) }, keepType = true)
             val n2 = Bind(s1, from2, Pure(sel3, ts1)).infer()
             logger.debug("Lifted aggregates into join in:", n2)

@@ -47,10 +47,17 @@ object GetResult {
   @inline implicit def createGetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: GetResult[T${j}]<#if i != j>, </#if></#list>): GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
 </#list>
 
+  implicit val GetUnit: GetResult[Unit] =
+    const(())
+
   private[jdbc] object GetUpdateValue extends GetResult[Int] {
     def apply(pr: PositionedResult) =
       throw new SlickException("Update statements should not return a ResultSet")
   }
 
-  def apply[T](implicit f: (PositionedResult => T)) = new GetResult[T] { def apply(rs: PositionedResult) = f(rs) }
+  def apply[T](implicit f: (PositionedResult => T)): GetResult[T] =
+    new GetResult[T] { def apply(rs: PositionedResult) = f(rs) }
+
+  def const[T](value: T): GetResult[T] =
+    apply(_ => value)
 }

@@ -23,7 +23,7 @@ PostgreSQL quick setup (tested with 9.2.4-1):
 MySQL
 -----
 
-MySQL quick setup (tested with 5.6.11.0):
+MySQL quick setup (tested with 5.7.25):
 - Install MySQL community server with default options
 - Set "mysql.user" (default: "root") and mysql.password (default: null) if necessary
 - Set enabled = true
@@ -34,7 +34,7 @@ Oracle
 Oracle quick setup:
 - Install [Oracle Database Express Edition 11g Release 2](http://www.oracle.com/technetwork/products/express-edition/downloads/)
 - Change password in `oracle.password` to the database password you specified during installation
-- Verify that the path in `oracle.driverJar` is correct
+- Copy the oracle jdbc driver jar into the `slick-testkit/lib` directory
 - Set `oracle.enabled = true`
 
 DB2
@@ -45,7 +45,7 @@ DB2 quick setup:
 - Remove all entries for JARs from the system CLASSPATH that were added by the DB2 installer
 - Change the password in `db2.password` to the database password you specified during
   installation for the `db2admin` user
-- Verify that the path in `db2.driverJar` is correct
+- Copy the DB2 jdbc driver jar into the `slick-testkit/lib` directory
 - In the DB2 Command Line Processor, create the database for testing and
   grant permissions to the db2admin user:
 
@@ -77,8 +77,6 @@ SQL Server via JTDS quick setup:
 
 SQL Server via sqljdbc quick setup:
 - Install [SQL Server Express 2008 R2](http://www.microsoft.com/express/Database/InstallOptions.aspx)
-- Install [sqljdbc](http://www.microsoft.com/en-us/download/details.aspx?id=11774)
-- Enter the correct path to `sqljdbc4.jar` in `sqlserver-sqljdbc.driverJar`
 - Enter the password for the `sa` user in `sqlserver-sqljdbc.password`
   (use SQL Server Management Studio to set a password if necessary)
 - Ensure that the TCP transport on port 1433 is enabled (-> SQL Server Configuration Manager)
@@ -104,7 +102,6 @@ Example configuration
     oracle {
       enabled = true
       password = secret
-      driverJar = "file:///C:/oraclexe/app/oracle/product/11.2.0/server/jdbc/lib/ojdbc6.jar"
     }
 
     db2 {
@@ -119,5 +116,4 @@ Example configuration
     sqlserver-sqljdbc {
       enabled = true
       password = secret
-      driverJar = "file:///C:/sqljdbc_4.0/enu/sqljdbc4.jar"
     }

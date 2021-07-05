@@ -111,7 +111,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
       override def catalog = meta.name.schema 
     }
 
-    //https://dev.mysql.com/doc/connector-j/5.1/en/connector-j-reference-type-conversions.html
+    //https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
     import scala.reflect.{ClassTag, classTag}
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
       import java.sql.Types._
@@ -145,7 +145,7 @@ trait MySQLProfile extends JdbcProfile { profile =>
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  override def quoteIdentifier(id: String) = '`' + id + '`'
+  override def quoteIdentifier(id: String) = s"`${id}`"
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
@@ -213,6 +213,18 @@ trait MySQLProfile extends JdbcProfile { profile =>
         if (all) b"\nunion all " else b"\nunion "
         buildFrom(right, None)
         b"\}"
+      case Apply(Library.In, children) if children.exists(_.isInstanceOf[Union]) =>
+        b"\("
+        if(children.length == 1) {
+          b"${Library.In.name} ${children.head}"
+        } else b.sep(children, " " + Library.In.name + " ") {
+          case u @ Union(_,_,_) =>
+            b"(select t.* from ("
+            expr(u, skipParens)
+            b") t)"
+          case node => expr(node)
+        }
+        b"\)"
       case _ => super.expr(n, skipParens)
     }
 
@@ -252,14 +264,10 @@ trait MySQLProfile extends JdbcProfile { profile =>
   }
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
-    def buildInsertIgnoreStart: String = allNames.iterator.mkString(s"insert ignore into $tableName (", ",", ") ")
     override def buildInsert: InsertBuilderResult = {
-      val start = buildInsertIgnoreStart
-      if (softNames.isEmpty) new InsertBuilderResult(table, s"$start values $allVars", syms)
-      else {
-        val update = softNames.map(n => s"$n=VALUES($n)").mkString(", ")
-        new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
-      }
+      val start = buildInsertStart
+      val update = allNames.map(n => s"$n=VALUES($n)").mkString(", ")
+      new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
     }
   }
 

@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.reactivestreams._
 import org.reactivestreams.tck._
 import org.testng.annotations.{AfterClass, BeforeClass}
-import org.scalatest.testng.TestNGSuiteLike
+import org.scalatestplus.testng.TestNGSuiteLike
 
 import slick.relational.RelationalProfile
 
@@ -17,7 +17,7 @@ abstract class RelationalPublisherTest[P <: RelationalProfile](val profile: P, t
   import profile.api._
 
   override def maxElementsFromPublisher = 73L
-  override def boundedDepthOfOnNextAndRequestRecursion = 1
+  override def boundedDepthOfOnNextAndRequestRecursion = 1L
 
   class Data(tableName: String)(tag: Tag) extends Table[Int](tag, tableName) {
     def id = column[Int]("id")

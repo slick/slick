@@ -63,8 +63,8 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
 
   // Need to be of higher priority than repColumnShape, otherwise single-column ShapedValues and MappedProjections are ambiguous
-  @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel] = RepShape[Level, ShapedValue[T, U], U]
-  @inline implicit def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P] = RepShape[Level, MappedProjection[T, P], T]
+  @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel]: Shape[Level, ShapedValue[T, U], U, ShapedValue[T, U]] = RepShape[Level, ShapedValue[T, U], U]
+  @inline implicit def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P]: Shape[Level, MappedProjection[T, P], T, MappedProjection[T, P]] = RepShape[Level, MappedProjection[T, P], T]
 
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Mixed) = ()
@@ -76,7 +76,7 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
 }
 
 trait AbstractTableShapeImplicits extends RepShapeImplicits {
-  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
+  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]): Shape[Level, C, T, C] = RepShape[Level, C, T]
 }
 
 trait ConstColumnShapeImplicits extends RepShapeImplicits {
@@ -84,12 +84,12 @@ trait ConstColumnShapeImplicits extends RepShapeImplicits {
     * ensures that a `ConstColumn[T]` packs to itself, not just to
     * `Rep[T]`. This allows ConstColumns to be used as fully packed
     * types when compiling query functions. */
-  @inline implicit def constColumnShape[T, Level <: ShapeLevel] = RepShape[Level, ConstColumn[T], T]
+  @inline implicit def constColumnShape[T, Level <: ShapeLevel]: Shape[Level, ConstColumn[T], T, ConstColumn[T]] = RepShape[Level, ConstColumn[T], T]
 }
 
 trait RepShapeImplicits extends OptionShapeImplicits {
   /** A Shape for single-column Reps. */
-  @inline implicit def repColumnShape[T : BaseTypedType, Level <: ShapeLevel] = RepShape[Level, Rep[T], T]
+  @inline implicit def repColumnShape[T : BaseTypedType, Level <: ShapeLevel]: Shape[Level, Rep[T], T, Rep[T]] = RepShape[Level, Rep[T], T]
 
   /** A Shape for Option-valued Reps. */
   @inline implicit def optionShape[M, U, P, Level <: ShapeLevel](implicit sh: Shape[_ <: Level, Rep[M], U, Rep[P]]): Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]] =
@@ -162,7 +162,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
   }
   def toNode(value: Mixed): Node = ProductNode(ConstArray.from(shapes.iterator.zip(getIterator(value)).map {
     case (p, f) => p.toNode(f.asInstanceOf[p.Mixed])
-  }.toSeq))
+  }.toIterable))
 }
 
 /** Base class for ProductNodeShapes with a type mapping */
@@ -292,6 +292,10 @@ object ShapedValue {
       case NoSymbol => q"${rSym.name.toTermName}" // This can happen for case classes defined inside of methods
       case s => q"$s"
     }
+    val rHasTupled = rSym.companion match {
+      case NoSymbol => true
+      case s => s.info.member(TermName("tupled")) != NoSymbol
+    }
     val fields =  rTag.tpe.decls.collect {
       case s: TermSymbol if s.isVal && s.isCaseAccessor => (TermName(s.name.toString.trim), s.typeSignature, TermName(c.freshName()))
     }.toIndexedSeq
@@ -310,8 +314,11 @@ object ShapedValue {
     } else if(fields.length == 1) { // Map from single value
       (q"($rModule.apply _) : ($uTag => $rTag)",
        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
-    } else { // Map from tuple
+    } else if (rHasTupled) { // Map from tuple with existing tupled
       (q"($rModule.tupled) : ($uTag => $rTag)",
+        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
+    } else { // Map from tuple with tupled apply
+      (q"(($rModule.apply _).tupled) : ($uTag => $rTag)",
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     }
 

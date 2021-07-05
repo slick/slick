@@ -1,19 +1,15 @@
-scalaVersion := "2.12.8"
-
 libraryDependencies ++= List(
-  "com.typesafe.slick" %% "slick" % "3.3.0",
-  "com.typesafe.slick" %% "slick-testkit" % "3.3.0" % "test",
-  "com.novocode" % "junit-interface" % "0.11" % "test",
-  "ch.qos.logback" % "logback-classic" % "1.2.3" % "test",
-  "org.postgresql" % "postgresql" % "42.1.4" % "test"
+  "com.novocode" % "junit-interface" % "0.11" % Test,
+  "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
+  "org.postgresql" % "postgresql" % "42.2.22" % Test,
 )
 
 scalacOptions += "-deprecation"
 
-parallelExecution in Test := false
+Test / parallelExecution := false
 
 logBuffered := false
 
-fork in run := true
+run / fork := true
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")

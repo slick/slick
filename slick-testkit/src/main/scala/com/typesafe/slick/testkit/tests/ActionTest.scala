@@ -324,4 +324,40 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       _ <- as.schema.drop
     } yield ()
   }
+
+  /** If an original table already exists and we add an FK to the schema and try to dropIfExists()
+    * it shouldn't fail. */
+  def testDropIfExistsWithFK = {
+    // a parent table
+    class T(_tag: Tag) extends Table[Int](_tag , "ddl_test_fk_drop_t"){
+      def t = column[Int]("a")
+      def * = t
+    }
+
+    val ts = TableQuery[T]
+
+    // a child table---current version
+    class S1(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_drop_s"){
+      def s1 = column[Int]("s1")
+      def * = s1
+    }
+
+    val s1s = TableQuery[S1]
+
+    // a child table---new version with a FK added
+    class S2(_tag: Tag) extends Table[(Int, Int)](_tag, "ddl_test_fk_drop_s"){
+      def s1 = column[Int]("s1")
+      def ref = column[Int]("ref")
+      def * = (s1, ref)
+
+      def fk = foreignKey("FK_S2_T", ref, ts)(_.t)
+    }
+
+    val s2s = TableQuery[S2]
+
+    for {
+      _ <- s1s.schema.create
+      _ <- s2s.schema.dropIfExists
+    } yield ()
+  }
 }

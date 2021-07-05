@@ -1,7 +1,8 @@
 package slick.jdbc
 
 import java.sql.{Date, Time, Timestamp}
-import java.time.{Instant, LocalDate, LocalDateTime}
+import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneOffset}
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 import slick.relational.RelationalCapabilities
@@ -114,14 +115,16 @@ trait SQLiteProfile extends JdbcProfile {
       override def dbType = Some(extractedType)
       override def length = extractedLength
       override def varying = dbType == Some("VARCHAR")
-      override def default = meta.columnDef.map((_,tpe)).collect{
+      override def default: Option[Option[Any]] = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
         case (v , "java.sql.Timestamp") => {
           import scala.util.{Try, Success}
           val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
             (s: String) => java.sql.Timestamp.valueOf(s),
-            (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s).getTime.getTime),
-            (s: String) => new java.sql.Timestamp(javax.xml.bind.DatatypeConverter.parseDateTime(s.replace(' ', 'T')).getTime.getTime),
+            (s: String) => java.sql.Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s))),
+            (s: String) => java.sql.Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s.replace(' ', 'T')))),
+            (s: String) => java.sql.Timestamp.from(LocalDate.from(DateTimeFormatter.ISO_LOCAL_DATE.parse(s)).atStartOfDay().toInstant(ZoneOffset.UTC)),
+            (s: String) => java.sql.Timestamp.from(LocalTime.from(DateTimeFormatter.ISO_LOCAL_TIME.parse(s)).atDate(LocalDate.ofEpochDay(0)).toInstant(ZoneOffset.UTC)),
             (s: String) => {
               if(s == "now")
                 "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"

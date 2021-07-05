@@ -75,7 +75,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }
@@ -119,7 +119,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     protected[this] def getIterator(ctx: Backend#Context): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
-      val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].toIterator
+      val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].iterator
       pvit.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read _)
     }
     def run(ctx: Backend#Context): R =
@@ -129,18 +129,18 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       var count = 0L
       while(count < limit && it.hasNext) {
         count += 1
-        ctx.emit(it.next)
+        ctx.emit(it.next())
       }
       if(it.hasNext) it else null
     }
     def head: ProfileAction[T, NoStream, Effect.Read] = new ProfileAction[T, NoStream, Effect.Read] with SynchronousDatabaseAction[T, NoStream, Backend#This, Effect.Read] {
-      def run(ctx: Backend#Context): T = getIterator(ctx).next
+      def run(ctx: Backend#Context): T = getIterator(ctx).next()
       def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
     }
     def headOption: ProfileAction[Option[T], NoStream, Effect.Read] = new ProfileAction[Option[T], NoStream, Effect.Read] with SynchronousDatabaseAction[Option[T], NoStream, Backend#This, Effect.Read] {
       def run(ctx: Backend#Context): Option[T] = {
         val it = getIterator(ctx)
-        if(it.hasNext) Some(it.next) else None
+        if(it.hasNext) Some(it.next()) else None
       }
       def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.firstOption")
     }

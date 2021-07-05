@@ -59,7 +59,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     /** Create a new distributed database instance that uses the supplied ExecutionContext for
       * asynchronous execution of database actions. */
     def apply(dbs: IterableOnce[BasicBackend#DatabaseDef], executionContext: ExecutionContext): Database =
-      new DatabaseDef(dbs.toVector, executionContext)
+      new DatabaseDef(dbs.iterator.toVector, executionContext)
   }
 
   class SessionDef(val sessions: Vector[BasicBackend#Session]) extends super.SessionDef {
@@ -71,7 +71,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
       throw new SlickException("DistributedBackend does not currently support transactions")
 
     def force(): Unit = {
-      sessions.foreach(_.force)
+      sessions.foreach(_.force())
     }
 
     def withTransaction[T](f: => T) =
