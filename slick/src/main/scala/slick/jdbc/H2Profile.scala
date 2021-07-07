@@ -84,7 +84,6 @@ trait H2Profile extends JdbcProfile {
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new CountingInsertActionComposerImpl[T](compiled)
 
@@ -124,11 +123,6 @@ trait H2Profile extends JdbcProfile {
       if(autoIncrement) sb append " AUTO_INCREMENT"
       if(unique) sb append " UNIQUE"
     }
-  }
-
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
-    // primary key will be dropped when the table is dropped
-    override protected def dropIfExistsPhase = Iterable(dropTable(true))
   }
 
   class JdbcTypes extends super.JdbcTypes {
