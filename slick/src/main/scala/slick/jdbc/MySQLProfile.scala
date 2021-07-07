@@ -278,9 +278,6 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override protected def dropPrimaryKey(pk: PrimaryKey): String = {
       "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP PRIMARY KEY"
     }
-
-    override protected def dropIfExistsPhase = Iterable(dropTable(true))
-
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
