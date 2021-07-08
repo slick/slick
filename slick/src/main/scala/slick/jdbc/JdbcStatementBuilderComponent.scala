@@ -611,7 +611,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def createIfNotExistsPhase = Iterable(createTable(true)) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex) ++ foreignKeys.map(dropForeignKeyIfExists) ++ foreignKeys.map(createForeignKey)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
-    protected def dropIfExistsPhase = primaryKeys.map(dropPrimaryKey) ++Iterable(dropTable(true))
+    protected def dropIfExistsPhase = Iterable(dropTable(true))
     protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable(false))
     protected def truncatePhase = Iterable(truncateTable)
 
