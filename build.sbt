@@ -290,7 +290,7 @@ lazy val root =
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
           testkit / Compile / packageDoc,
-          slick / Compile / mimaReportBinaryIssues // enable for minor versions
+          versionSchemeEnforcerCheck
         ).value
       },
       libraryDependencies := {
