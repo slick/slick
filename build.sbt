@@ -1,10 +1,6 @@
 import Docs.docDir
 import com.jsuereth.sbtpgp.PgpKeys
-import com.typesafe.tools.mima.core._
 
-
-val binaryCompatSlickVersion =
-  settingKey[Option[String]]("The slick version this build should be compatible with, if any")
 
 val testAll = taskKey[Unit]("Run all tests")
 val testAllSamples = taskKey[Unit]("Run tests in the all sample apps")
@@ -101,14 +97,7 @@ ThisBuild / version := "3.4.0-SNAPSHOT"
 ThisBuild / crossScalaVersions := Dependencies.scalaVersions
 ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 
-// Slick base version for binary compatibility checks.
-// The next release to be cut from master will be 3.4.0 during develop of 3.4.0 we check compatibility with 3.3.0.
-// The goal is not to stop any breaking change, but to make us aware.
-// For each breaking change we should add MiMa exclusions.
-// This will also help us decide when a PR can be backported in 3.3.x branch.
-ThisBuild / binaryCompatSlickVersion := {
-  if (scalaBinaryVersion.value.startsWith("2.13")) None else Some("3.3.0")
-}
+ThisBuild / versionScheme := Some("pvp")
 
 ThisBuild / docDir := (root / baseDirectory).value / "doc"
 
@@ -135,39 +124,6 @@ lazy val slick =
       // suppress test status output
       test := {},
       testOnly := {},
-
-      mimaPreviousArtifacts :=
-        binaryCompatSlickVersion.value.toSet
-          .map((v: String) => "com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % v),
-
-      mimaBinaryIssueFilters ++= Seq(
-        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
-        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl"),
-        // #1997 added new method ColumnExtensionMethods.in
-        ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.in"),
-        // #1958 changes for scala 2.13 support (Iterable return type instead of Traversable)
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.util.ConstArray.from"),
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.util.SQLBuilder.sep"),
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.BaseColumnExtensionMethods.inSetBind"),
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.BaseColumnExtensionMethods.inSet"),
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.ColumnExtensionMethods.inSetBind"),
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.ColumnExtensionMethods.inSet"),
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.OptionColumnExtensionMethods.inSetBind"),
-        ProblemFilters.exclude[IncompatibleMethTypeProblem]("slick.lifted.OptionColumnExtensionMethods.inSet"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.inSetBind"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.inSet"),
-        ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.inSetBind"),
-        ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.inSet"),
-        ProblemFilters.exclude[ReversedMissingMethodProblem]("slick.lifted.ColumnExtensionMethods.in"),
-        // #2025 default parameters for AsyncExecutor.apply have been removed and replaced by overloads
-        ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$5"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$6"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("slick.util.AsyncExecutor.apply$default$7"),
-        // #2221 Removing unused method for 3.3.x -> 3.4.x or 4.0.0 release
-        ProblemFilters.exclude[DirectMissingMethodProblem](
-          "slick.jdbc.MySQLProfile#UpsertBuilder.buildInsertIgnoreStart"
-        )
-      ),
 
       ivyConfigurations += MacroConfig.hide.extend(Compile),
       Compile / unmanagedClasspath ++= (MacroConfig / products).value,
