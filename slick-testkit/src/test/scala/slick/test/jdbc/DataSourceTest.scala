@@ -5,7 +5,7 @@ import java.util.Properties
 import java.util.logging.Logger
 
 import com.typesafe.config.ConfigFactory
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import slick.basic.DatabaseConfig
 import slick.jdbc.{JdbcBackend, JdbcProfile}
@@ -13,6 +13,7 @@ import slick.jdbc.{JdbcBackend, JdbcProfile}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+@Ignore
 class DataSourceTest {
   @Test def testDataSourceJdbcDataSource: Unit = {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds1")

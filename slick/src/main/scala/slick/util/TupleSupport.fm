@@ -8,11 +8,11 @@ import slick.lifted._
 /** Utility functions for working with tuples of different arities */
 object TupleSupport {
   /** Build a Tuple for the supported arities, otherwise a ProductWrapper. */
-  def buildTuple(s: IndexedSeq[Any]): Product = s.length match {
+  def buildTuple(s: scala.collection.IndexedSeq[Any]): Product = s.length match {
 <#list 1..22 as i>
     case ${i} => new Tuple${i}(<#list 1..i as j>s(${j-1})<#if i != j>, </#if></#list>)
 </#list>
-    case _ => new ProductWrapper(s)
+    case _ => new ProductWrapper(s.toIndexedSeq)
   }
 
   /** Build an IndexedSeq from a Product */

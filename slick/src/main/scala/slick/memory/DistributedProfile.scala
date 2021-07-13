@@ -1,28 +1,23 @@
 package slick.memory
 
 
-import scala.collection.compat._
-import scala.collection.mutable.{Builder, HashMap}
-
+import scala.collection.mutable.{ArrayBuffer, Builder, HashMap}
 import slick.SlickException
 import slick.ast._
 import slick.ast.TypeUtil._
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler._
 import slick.dbio._
-import slick.relational.{RelationalProfile, ResultConverter, CompiledMapping}
-import slick.util.{DumpInfo, RefId, ??}
+import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter}
+import slick.util.{??, DumpInfo, RefId}
 
 /** A profile for distributed queries. */
 class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryingProfile { self: DistributedProfile =>
 
-  @deprecated("Use the Profile object directly instead of calling `.profile` on it", "3.2")
-  override val profile: DistributedProfile = this
-
   type Backend = DistributedBackend
   type QueryExecutor[R] = QueryExecutorDef[R]
   val backend: Backend = DistributedBackend
-  val api: API = new API {}
+  val api: MemoryQueryingAPI = new MemoryQueryingAPI {}
 
   lazy val queryCompiler =
     QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) ++ QueryCompiler.interpreterPhases + new MemoryCodeGen
@@ -33,8 +28,8 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
 
-  type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
-  type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
+  type QueryActionExtensionMethods[R, S <: NoStream] = DistributedQueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] = DistributedStreamingQueryActionExtensionMethodsImpl[R, T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
     new QueryActionExtensionMethods[R, S](tree, param)
@@ -51,18 +46,18 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   type ProfileAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
   type StreamingProfileAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
 
-  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
+  class DistributedQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends BasicQueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: ProfileAction[R, S, Effect.Read] =
-      new StreamingProfileAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
-        def run(ctx: Backend#Context) = exe.run(ctx.session)
+      new StreamingProfileAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], DistributedBackend#BasicActionContext, DistributedBackend#BasicStreamingActionContext, Effect.Read] {
+        def run(ctx: DistributedBackend#BasicActionContext) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.ProfileAction")
         def head: ResultAction[Any, NoStream, Effect.Read] = ??
         def headOption: ResultAction[Option[Any], NoStream, Effect.Read] = ??
       }.asInstanceOf[ProfileAction[R, S, Effect.Read]]
   }
 
-  class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
+  class DistributedStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends DistributedQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
     override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
@@ -74,7 +69,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val idx = profiles.indexOf(profile)
         if(idx < 0) throw new SlickException("No session found for profile "+profile)
-        val profileSession = session.sessions(idx).asInstanceOf[profile.Backend#Session]
+        val profileSession = session.sessions(idx).asInstanceOf[profile.backend.Session]
         val dv = profile.runSynchronousQuery[Any](compiled, param)(profileSession)
         val wr = wrapScalaValue(dv, n.nodeType)
         if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)
@@ -83,7 +78,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }
@@ -167,7 +162,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
 
     case class Scope(m: Map[TermSymbol, (Node, Scope)]) {
       def get(s: TermSymbol) = m.get(s)
-      def + (s: TermSymbol, n: Node) = Scope(m + (s -> (n, this)))
+      def + (sn: (TermSymbol, Node)) = Scope(m + (sn._1 -> (sn._2, this)))
     }
   }
 }

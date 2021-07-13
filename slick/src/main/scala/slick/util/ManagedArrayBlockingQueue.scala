@@ -182,7 +182,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
   }
 
   def iterator: util.Iterator[E] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     // copy all items from queues and build a snapshot
     val items = locked {

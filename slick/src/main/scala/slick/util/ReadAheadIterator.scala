@@ -45,11 +45,3 @@ trait ReadAheadIterator[+T] extends BufferedIterator[T] {
     } else throw new NoSuchElementException("next on empty iterator");
   }
 }
-
-object ReadAheadIterator {
-
-  /** Feature implemented in Scala library 2.12 this maintains functionality for 2.11 */
-  final implicit class headOptionReverseCompatibility[T](val readAheadIterator: ReadAheadIterator[T]) extends AnyVal {
-    def headOption : Option[T] = if (readAheadIterator.hasNext) Some(readAheadIterator.head) else None
-  }
-}

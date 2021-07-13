@@ -4,7 +4,6 @@ import slick.basic.{BasicStreamingAction, BasicAction}
 import slick.compiler.QueryCompiler
 import slick.relational.{RelationalActionComponent, RelationalTableComponent, RelationalProfile}
 
-import scala.language.higherKinds
 import slick.dbio._
 import slick.ast.{TableNode, Symbol, SymbolNamer, ColumnOption}
 import slick.util.DumpInfo
@@ -12,9 +11,6 @@ import slick.util.DumpInfo
 /** Abstract profile for SQL-based databases. */
 trait SqlProfile extends RelationalProfile with SqlTableComponent with SqlActionComponent
   /* internal: */ with SqlUtilsComponent {
-
-  @deprecated("Use the Profile object directly instead of calling `.profile` on it", "3.2")
-  override val profile: SqlProfile = this
 
   override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.sqlPhases
   override protected def computeCapabilities = super.computeCapabilities ++ SqlCapabilities.all
@@ -153,11 +149,11 @@ trait SqlUtilsComponent { self: SqlProfile =>
 
 trait SqlTableComponent extends RelationalTableComponent { this: SqlProfile =>
 
-  trait ColumnOptions extends super.ColumnOptions {
+  trait SqlColumnOptions extends RelationalColumnOptions {
     def SqlType(typeName: String) = SqlProfile.ColumnOption.SqlType(typeName)
   }
 
-  override val columnOptions: ColumnOptions = new ColumnOptions {}
+  override val columnOptions: SqlColumnOptions = new SqlColumnOptions {}
 }
 
 trait SqlActionComponent extends RelationalActionComponent { this: SqlProfile =>

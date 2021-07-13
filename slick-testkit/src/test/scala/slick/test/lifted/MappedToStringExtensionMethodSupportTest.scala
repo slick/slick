@@ -6,6 +6,7 @@ import org.junit.Test
 /** Test cases for MappedTo[String] getting access to String extension methods */
 class MappedToStringExtensionMethodSupportTest {
 
+  /*
   @Test def testMappedToStringExtensionMethodSupport = {
     import slick.jdbc.H2Profile.api._
 
@@ -163,5 +164,6 @@ class MappedToStringExtensionMethodSupportTest {
     assertTrue("Option[MappedTo[String]] can use String ExtensionMethod *", s36 contains """select repeat("optString",2)""")
 
   }
+  */
 }
-final case class MyString(value: String) extends AnyVal with slick.lifted.MappedTo[String]
+//final case class MyString(value: String) extends AnyVal with slick.lifted.MappedTo[String]

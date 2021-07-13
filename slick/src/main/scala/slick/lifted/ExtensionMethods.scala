@@ -2,7 +2,7 @@ package slick.lifted
 
 import slick.util.ConstArray
 
-import scala.language.{implicitConversions, higherKinds}
+import scala.language.implicitConversions
 import slick.ast._
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
@@ -12,7 +12,7 @@ trait ExtensionMethods[B1, P1] extends Any {
   protected[this] def c: Rep[P1]
   @inline protected[this] def n = c.toNode
   @inline protected[this] def tpe[T](r: Rep[T]): TypedType[T] = r.asInstanceOf[Rep.TypedRep[_]].tpe.asInstanceOf[TypedType[T]]
-  @inline protected[this] implicit def p1Type = tpe(c)
+  @inline protected[this] implicit def p1Type: TypedType[P1] = tpe(c)
   protected[this] implicit def b1Type: TypedType[B1]
   protected[this] type o = OptionMapperDSL.arg[B1, P1]
 }
@@ -54,7 +54,7 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
 
   def between[P2, P3, R](start: Rep[P2], end: Rep[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
     om.column(Library.Between, n, start.toNode, end.toNode)
-  def ifNull[B2, P2, R](e: Rep[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Rep[P2] =
+  def ifNull[P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]): Rep[P2] =
     Library.IfNull.column[P2](n, e.toNode)(tpe(e))
 }
 
@@ -99,7 +99,7 @@ final class OptionNumericColumnExtensionMethods[B1](val c: Rep[Option[B1]]) exte
 
 /** Extension methods for Rep[Boolean] and Rep[Option[Boolean]] */
 final class BooleanColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with ExtensionMethods[Boolean, P1] {
-  protected[this] implicit def b1Type = implicitly[TypedType[Boolean]]
+  protected[this] def b1Type = implicitly[TypedType[Boolean]]
 
   def &&[P2, R](b: Rep[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
     om.column(Library.And, n, b.toNode)
@@ -110,7 +110,7 @@ final class BooleanColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal wit
 
 /** Extension methods for Rep[String] and Rep[Option[String]] */
 final class StringColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with ExtensionMethods[String, P1] {
-  protected[this] implicit def b1Type = implicitly[TypedType[String]]
+  protected[this] def b1Type = implicitly[TypedType[String]]
 
   def length[R](implicit om: o#to[Int, R]) =
     om.column(Library.Length, n)
@@ -212,10 +212,12 @@ final class AnyOptionExtensionMethods[O <: Rep[_], P](val r: O) extends AnyVal {
   }
 
   /** Get the value inside this Option, if it is non-empty, otherwise the supplied default. */
-  def getOrElse[M, P2 <: P](default: M)(implicit shape: Shape[FlatShapeLevel, M, _, P2], ol: OptionLift[P2, O]): P =
+  def getOrElse[M, P2 <: P](default: M)(implicit shape: Shape[FlatShapeLevel, M, _, P2], ol: OptionLift[P2, O]): ShapedValue.Unconst[P, P2] = {
     // P2 != P can only happen if M contains plain values, which pack to ConstColumn instead of Rep.
     // Both have the same packedShape (RepShape), so we can safely cast here:
-    fold[P, P](shape.pack(default): P)(identity)(shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, P, _, P]])
+    val r = fold[P, P](shape.pack(default): P)(identity)(shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, P, _, P]])
+    r.asInstanceOf[ShapedValue.Unconst[P, P2]]
+  }
 
   /** Check if this Option is empty. */
   def isEmpty: Rep[Boolean] = fold(LiteralColumn(true))(_ => LiteralColumn(false))
@@ -234,8 +236,8 @@ trait ExtensionMethodConversions {
   implicit def numericOptionColumnExtensionMethods[B1](c: Rep[Option[B1]])(implicit tm: BaseTypedType[B1] with NumericTypedType): OptionNumericColumnExtensionMethods[B1] = new OptionNumericColumnExtensionMethods[B1](c)
   implicit def stringColumnExtensionMethods(c: Rep[String]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c)
   implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c)
-  implicit def mappedToStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[B1]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c.asInstanceOf[Rep[String]])
-  implicit def mappedToOptionStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[Option[B1]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c.asInstanceOf[Rep[Option[String]]])
+  //implicit def mappedToStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[B1]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c.asInstanceOf[Rep[String]])
+  //implicit def mappedToOptionStringColumnExtensionMethods[B1 <: MappedTo[String]](c: Rep[Option[B1]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c.asInstanceOf[Rep[Option[String]]])
   implicit def booleanColumnExtensionMethods(c: Rep[Boolean]): BooleanColumnExtensionMethods[Boolean] = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]): BooleanColumnExtensionMethods[Option[Boolean]] = new BooleanColumnExtensionMethods[Option[Boolean]](c)
 
@@ -246,5 +248,7 @@ trait ExtensionMethodConversions {
   implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[B1], _, C]): SingleColumnQueryExtensionMethods[B1, B1, C] = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
   implicit def singleOptionColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[Option[B1]], _, C]): SingleColumnQueryExtensionMethods[B1, Option[B1], C] = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
 
-  implicit def anyOptionExtensionMethods[T, P](v: Rep[Option[T]])(implicit ol: OptionLift[P, Rep[Option[T]]]): AnyOptionExtensionMethods[Rep[Option[T]], P] = new AnyOptionExtensionMethods[Rep[Option[T]], P](v)
+  implicit def anyOptionExtensionMethods[T, P](v: Rep[Option[T]])(implicit ol: OptionLift[P, Rep[Option[T]]]): AnyOptionExtensionMethods[Rep[Option[T]], P] = {
+    new AnyOptionExtensionMethods[Rep[Option[T]], P](v)
+  }
 }

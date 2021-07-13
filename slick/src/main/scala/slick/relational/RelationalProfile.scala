@@ -7,7 +7,7 @@ import slick.dbio._
 import slick.lifted.FunctionSymbolExtensionMethods._
 import slick.lifted._
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 /** A profile for relational databases that does not assume the existence
@@ -17,15 +17,16 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   with RelationalSequenceComponent with RelationalTypesComponent
   with RelationalActionComponent { self: RelationalProfile =>
 
-  @deprecated("Use the Profile object directly instead of calling `.profile` on it", "3.2")
-  override val profile: RelationalProfile = this
-
   type Backend <: RelationalBackend
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalCapabilities.all
 
-  trait API extends super.API with ImplicitColumnTypes {
-    type FastPath[T] = SimpleFastPathResultConverter[ResultConverterDomain, T]
+  type ResultConverterReader
+  type ResultConverterWriter
+  type ResultConverterUpdater
+
+  trait RelationalAPI extends BasicAPI with RelationalImplicitColumnTypes {
+    type FastPath[T] = SimpleFastPathResultConverter[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T]
     type Table[T] = self.Table[T]
     type Sequence[T] = self.Sequence[T]
     val Sequence = self.Sequence
@@ -33,8 +34,6 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     type BaseColumnType[T] = self.BaseColumnType[T]
     val MappedColumnType = self.MappedColumnType
 
-    @deprecated("Use an explicit conversion to an Option column with `.?`", "3.0")
-    implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T): LiteralColumn[T] = new LiteralColumn[T](v)
     implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
     implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[_], U](q: Query[T, U, Seq] with TableQuery[T]): TableQueryExtensionMethods[T, U] =
@@ -45,10 +44,11 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
 
-    implicit def fastPathExtensionMethods[T, P](mp: MappedProjection[T, P]): FastPathExtensionMethods[ResultConverterDomain, T, P] = new FastPathExtensionMethods[ResultConverterDomain, T, P](mp)
+    implicit def fastPathExtensionMethods[T, P](mp: MappedProjection[T, P]): FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T, P] =
+      new FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T, P](mp)
   }
 
-  val api: API
+  val api: RelationalAPI
 
   final lazy val compiler = computeQueryCompiler
 
@@ -75,12 +75,12 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   /** Run a query synchronously on the provided session. This is used by DistributedProfile until we
     * can make it fully asynchronous. */
-  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R
+  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R
 
-  class FastPathExtensionMethods[M <: ResultConverterDomain, T, P](val mp: MappedProjection[T, P]) {
-    def fastPath(fpf: (TypeMappingResultConverter[M, T, _] => SimpleFastPathResultConverter[M, T])): MappedProjection[T, P] = mp.genericFastPath {
-      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _], _, _) =>
-        fpf(tm.asInstanceOf[TypeMappingResultConverter[M, T, _]])
+  class FastPathExtensionMethods[R, W, U, T, P](val mp: MappedProjection[T, P]) {
+    def fastPath(fpf: (TypeMappingResultConverter[R, W, U, T, _] => SimpleFastPathResultConverter[R, W, U, T])): MappedProjection[T, P] = mp.genericFastPath {
+      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _, _, _], _, _) =>
+        fpf(tm.asInstanceOf[TypeMappingResultConverter[R, W, U, T, _]])
       case tm => tm
     }
   }
@@ -106,7 +106,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription
 
-  trait ColumnOptions {
+  trait RelationalColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
@@ -114,7 +114,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
     val Length = RelationalProfile.ColumnOption.Length
   }
 
-  val columnOptions: ColumnOptions = new ColumnOptions {}
+  val columnOptions: RelationalColumnOptions = new RelationalColumnOptions {}
 
   abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTable[T](_tableTag, _schemaName, _tableName) { table =>
     final type TableElementType = T
@@ -186,20 +186,20 @@ trait RelationalTypesComponent { self: RelationalProfile =>
   type ColumnType[T] <: TypedType[T]
   type BaseColumnType[T] <: ColumnType[T] with BaseTypedType[T]
 
-  val MappedColumnType: MappedColumnTypeFactory
+  lazy val MappedColumnType: MappedColumnTypeFactory = null //TODO should be abstract but 2.13 doesn't allow abstract lazy vals and Dotty doesn't allow overriding a non-lazy val with a lazy val
 
 
   trait MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T]
 
-    protected[this] def assertNonNullType(t: BaseColumnType[_]): Unit =
+    protected[this] def assertNonNullType[E](t: BaseColumnType[E]): Unit =
       if(t == null)
         throw new NullPointerException("implicit BaseColumnType[U] for MappedColumnType.base[T, U] is null. This may be an initialization order problem.")
   }
 
-  trait ImplicitColumnTypes {
-    implicit def isomorphicType[A, B](implicit iso: Isomorphism[A, B], ct: ClassTag[A], jt: BaseColumnType[B]): BaseColumnType[A] =
-      MappedColumnType.base[A, B](iso.map, iso.comap)
+  trait RelationalImplicitColumnTypes {
+    //implicit def isomorphicType[A, B](implicit iso: Isomorphism[A, B], ct: ClassTag[A], jt: BaseColumnType[B]): BaseColumnType[A] =
+    //  MappedColumnType.base[A, B](iso.map, iso.comap)
     implicit def booleanColumnType: BaseColumnType[Boolean]
     implicit def bigDecimalColumnType: BaseColumnType[BigDecimal] with NumericTypedType
     implicit def byteColumnType: BaseColumnType[Byte] with NumericTypedType
@@ -237,11 +237,11 @@ trait RelationalActionComponent extends BasicActionComponent { self: RelationalP
 
   //////////////////////////////////////////////////////////// Schema Actions
 
-  type SchemaActionExtensionMethods <: SchemaActionExtensionMethodsImpl
+  type SchemaActionExtensionMethods <: RelationalSchemaActionExtensionMethodsImpl
 
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods
 
-  trait SchemaActionExtensionMethodsImpl {
+  trait RelationalSchemaActionExtensionMethodsImpl {
     /** Create an Action that creates the entities described by this schema description. */
     def create: ProfileAction[Unit, NoStream, Effect.Schema]
 

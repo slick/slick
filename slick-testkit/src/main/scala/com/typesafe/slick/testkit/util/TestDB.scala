@@ -1,17 +1,13 @@
 package com.typesafe.slick.testkit.util
 
-
 import com.typesafe.config.Config
 
-
 import java.io._
-import java.net.{URL, URLClassLoader}
 import java.sql.{Connection, Driver}
 import java.util.Properties
 import java.util.concurrent.ExecutionException
 import java.util.zip.GZIPInputStream
 
-import scala.collection.mutable
 import scala.concurrent.{Await, Future, ExecutionContext}
 
 import slick.basic.{BasicProfile, Capability}
@@ -118,10 +114,10 @@ trait TestDB {
 
   /** This method is called between individual test methods to remove all
     * database artifacts that were created by the test. */
-  def dropUserArtifacts(implicit session: profile.Backend#Session): Unit
+  def dropUserArtifacts(implicit session: profile.backend.Session): Unit
 
   /** Create the Database object for this test database configuration */
-  def createDB(): profile.Backend#Database
+  def createDB(): profile.backend.Database
 
   /** Indicates whether the database's sessions have shared state. When a
     * database is shared but not persistent, Testkit keeps a session open
@@ -155,8 +151,8 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   type Profile = JdbcProfile
   lazy val database = profile.backend.Database
   val jdbcDriver: String
-  final def getLocalTables(implicit session: profile.Backend#Session) = blockingRunOnSession(ec => localTables(ec))
-  final def getLocalSequences(implicit session: profile.Backend#Session) = blockingRunOnSession(ec => localSequences(ec))
+  final def getLocalTables(implicit session: profile.backend.Session) = blockingRunOnSession(ec => localTables(ec))
+  final def getLocalSequences(implicit session: profile.backend.Session) = blockingRunOnSession(ec => localSequences(ec))
   def canGetLocalTables = true
   def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null)).map { ts =>
@@ -166,7 +162,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null)).map { ts =>
       ts.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
-  def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
+  def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession { implicit ec =>
     for {
       tables <- localTables
       sequences <- localSequences
@@ -178,7 +174,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int]): _*)
   def assertNotTablesExist(tables: String*) =
     DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int].failed): _*)
-  def createSingleSessionDatabase(implicit session: profile.Backend#Session, executor: AsyncExecutor = AsyncExecutor.default()): profile.Backend#Database = {
+  def createSingleSessionDatabase(implicit session: profile.backend.Session, executor: AsyncExecutor = AsyncExecutor.default()): profile.backend.Database = {
     val wrappedConn = new DelegateConnection(session.conn) {
       override def close(): Unit = ()
     }
@@ -188,7 +184,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
       val maxConnections: Option[Int] = Some(1)
     }, executor)
   }
-  final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])(implicit session: profile.Backend#Session): R = {
+  final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])(implicit session: profile.backend.Session): R = {
     val ec = new ExecutionContext {
       def execute(runnable: Runnable): Unit = runnable.run()
       def reportFailure(t: Throwable): Unit = throw t
@@ -206,7 +202,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
 
 abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) { self =>
   val url: String
-  def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver)
+  def createDB(): profile.backend.Database = database.forURL(url, driver = jdbcDriver)
   override def toString = url
 }
 

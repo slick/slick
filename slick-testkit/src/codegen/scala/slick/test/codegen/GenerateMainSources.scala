@@ -60,8 +60,9 @@ object GenerateMainSources extends TestCodeGenerator {
               Seq("""
 import slick.test.codegen.CustomTyping._
 import slick.test.codegen.CustomTyping
-type SimpleA = CustomTyping.SimpleA
-val  SimpleA = CustomTyping.SimpleA
+import CustomTyping.SimpleA
+//type SimpleA = CustomTyping.SimpleA
+//val  SimpleA = CustomTyping.SimpleA
                   """.trim) ++ super.code
             } else super.code
           }
@@ -77,7 +78,7 @@ val  SimpleA = CustomTyping.SimpleA
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
-          override def autoIncLastAsOption = true
+          override def autoIncLast = true
           override def Column = new Column(_){
             override def asOption = autoInc
           }
@@ -185,12 +186,12 @@ val  SimpleA = CustomTyping.SimpleA
                 |  assertType(TableName.baseTableRow.ui, "Long")
                 |  assertType(TableName.baseTableRow.bi, "Long")
                 |  //assertType(TableName.baseTableRow.ubi, "BigInt")
-		|  val bitEntries = Seq(BitTestRow(true), BitTestRow(false, true, true))
+                |  val bitEntries = Seq(BitTestRow(true), BitTestRow(false, true, true))
                 |  DBIO.seq(
                 |    schema.create,
                 |    TableName += TableNameRow(0, 0, 0, 0, 0, 0/*, BigInt(0)*/),
-		|    BitTest ++= bitEntries,
-		|    BitTest.result.map{assertEquals(_, bitEntries)},
+                |    BitTest ++= bitEntries,
+                |    BitTest.result.map{assertEquals(_, bitEntries)},
                 |    TableName.result.map{ case rows: Seq[TableNameRow] => assert(rows.length == 1) },
                 |    DefaultNumeric += entry,
                 |    DefaultNumeric.result.head.map{ r =>  assertEquals(r , entry) }

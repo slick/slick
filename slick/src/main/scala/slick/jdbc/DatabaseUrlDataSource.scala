@@ -12,13 +12,13 @@ class DatabaseUrlDataSource extends DriverDataSource(null) {
 
   @volatile private[this] var initialized = false
 
-  override def init: Unit = if(!initialized) {
+  override def init(): Unit = if(!initialized) {
     val (jdbcUrl, userAndPass) = extractUrl(Some(if (url == null) defaultUrl() else url))
     url = jdbcUrl.orNull
     user = userAndPass.map(_._1).getOrElse(user)
     password = userAndPass.map(_._2).getOrElse(password)
     initialized = true
-    super.init
+    super.init()
   }
 
   private[this] def extractUrl(databaseUrl: Option[String]): (Option[String], Option[(String, String)]) = {

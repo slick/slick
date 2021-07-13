@@ -3,7 +3,6 @@ package slick.jdbc
 import java.sql.PreparedStatement
 import slick.util.{TableDump, SlickLogger, CloseableIterator}
 import org.slf4j.LoggerFactory
-import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 
 private[jdbc] object StatementInvoker {
@@ -19,7 +18,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
   protected def setParam(st: PreparedStatement): Unit
   override protected def debuggingId = Some(s"statement $getStatement")
 
-  def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] =
+  def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#JdbcSessionDef): CloseableIterator[R] =
     results(maxRows).fold(r => new CloseableIterator.Single[R](r.asInstanceOf[R]), identity)
 
   /** Invoke the statement and return the raw results. */
@@ -28,7 +27,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
               defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
               defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default,
               autoClose: Boolean = true)
-             (implicit session: JdbcBackend#Session): Either[Int, PositionedResultIterator[R]] = {
+             (implicit session: JdbcBackend#JdbcSessionDef): Either[Int, PositionedResultIterator[R]] = {
     //TODO Support multiple results
     val statement = getStatement
     val st = session.prepareStatement(statement, defaultType, defaultConcurrency, defaultHoldability)
@@ -62,7 +61,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
           def extractValue(pr: PositionedResult) = {
             if(doLogResult) {
               if(logBuffer.length < StatementInvoker.maxLogResults)
-                logBuffer += 1.to(logHeader(0).length).map(idx => rs.getObject(idx) : Any).to(ArrayBuffer)
+                logBuffer += 1.to(logHeader(0).length).map(idx => this.pr.rs.getObject(idx) : Any).to(ArrayBuffer)
               rowCount += 1
             }
             self.extractValue(pr)
@@ -72,7 +71,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
         Right(pri)
       } else {
         val count = st.getUpdateCount
-        if(doLogResult) StatementInvoker.resultLogger.debug(s"${count} rows affected")
+        if(doLogResult) StatementInvoker.resultLogger.debug(s"$count rows affected")
         Left(count)
       }
     } finally if(doClose) st.close()

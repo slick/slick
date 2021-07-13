@@ -1,6 +1,6 @@
 package slick.basic
 
-import scala.language.{higherKinds, implicitConversions, existentials}
+import scala.language.{implicitConversions, existentials}
 
 import slick.ast._
 import slick.compiler.QueryCompiler
@@ -12,10 +12,6 @@ import com.typesafe.config.Config
 
 /** The basic functionality that has to be implemented by all profiles. */
 trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
-
-  /** The external interface of this profile which defines the API. */
-  @deprecated("Use the Profile object directly instead of calling `.profile` on it", "3.2")
-  val profile: BasicProfile = this
 
   /** The back-end type required by this profile */
   type Backend <: BasicBackend
@@ -39,10 +35,10 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
     def ++(other: SchemaDescription): SchemaDescription
   }
 
-  trait API extends Aliases with ExtensionMethodConversions {
-    type Database = Backend#Database
+  trait BasicAPI extends Aliases with ExtensionMethodConversions {
+    type Database = backend.Database
     val Database = backend.Database
-    type Session = Backend#Session
+    type Session = backend.Session
     type SlickException = slick.SlickException
 
     implicit val slickProfile: self.type = self
@@ -68,7 +64,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
   /** The API for using the query language with a single import
     * statement. This provides the profile's implicits, the Database API
     * and commonly used query language types and objects. */
-  val api: API
+  val api: BasicAPI
 
   /** The compiler used for queries */
   def queryCompiler: QueryCompiler
@@ -126,25 +122,20 @@ trait BasicActionComponent { self: BasicProfile =>
   type ProfileAction[+R, +S <: NoStream, -E <: Effect] <: BasicAction[R, S, E]
   type StreamingProfileAction[+R, +T, -E <: Effect] <: BasicStreamingAction[R, T, E] with ProfileAction[R, Streaming[T], E]
 
-  @deprecated("Use `ProfileAction` instead of `DriverAction`", "3.2")
-  final type DriverAction[+R, +S <: NoStream, -E <: Effect] = ProfileAction[R, S, E]
-  @deprecated("Use `StreamingProfileAction` instead of `StreamingDriverAction`", "3.2")
-  final type StreamingDriverAction[+R, +T, -E <: Effect] = StreamingProfileAction[R, T, E]
-
   //////////////////////////////////////////////////////////// Query Actions
 
-  type QueryActionExtensionMethods[R, S <: NoStream] <: QueryActionExtensionMethodsImpl[R, S]
-  type StreamingQueryActionExtensionMethods[R, T] <: StreamingQueryActionExtensionMethodsImpl[R, T]
+  type QueryActionExtensionMethods[R, S <: NoStream] <: BasicQueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] <: BasicStreamingQueryActionExtensionMethodsImpl[R, T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S]
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T]
 
-  trait QueryActionExtensionMethodsImpl[R, S <: NoStream] {
+  trait BasicQueryActionExtensionMethodsImpl[R, S <: NoStream] {
     /** An Action that runs this query. */
     def result: ProfileAction[R, S, Effect.Read]
   }
 
-  trait StreamingQueryActionExtensionMethodsImpl[R, T] extends QueryActionExtensionMethodsImpl[R, Streaming[T]] {
+  trait BasicStreamingQueryActionExtensionMethodsImpl[R, T] extends BasicQueryActionExtensionMethodsImpl[R, Streaming[T]] {
     def result: StreamingProfileAction[R, T, Effect.Read]
   }
 }

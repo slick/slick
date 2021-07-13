@@ -16,7 +16,7 @@ class RewriteBooleanTest extends AsyncTest[RelationalTestDB] {
       def addressId   = column[Option[Int]]("address_id")
       def isHomeowner = column[Boolean]    ("is_homeowner")
 
-      def * = (id, name, age, addressId, isHomeowner) <> ((Person.apply _).tupled, Person.unapply _)
+      def * = (id, name, age, addressId, isHomeowner).<>((Person.apply _).tupled, Person.unapply _)
     }
 
     lazy val people = TableQuery[People]
@@ -29,7 +29,7 @@ class RewriteBooleanTest extends AsyncTest[RelationalTestDB] {
       def city     = column[String] ("city")
       def isActive = column[Boolean]("is_active")
 
-      def * = (id, street, city, isActive) <> ((Address.apply _).tupled, Address.unapply _)
+      def * = (id, street, city, isActive).<>((Address.apply _).tupled, Address.unapply _)
     }
 
     lazy val addresses = TableQuery[Addresses]

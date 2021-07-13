@@ -12,7 +12,7 @@ trait PictureComponent { this: ProfileComponent =>
   class Pictures(tag: Tag) extends Table[Picture](tag, "PICTURES") {
     def id = column[Option[Int]]("PIC_ID", O.PrimaryKey, O.AutoInc)
     def url = column[String]("PIC_URL")
-    def * = (url, id) <> (Picture.tupled, Picture.unapply)
+    def * = (url, id).mapTo[Picture]
   }
 
   val pictures = TableQuery[Pictures]

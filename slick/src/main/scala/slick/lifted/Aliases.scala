@@ -1,8 +1,6 @@
 package slick
 package lifted
 
-import scala.language.higherKinds
-
 /** Aliases for lifted embedding features. This trait can be mixed into aliasing
   * objects which simplify the use of the lifted embedding. */
 trait Aliases {
@@ -40,8 +38,8 @@ trait Aliases {
   type NestedShapeLevel = lifted.NestedShapeLevel
   type FlatShapeLevel = lifted.FlatShapeLevel
   type ColumnsShapeLevel = lifted.ColumnsShapeLevel
-  type Isomorphism[A, B] = lifted.Isomorphism[A, B]
-  type MappedTo[T] = lifted.MappedTo[T]
+  //type Isomorphism[A, B] = lifted.Isomorphism[A, B]
+  //type MappedTo[T] = lifted.MappedTo[T]
   val ForeignKeyAction = slick.model.ForeignKeyAction
   type ForeignKeyAction = slick.model.ForeignKeyAction
 

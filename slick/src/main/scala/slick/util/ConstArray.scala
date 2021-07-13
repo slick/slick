@@ -3,7 +3,6 @@ package slick.util
 import java.util.Arrays
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.compat._
 import scala.collection.immutable
 import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3
@@ -502,11 +501,7 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
   }
 
   def ++= (vs: IterableOnce[T]): Unit = {
-    vs match {
-      case x: IndexedSeq[_] =>
-        ensure(x.size)
-      case _ =>
-    }
+    if(vs.isInstanceOf[scala.collection.IndexedSeq[_]]) ensure(vs.asInstanceOf[scala.collection.IndexedSeq[_]].size)
     vs.iterator.foreach(self += _)
   }
 

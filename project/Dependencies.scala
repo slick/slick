@@ -6,7 +6,7 @@ object Dependencies {
   // NOTE: remember to change the version numbers in the sample projects
   // when changing them here
 
-  val scalaVersions = Seq("2.12.14", "2.13.6") // When updating these also update ci.yml and appveyor.yml
+  val scalaVersions = Seq("2.13.5", "3.0.0") // When updating these also update .travis.yml and appveyor.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.31"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.1"
@@ -15,7 +15,8 @@ object Dependencies {
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0"
 
-  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
+
+  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",

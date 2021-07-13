@@ -1,12 +1,14 @@
 package slick.ast
 
-import scala.language.{implicitConversions, higherKinds}
+import scala.language.implicitConversions
 import slick.SlickException
-import scala.collection.compat._
-import scala.collection.mutable.{Builder, ArrayBuilder}
+
+import scala.collection.mutable.{ArrayBuilder, Builder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
 import scala.annotation.implicitNotFound
-import slick.util.{DumpInfo, Dumpable, TupleSupport, ConstArray}
+import slick.util.{ConstArray, DumpInfo, Dumpable, TupleSupport}
+
+import scala.collection.Factory
 
 /** Super-trait for all types */
 trait Type extends Dumpable {
@@ -48,7 +50,7 @@ trait AtomicType extends Type {
 }
 
 final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Type {
-  override def toString = "{" + elements.iterator.map{ case (s, t) => s"${s}: ${t}" }.mkString(", ") + "}"
+  override def toString = "{" + elements.iterator.map{ case (s, t) => s"$s: $t" }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[TermSymbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }.toMap
   def children: ConstArray[Type] = elements.map(_._2)
@@ -68,7 +70,7 @@ final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Ty
 }
 
 trait OptionType extends Type {
-  override def toString = "Option[" + elementType + "]"
+  override def toString = s"Option[$elementType]"
   def elementType: Type
   def children: ConstArray[Type] = ConstArray(elementType)
   def classTag = OptionType.classTag
@@ -128,7 +130,7 @@ final case class ProductType(elements: ConstArray[Type]) extends Type {
 }
 
 final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
-  override def toString = s"${cons}[${elementType}]"
+  override def toString = s"$cons[$elementType]"
   def mapChildren(f: Type => Type): CollectionType = {
     val e2 = f(elementType)
     if(e2 eq elementType) this
@@ -161,7 +163,7 @@ trait CollectionTypeConstructor {
 }
 
 @implicitNotFound("Cannot use collection in a query\n            collection type: ${C}[_]\n  requires implicit of type: slick.ast.TypedCollectionTypeConstructor[${C}]")
-abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]) extends CollectionTypeConstructor {
+abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[Any]]) extends CollectionTypeConstructor {
   override def toString = classTag.runtimeClass.getName
     .replaceFirst("^scala.collection.immutable.", "")
     .replaceFirst("^scala.collection.mutable.", "m.")
@@ -174,20 +176,20 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]
   }
 }
 
-class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
+class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[Any]]) extends TypedCollectionTypeConstructor[C](classTag) {
   val isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(classTag.runtimeClass)
   val isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(classTag.runtimeClass)
   def createBuilder[E : ClassTag] = factory.newBuilder.asInstanceOf[Builder[E, C[E]]]
 }
 
 object TypedCollectionTypeConstructor {
-  private[this] val arrayClassTag = mkClassTag[Array[_]]
+  private[this] val arrayClassTag = mkClassTag[Array[Any]].asInstanceOf[ClassTag[Array[Any]]]
   /** The standard TypedCollectionTypeConstructor for Seq */
   def seq = forColl[Vector]
   /** The standard TypedCollectionTypeConstructor for Set */
   def set = forColl[Set]
   /** Get a TypedCollectionTypeConstructor for an Iterable type */
-  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
+  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]], tag: ClassTag[C[Any]]): TypedCollectionTypeConstructor[C] =
     new ErasedCollectionTypeConstructor[C](cbf, tag)
   /** Get a TypedCollectionTypeConstructor for an Array type */
   implicit val forArray: TypedCollectionTypeConstructor[Array] = new TypedCollectionTypeConstructor[Array](arrayClassTag) {
@@ -380,7 +382,7 @@ object ScalaBaseType {
   implicit val floatType: ScalaNumericType[Float] = new ScalaNumericType[Float](_.toFloat)
   implicit val intType: ScalaNumericType[Int] = new ScalaNumericType[Int](_.toInt)
   implicit val longType: ScalaNumericType[Long] = new ScalaNumericType[Long](_.toLong)
-  implicit val nullType: ScalaBaseType[Null] = new ScalaBaseType[Null]
+  implicit val nullType: ScalaBaseType[Null] = { implicit val c: ClassTag[Null] = scala.reflect.ClassTag.Null; new ScalaBaseType[Null] }
   implicit val shortType: ScalaNumericType[Short] = new ScalaNumericType[Short](_.toShort)
   implicit val stringType: ScalaBaseType[String] = new ScalaBaseType[String]
   implicit val optionDiscType: ErasedScalaBaseType[OptionDisc, Int] = new ErasedScalaBaseType[OptionDisc, Int]

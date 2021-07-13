@@ -2,9 +2,9 @@ package slick.jdbc
 
 import slick.util.TableDump
 
-import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 import scala.language.reflectiveCalls
+import scala.reflect.Selectable.reflectiveSelectable
 
 import java.io.{InputStream, Reader}
 import java.util.Calendar
@@ -92,9 +92,9 @@ class LoggingStatement(st: Statement) extends Statement {
 
   private[this] def formatNS(ns: Long): String = {
     if(ns < 1000L) s"${ns}ns"
-    else if(ns < 1000000L) s"${ns / 1000L}µs"
-    else if(ns < 1000000000L) s"${ns / 1000000L}ms"
-    else s"${ns / 1000000000L}s"
+    else if(ns < 1000000L) s"${(ns / 1000L)}µs"
+    else if(ns < 1000000000L) s"${(ns / 1000000L)}ms"
+    else s"${(ns / 1000000000L)}s"
   }
 
   def addBatch(sql: String) = {

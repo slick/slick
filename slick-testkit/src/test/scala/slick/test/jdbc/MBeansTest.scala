@@ -11,7 +11,7 @@ import slick.jdbc.H2Profile.api._
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class MBeansTest {
 
@@ -50,7 +50,7 @@ class MBeansTest {
         sql"select 1".as[Int]
       )
       val fs = actions.map(db.run)
-      val size = mbeanServer.getAttribute(aeBeanName, "QueueSize")
+      val size = mbeanServer.getAttribute(aeBeanName, "QueueSize").asInstanceOf[Any]
       // Usually we expect 3 but under high load it's possible that the first action is still in the queue
       assertTrue(s"size should be 3 or 4, is $size", size == 3 || size == 4)
 

@@ -1,9 +1,12 @@
 package slick.lifted
 
-import scala.language.experimental.macros
-import scala.reflect.macros.blackbox.Context
-import scala.util.control.NonFatal
+//import scala.language.experimental.macros
+//import scala.reflect.macros.blackbox.Context
+//import scala.util.control.NonFatal
 
+object MappedToBase
+
+/*
 /** An isomorphism between two types that can be used for mapped column types. */
 class Isomorphism[A, B](val map: A => B, val comap: B => A)
 
@@ -52,3 +55,4 @@ trait MappedTo[T] extends Any with MappedToBase {
   type Underlying = T
   def value: T
 }
+*/
