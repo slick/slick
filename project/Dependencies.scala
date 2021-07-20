@@ -21,8 +21,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.novocode" % "junit-interface" % "0.11"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.0"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.4"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
@@ -40,7 +40,7 @@ object Dependencies {
     "org.xerial" % "sqlite-jdbc" % "3.36.0.1",
     "org.hsqldb" % "hsqldb" % "2.5.2",
     "org.postgresql" % "postgresql" % "42.2.23",
-    "mysql" % "mysql-connector-java" % "8.0.25",
+    "mysql" % "mysql-connector-java" % "8.0.26",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
     "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.1.0.0"
   )
