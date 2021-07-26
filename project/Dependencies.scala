@@ -21,7 +21,7 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.novocode" % "junit-interface" % "0.11"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.4"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.5"
   val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
