@@ -8,7 +8,7 @@ object Dependencies {
 
   val scalaVersions = Seq("2.12.14", "2.13.6") // When updating these also update ci.yml and appveyor.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.31"
+  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.32"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.1"
   val reactiveStreamsVersion = "1.0.3"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
@@ -21,8 +21,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.novocode" % "junit-interface" % "0.11"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.4"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.0"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.5"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
