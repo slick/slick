@@ -21,8 +21,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.novocode" % "junit-interface" % "0.11"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.5"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.0"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.6"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
@@ -37,12 +37,12 @@ object Dependencies {
     h2,
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
-    "org.xerial" % "sqlite-jdbc" % "3.36.0.1",
+    "org.xerial" % "sqlite-jdbc" % "3.36.0.3",
     "org.hsqldb" % "hsqldb" % "2.5.2",
     "org.postgresql" % "postgresql" % "42.2.23",
     "mysql" % "mysql-connector-java" % "8.0.26",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.1.0.0"
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.3.0.0"
   )
 
   val paxExamVersion = "4.13.1"
