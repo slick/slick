@@ -559,7 +559,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       session.withPreparedStatement(sql)(f)
 
     class SingleInsertAction(a: compiled.Artifacts, value: U) extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
-      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) = preparedInsert(a.sql, ctx.session) { st =>
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) = preparedInsert(sql.head, ctx.session) { st =>
         st.clearParameters()
         a.converter.set(value, st, 0)
         val count = st.executeUpdate()
