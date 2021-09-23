@@ -1,4 +1,4 @@
-Slick
+Slick 
 =====
 
 [![Build Status](https://travis-ci.org/slick/slick.png?branch=master)](https://travis-ci.org/slick/slick) [![Maven](https://img.shields.io/maven-central/v/com.typesafe.slick/slick_2.12.svg)](http://mvnrepository.com/artifact/com.typesafe.slick/slick_2.12) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
