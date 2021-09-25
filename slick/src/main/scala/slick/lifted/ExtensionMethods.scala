@@ -58,6 +58,23 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
     Library.IfNull.column[P2](n, e.toNode)(tpe(e))
 }
 
+final class Tuple2ColumnExtensionMethods[A: TypedType, B: TypedType](val c: Rep[(A, B)]) extends BaseExtensionMethods[(A, B)] {
+  def inSet[R](seq: Iterable[(A, B)])(implicit om: o#to[Boolean, R]) =
+    if(seq.isEmpty) om(LiteralColumn(false))
+    else {
+      val pairs = seq.map(v => ProductNode(ConstArray(LiteralNode(implicitly[TypedType[A]], v._1), LiteralNode(implicitly[TypedType[B]], v._2))))
+      om.column(Library.In, n, ProductNode(ConstArray.from(pairs)))
+    }
+}
+
+final class Tuple2OfColumnExtensionMethods[A: BaseTypedType, B: BaseTypedType](val t: (Rep[A], Rep[B]))
+  extends BaseExtensionMethods[(A, B)] {
+  override protected[this] def c: Rep[(A, B)] = new ShapedValue[(Rep[A], Rep[B]), (A, B)](t, implicitly)
+
+  def inSet[R](seq: Iterable[(A, B)])(implicit om: o#to[Boolean, R]) =
+    new Tuple2ColumnExtensionMethods(c).inSet(seq)
+}
+
 final class BaseColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with ColumnExtensionMethods[P1, P1] with BaseExtensionMethods[P1] {
   /** Lift a column to an Option column. This is the same as calling [[slick.lifted.Rep.Some]]. */
   def ? : Rep[Option[P1]] = Rep.forNode(OptionApply(c.toNode))(p1Type.optionType)
@@ -238,6 +255,9 @@ trait ExtensionMethodConversions {
   implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c)
   implicit def booleanColumnExtensionMethods(c: Rep[Boolean]): BooleanColumnExtensionMethods[Boolean] = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]): BooleanColumnExtensionMethods[Option[Boolean]] = new BooleanColumnExtensionMethods[Option[Boolean]](c)
+  implicit def tuple2ColumnExtensionMethods[A : TypedType, B : TypedType](c: Rep[(A, B)]): Tuple2ColumnExtensionMethods[A, B] = new Tuple2ColumnExtensionMethods[A, B](c)
+  implicit def tuple2OfColumnExtensionMethods[A : BaseTypedType, B : BaseTypedType](c: (Rep[A], Rep[B])): Tuple2OfColumnExtensionMethods[A, B] = new Tuple2OfColumnExtensionMethods[A, B](c)
+  implicit def tup2type[A: scala.math.Ordering, B: scala.math.Ordering]: ScalaBaseType[(A, B)] = new ScalaBaseType
 
   implicit def anyColumnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]): AnyExtensionMethods = new AnyExtensionMethods(c.toNode)
   implicit def anyOptionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): AnyExtensionMethods = new AnyExtensionMethods(c.toNode)
