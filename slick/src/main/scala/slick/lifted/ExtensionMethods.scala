@@ -67,7 +67,7 @@ final class Tuple2ColumnExtensionMethods[A: TypedType, B: TypedType](val c: Rep[
     }
 }
 
-final class Tuple2OfColumnExtensionMethods[A: BaseTypedType, B: BaseTypedType](val t: (Rep[A], Rep[B]))
+final class Tuple2OfColumnExtensionMethods[A: TypedType, B: TypedType](val t: (Rep[A], Rep[B]))(implicit shapeA: Shape[_ <: FlatShapeLevel, Rep[A], A, Rep[A]], shapeB: Shape[_ <: FlatShapeLevel, Rep[B], B, Rep[B]])
   extends BaseExtensionMethods[(A, B)] {
   override protected[this] def c: Rep[(A, B)] = new ShapedValue[(Rep[A], Rep[B]), (A, B)](t, implicitly)
 
