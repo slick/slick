@@ -41,6 +41,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       u2 <- users
     } yield u2
 
+    implicit def tuple2BaseTypedType[A: scala.math.Ordering, B: scala.math.Ordering] = new slick.ast.ScalaBaseType[(A, B)]
+
     seq(
       users.schema.create,
       users.map(_.baseProjection) += ("Homer", "Simpson"),

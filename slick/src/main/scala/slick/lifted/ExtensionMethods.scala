@@ -255,9 +255,7 @@ trait ExtensionMethodConversions {
   implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c)
   implicit def booleanColumnExtensionMethods(c: Rep[Boolean]): BooleanColumnExtensionMethods[Boolean] = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]): BooleanColumnExtensionMethods[Option[Boolean]] = new BooleanColumnExtensionMethods[Option[Boolean]](c)
-  implicit def tuple2ColumnExtensionMethods[A : TypedType, B : TypedType](c: Rep[(A, B)]): Tuple2ColumnExtensionMethods[A, B] = new Tuple2ColumnExtensionMethods[A, B](c)
   implicit def tuple2OfColumnExtensionMethods[A : BaseTypedType, B : BaseTypedType](c: (Rep[A], Rep[B])): Tuple2OfColumnExtensionMethods[A, B] = new Tuple2OfColumnExtensionMethods[A, B](c)
-  implicit def tup2type[A: scala.math.Ordering, B: scala.math.Ordering]: ScalaBaseType[(A, B)] = new ScalaBaseType
 
   implicit def anyColumnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]): AnyExtensionMethods = new AnyExtensionMethods(c.toNode)
   implicit def anyOptionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): AnyExtensionMethods = new AnyExtensionMethods(c.toNode)
