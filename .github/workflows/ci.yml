@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [8, 11, 17-ea]
+        java: [8, 11, 17]
         scala: [2.12.15, 2.13.6]
 
     services:
