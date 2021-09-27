@@ -52,8 +52,8 @@ install:
       }
   - bash -v ./travis/extractNonPublicDeps
 build_script:
-  - sbt ++2.12.13 clean compile coverage test:compile coverageReport
+  - sbt ++2.12.15 clean compile coverage test:compile coverageReport
 test_script:
-  - sbt ++2.12.13 coverage testkit/test:test coverageReport
+  - sbt ++2.12.15 coverage testkit/test:test coverageReport
 cache:
   - C:\Users\appveyor\.ivy2
