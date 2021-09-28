@@ -4,7 +4,7 @@ install:
       Add-Type -AssemblyName System.IO.Compression.FileSystem
       if (!(Test-Path -Path "C:\sbt" )) {
         (new-object System.Net.WebClient).DownloadFile(
-          'https://github.com/sbt/sbt/releases/download/v1.4.7/sbt-1.4.7.zip',
+          'https://github.com/sbt/sbt/releases/download/v1.5.5/sbt-1.5.5.zip',
           'C:\sbt-bin.zip'
         )
         [System.IO.Compression.ZipFile]::ExtractToDirectory("C:\sbt-bin.zip", "C:\sbt")
@@ -52,8 +52,8 @@ install:
       }
   - bash -v ./travis/extractNonPublicDeps
 build_script:
-  - sbt ++2.12.13 clean compile coverage test:compile coverageReport
+  - sbt ++2.12.15 clean compile coverage test:compile coverageReport
 test_script:
-  - sbt ++2.12.13 coverage testkit/test:test coverageReport
+  - sbt ++2.12.15 coverage testkit/test:test coverageReport
 cache:
   - C:\Users\appveyor\.ivy2
