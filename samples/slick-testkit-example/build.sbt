@@ -1,7 +1,7 @@
 libraryDependencies ++= List(
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.6" % Test,
-  "org.postgresql" % "postgresql" % "42.2.23" % Test,
+  "org.postgresql" % "postgresql" % "42.2.24" % Test,
 )
 
 scalacOptions += "-deprecation"
