@@ -40,7 +40,7 @@ object Dependencies {
     "org.xerial" % "sqlite-jdbc" % "3.36.0.3",
     "org.hsqldb" % "hsqldb" % "2.5.2",
     "org.postgresql" % "postgresql" % "42.2.24",
-    "mysql" % "mysql-connector-java" % "8.0.26",
+    "mysql" % "mysql-connector-java" % "8.0.27",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
     "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.3.0.0"
   )
