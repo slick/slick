@@ -19,7 +19,7 @@ object Dependencies {
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",
-    "com.novocode" % "junit-interface" % "0.11"
+    "com.github.sbt" % "junit-interface" % "0.13.2"
   )
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.7"
   val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
