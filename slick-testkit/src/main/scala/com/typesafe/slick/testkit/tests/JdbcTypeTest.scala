@@ -333,6 +333,15 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     )(withTimeZone)
   } else Future.successful(())
 
+  def testPostgresInstantWithInfiniteValues: Future[Unit] = if (tdb.confName == "postgres") {
+    roundTrip[Instant](
+      List(
+        Instant.MIN,
+        Instant.MAX),
+      () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+    )
+  } else Future.successful(())
+
   private def randomZoneOffset = {
     // offset could be +-18 in java.time context, but postgres and oracle are stricter
     val hours = random.nextInt(25)-12
