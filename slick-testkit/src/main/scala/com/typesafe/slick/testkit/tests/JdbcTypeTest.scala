@@ -339,6 +339,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         Instant.MIN,
         Instant.MAX),
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+      tableNameSuffix = "_with_infinite_values"
     )
   } else Future.successful(())
 
