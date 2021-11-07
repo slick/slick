@@ -306,8 +306,8 @@ trait PostgresProfile extends JdbcProfile {
       protected def parseTime(time : String): T = {
         time match {
           case null => null.asInstanceOf[T]
-          case `negativeInfinite` => max
-          case `positiveInfinite` => min
+          case `negativeInfinite` => min
+          case `positiveInfinite` => max
           case _ => parseFiniteTime(time)
         }
       }
