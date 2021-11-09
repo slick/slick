@@ -92,12 +92,12 @@ def sampleSettings = Seq(
   Compile / unmanagedClasspath ++= (slick / MacroConfig / products).value
 )
 
-ThisBuild / version := "3.4.0-SNAPSHOT"
-
 ThisBuild / crossScalaVersions := Dependencies.scalaVersions
 ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 
 ThisBuild / versionScheme := Some("pvp")
+
+ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
 ThisBuild / docDir := (root / baseDirectory).value / "doc"
 
@@ -289,7 +289,7 @@ lazy val root =
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
           testkit / Compile / packageDoc,
-          versionSchemeEnforcerCheck
+          versionPolicyCheck
         ).value
       },
       libraryDependencies := {
