@@ -219,7 +219,6 @@ lazy val `reactive-streams-tests` =
     .settings(
       slickGeneralSettings,
       name := "Slick-ReactiveStreamsTests",
-      resolvers += Resolver.sbtPluginRepo("releases"),
       libraryDependencies += "org.scalatestplus" %% "testng-6-7" % "3.2.9.0",
       libraryDependencies ++=
         (Dependencies.logback +: Dependencies.testDBs).map(_ % Test),
