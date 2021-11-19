@@ -11,11 +11,11 @@ Slick uses the standard Typesafe Project & Developer Guidelines below for contri
 
 These guidelines are meant to be a living document that should be changed and adapted as needed. We encourage changes that makes it easier to achieve our goals in an efficient way.
 
-These guidelines mainly applies to Typesafe’s “mature” projects - not necessarily to projects of the type ‘collection of scripts’ etc.
+These guidelines mainly apply to Typesafe’s “mature” projects - not necessarily to projects of the type ‘collection of scripts’ etc.
 
 ## General Workflow
 
-This is the process for committing code into master. There are of course exceptions to these rules, for example minor changes to comments and documentation, fixing a broken build etc.
+This is the process for committing code into main. There are of course exceptions to these rules, for example minor changes to comments and documentation, fixing a broken build etc.
 
 1. Make sure you have signed the [Typesafe CLA](http://www.lightbend.com/contribute/cla), if not, sign it online.
 2. Before starting to work on a feature or a fix, you have to make sure that:
@@ -23,7 +23,7 @@ This is the process for committing code into master. There are of course excepti
     2. The ticket has been scheduled for the current milestone.
     3. The ticket is estimated by the team.
     4. The ticket have been discussed and prioritized by the team.
-3. You should always perform your work in a Git feature branch. The branch should be given a descriptive name that explains its intent. Some teams also like adding the ticket number and/or the [GitHub](http://github.com) user ID to the branch name, these details is up to each of the individual teams.
+3. You should always perform your work in a Git feature branch. The branch should be given a descriptive name that explains its intent. Some teams also like adding the ticket number and/or the [GitHub](http://github.com) user ID to the branch name, these details are up to each of the individual teams.
 4. When the feature or fix is completed you should open a [Pull Request](https://help.github.com/articles/using-pull-requests) on GitHub.
 5. The Pull Request should be reviewed by other maintainers (as many as feasible/practical). Note that the maintainers can consist of outside contributors, both within and outside Typesafe. Outside contributors (for example from EPFL or independent committers) are encouraged to participate in the review process, it is not a closed process.
 6. After the review you should fix the issues as needed (pushing a new commit for new review etc.), iterating until the reviewers give their thumbs up.
@@ -34,8 +34,8 @@ This is the process for committing code into master. There are of course excepti
 For a Pull Request to be considered at all it has to meet these requirements:
 
 1. Live up to the current code standard:
-   - Not violate [DRY](http://programmer.97things.oreilly.com/wiki/index.php/Don%27t_Repeat_Yourself).
-   - [Boy Scout Rule](http://programmer.97things.oreilly.com/wiki/index.php/The_Boy_Scout_Rule) needs to have been applied.
+   - Not violate [DRY](https://www.oreilly.com/library/view/97-things-every/9780596809515/ch30.html).
+   - [Boy Scout Rule](https://www.oreilly.com/library/view/97-things-every/9780596809515/ch08.html) needs to have been applied.
 2. Regardless if the code introduces new features or fixes bugs or regressions, it must have comprehensive tests.
 3. The code must be well documented in the Typesafe's standard documentation format (see the ‘Documentation’ section below).
 
