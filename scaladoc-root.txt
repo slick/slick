@@ -1,11 +1,11 @@
 <a style="float:right" href="https://github.com/slick/slick/blob/master/scaladoc-root.txt">edit this text on github</a>
-<img src="http://slick.typesafe.com/resources/images/slick-logo.png" alt="Slick logo" />
+<img src="https://scala-slick.org/resources/images/slick-logo.png" alt="Slick logo" />
 <h2>Scala Language-Integrated Connection Kit</h2>
-This is the API documentation for the <a href="http://slick.typesafe.com" target="_top">Slick</a> database library.
+This is the API documentation for the <a href="https://scala-slick.org" target="_top">Slick</a> database library.
 It should be used as an additional resource to the <a href="../index.html">user manual</a>.
 
 Further documentation for Slick can be found on the
-<a href="http://slick.typesafe.com/docs/" target="_top">documentation pages</a>.
+<a href="https://scala-slick.org/docs/" target="_top">documentation pages</a>.
 
 
 <a href="slick/package.html">To the slick package list...</a>

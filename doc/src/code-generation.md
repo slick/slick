@@ -13,7 +13,7 @@ can be used in a collection-like manner, as well as case classes for holding com
 rows of values. Since Slick 3.3 this is even true for tables with more than 22 columns. In order to accomplish the support of case classes with such a huge parameter count, despite Scala’s tuple size limit, some of the generated functions (like `def *` and `def ?`) use `HList`s internally and thus look somewhat different but behave the same as those for tables with less columns.
 
 Parts of the generator are also explained in our
-[talk at Scala eXchange 2013](http://slick.typesafe.com/docs/#20131203_patterns_for_slick_database_applications_at_scala_exchange_2013).
+[talk at Scala eXchange 2013](https://scala-slick.org/news/2013/12/03/Patterns-for-Slick-database-applications-Scala-eXchange.html).
 
 Standalone use
 --------------
