@@ -42,7 +42,7 @@ def slickGeneralSettings =
     makePomConfiguration ~= {
       _.withConfigurations(Vector(Compile, Runtime, Optional))
     },
-    homepage := Some(url("https://slick.typesafe.com")),
+    homepage := Some(url("https://scala-slick.org")),
     startYear := Some(2008),
     licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/master/LICENSE.txt")),
     developers :=
