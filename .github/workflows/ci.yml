@@ -7,7 +7,8 @@ on:
     branches: [ main, nafg/build-fixes ]
 
 jobs:
-  test:
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
 
     strategy:
@@ -71,10 +72,51 @@ jobs:
         distribution: adopt
         java-version: ${{ matrix.java }}
 
-    - if: ${{ startsWith('refs/tags/', github.ref) }}
-      run: export CI_TAG="${GITHUB_REF#refs/tags/}"
-
     - name: Build and test
-      run: SCALA_VERSION=${{ matrix.scala }} TESTKIT_CONF=test-dbs/testkit.github-actions.conf admin/build.sh
+      run: |
+        sbt \
+          -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
+          ++${{ matrix.scala }} \
+          coverage testAll coverageReport \
+          root/testSampleHelloSlick \
+          root/testSamplePlainSql \
+          root/testSampleMultiDb \
+          root/testSampleTestkit \
       env:
         TZ: Asia/Kamchatka
+
+  publish:
+    name: Release
+    needs: [build]
+    if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        scala: [2.13.7]
+        java: [8]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK
+      uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: ${{ matrix.java }}
+
+    - name: Publish artifacts to Maven Central
+      env:
+        PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+        PGP_SECRET: ${{ secrets.PGP_SECRET }}
+        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+      run: sbt ++${{ matrix.scala }} ci-release
+
+    - name: Publish docs to website
+      run: |
+        sbt ++${{ matrix.scala }} doc
+        echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
+        ./publish-docs.sh
