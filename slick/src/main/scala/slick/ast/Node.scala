@@ -1,5 +1,6 @@
 package slick.ast
 
+import scala.collection.compat.immutable._
 import scala.collection.mutable.ListBuffer
 import scala.language.existentials
 import scala.reflect.ClassTag
@@ -20,7 +21,7 @@ trait Node extends Dumpable {
 
   /** Names for the child nodes to show in AST dumps. Defaults to a numbered sequence starting at 0
     * but can be overridden by subclasses to produce more suitable names. */
-  def childNames: Iterable[String] = Stream.from(0).map(_.toString)
+  def childNames: Iterable[String] = LazyList.from(0).map(_.toString)
 
   /** Rebuild this node with a new list of children. Implementations of this method must not reuse
     * the current node. This method always returns a fresh copy. */
@@ -129,7 +130,7 @@ final case class ProductNode(children: ConstArray[Node]) extends SimplyTypedNode
   type Self = ProductNode
   override def getDumpInfo = super.getDumpInfo.copy(name = "ProductNode", mainInfo = "")
   protected[this] def rebuild(ch: ConstArray[Node]): Self = copy(ch)
-  override def childNames: Iterable[String] = Stream.from(1).map(_.toString)
+  override def childNames: Iterable[String] = LazyList.from(1).map(_.toString)
   protected def buildType: Type = ProductType(children.map { ch =>
     val t = ch.nodeType
     if(t == UnassignedType) throw new SlickException(s"ProductNode child $ch has UnassignedType")
