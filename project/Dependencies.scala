@@ -13,16 +13,16 @@ object Dependencies {
   val reactiveStreamsVersion = "1.0.3"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0"
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.6.0"
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",
-    "com.novocode" % "junit-interface" % "0.11"
+    "com.github.sbt" % "junit-interface" % "0.13.2"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.7"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.0"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.8"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {

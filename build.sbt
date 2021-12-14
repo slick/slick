@@ -42,7 +42,7 @@ def slickGeneralSettings =
     makePomConfiguration ~= {
       _.withConfigurations(Vector(Compile, Runtime, Optional))
     },
-    homepage := Some(url("https://slick.typesafe.com")),
+    homepage := Some(url("https://scala-slick.org")),
     startYear := Some(2008),
     licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/master/LICENSE.txt")),
     developers :=
@@ -92,12 +92,12 @@ def sampleSettings = Seq(
   Compile / unmanagedClasspath ++= (slick / MacroConfig / products).value
 )
 
-ThisBuild / version := "3.4.0-SNAPSHOT"
-
 ThisBuild / crossScalaVersions := Dependencies.scalaVersions
 ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 
 ThisBuild / versionScheme := Some("pvp")
+
+ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
 ThisBuild / docDir := (root / baseDirectory).value / "doc"
 
@@ -289,7 +289,7 @@ lazy val root =
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
           testkit / Compile / packageDoc,
-          versionSchemeEnforcerCheck
+          versionPolicyCheck
         ).value
       },
       libraryDependencies := {
