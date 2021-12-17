@@ -21,8 +21,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.2"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.8"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.0"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.9"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
