@@ -12,8 +12,6 @@ val testSampleTestkit = taskKey[Unit]("Run tests in the testkit-example sample a
 val cleanCompileTimeTests =
   taskKey[Unit]("Delete files used for compile-time tests which should be recompiled every time.")
 
-val repoKind = settingKey[String]("""Maven repository kind ("snapshots" or "releases")""")
-
 /* Test Configuration for running tests on doc sources */
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
@@ -30,13 +28,6 @@ def slickGeneralSettings =
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
-    repoKind := (if (version.value.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
-    publishTo :=
-      (repoKind.value match {
-        case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
-        case "releases"  => Some("releases" at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
-      }),
-    publishMavenStyle := true,
     Test / publishArtifact := false,
     pomIncludeRepository := { _ => false },
     makePomConfiguration ~= {
