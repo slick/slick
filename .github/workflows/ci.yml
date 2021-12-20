@@ -1,10 +1,11 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main, nafg/build-fixes ]
+ pull_request:
+   branches: ['**']
+ push:
+   branches: ['**']
+   tags: [v*]
 
 jobs:
   build:
