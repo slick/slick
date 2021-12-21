@@ -55,8 +55,6 @@ jobs:
           --privileged
 
     steps:
-    - uses: ts-graphviz/setup-graphviz@v1
-
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
@@ -101,6 +99,8 @@ jobs:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
+
+    - uses: ts-graphviz/setup-graphviz@v1
 
     - name: Set up JDK
       uses: actions/setup-java@v2
