@@ -94,7 +94,7 @@ jobs:
 
     strategy:
       matrix:
-        scala: [2.13.7]
+        scala: [2.12.15]
         java: [8]
 
     steps:
