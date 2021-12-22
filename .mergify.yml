@@ -13,9 +13,11 @@ pull_request_rules:
       - "check-success=Build and Test (17, 2.13.7)"
       - "check-success=continuous-integration/appveyor/pr"
       - "#changes-requested-reviews-by=0"
+      - "-draft"
       - or:
           - "#approved-reviews-by>=1"
           - "author=scala-steward"
+          - "author=nafg"
     actions:
       queue:
         name: default
