@@ -21,8 +21,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.2"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.9"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.0"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.10"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
@@ -42,7 +42,7 @@ object Dependencies {
     "org.postgresql" % "postgresql" % "42.3.1",
     "mysql" % "mysql-connector-java" % "8.0.27",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.3.0.0"
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.4.0.0.1"
   )
 
   val paxExamVersion = "4.13.1"
