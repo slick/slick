@@ -225,6 +225,7 @@ lazy val root =
     .aggregate(slick, codegen, hikaricp, testkit)
     .enablePlugins(OrnatePlugin)
     .settings(
+      name := "slick-root",
       slickGeneralSettings,
       extTarget("root"),
       Docs.docSettings,
