@@ -34,27 +34,23 @@ For Maven projects add the following to your `<dependencies>`:
 </dependency>
 ```
 
-> {.note}
-> In the code examples below we assume the following imports:
->```scala src=../code/CodeGenerator.scala#imports
-> ```
-> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
-
+@@@ note
+ In the code examples below we assume the following imports:
+@@snip [CodeGenerator.scala](../code/CodeGenerator.scala) { #imports }
+If you're new to Slick, please start with the  @ref:[Getting Started](gettingstarted.md) page.
+@@@
 
 Slick's code generator comes with a default runner that can be used from the command line or from Java/Scala. You can simply execute
 
-```scala src=../code/CodeGenerator.scala#default-runner-uri
-```
+@@snip [CodeGenerator.scala](../code/CodeGenerator.scala) { #default-runner-uri }
 
 or
 
-```scala src=../code/CodeGenerator.scala#default-runner
-```
+@@snip [CodeGenerator.scala](../code/CodeGenerator.scala) { #default-runner }
 
 or
 
-```scala src=../code/CodeGenerator.scala#default-runner-with-auth
-```
+@@snip [CodeGenerator.scala](../code/CodeGenerator.scala) { #default-runner-with-auth }
 
 and provide the following values
 
@@ -70,7 +66,7 @@ and provide the following values
 
 Integrated into sbt
 -------------------
-The code generator can be run before every compilation or manually in [sbt].
+The code generator can be run before every compilation or manually in @extref[sbt](sbt:).
 An example project showing both can be [found here](https://github.com/slick/slick-codegen-example).
 
 Generated Code
@@ -83,18 +79,19 @@ The file also contains a `trait Tables` which can be used in the cake pattern.
 If `outputToMultipleFiles` is set to true, the code generator will instead create a `trait` per table.
 `Tables.scala` then stacks all the generated tables. The advantage of this, is that you avoid a potentially huge file
 
-> {.warning}
-> When using the generated code, be careful *not* to mix different profiles accidentally. The
-> default `object Tables` uses the profile used during code generation. Using it together with a different
-> profile for queries will lead to runtime errors. The generated `trait Tables` can be used with a
-> different profile, but be aware, that this is currently untested and not officially supported. It may or
-> may not work in your case. We will officially support this at some point in the future.
+@@@ warning
+When using the generated code, be careful *not* to mix different profiles accidentally. The
+default `object Tables` uses the profile used during code generation. Using it together with a different
+profile for queries will lead to runtime errors. The generated `trait Tables` can be used with a
+different profile, but be aware, that this is currently untested and not officially supported. It may or
+may not work in your case. We will officially support this at some point in the future.
+@@@
 
 Customization
 -------------
 The generator can be flexibly customized by overriding methods to programmatically
 generate any code based on the data model. This can be used for minor customizations
-as well as heavy, model driven code generation, e.g. for framework bindings in [Play],
+as well as heavy, model driven code generation, e.g. for framework bindings in @extref[Play](play:),
 other data-related, repetitive sections of applications, etc.
 
 [This example](https://github.com/slick/slick-codegen-customization-example)
@@ -105,7 +102,7 @@ before compiling the main sources.
 The implementation of the code generator is structured into a small hierarchy of sub-generators responsible
 for different fragments of the complete output. The implementation of each sub-generator can be swapped out
 for a customized one by overriding the corresponding factory method.
-<codegenapi:slick.codegen.SourceCodeGenerator> contains a factory method Table,
+@scaladoc[SourceCodeGenerator](slick.codegen.SourceCodeGenerator) contains a factory method Table,
 which it uses to generate a sub-generator for each table. The sub-generator Table in turn contains
 sub-generators for Table classes, entity case classes, columns, key, indices, etc.
 Custom sub-generators can easily be added as well.
@@ -113,12 +110,11 @@ Custom sub-generators can easily be added as well.
 Within the sub-generators the relevant part of the Slick data model can
 be accessed to drive the code generation.
 
-Please see the [api documentation](codegenapi:slick.codegen.SourceCodeGenerator) for info
+Please see the @scaladoc[api documentation](slick.codegen.SourceCodeGenerator) for info
 on all of the methods that can be overridden for customization.
 
 Here is an example for customizing the generator. Noteworthy, the line `override def hugeClassEnabled = false` 
 disables generation of case classes for tables with more than 22 columns. A `HList` based type
 will be generated instead. So this way you get back the default behavior before the advent of Slick 3.3.
 
-```scala src=../code/CodeGenerator.scala#customization
-```
+@@snip [CodeGenerator.scala](../code/CodeGenerator.scala) { #customization }

@@ -1,7 +1,7 @@
-Upgrade Guides {index="migration; 1.0; upgrading"}
+Upgrade Guides
 ==============
 
-Compatibility Policy {index="source,compatibility; compatibility,source; binary,compatibility; compatibility,binary"}
+Compatibility Policy
 --------------------
 
 Slick 3.4.0 requires 2.12 or 2.13 and Java 8, 11 or higher.
@@ -40,7 +40,7 @@ In other to support `createIfNotExists` and `dropIfExistsPhase`, the following c
 
 Slick 3.3.0 profiles now supports `java.time` types as columns (for example, in `Table` `column` definitions).
 
-If you already have [custom mappings](http://slick.lightbend.com/doc/3.3.0/userdefined.html#scalar-types) for these types,
+If you already have [custom mappings](https://scala-slick.org/doc/3.3.0/userdefined.html#scalar-types) for these types,
 please review the formats in the tables below.
 These formats are the built-in Slick mappings,
 and they are the ones applied when you upgrade to Slick 3.3.0.
@@ -56,10 +56,10 @@ Also of use will be an example of a full mapping, such as: <https://github.com/s
 If you wish to upgrade your application to use the new formats,
 you may need to migrate your database columns to match the Slick column formats.
 
-In the tables that follow there are many similarities between databases.
-However, not all databases can directly map the various `java.time` semantics.
-In these cases, a `VARCHAR` may have been used to store a formatted time representation.
-For more details see the [description of Slick's approach](http://slick.lightbend.com/doc/3.3.0/datetimetypes.html) to these mappings.
+In the tables that follow there are many similarities between databases. However, not all databases can directly map the
+various `java.time` semantics. In these cases, a `VARCHAR` may have been used to store a formatted time representation.
+For more details see the [description of Slick's approach](https://scala-slick.org/doc/3.3.0/datetimetypes.html) to
+these mappings.
 
 #### `slick.jdbc.DB2Profile`
 
@@ -189,10 +189,10 @@ changes that may be required.
 
 Slick's `driver` concept has been renamed to `profile` to end the confusion over Slick drivers vs JDBC drivers.
 All references to `drivers` from now on refer to JDBC drivers. Slick `profiles` can be either abstract
-(like <api:slick.jdbc.JdbcProfile>) or concrete (like <api:slick.jdbc.H2Profile>). The old names are still
+(like @scaladoc[JdbcProfile](slick.jdbc.JdbcProfile)) or concrete (like @scaladoc[H2Profile](slick.jdbc.H2Profile)). The old names are still
 available as deprecated forwarders.
 
-The renaming also affects configuration parameters (for example, for [Databaseconfig](database.md#databaseconfig)).
+The renaming also affects configuration parameters (for example, for  @ref:[Databaseconfig](database.md#databaseconfig)).
 The old parameter names are still supported but their use will generate warnings at runtime.
 
 ### Slick Extensions
@@ -200,13 +200,13 @@ The old parameter names are still supported but their use will generate warnings
 The `Slick Extensions` package with additional profiles for Oracle, DB2 and SQL Server does not exist
 anymore for Slick 3.2. These profiles have been added to the core Slick package:
 
-* <api:slick.jdbc.OracleProfile>
-* <api:slick.jdbc.DB2Profile>
-* <api:slick.jdbc.SQLServerProfile>
+* @scaladoc[OracleProfile](slick.jdbc.OracleProfile)
+* @scaladoc[DB2Profile](slick.jdbc.DB2Profile)
+* @scaladoc[SQLServerProfile](slick.jdbc.SQLServerProfile)
 
 ### Database Action Scheduling
 
-When configuring a [database connection](database.md) with a connection pool with a limited maximum size, you
+When configuring a  @ref:[database connection](database.md) with a connection pool with a limited maximum size, you
 should always specify the correct size limit in Slick. This is necessary to prevent deadlocks when using transactions
 (or other pinned sessions). The configuration is done automatically when using Slick's built-in HikariCP support.
 You only need to configure it manually if you use a connection pool through a JDBC `DataSource` or JNDI name.

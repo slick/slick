@@ -32,6 +32,6 @@ Flyway
 [Flyway](https://flywaydb.org/) is a database migration tool that can
 run SQL or Java against a database.
 
-[SBT integration](https://flywaydb.org/documentation/sbt/) is available,
-and there is an example [Play project](https://github.com/playframework/play-isolated-slick#database-migration)
+[SBT integration](https://flywaydb.org/documentation/sbt/) is available, and there is an
+example [Play project](https://github.com/playframework/play-scala-isolated-slick-example#database-migration)
 that shows Flyway in a module with Slick code generation.

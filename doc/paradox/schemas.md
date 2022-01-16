@@ -1,26 +1,25 @@
-Schemas {index=schema}
+Schemas
 =======
 
 This chapter describes how to work with database schemas in Scala code, in particular how to write
 them manually, which is useful when you start writing an application without a pre-existing database.
-If you already have a schema in the database, you can also use the [code generator](code-generation.md)
+If you already have a schema in the database, you can also use the  @ref:[code generator](code-generation.md)
 to take this work off your hands.
 
-> {.note}
-> In the code examples below we assume the following imports:
->```scala src=../code/LiftedEmbedding.scala#imports
-> ```
-> If you're new to Slick, please start with the [Getting Started](gettingstarted.md) page.
+@@@ note
+In the code examples below we assume the following imports:
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #imports }
+If you're new to Slick, please start with the  @ref:[Getting Started](gettingstarted.md) page.
+@@@
 
-Table Rows {index="table; row; ColumnOption; primary key; default; type; AutoInc; generated; identity; *; star projection; schema,name; name,schema"}
+Table Rows
 ----------
 
 In order to use the Scala API for type-safe queries, you need to
 define `Table` row classes for your database schema. These describe the
 structure of the tables:
 
-```scala src=../code/LiftedEmbedding.scala#tabledef
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #tabledef }
 
 All columns are defined through the `column` method. Each column has a
 Scala type and a column name for the database (usually in upper-case). The
@@ -40,10 +39,11 @@ individual database profiles):
 Nullable columns are represented by `Option[T]` where `T` is one of the
 supported primitive types.
 
-> {.note}
-> Note: Currently all operations on Option values use the database's null propagation semantics
-> which may differ from Scala's Option semantics. In particular, `None === None` evaluates
-> to `None`. This behaviour may change in a future major release of Slick.
+@@@ note
+Note: Currently all operations on Option values use the database's null propagation semantics
+which may differ from Scala's Option semantics. In particular, `None === None` evaluates
+to `None`. This behaviour may change in a future major release of Slick.
+@@@
 
 After the column name, you can add optional column options to a `column`
 definition. The applicable options are available through the table's `O`
@@ -76,18 +76,16 @@ types.
 If your database layout requires *schema names*, you can specify the schema
 name for a table in front of the table name, wrapped in `Some()`:
 
-```scala src=../code/LiftedEmbedding.scala#schemaname
-```
-[See notes here on the java.time.* types](datetimetypes.md)
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #schemaname } 
+@ref:[See notes here on the java.time.* types](datetimetypes.md)
 
-Table Query {index=TableQuery}
+Table Query
 -----------
 
 Alongside the `Table` row class you also need a `TableQuery` value
 which represents the actual database table:
 
-```scala src=../code/LiftedEmbedding.scala#tablequery
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #tablequery }
 
 The simple `TableQuery[T]` syntax is a
 macro which expands to a proper TableQuery instance that calls the table's
@@ -96,17 +94,15 @@ constructor (`new TableQuery(new T(_))`).
 You can also extend `TableQuery` to use it as a convenient namespace for
 additional functionality associated with the table:
 
-```scala src=../code/LiftedEmbedding.scala#tablequery2
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #tablequery2 }
 
-Mapped Tables {index="table,mapped; mapped,table; <>; entity; tupled; unapply"}
+Mapped Tables
 -------------
 
 It is possible to define a mapped table that uses a custom type for its `*`
 projection by adding a bi-directional mapping with the `<>` operator:
 
-```scala src=../code/LiftedEmbedding.scala#mappedtable
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtable }
 
 It is optimized for case classes (with a simple `apply` method and an
 `unapply` method that wraps its result in an `Option`) but it can also
@@ -117,58 +113,53 @@ to the mapping functions.
 
 For case classes with hand-written companion objects, `.tupled` only works
 if you manually extend the correct Scala function type. Alternatively you can use
-`(User.apply _).tupled`. See [](SI:3664) and [](SI:4808).
+`(User.apply _).tupled`. See @extref[SI-3664](SI:3664) and [SI-4808](SI:4808).
 
 It is also possible to use the convenience method `mapTo` in most circumstances,
 which uses a compile-time macro to automatically fill in an implementation like the above.
 
-```scala src=../code/LiftedEmbedding.scala#maptotable
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #maptotable }
 
 The macro should work for most case classes, even those with hand-written companion
 objects, however there are still come cases where you will have to fall back to the
 above `<>` operator with `(User.apply _).tupled`.
 
-Constraints {index="constraint; index; key,foreign; foreign,key; key,primary; primary;key"}
+Constraints
 -----------
 
 A foreign key constraint can be defined with a Table's
-<api:slick.relational.RelationalTableComponent$Table@foreignKey[P,PU,TT%3C:AbstractTable[_],U](String,P,TableQuery[TT])((TT)=%3EP,ForeignKeyAction,ForeignKeyAction)(Shape[_%3C:FlatShapeLevel,TT,U,_],Shape[_%3C:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U]>
+@scaladoc[foreignKey](slick.relational.RelationalTableComponent$Table#foreignKey[P,PU,TT%3C:AbstractTable[_],U](String,P,TableQuery[TT])((TT)=%3EP,ForeignKeyAction,ForeignKeyAction)(Shape[_%3C:FlatShapeLevel,TT,U,_],Shape[_%3C:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U])
 method. It first takes a name for the constraint, the referencing column(s) and the referenced table. The second
 argument list takes a function from the referenced table to its referenced column(s) as well as
-<api:slick.model.ForeignKeyAction$> for `onUpdate` and `onDelete`, which are optional and default to
-<api:slick.model.ForeignKeyAction$$NoAction$>. When creating the DDL statements for the table, the foreign key
-definition is added to it.
+@scaladoc[ForeignKeyAction](slick.model.ForeignKeyAction$) for `onUpdate` and `onDelete`, which are optional and default
+to @scaladoc[NoAction](slick.model.ForeignKeyAction$$NoAction$). When creating the DDL statements for the table, the
+foreign key definition is added to it.
 
-```scala src=../code/LiftedEmbedding.scala#foreignkey
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #foreignkey }
 
 Independent of the actual constraint defined in the database, such a foreign
 key can be used to navigate to the referenced data with a *join*. For this
 purpose, it behaves the same as a manually defined utility method for finding
 the joined data:
 
-```scala src=../code/LiftedEmbedding.scala#foreignkeynav
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #foreignkeynav }
 
 A primary key constraint can be defined in a similar fashion by adding a
 method that calls `primaryKey`. This is useful for defining compound
 primary keys (which cannot be done with the `O.PrimaryKey` column option):
 
-```scala src=../code/LiftedEmbedding.scala#primarykey
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #primarykey }
 
 Other indexes are defined in a similar way with the `index` method. They
 are non-unique by default unless you set the `unique` parameter:
 
-```scala src=../code/LiftedEmbedding.scala#index
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #index }
 
 All constraints are discovered reflectively by searching for methods with
 the appropriate return types which are defined in the table. This behavior
 can be customized by overriding the `tableConstraints` method.
 
-Data Definition Language {index="DDL;create;drop"}
+Data Definition Language
 ------------------------
 
 DDL statements for a table can be created with its `TableQuery`'s `schema` method. Multiple
@@ -176,11 +167,14 @@ DDL statements for a table can be created with its `TableQuery`'s `schema` metho
 and drop all entities in the correct order, even in the presence of cyclic dependencies between
 tables. The `create`, `createIfNotExists`, `dropIfExists`, `drop` and `truncate` methods produce the Actions for executing the DDL statements. To safely create and drop tables use the methods `createIfNotExists` and `dropIfExists` :
 
-```scala src=../code/LiftedEmbedding.scala#ddl
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #ddl }
 
 You can use the the `statements` method to get the SQL code, like for most other SQL-based
 Actions. Schema Actions are currently the only Actions that can produce more than one statement.
 
-```scala src=../code/LiftedEmbedding.scala#ddl2
-```
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #ddl2 }
+
+
+@@@ index
+  * @ref:[.](datetimetypes.md)
+@@@
