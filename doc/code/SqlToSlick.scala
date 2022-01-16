@@ -159,13 +159,13 @@ object SqlToSlick extends App {
 
       ;{
         val sql =
-          //#sqlQueryProjection*
+          //#sqlQueryProjectionWildcard
           sql"select * from PERSON".as[Person]
-          //#sqlQueryProjection*
+          //#sqlQueryProjectionWildcard
         val slick =
-          //#slickQueryProjection*
+          //#slickQueryProjectionWildcard
           people.result
-          //#slickQueryProjection*
+          //#slickQueryProjectionWildcard
         val (sqlRes, slickRes) = Await.result(db.run(sql zip slick), Duration.Inf)
         assert(sqlRes == slickRes)
         assert(sqlRes.size > 0)

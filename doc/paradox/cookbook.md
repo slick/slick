@@ -1,33 +1,31 @@
-# Cookbook {index="cookbook;FAQ"}
+# Cookbook
 
 This section of the manual is for solutions to common questions.
 
-## Mapping more than 22 fields {index="22 fields"}
+## Mapping more than 22 fields
 
-### Problem
+<h3>Problem</h3>
 You have a table with more than 22 fields, and the Scala 2 compiler has told you:
 
 ```text
 too many elements for tuple: 23, allowed: 22
 ```
 
-### Solution
+<h3>Solution</h3>
 Switch from using a tuple in your default projection to using an HList.
 
 First, add the HList imports:
 
-```scala src=../code/Cookbook.scala#imports22
-```
+@@snip [Cookbook.scala](../code/Cookbook.scala) { #imports22 }
 
 Your case class and table definition are as unchanged,
 but your default projection ( the ``*`` method) changes:
 
-```scala src=../code/Cookbook.scala#example22
-```
+@@snip [Cookbook.scala](../code/Cookbook.scala) { #example22 }
 
 ## Track the Number of Query Compilations
 
-### Problem
+<h3>Problem</h3>
 
 Query compilation can be expensive. 
 We can use the `Compiled` construct to avoid re-compiling queries. 
@@ -38,11 +36,10 @@ To identify this type of regression, we'd like to track the number of query comp
 We might then expose this count as an application metric and setup an alert which triggers
 when an abnormally high number of query compilations occur.
 
-### Solution
+<h3>Solution</h3>
 
 To track the number of query compilations, we can override the `computeQueryCompiler` method in our profile. 
 The new `QueryCompiler` will have an additional phase, which simply increments a counter.
 
 
-```scala src=../code/Cookbook.scala#exampleTrackNumberOfQueryCompilations
-```
+@@snip [Cookbook.scala](../code/Cookbook.scala) { #exampleTrackNumberOfQueryCompilations }

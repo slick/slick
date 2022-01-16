@@ -1,4 +1,3 @@
-import Docs.docDir
 import com.jsuereth.sbtpgp.PgpKeys
 
 
@@ -91,20 +90,20 @@ ThisBuild / versionScheme := Some("pvp")
 
 ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
-ThisBuild / docDir := (root / baseDirectory).value / "doc"
+val docDir = settingKey[File]("Base directory for documentation")
+
+ThisBuild / docDir := (site / baseDirectory).value
 
 
 lazy val slick =
   project
-    .enablePlugins(SDLCPlugin, MimaPlugin)
+    .enablePlugins(MimaPlugin)
     .settings(
       slickGeneralSettings,
       compilerDependencySetting("macro"),
       inConfig(MacroConfig)(Defaults.configSettings),
       FMPP.preprocessorSettings,
       extTarget("slick"),
-      Docs.scaladocSettings,
-
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       libraryDependencies ++= Dependencies.mainDependencies,
@@ -128,13 +127,11 @@ lazy val testkit =
   project
     .in(file("slick-testkit"))
     .configs(DocTest)
-    .enablePlugins(SDLCPlugin)
     .dependsOn(slick, codegen % "compile->compile", hikaricp)
     .settings(
       slickGeneralSettings,
       compilerDependencySetting("provided"),
       inConfig(DocTest)(Defaults.testSettings),
-      Docs.scaladocSettings,
       TypeProviders.codegenSettings,
       extTarget("testkit"),
       name := "Slick-TestKit",
@@ -162,26 +159,29 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
-      Docs.buildCapabilitiesTable := {
+      buildCapabilitiesTable := {
         val logger = ConsoleLogger()
-        Run.run("com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
-          (Compile / fullClasspath).value.map(_.data),
-          Seq(Docs.docDir.value / "capabilities.md") map (_.toString),
-          logger)(runner.value)
+        val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
+        Run.run(
+          mainClass = "com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
+          classpath = (Compile / fullClasspath).value.map(_.data),
+          options = Seq(file.toString),
+          log = logger
+        )(runner.value)
+          .map(_ => file)
+          .get
       },
-      DocTest / unmanagedSourceDirectories += Docs.docDir.value / "code",
-      DocTest / unmanagedResourceDirectories += Docs.docDir.value / "code"
+      DocTest / unmanagedSourceDirectories += docDir.value / "code",
+      DocTest / unmanagedResourceDirectories += docDir.value / "code"
     )
 
 lazy val codegen =
   project
     .in(file("slick-codegen"))
     .dependsOn(slick)
-    .enablePlugins(SDLCPlugin)
     .settings(
       slickGeneralSettings,
       extTarget("codegen"),
-      Docs.scaladocSettings,
       name := "Slick-CodeGen",
       description := "Code Generator for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-codegen"),
@@ -192,12 +192,10 @@ lazy val codegen =
 lazy val hikaricp =
   project
     .in(file("slick-hikaricp"))
-    .enablePlugins(SDLCPlugin)
     .dependsOn(slick)
     .settings(
       slickGeneralSettings,
       extTarget("hikaricp"),
-      Docs.scaladocSettings,
       name := "Slick-HikariCP",
       description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-hikaricp"),
@@ -219,16 +217,36 @@ lazy val `reactive-streams-tests` =
       commonTestResourcesSetting
     )
 
+lazy val site =
+  project
+    .in(file("doc"))
+    .enablePlugins(Docs)
+    .settings(
+      scaladocDirs := Seq(
+        "api" -> (slick / Compile / doc).value,
+        "codegen-api" -> (codegen / Compile / doc).value,
+        "hikaricp-api" -> (hikaricp / Compile / doc).value,
+        "testkit-api" -> (testkit / Compile / doc).value
+      ),
+      preprocessDocs := {
+        val file = (testkit / buildCapabilitiesTable).value
+        IO.copyFile(file, (preprocessDocs / target).value / file.getName)
+        preprocessDocs.value
+      },
+      publishArtifact := false,
+      publish := {},
+      publishLocal := {},
+      test := {},
+      testOnly := {},
+    )
+
 lazy val root =
   project
     .in(file("."))
-    .aggregate(slick, codegen, hikaricp, testkit)
-    .enablePlugins(OrnatePlugin)
+    .aggregate(slick, codegen, hikaricp, testkit, site)
     .settings(
       slickGeneralSettings,
       extTarget("root"),
-      Docs.docSettings,
-      sourceDirectory := file(target.value + "/root-src"),
       publishArtifact := false,
       publish := {},
       publishLocal := {},
@@ -283,12 +301,6 @@ lazy val root =
           testkit / Compile / packageDoc,
           versionPolicyCheck
         ).value
-      },
-      libraryDependencies := {
-        CrossVersion.partialVersion(scalaVersion.value) match {
-          case Some((2, 12)) => libraryDependencies.value
-          case _             => libraryDependencies.value.filter(!_.configurations.contains(Ornate.name))
-        }
       }
     )
 

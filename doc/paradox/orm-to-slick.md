@@ -3,17 +3,20 @@ Coming from ORM to Slick
 
 Introduction
 -------------
-Slick is not an object-relational mapper (ORM) like Hibernate or other [JPA]-based products. Slick is a data persistence solution like ORMs and naturally shares some concepts, but it also has significant differences. This chapter explains the differences in order to help you get the best out of Slick and avoid confusion for those familiar with ORMs. We explain how Slick manages to avoid many of the problems often referred to as the object-relational impedance mismatch.
+Slick is not an object-relational mapper (ORM) like Hibernate or other @extref[JPA](jpa:)-based products. Slick is a data persistence
+solution like ORMs and naturally shares some concepts, but it also has significant differences. This chapter explains
+the differences in order to help you get the best out of Slick and avoid confusion for those familiar with ORMs. We
+explain how Slick manages to avoid many of the problems often referred to as the object-relational impedance mismatch.
 
 A good term to describe Slick is functional-relational mapper. Slick allows working with relational data much like with immutable collections and focuses on flexible query composition and strongly controlled side-effects. ORMs usually expose mutable object-graphs, use side-effects like read- and write-caches and hard-code support for anticipated use-cases like inheritance or relationships via association tables. Slick focuses on getting the best out of accessing a relational data store. ORMs focus on persisting an object-graph.
 
-ORMs are a natural approach when using databases from object-oriented languages. They try to allow working with persisted object-graphs partly as if they were completely in memory. Objects can be modified, associations can be changed and the object graph can be traversed. In practice this is not exactly easy to achieve due to the so called object-relational impedance mismatch. It makes ORMs hard to implement and often complicated to use for more than simple cases and if performance matters. Slick in contrast does not expose an object-graph. It is inspired by SQL and the relational model and mostly just maps their concepts to the most closely corresponding, type-safe Scala features. Database queries are expressed using a restricted, immutable, purely-functional subset of Scala much like collections. Slick also offers [first-class SQL support](sql.md) as an alternative.
+ORMs are a natural approach when using databases from object-oriented languages. They try to allow working with persisted object-graphs partly as if they were completely in memory. Objects can be modified, associations can be changed and the object graph can be traversed. In practice this is not exactly easy to achieve due to the so called object-relational impedance mismatch. It makes ORMs hard to implement and often complicated to use for more than simple cases and if performance matters. Slick in contrast does not expose an object-graph. It is inspired by SQL and the relational model and mostly just maps their concepts to the most closely corresponding, type-safe Scala features. Database queries are expressed using a restricted, immutable, purely-functional subset of Scala much like collections. Slick also offers  @ref:[first-class SQL support](sql.md) as an alternative.
 
 In practice, ORMs often suffer from conceptual problems of what they try to achieve, from mere problems of the implementations and from mis-use, because of their complexity. In the following we look at many features of ORMs and what you would use with Slick instead. We'll first look at how to work with the object graph. We then look at a series of particular features and use cases and how to handle them with Slick.
 
 Configuration
 -------------
-Some ORMs use extensive configuration files. Slick is configured using small amounts of Scala code. You have to provide information about how to [connect to the database](database.md) and write or auto-generate a [database schema](schemas.md) description if you want Slick to type-check your queries. Everything else like [relationship definitions](#relationships) beyond foreign keys are ordinary Scala code, which can use familiar abstraction methods for re-use.
+Some ORMs use extensive configuration files. Slick is configured using small amounts of Scala code. You have to provide information about how to  @ref:[connect to the database](database.md) and write or auto-generate a  @ref:[database schema](schemas.md) description if you want Slick to type-check your queries. Everything else like [relationship definitions](#relationships) beyond foreign keys are ordinary Scala code, which can use familiar abstraction methods for re-use.
 
 Mapping configuration
 ---------------------
@@ -24,10 +27,9 @@ The later examples use the following database schema
 
 mapped to Slick using the following code:
 
-```scala src=../code/SqlToSlick.scala#tableClasses
-```
+@@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #tableClasses }
 
-Tables can alternatively be mapped to case classes. Similar code can be [auto-generated](code-generation.md) or [hand-written](schemas.md).
+Tables can alternatively be mapped to case classes. Similar code can be  @ref:[auto-generated](code-generation.md) or  @ref:[hand-written](schemas.md).
 
 In ORMs you often provide your mapping specification in a configuration file. In Slick you provide it as Scala types like above, which are used to type-check Slick queries. A difference is that the Slick mapping is conceptually very simple. It only describes database tables and optionally maps rows to case classes or something else using arbitrary factories and extractors. It does contain information about foreign keys, but nothing else about [relationships](#relationships) or other patterns. These are mapped using re-usable queries fragments instead.
 
@@ -38,28 +40,24 @@ Navigating the object graph
 
 This chapter could also be called strict vs. lazy or imperative vs. declarative. One common feature ORMs provide is using a persisted object graph just as if it was in-memory. And since it is not, artifacts like members or related objects are usually loaded ad-hoc only when they are needed. To make this happen, ORMs implement or intercept method calls, which look like they happen in-memory, but instead execute database queries as needed to return the desired results. Let's look at an example using a hypothetical ORM:
 
-```scala src=../code/OrmToSlick.scala#ormObjectNavigation
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #ormObjectNavigation }
 
 How many database round trips does this require? In fact reasoning about this question for different code is one of the things you need to devote the most time to when learning the collections-like API of an ORM. What usually happens is, that the ORM would do an immediate database round trip for `getByIds` and return the resulting people. Then `map` would be a Scala List method and `.map(_.address)` accesses the `address` of each person. An ORM would witness the `address` accesses one-by-one not knowing upfront that they happen in a loop. This often leads to an additional database round trip for each person, which is not ideal (n+1 problem), because database round trips are expensive. To solve the problem, ORMs often provide means to work around this, by basically telling them about the future, so they can aggregate multiple upcoming round trips into fewer more efficient ones.
 
-```scala src=../code/OrmToSlick.scala#ormPrefetch
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #ormPrefetch }
 
 Here the prefetch method instructs the hypothetical ORM to load all addresses immediately with the people, often in only one or two database round trips. The addresses are then stored in a cache many ORMs maintain. The later `.map(_.address)` call could then be fully served from the cache. Of course this is redundant as you basically need to provide the mapping to addresses twice and if you forget to prefetch you will have poor performance. How you specify the pre-fetching rules depends on the ORM, often using external configuration or inline like here.
 
 Slick works differently. To do the same in Slick you would write the following. The type annotations are optional but shown here for clarity.
 
-```scala src=../code/OrmToSlick.scala#slickNavigation
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickNavigation }
 
 As we can see it looks very much like collection operations but the values we get are of type `Query`. They do not
 store results, only a plan of the operations that are needed to create a SQL query that produces the results when
 needed. No database round trips happen at all in our example. To actually fetch results, we have to compile the
-query to a [database Action](database.md) with `.result` and then `run` it on the Database.
+query to a  @ref:[database Action](database.md) with `.result` and then `run` it on the Database.
 
-```scala src=../code/OrmToSlick.scala#slickExecution
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickExecution }
 
 A single query is executed and the results returned. This makes database round trips very explicit and easy to reason about. Achieving few database round trips is easy.
 
@@ -77,8 +75,7 @@ ORMs often come with declarative query languages like JPA's JQL or Criteria API.
 
 Quite commonly,  these languages, for example HQL, but also SQL are embedded into programs as Strings. Here is an example for HQL.
 
-```scala src=../code/OrmToSlick.scala#hqlQuery
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #hqlQuery }
 
 Strings are a very simple way to embed an arbitrary language and in many programming languages the only way without changing the compiler, for example in Java. While simple, this kind of embedding has significant limitations.
 
@@ -92,32 +89,27 @@ In Java and many other languages, strings are the only way to embed a concise qu
 
 Instead of getting the ultimate flexibility for the embedded language, an alternative approach is to go with the extensibility features of the host language and use those. Object-oriented languages like Java and Scala allow extensibility through the definition of APIs consisting of objects and methods. JPA's Criteria API use this concept and so does Slick. This allows the host language tools to partially understand the embedded language and provide better support for the features mentioned earlier. Here is an example using Criteria Queries.
 
-```scala src=../code/OrmToSlick.scala#criteriaQuery
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #criteriaQuery }
 
 A method based embedding makes queries compositional. Factoring out filtering by ids becomes easy:
 
-```scala src=../code/OrmToSlick.scala#criteriaQueryComposition
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #criteriaQueryComposition }
 
 Of course ids are a trivial example, but this becomes very useful for more complex queries.
 
 Java APIs like JPA's Criteria API do not use Scala's operator overloading capabilities. This can lead to more cumbersome and less familiar code when expressing queries. Let's query for all people younger 5 or older than 65 for example.
 
-```scala src=../code/OrmToSlick.scala#criteriaComposition
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #criteriaComposition }
 
 With Scala's operator overloading we can do better and that's what Slick uses. Queries are very concise. The same query in Slick would look like this:
 
-```scala src=../code/OrmToSlick.scala#slickQuery
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickQuery }
 
-There are some limitations to Scala's overloading capabilities that affect Slick. In queries, one has to use `===` instead of `==`, `=!=` instead of `!=` and `++` for string concatenation instead of `+`.  Also it is not possible to overload `if` expressions in Scala. Instead Slick comes with a small [DSL for SQL case expressions](sql-to-slick.md#case).
+There are some limitations to Scala's overloading capabilities that affect Slick. In queries, one has to use `===` instead of `==`, `=!=` instead of `!=` and `++` for string concatenation instead of `+`.  Also it is not possible to overload `if` expressions in Scala. Instead Slick comes with a small @ref:[DSL for SQL case expressions](sql-to-slick.md#case).
 
 As already mentioned, we are working with placeholder values, merely describing the query, not executing it. Here's the same expression again with added type annotations to allow us looking behind the scenes a bit:
 
-```scala src=../code/OrmToSlick.scala#slickQueryWithTypes
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickQueryWithTypes }
 
 `Query` marks collection-like query expressions, e.g. a whole table. `People` is the Slick Table subclass defined for table person. In this context it may be confusing that the value is used rather as a prototype for a row here. It has members of type `Rep` representing the individual columns. Expressions based on these columns result in other expressions of type `Rep`. Here we are using several `Rep[Int]` to compute a `Rep[Boolean]`, which we are using as the filter expression. Internally, Slick builds a tree from this, which represents the operations and is used to produce the corresponding SQL code. We often call this process of building up expression trees encapsulated in place-holder values as lifting expressions, which is why we also call this query interface the *lifted embedding* in Slick.
 
@@ -125,13 +117,11 @@ It is important to note that Scala allows to be very type-safe here. E.g. Slick 
 
 A nice property of a Slick-like query language is that it can be used with Scala's comprehension syntax, which is just Scala-builtin syntactic sugar for collections operations. The above example can alternatively be written as
 
-```scala src=../code/OrmToSlick.scala#slickForComprehension
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickForComprehension }
 
 Scala's comprehension syntax looks much like SQL or ORM query languages. It however lacks syntactic support for some constructs like sorting and grouping, for which one has to use the method-based api, e.g.
 
-```scala src=../code/OrmToSlick.scala#slickOrderBy
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickOrderBy }
 
 Despite the syntactic limitations, the comprehension syntax is convenient when dealing with multiple inner joins.
 
@@ -145,8 +135,7 @@ Query granularity
 -----------------
 With ORMs it is not uncommon to treat objects or complete rows as the smallest granularity when loading data. This is not necessarily a limitation of the frameworks, but a habit of using them. With Slick it is very much encouraged to only fetch the data you actually need. While you can map rows to classes with Slick, it is often more efficient to not use that feature, but to restrict your query to the data you actually need in that moment. If you only need a person's name and age, just map to those and return them as a tuple.
 
-```scala src=../code/OrmToSlick.scala#slickMap
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickMap }
 
 This allows you to be very precise about what data is actually transferred.
 
@@ -154,13 +143,11 @@ Read caching
 ------------
 Slick doesn't cache query results. Working with Slick is like working with JDBC in this regard. Many ORMs come with read and write caches. Caches are side-effects. They can be hard to reason about. It can be tricky to manage cache consistency and lifetime.
 
-```scala src=../code/OrmToSlick.scala#ormGetById
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #ormGetById }
 
 This call may be served from the database or from a cache. It is not clear at the call site what the performance is. With Slick it is very clear that executing a query leads to a database round trip and that Slick doesn't interfere with member accesses on objects.
 
-```scala src=../code/OrmToSlick.scala#slickRun
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickRun }
 
 Slick returns a consistent, immutable snapshot of a fraction of the database at that point in time. If you need consistency over multiple queries, use transactions.
 
@@ -168,23 +155,19 @@ Writes (and caching)
 --------------------
 Writes in many ORMs require write caching to be performant.
 
-```scala src=../code/OrmToSlick.scala#ormWriteCaching
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #ormWriteCaching }
 
 Here our hypothetical ORM records changes to the object and the `.save` method syncs back changes into the database in a single round trip rather than one per member. In Slick you would do the following instead:
 
-```scala src=../code/OrmToSlick.scala#slickUpdate
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickUpdate }
 
 Slick embraces declarative transformations. Rather than modifying individual members of objects one after the other, you state all modifications at once and Slick creates a single database round trip from it without using a cache. New Slick users seem to be often confused by this syntax, but it is actually very neat. Slick unifies the syntax for queries, inserts, updates and deletes. Here `personQuery` is just a query. We could use it to fetch data. But instead, we can also use it to update the columns specified by the query. Or we can use it do delete the rows.
 
-```scala src=../code/OrmToSlick.scala#slickDelete
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickDelete }
 
 For inserts, we insert into the query, that resembles the whole table and can select individual columns in the same way.
 
-```scala src=../code/OrmToSlick.scala#slickInsert
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickInsert }
 
 Relationships
 -------------
@@ -192,30 +175,25 @@ ORMs usually provide built-in, hard-coded support for 1-to-many and many-to-many
 
 Here is an example for person and addresses.
 
-```scala src=../code/OrmToSlick.scala#slickRelationships
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickRelationships }
 
 A common question for new Slick users is how they can follow a relationship on a result. In an ORM you could do something like this:
 
-```scala src=../code/OrmToSlick.scala#relationshipNavigation
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #relationshipNavigation }
 
 As explained earlier, Slick does not allow navigating the object-graph as if data was in memory, because of the problem that comes with it. Instead of navigating relationships on results you write new queries instead.
 
-```scala src=../code/OrmToSlick.scala#slickRelationships2
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickRelationships2 }
 
 If you leave out the optional type annotation and some intermediate vals it is very clean. And it is very clear where database round trips happen.
 
 A variant of this question Slick new comers often ask is how they can do something like this in Slick:
 
-```scala src=../code/OrmToSlick.scala#relationshipNavigation2
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #relationshipNavigation2 }
 
 The problem is that this hard-codes that a Person requires an Address. It cannot be loaded without it. This doesn't fit to Slick's philosophy of giving you fine-grained control over what you load exactly. With Slick it is advised to map one table to a tuple or case class without them having object references to related objects. Instead you can write a function that joins two tables and returns them as a tuple or association case class instance, providing an association externally, not strongly tied one of the classes.
 
-```scala src=../code/OrmToSlick.scala#associationTuple
-```
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #associationTuple }
 
 An alternative approach is giving your classes Option-typed members referring to related objects, where None means that the related objects have not been loaded yet. However this is less type-safe than using a tuple or case class, because it cannot be statically checked, if the related object is loaded.
 
@@ -230,4 +208,4 @@ Slick does not persist arbitrary object-graphs. It rather exposes the relational
 Code-generation
 ---------------
 
-Many of the concepts described above can be abstracted over using Scala code to avoid repetition. There are cases however, where you reach the limits of Scala's type system's abstraction capabilities. Code generation offers a solution to this. Slick comes with a very flexible and fully customizable [code generator](code-generation.md), which can be used to avoid repetition in these cases. The code generator operates on the meta data of the database. Combine it with your own extra meta data if needed and use it to generate Slick types, relationship accessors, association classes, etc. For more info see our Scala Days 2014 talk at <https://scala-slick.org/docs/>.
+Many of the concepts described above can be abstracted over using Scala code to avoid repetition. There are cases however, where you reach the limits of Scala's type system's abstraction capabilities. Code generation offers a solution to this. Slick comes with a very flexible and fully customizable  @ref:[code generator](code-generation.md), which can be used to avoid repetition in these cases. The code generator operates on the meta data of the database. Combine it with your own extra meta data if needed and use it to generate Slick types, relationship accessors, association classes, etc. For more info see our Scala Days 2014 talk at <https://scala-slick.org/docs/>.

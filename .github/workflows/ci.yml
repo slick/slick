@@ -86,6 +86,28 @@ jobs:
       env:
         TZ: Asia/Kamchatka
 
+  deploy_docs:
+    name: Deploy Docs
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - uses: ts-graphviz/setup-graphviz@v1
+
+    - name: Set up JDK
+      uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: 8
+
+    - name: Publish docs to website
+      run: |
+        echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
+        GIT_SSH_COMMAND="ssh -i deploy-key" sbt site/deployDocs    
+
   publish:
     name: Release
     needs: [build]
