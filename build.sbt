@@ -1,4 +1,5 @@
 import com.jsuereth.sbtpgp.PgpKeys
+import com.typesafe.sbt.git.DefaultReadableGit
 
 
 val testAll = taskKey[Unit]("Run all tests")
@@ -17,10 +18,15 @@ val MacroConfig = config("macro")
 
 
 def scaladocSourceUrl(dir: String) =
-  Compile / doc / scalacOptions ++= Seq(
-    "-doc-source-url",
-    s"https://github.com/slick/slick/blob/${Docs.versionTag(version.value)}/$dir/src/main€{FILE_PATH}.scala"
-  )
+  Compile / doc / scalacOptions ++= {
+    val ref =
+      new DefaultReadableGit(baseDirectory.value)
+        .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
+    Seq(
+      "-doc-source-url",
+      s"https://github.com/slick/slick/blob/$ref/$dir/src/main€{FILE_PATH}.scala"
+    )
+  }
 
 def slickGeneralSettings =
   Seq(
