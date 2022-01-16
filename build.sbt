@@ -35,7 +35,7 @@ def slickGeneralSettings =
     sonatypeProfileName := "com.typesafe",
     homepage := Some(url("https://scala-slick.org")),
     startYear := Some(2008),
-    licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/master/LICENSE.txt")),
+    licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/main/LICENSE.txt")),
     developers :=
       List(
         Developer("szeiger", "Stefan Zeiger", "", url("http://szeiger.de")),
