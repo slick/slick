@@ -9,13 +9,14 @@ on:
 
 jobs:
   test-deploy-key:
+    runs-on: ubuntu-latest
     steps:
      - run: |
          echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
          chmod 600 deploy-key
          ssh -vT -i $(pwd)/deploy-key git@github.com
 
-build:
+  build:
     name: Build and Test
     runs-on: ubuntu-latest
 
