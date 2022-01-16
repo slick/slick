@@ -107,7 +107,7 @@ jobs:
     - name: Publish docs to website
       run: |
         echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
-        GIT_SSH_COMMAND="ssh -i deploy-key" sbt site/deployDocs    
+        GIT_SSH_COMMAND="ssh -i $(pwd)/deploy-key" sbt site/deployDocs    
 
   publish:
     name: Release
