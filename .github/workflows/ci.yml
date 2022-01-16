@@ -114,11 +114,6 @@ jobs:
     if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        scala: [2.12.15]
-        java: [8]
-
     steps:
     - uses: actions/checkout@v2
       with:
@@ -130,7 +125,7 @@ jobs:
       uses: actions/setup-java@v2
       with:
         distribution: adopt
-        java-version: ${{ matrix.java }}
+        java-version: 8
 
     - name: Publish artifacts to Maven Central
       env:
@@ -138,10 +133,4 @@ jobs:
         PGP_SECRET: ${{ secrets.PGP_SECRET }}
         SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
         SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-      run: sbt ++${{ matrix.scala }} ci-release
-
-    - name: Publish docs to website
-      run: |
-        sbt ++${{ matrix.scala }} doc
-        echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
-        ./publish-docs.sh
+      run: sbt ci-release
