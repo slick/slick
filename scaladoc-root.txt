@@ -1,4 +1,4 @@
-<a style="float:right" href="https://github.com/slick/slick/blob/master/scaladoc-root.txt">edit this text on github</a>
+<a style="float:right" href="https://github.com/slick/slick/blob/main/scaladoc-root.txt">edit this text on github</a>
 <img src="https://scala-slick.org/resources/images/slick-logo.png" alt="Slick logo" />
 <h2>Scala Language-Integrated Connection Kit</h2>
 This is the API documentation for the <a href="https://scala-slick.org" target="_top">Slick</a> database library.

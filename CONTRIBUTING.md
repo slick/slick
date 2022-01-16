@@ -15,7 +15,7 @@ These guidelines mainly applies to Typesafe’s “mature” projects - not nece
 
 ## General Workflow
 
-This is the process for committing code into master. There are of course exceptions to these rules, for example minor changes to comments and documentation, fixing a broken build etc.
+This is the process for committing code into main. There are of course exceptions to these rules, for example minor changes to comments and documentation, fixing a broken build etc.
 
 1. Make sure you have signed the [Typesafe CLA](http://www.lightbend.com/contribute/cla), if not, sign it online.
 2. Before starting to work on a feature or a fix, you have to make sure that:
@@ -27,7 +27,7 @@ This is the process for committing code into master. There are of course excepti
 4. When the feature or fix is completed you should open a [Pull Request](https://help.github.com/articles/using-pull-requests) on GitHub.
 5. The Pull Request should be reviewed by other maintainers (as many as feasible/practical). Note that the maintainers can consist of outside contributors, both within and outside Typesafe. Outside contributors (for example from EPFL or independent committers) are encouraged to participate in the review process, it is not a closed process.
 6. After the review you should fix the issues as needed (pushing a new commit for new review etc.), iterating until the reviewers give their thumbs up.
-7. Once the code has passed review the Pull Request can be merged into the master branch.
+7. Once the code has passed review the Pull Request can be merged into the main branch.
 
 ## Pull Request Requirements
 
@@ -39,11 +39,11 @@ For a Pull Request to be considered at all it has to meet these requirements:
 2. Regardless if the code introduces new features or fixes bugs or regressions, it must have comprehensive tests.
 3. The code must be well documented in the Typesafe's standard documentation format (see the ‘Documentation’ section below).
 
-If these requirements are not met then the code should **not** be merged into master, or even reviewed - regardless of how good or important it is. No exceptions.
+If these requirements are not met then the code should **not** be merged into main, or even reviewed - regardless of how good or important it is. No exceptions.
 
 ## Continuous Integration
 
-Each project should be configured to use a continuous integration (CI) tool (i.e. a build server ala Jenkins). Typesafe has a Jenkins server farm that can be used. The CI tool should, on each push to master, build the **full** distribution and run **all** tests, and if something fails it should email out a notification with the failure report to the committer and the core team. The CI tool should also be used in conjunction with Typesafe’s Pull Request Validator (discussed below).
+Each project should be configured to use a continuous integration (CI) tool (i.e. a build server ala Jenkins). Typesafe has a Jenkins server farm that can be used. The CI tool should, on each push to main, build the **full** distribution and run **all** tests, and if something fails it should email out a notification with the failure report to the committer and the core team. The CI tool should also be used in conjunction with Typesafe’s Pull Request Validator (discussed below).
 
 ## Documentation
 
@@ -79,7 +79,7 @@ Each project must also create and maintain a list of all dependencies and their 
 
 ## Work In Progress
 
-It is ok to work on a public feature branch in the GitHub repository. Something that can sometimes be useful for early feedback etc. If so then it is preferable to name the branch accordingly. This can be done by either prefix the name with ``wip-`` as in ‘Work In Progress’, or use hierarchical names like ``wip/..``, ``feature/..`` or ``topic/..``. Either way is fine as long as it is clear that it is work in progress and not ready for merge. This work can temporarily have a lower standard. However, to be merged into master it will have to go through the regular process outlined above, with Pull Request, review etc..
+It is ok to work on a public feature branch in the GitHub repository. Something that can sometimes be useful for early feedback etc. If so then it is preferable to name the branch accordingly. This can be done by either prefix the name with ``wip-`` as in ‘Work In Progress’, or use hierarchical names like ``wip/..``, ``feature/..`` or ``topic/..``. Either way is fine as long as it is clear that it is work in progress and not ready for merge. This work can temporarily have a lower standard. However, to be merged into main it will have to go through the regular process outlined above, with Pull Request, review etc..
 
 Also, to facilitate both well-formed commits and working together, the ``wip`` and ``feature``/``topic`` identifiers also have special meaning.   Any branch labelled with ``wip`` is considered “git-unstable” and may be rebased and have its history rewritten.   Any branch with ``feature``/``topic`` in the name is considered “stable” enough for others to depend on when a group is working on a feature.
 
