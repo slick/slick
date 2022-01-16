@@ -245,6 +245,7 @@ lazy val root =
     .in(file("."))
     .aggregate(slick, codegen, hikaricp, testkit, site)
     .settings(
+      name := "slick-root",
       slickGeneralSettings,
       extTarget("root"),
       publishArtifact := false,
