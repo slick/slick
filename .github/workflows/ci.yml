@@ -55,6 +55,11 @@ jobs:
           --privileged
 
     steps:
+    - run: |
+        echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
+        chmod 600 deploy-key
+        ssh -vT -i $(pwd)/deploy-key git@github.com
+
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
