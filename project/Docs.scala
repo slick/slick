@@ -86,11 +86,29 @@ object Docs extends AutoPlugin {
     watchSources := watchSources.value.filterNot(_.base == (preprocessDocs / target).value),
     preprocessDocs := {
       val out = (preprocessDocs / target).value
+      val log = streams.value.log
 
       IO.copyDirectory(sourceDirectory.value, out)
       IO.copyDirectory(baseDirectory.value / "code", target.value / "code")
 
-      for ((name, dir) <- scaladocDirs.value) IO.copyDirectory(dir, out / name)
+      for ((name, dir) <- scaladocDirs.value) {
+        val dest = out / name
+        log.info(s"Copying $dir to $dest")
+        IO.copyDirectory(dir, dest, overwrite = true, preserveLastModified = true)
+
+        def fixGeneratedSourceLink(s: String) =
+          s.replaceAll(
+            "(https://github.com/slick/slick/blob/[^\"]*)/" +
+              "(Users|home)/" +
+              "[^\"]*/slick/target/scala-[^\"]*/src_managed/main/" +
+              "([^\"]*)\\.scala",
+            """$1/scala/$3.fm"""
+          )
+
+        (dest ** "*.html").get().foreach { file =>
+          IO.writeLines(file, IO.readLines(file).map(fixGeneratedSourceLink))
+        }
+      }
 
       out
     },
