@@ -31,6 +31,7 @@ object Docs extends AutoPlugin {
     Compile / paradoxProperties ++= {
       val shortVersion = version.value.replaceFirst("""(\d+\.\d+)\.\d+.*""", """$1.x""")
       val scaladocBaseUrl = s"https://scala-slick.org/doc/${version.value}"
+      val ref = Versioning.currentRef(baseDirectory.value)
       Map(
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/${scalaVersion.value}",
         "scaladoc.slick.base_url" -> s"$scaladocBaseUrl/api",
@@ -72,7 +73,7 @@ object Docs extends AutoPlugin {
         "extref.scalaquery.base_url" -> "http://scalaquery.org",
         "extref.slf4j.base_url" -> "https://www.slf4j.org/",
         "extref.slick-manuals.base_url" -> "https://scala-slick.org/docs/",
-        "extref.slick.base_url" -> s"https://github.com/slick/slick/blob/${versionTag(version.value)}",
+        "extref.slick.base_url" -> s"https://github.com/slick/slick/blob/$ref/%s",
         "extref.sql-server.base_url" -> "https://www.microsoft.com/en-us/sql-server",
         "extref.sqlite.base_url" -> "https://www.sqlite.org/index.html",
         "extref.typesafe-config.base_url" -> "https://github.com/lightbend/config",
