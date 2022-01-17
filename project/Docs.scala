@@ -116,7 +116,7 @@ object Docs extends AutoPlugin {
         globFilter("capabilities.md"),
     checkScaladocLinks := {
       for ((name, dir) <- scaladocDirs.value)
-        new ReusableSbtChecker(dir.toString, (Compile / paradox / target).value.toString, name, streams.value.log)
+        new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log)
           .run()
     },
     deployDocs := {
