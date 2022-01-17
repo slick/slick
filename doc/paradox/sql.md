@@ -7,8 +7,10 @@ to the low level of @extref[JDBC](jdbc:), you can use Slick's *Plain SQL* querie
 nicer Scala-based API.
 
 @@@ note
-This chapter is based on the **Plain SQL Queries** sample (@extref[github](samplerepo:slick-plainsql),
-@extref[zip](samplezip:slick-plainsql)) which provides a ready-to-run app to demonstrate the features.
+
+This chapter is based on the @extref[**Plain SQL Queries** sample](samplerepo:slick-plainsql) which provides a
+ready-to-run app to demonstrate the features.
+
 @@@
 
 Scaffolding
