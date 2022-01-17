@@ -63,7 +63,6 @@ def slickGeneralSettings =
       "-diagrams", // requires graphviz
       "-groups"
     ),
-    scaladocSourceUrl("slick"),
     logBuffered := false
   )
 
