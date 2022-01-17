@@ -22,7 +22,8 @@ object Docs extends AutoPlugin {
 
   override def requires = ParadoxPlugin
 
-  def versionTag(v: String) = "v" + v // get the tag for a version
+  def modifyFileLines(file: File)(f: String => String): Unit =
+    IO.writeLines(file, IO.readLines(file).map(f))
 
   override def projectSettings = Seq(
     homepage := None,
@@ -95,17 +96,16 @@ object Docs extends AutoPlugin {
         log.info(s"Copying $dir to $dest")
         IO.copyDirectory(dir, dest, overwrite = true, preserveLastModified = true)
 
-        def fixGeneratedSourceLink(s: String) =
-          s.replaceAll(
-            "(https://github.com/slick/slick/blob/[^\"]*)/" +
-              "(Users|home)/" +
-              "[^\"]*/slick/target/scala-[^\"]*/src_managed/main/" +
-              "([^\"]*)\\.scala",
-            """$1/scala/$3.fm"""
-          )
-
         (dest ** "*.html").get().foreach { file =>
-          IO.writeLines(file, IO.readLines(file).map(fixGeneratedSourceLink))
+          modifyFileLines(file) { line =>
+            line.replaceAll(
+              "(https://github.com/slick/slick/blob/[^\"]*)/" +
+                "(Users|home)/" +
+                "[^\"]*/slick/target/scala-[^\"]*/src_managed/main/" +
+                "([^\"]*)\\.scala",
+              """$1/scala/$3.fm"""
+            )
+          }
         }
       }
 
@@ -113,6 +113,19 @@ object Docs extends AutoPlugin {
     },
     Compile / paradox / unmanagedSourceDirectories := Seq((preprocessDocs / target).value),
     Compile / paradox := (Compile / paradox).dependsOn(preprocessDocs).value,
+    Compile / paradox := {
+      val outDir = (Compile / paradox).value
+      val files = IO.listFiles(outDir, globFilter("*.html"))
+      println(files.toList)
+      for (f <- files)
+        modifyFileLines(f) { line =>
+          line.replaceAllLiterally(
+            "https://github.com/slick/slick/tree/master/doc/target/preprocessed/",
+            s"https://github.com/slick/slick/tree/${Versioning.currentRef(baseDirectory.value)}/doc/paradox/"
+          )
+        }
+      outDir
+    },
     (Compile / paradoxMarkdownToHtml / excludeFilter) :=
       (Compile / paradoxMarkdownToHtml / excludeFilter).value ||
         globFilter("capabilities.md"),

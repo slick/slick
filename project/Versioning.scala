@@ -1,3 +1,4 @@
+import com.typesafe.sbt.git.DefaultReadableGit
 import coursier.version.Version
 import sbt.AutoPlugin
 import sbt.Keys.version
@@ -5,6 +6,7 @@ import sbtdynver.DynVerPlugin.autoImport.{dynver, dynverCurrentDate, dynverGitDe
 import sbtdynver.{DynVer, GitDescribeOutput}
 import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.{Compatibility, versionPolicyIntention}
 
+import java.io.File
 import java.util.Date
 
 
@@ -12,6 +14,10 @@ object Versioning extends AutoPlugin {
   val BumpMinor = Compatibility.BinaryAndSourceCompatible
   val BumpMajor = Compatibility.BinaryCompatible
   val BumpEpoch = Compatibility.None
+
+  def currentRef(dir: File) =
+    new DefaultReadableGit(dir)
+      .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
 
   def versionFor(compat: Compatibility, lastTag: String, cleanAfterTag: Boolean): String = {
     if (cleanAfterTag) lastTag
