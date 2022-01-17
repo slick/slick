@@ -10,14 +10,11 @@ import java.nio.file.Files
 object Docs extends AutoPlugin {
   object autoImport {
     val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
-
     val preprocessDocs = taskKey[File]("Prepare the documentation directory for Paradox")
-
     val checkScaladocLinks = taskKey[Unit]("Prepare the documentation directory for Paradox")
-
     val scaladocDirs = taskKey[Seq[(String, File)]]("Scaladoc directories to include with documentation")
-
     val deployDocs = taskKey[Unit]("Deploy docs to GitHub Pages")
+    val showParadoxProperties = taskKey[Unit]("Show a table of paradoxProperties")
   }
 
   import autoImport._
@@ -139,6 +136,12 @@ object Docs extends AutoPlugin {
       IO.copyDirectory((Compile / paradox).value, dest)
       log.info("Pushing changes")
       ConsoleGitRunner.commitAndPush((if (existed) "Updated" else "Added") + " docs for version " + ver)(dir, log)
+    },
+    showParadoxProperties := {
+      val props = (Compile / paradoxProperties).value
+      val colWidth = props.keys.map(_.length).max
+      for ((k, v) <- props.toSeq.sorted)
+        streams.value.log.info(s"%-${colWidth}s    %s".format(k, v))
     }
   )
 }
