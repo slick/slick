@@ -123,6 +123,8 @@ object Docs extends AutoPlugin {
           .run()
     },
     deployDocs := {
+      checkScaladocLinks.value
+
       val log = streams.value.log
       val ver = version.value
       val dir = Files.createTempDirectory("slick-docs").toFile
