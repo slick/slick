@@ -14,8 +14,10 @@ Scalar Database Functions
 -------------------------
 
 @@@ note
-This section is based on the ready-to-run`CallNativeDBFunction` app in the **MultiDB** sample
-(@extref[github](samplerepo:slick-multidb), @extref[zip](samplezip:slick-multidb)).
+
+This section is based on the ready-to-run `CallNativeDBFunction` app in @extref[the **
+MultiDB** sample](samplerepo:slick-multidb).
+
 @@@
 
 If your database system supports a scalar function that is not available as a method in Slick you can define it as a

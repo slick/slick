@@ -139,8 +139,10 @@ DatabaseConfig
 --------------
 
 @@@ note
-This section is based on the **MultiDB** sample (@extref[github](samplerepo:slick-multidb),
-@extref[zip](samplezip:slick-multidb)) which provides ready-to-run apps to demonstrate the features.
+
+This section is based on the @extref[**MultiDB** sample](samplerepo:slick-multidb) which provides ready-to-run apps to
+demonstrate the features.
+
 @@@
 
 On top of the configuration syntax for `Database`, there is another layer in the form of
@@ -167,8 +169,10 @@ Other Multi-DB Patterns
 -----------------------
 
 @@@ note
-This section is based on the **MultiDB** sample (@extref[github](samplerepo:slick-multidb),
-@extref[zip](samplezip:slick-multidb)) which provides ready-to-run apps to demonstrate the features.
+
+This section is based on the @extref[**MultiDB** sample](samplerepo:slick-multidb) which provides ready-to-run apps to
+demonstrate the features.
+
 @@@
 
 Since its addition in Slick 3.0 `DatabaseConfig` (see [above](#databaseconfig)) is the recommended solution.

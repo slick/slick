@@ -29,7 +29,6 @@ object Docs extends AutoPlugin {
     homepage := None,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
     Compile / paradoxProperties ++= {
-      val shortVersion = version.value.replaceFirst("""(\d+\.\d+)\.\d+.*""", """$1.x""")
       val scaladocBaseUrl = s"https://scala-slick.org/doc/${version.value}"
       val ref = Versioning.currentRef(baseDirectory.value)
       Map(
@@ -66,8 +65,7 @@ object Docs extends AutoPlugin {
         "extref.postgresql.base_url" -> "https://www.postgresql.org/",
         "extref.reactive-manifesto.base_url" -> "https://www.reactivemanifesto.org/",
         "extref.reactive-streams.base_url" -> "https://www.reactive-streams.org/",
-        "extref.samplerepo.base_url" -> s"https://github.com/slick/slick/tree/$shortVersion/samples/%s",
-        "extref.samplezip.base_url" -> s"https://example.lightbend.com/v1/download/%s-$shortVersion",
+        "extref.samplerepo.base_url" -> s"https://github.com/slick/slick/tree/$ref/samples/%s",
         "extref.sbt.base_url" -> "https://www.scala-sbt.org/",
         "extref.scala-futures.base_url" -> "https://docs.scala-lang.org/overviews/core/futures.html",
         "extref.scalaquery.base_url" -> "http://scalaquery.org",

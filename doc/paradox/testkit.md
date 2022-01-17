@@ -7,9 +7,8 @@ add) to ensure that it works correctly and does not claim to support any
 capabilities which are not actually implemented. For this purpose the Slick
 unit tests have been factored out into a separate *Slick TestKit* project.
 
-To get started, you can @extref[clone](samplerepo:slick-testkit-example) or @extref[download](samplezip:slick-testkit-example)
-the **TestKit Example** project which contains a copy of Slick's standard PostgreSQL profile and all the infrastructure
-required to build and test it.
+To get started, you can download @extref[the **TestKit Example** project](samplerepo:slick-testkit-example) which
+contains a copy of Slick's standard PostgreSQL profile and all the infrastructure required to build and test it.
 
 Scaffolding
 -----------
