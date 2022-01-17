@@ -104,11 +104,18 @@ jobs:
         distribution: adopt
         java-version: 8
 
-    - name: Publish docs to website
+    - name: Create deploy key
       run: |
         echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
         chmod 600 deploy-key
-        GIT_SSH_COMMAND="ssh -i $(pwd)/deploy-key" sbt site/deployDocs    
+
+    - name: Set git user config to github actions bot
+      run: |
+        git config --local user.name 'github-actions[bot]'
+        git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Publish docs to website
+      run: GIT_SSH_COMMAND="ssh -i $(pwd)/deploy-key" sbt site/deployDocs
 
   publish:
     name: Release
