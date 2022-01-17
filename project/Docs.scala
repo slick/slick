@@ -1,5 +1,5 @@
 import com.lightbend.paradox.sbt.ParadoxPlugin
-import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport.{builtinParadoxTheme, paradox, paradoxMarkdownToHtml, paradoxProperties, paradoxTheme}
+import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport._
 import com.typesafe.sbt.git.ConsoleGitRunner
 import sbt.Keys._
 import sbt._
