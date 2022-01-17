@@ -25,6 +25,7 @@ object Docs extends AutoPlugin {
   def versionTag(v: String) = "v" + v // get the tag for a version
 
   override def projectSettings = Seq(
+    homepage := None,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
     Compile / paradoxProperties ++= {
       val shortVersion = version.value.replaceFirst("""(\d+\.\d+)\.\d+.*""", """$1.x""")

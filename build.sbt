@@ -16,29 +16,11 @@ val cleanCompileTimeTests =
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
 
-
-def scaladocSourceUrl(dir: String) =
-  Compile / doc / scalacOptions ++= {
-    val ref =
-      new DefaultReadableGit(baseDirectory.value)
-        .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
-    Seq(
-      "-doc-source-url",
-      s"https://github.com/slick/slick/blob/$ref/$dir/src/main€{FILE_PATH}.scala"
-    )
-  }
-
-def slickGeneralSettings =
+inThisBuild(
   Seq(
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
-    Test / publishArtifact := false,
-    pomIncludeRepository := { _ => false },
-    makePomConfiguration ~= {
-      _.withConfigurations(Vector(Compile, Runtime, Optional))
-    },
-    sonatypeProfileName := "com.typesafe",
     homepage := Some(url("https://scala-slick.org")),
     startYear := Some(2008),
     licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/main/LICENSE.txt")),
@@ -53,7 +35,29 @@ def slickGeneralSettings =
       (CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, v)) if v <= 12 => Seq("-Xfuture")
         case _                       => Nil
-      }),
+      })
+  )
+)
+
+def scaladocSourceUrl(dir: String) =
+  Compile / doc / scalacOptions ++= {
+    val ref =
+      new DefaultReadableGit(baseDirectory.value)
+        .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
+    Seq(
+      "-doc-source-url",
+      s"https://github.com/slick/slick/blob/$ref/$dir/src/main€{FILE_PATH}.scala"
+    )
+  }
+
+def slickGeneralSettings =
+  Seq(
+    Test / publishArtifact := false,
+    pomIncludeRepository := { _ => false },
+    makePomConfiguration ~= {
+      _.withConfigurations(Vector(Compile, Runtime, Optional))
+    },
+    sonatypeProfileName := "com.typesafe",
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,
