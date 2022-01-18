@@ -2,7 +2,7 @@ Tips for submitting an issue with slick (read before you submit an issue):
 
 Note: Delete these instructions from the description field before you submit the issue.
 
-1. **Do not use github issues for support questions.** For those, first study the documentation and if they do not contain an answer, use one of the community forums (see http://slick.lightbend.com/community/). Support questions posted as issues will be deleted without reply or further explanation.
+1. **Do not use github issues for support questions.** For those, first study the documentation and if they do not contain an answer, use one of the community forums (see https://scala-slick.org/community/). Support questions posted as issues will be deleted without reply or further explanation.
 
 2. If you have a feature request, note that slick is a community project. As such, you need to get somebody to implement your idea and make a pull request.
 
