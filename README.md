@@ -28,8 +28,8 @@ These are the databases and driver versions that have explicit automated tests.
 
 Accessing other database systems is possible, with a reduced feature set.
 
-The [manual and scaladocs](http://slick.lightbend.com/docs/) for Slick can be
-found on the [Slick web site](http://slick.lightbend.com/).
+The [manual and scaladocs](https://scala-slick.org/docs/) for Slick can be
+found on the [Slick web site](https://scala-slick.org).
 
 ## Maintenance status
 
