@@ -1,0 +1,27 @@
+name: Check Scaladoc Links
+
+on:
+ pull_request:
+   branches: ['**']
+ push:
+   branches: ['**']
+   tags: ['**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - uses: ts-graphviz/setup-graphviz@v1
+
+    - name: Set up JDK
+      uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: 8
+
+    - run: sbt checkScaladocLinks
