@@ -155,7 +155,24 @@ Scala's equivalent for `SELECT` is `map`. Columns can be referenced similarly an
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryFilter }
 
 <h4>Slick</h4>
-Scala's equivalent for `WHERE` is `filter`. Make sure to use `===` instead of `==` for comparison.
+Scala's equivalent for `WHERE` is
+@scaladoc[`filter`](slick.lifted.Query#filter[T](f:E=%3ET)(implicitwt:slick.lifted.CanBeQueryCondition[T]):slick.lifted.Query[E,U,C]).
+There are also the convenience variations
+@scaladoc[`filterIf`](slick.lifted.Query#filterIf[T](p:Boolean)(f:E=%3ET)(implicitevidence$2:slick.lifted.CanBeQueryCondition[T]):slick.lifted.Query[E,U,C])
+and
+@scaladoc[`filterOpt`](slick.lifted.Query#filterOpt[V,T](optValue:Option[V])(f:(E,V)=%3ET)(implicitevidence$1:slick.lifted.CanBeQueryCondition[T]):slick.lifted.Query[E,U,C]).
+
+@@@ note
+
+In Slick, `Option` types correspond to nullability in SQL. If a filter predicate has type `Rep[Option[Boolean]]` that means the database can evaluate it to `TRUE`, `FALSE`, or `NULL`, but `NULL` behaves like `FALSE`. This behavior is consistent across `filter`, `filterIf`, `filterOpt`, and `withFilter`.
+
+@@@
+
+@@@ warning
+
+Make sure to use `===` instead of `==` for comparison, so that Slick can convert the expression to an SQL `=`. Slick uses `===` for that because `==` is already used by Scala for performing comparisons locally.
+
+@@@
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryFilter }
 
