@@ -118,10 +118,15 @@ object Docs extends AutoPlugin {
       println(files.toList)
       for (f <- files)
         modifyFileLines(f) { line =>
-          line.replaceAllLiterally(
-            "https://github.com/slick/slick/tree/master/doc/target/preprocessed/",
-            s"https://github.com/slick/slick/tree/${Versioning.currentRef(baseDirectory.value)}/doc/paradox/"
-          )
+          line
+            .replaceAllLiterally(
+              "https://github.com/slick/slick/tree/master/doc/target/preprocessed/",
+              s"https://github.com/slick/slick/tree/${Versioning.currentRef(baseDirectory.value)}/doc/paradox/"
+            )
+            .replaceAllLiterally(
+              "https://github.com/slick/slick/tree/master/doc/target/code/",
+              s"https://github.com/slick/slick/tree/${Versioning.currentRef(baseDirectory.value)}/doc/code/"
+            )
         }
       outDir
     },
