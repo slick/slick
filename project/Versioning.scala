@@ -142,12 +142,17 @@ object Versioning extends AutoPlugin {
             versionPolicyCheckDirection := Direction.both,
             versionPolicyIntention := BumpMinor,
             printCompatReport := {
-              val dependencyIssues = versionPolicyFindDependencyIssues.value.toMap
-              val mimaIssues = mimaFindBinaryIssues.value.map { case (module, problems) =>
-                module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)) -> problems
-              }
+              val dependencyIssues =
+                versionPolicyFindDependencyIssues.value.toMap
+                  .map { case (m, report) => m.toString -> report }
 
-              for (module <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sortBy(_.name)) {
+              val mimaIssues =
+                mimaFindBinaryIssues.value
+                  .map { case (module, problems) =>
+                    module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)).toString -> problems
+                  }
+
+              for (module <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) {
                 val depIssues =
                   dependencyIssues.get(module)
                     .map { report =>
