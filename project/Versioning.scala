@@ -152,25 +152,35 @@ object Versioning extends AutoPlugin {
                     module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)).toString -> problems
                   }
 
+              def byDirection[A](forward: Iterable[A], backward: Iterable[A]) = {
+                val b = backward.toSet
+                val f = forward.toSet
+                val all = b ++ f
+                all
+                  .toSeq
+                  .map { a =>
+                    val dir =
+                      (b.contains(a), f.contains(a)) match {
+                        case (true, true)   => Direction.both
+                        case (true, false)  => Direction.backward
+                        case (false, true)  => Direction.forward
+                        case (false, false) => Direction.none
+                      }
+                    dir -> a
+                  }
+              }
+
               for (module <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) {
                 val depIssues =
                   dependencyIssues.get(module)
-                    .map { report =>
-                      val binary = report.backwardStatuses.toSet
-                      val other = report.forwardStatuses.toSet -- binary
-                      binary.map(true -> _).toSeq ++ other.map(false -> _)
-                    }
+                    .map(report => byDirection(report.forwardStatuses, report.backwardStatuses))
                     .getOrElse(Nil)
                     .filterNot(_._2._2.validated)
                     .sortBy(_._2._1)
 
                 val codeIssues =
                   mimaIssues.get(module)
-                    .map { case (backward, forward) =>
-                      val binary = backward.toSet
-                      val other = forward.toSet -- binary
-                      binary.map(true -> _).toSeq ++ other.map(false -> _)
-                    }
+                    .map { case (backward, forward) => byDirection(forward, backward) }
                     .getOrElse(Nil)
 
                 if (depIssues.nonEmpty || codeIssues.nonEmpty) {
@@ -187,8 +197,8 @@ object Versioning extends AutoPlugin {
                         "Current version",
                         "Version scheme"
                       )(
-                        depIssues.map { case (isBinary, ((org, name), status)) =>
-                          Seq(if (isBinary) "Binary" else "Source", org + ":" + name) ++
+                        depIssues.map { case (direction, ((org, name), status)) =>
+                          Seq(renderDirection(direction), org + ":" + name) ++
                             (status match {
                               case version: DependencyCheckReport.IncompatibleVersion =>
                                 Seq(version.previousVersion, version.version, version.reconciliation.name.capitalize)
@@ -210,9 +220,9 @@ object Versioning extends AutoPlugin {
                     println(
                       markdownTable("Incompatibility", "Problem", "Symbol", "Description")(
                         codeIssues
-                          .map { case (isBinary, problem) =>
+                          .map { case (direction, problem) =>
                             Seq(
-                              if (isBinary) "Binary" else "Source",
+                              renderDirection(direction),
                               problem.getClass.getSimpleName,
                               problem.matchName.get,
                               problem.description("current")
@@ -228,5 +238,14 @@ object Versioning extends AutoPlugin {
             }
           )
       )
+  }
+
+  private def renderDirection(direction: Direction) = {
+    (direction.backward, direction.forward) match {
+      case (true, true)   => "Both"
+      case (true, false)  => "Backward"
+      case (false, true)  => "Forward"
+      case (false, false) => "None"
+    }
   }
 }
