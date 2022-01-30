@@ -1,0 +1,241 @@
+import com.typesafe.tools.mima.core.Problem
+import com.typesafe.tools.mima.plugin.MimaKeys.mimaFindBinaryIssues
+import com.typesafe.tools.mima.plugin.MimaPlugin
+import coursier.version.Version
+import sbt.librarymanagement.CrossVersion
+import sbt.{AutoPlugin, Compile, Def, Defaults, Keys, config, inConfig, settingKey, taskKey}
+import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVersions
+import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport._
+import sbtversionpolicy.{DependencyCheckReport, Direction, SbtVersionPolicyMima, SbtVersionPolicyPlugin}
+
+import scala.jdk.CollectionConverters._
+
+
+object CompatReport extends AutoPlugin {
+  override def requires = SbtVersionPolicyPlugin
+
+  override def trigger = allRequirements
+
+  val previousRelease = settingKey[Option[String]]("Determine the artifact of the previous release")
+
+  val CompatReport = config("compatReport").extend(Compile)
+
+  val compatReportData =
+    taskKey[Seq[(String, Seq[DependencyChangeInfo], Seq[CodeChangeInfo])]]("Generate the compatibility report data")
+
+  val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
+
+  private def markdownTable(headers: String*)(rows: Seq[Seq[String]]) = {
+    val escaped = rows.map(_.map(_.replaceAllLiterally("|", "\\|")))
+    val widths =
+      (headers.map(_.length) +: escaped.map(_.map(_.length)))
+        .transpose
+        .map(_.max)
+
+    def row(r: Seq[String]) =
+      r
+        .zipWithIndex
+        .map { case (s, i) => (" " + s + " ").padTo(widths(i) + 2, ' ') }
+        .mkString("|", "|", "|\n")
+
+    row(headers) +
+      row(widths.map("-" * _)) +
+      escaped.map(row).mkString
+  }
+
+  private def renderDirection(direction: Direction) = {
+    (direction.backward, direction.forward) match {
+      case (true, true)   => "Both"
+      case (true, false)  => "Backward"
+      case (false, true)  => "Forward"
+      case (false, false) => "None"
+    }
+  }
+
+  implicit val directionOrdering: Ordering[Direction] = Ordering.by(d => (d.forward, d.backward))
+
+  case class DependencyChangeInfo(direction: Direction,
+                                  organizationId: String,
+                                  moduleName: String,
+                                  status: DependencyCheckReport.ModuleStatus) {
+    val directionString = renderDirection(direction)
+    val artifactString = organizationId + ":" + moduleName
+    val (previousVersion, currentVersion, versionScheme) = {
+      import DependencyCheckReport.{IncompatibleVersion, Missing}
+      status match {
+        case i: IncompatibleVersion => (i.previousVersion, i.version, i.reconciliation.name.capitalize)
+        case m: Missing             => (m.version, "Absent", "")
+        case _                      => ("", "", "")
+      }
+    }
+  }
+
+  object DependencyChangeInfo {
+    implicit val ordering: Ordering[DependencyChangeInfo] =
+      Ordering.by(info => (info.direction, info.organizationId, info.moduleName))
+  }
+
+  case class CodeChangeInfo(direction: Direction, problem: Problem) {
+    val directionString = renderDirection(direction)
+    val symbolName = (problem.matchName: Some[String]).get
+    val problemName = problem.getClass.getSimpleName
+    val description = problem.description("current")
+  }
+
+  object CodeChangeInfo {
+    implicit val ordering: Ordering[CodeChangeInfo] =
+      Ordering.by(info => (info.direction, info.symbolName, info.problemName))
+  }
+
+  private def renderDependencyChangesMarkdownTable(dependencyChanges: Seq[DependencyChangeInfo]) =
+    markdownTable("Incompatibility", "Artifact", "Previous version", "Current version", "Version scheme")(
+      dependencyChanges.map { info =>
+        Seq(info.directionString, info.artifactString, info.previousVersion, info.currentVersion, info.versionScheme)
+      }
+    )
+
+  private def renderDependencyChangesMarkdownSection(dependencyChanges: Seq[DependencyChangeInfo]) =
+    if (dependencyChanges.isEmpty)
+      ""
+    else
+      " #### Dependency changes\n" +
+        renderDependencyChangesMarkdownTable(dependencyChanges) +
+        "\n"
+
+  private def renderCodeChangesMarkdownTable(codeChanges: Seq[CodeChangeInfo]) =
+    markdownTable("Incompatibility", "Symbol", "Problem", "Description")(
+      codeChanges.map { info =>
+        Seq(info.directionString, info.symbolName, info.problemName, info.description)
+      }
+    )
+
+  private def renderCodeChangesMarkdownSection(codeChanges: Seq[CodeChangeInfo]) =
+    if (codeChanges.isEmpty) ""
+    else
+      " #### Code changes" + "\n" +
+        renderCodeChangesMarkdownTable(codeChanges) +
+        "\n"
+
+  private def tupleWithDirection[A](forward: Iterable[A], backward: Iterable[A]) = {
+    val b = backward.toSet
+    val f = forward.toSet
+    val all = b ++ f
+    all
+      .toSeq
+      .map { a =>
+        val dir =
+          (b.contains(a), f.contains(a)) match {
+            case (true, true)   => Direction.both
+            case (true, false)  => Direction.backward
+            case (false, true)  => Direction.forward
+            case (false, false) => Direction.none
+          }
+        dir -> a
+      }
+  }
+
+  private def renderModuleMarkdownSection(title: String,
+                                          depChanges: Seq[DependencyChangeInfo],
+                                          codeChanges: Seq[CodeChangeInfo]) =
+    if (depChanges.isEmpty && codeChanges.isEmpty) None
+    else
+      Some(
+        " ### Changes since `" + title + "`\n" +
+          renderDependencyChangesMarkdownSection(depChanges) + "\n" +
+          renderCodeChangesMarkdownSection(codeChanges) + "\n"
+      )
+
+  // Code copied from sbt-version-policy
+  private lazy val previousVersionsFromRepo = Def.setting {
+    val projId = Keys.projectID.value
+    val sv = Keys.scalaVersion.value
+    val sbv = Keys.scalaBinaryVersion.value
+    val name = CrossVersion(projId.crossVersion, sv, sbv).fold(projId.name)(_ (projId.name))
+
+    val ivyProps = sbtversionpolicy.internal.Resolvers.defaultIvyProperties(Keys.ivyPaths.value.ivyHome)
+    val repos = Keys.resolvers.value.flatMap { res =>
+      val repoOpt = sbtversionpolicy.internal.Resolvers.repository(res, ivyProps, s => System.err.println(s))
+      if (repoOpt.isEmpty)
+        System.err.println(s"Warning: ignoring repository ${res.name} to get previous version")
+      repoOpt.toSeq
+    }
+    // Can't reference Keys.fullResolvers, which is a task.
+    // So we're using the usual default repositories from coursier here…
+    val fullRepos = coursierapi.Repository.defaults().asScala ++ repos
+    val res = coursierapi.Versions.create()
+      .withRepositories(fullRepos: _*)
+      .withModule(coursierapi.Module.of(projId.organization, name))
+      .versions()
+    res.getMergedListings.getAvailable.asScala
+  }
+
+  override def projectSettings =
+    List(
+      previousRelease := {
+        val versions = previousVersionsFromRepo.value
+        val cur = Version(Keys.version.value)
+        val sorted =
+          versions.map(Version(_))
+            .filterNot { version =>
+              version >= cur ||
+                version.items.exists { case t: Version.Tag => t.isPreRelease case _ => false }
+            }
+        if (sorted.isEmpty) None else Some(sorted.max.repr)
+      }
+    ) ++
+      inConfig(CompatReport)(
+        Defaults.configSettings ++
+          MimaPlugin.projectSettings ++
+          SbtVersionPolicyPlugin.projectSettings ++
+          SbtVersionPolicyMima.projectSettings ++
+          List(
+            versionPolicyPreviousVersions := previousRelease.value.toList,
+            versionPolicyCheckDirection := Direction.both,
+            versionPolicyIntention := Versioning.BumpMinor,
+            compatReportData := {
+              val dependencyIssues =
+                versionPolicyFindDependencyIssues.value.toMap
+                  .map { case (m, report) => m.toString -> report }
+
+              val mimaIssues =
+                mimaFindBinaryIssues.value
+                  .map { case (module, problems) =>
+                    module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)).toString -> problems
+                  }
+
+              for (moduleString <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) yield {
+                val depChanges =
+                  dependencyIssues.get(moduleString)
+                    .fold(Seq.empty[DependencyChangeInfo]) { report =>
+                      tupleWithDirection(report.forwardStatuses, report.backwardStatuses)
+                        .collect { case (direction, ((org, name), status)) if !status.validated =>
+                          DependencyChangeInfo(direction, org, name, status)
+                        }
+                    }
+                    .sorted
+
+                val codeChanges =
+                  mimaIssues.get(moduleString)
+                    .fold(Seq.empty[CodeChangeInfo]) { case (backward, forward) =>
+                      tupleWithDirection(forward, backward)
+                        .map { case (direction, problem) => CodeChangeInfo(direction, problem) }
+                    }
+                    .sorted
+
+                (moduleString, depChanges, codeChanges)
+              }
+            },
+            compatReportMarkdown := {
+              compatReportData.value
+                .flatMap { case (title, depChanges, codeChanges) =>
+                  renderModuleMarkdownSection(
+                    title = title,
+                    depChanges = depChanges,
+                    codeChanges = codeChanges
+                  )
+                }
+                .mkString("\n")
+            }
+          )
+      )
+}
