@@ -1,4 +1,5 @@
 import com.typesafe.sbt.git.DefaultReadableGit
+import com.typesafe.tools.mima.core.Problem
 import com.typesafe.tools.mima.plugin.MimaKeys.mimaFindBinaryIssues
 import com.typesafe.tools.mima.plugin.MimaPlugin
 import coursier.version.Version
@@ -86,7 +87,10 @@ object Versioning extends AutoPlugin {
 
   val CompatReport = config("compatReport").extend(Compile)
 
-  val printCompatReport = taskKey[Unit]("Print a compatibility report, e.g., for release notes")
+  val compatReportData =
+    taskKey[Seq[(String, Seq[DependencyChangeInfo], Seq[CodeChangeInfo])]]("Generate the compatibility report data")
+
+  val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
 
   private def markdownTable(headers: String*)(rows: Seq[Seq[String]]) = {
     val escaped = rows.map(_.map(_.replaceAllLiterally("|", "\\|")))
@@ -105,6 +109,108 @@ object Versioning extends AutoPlugin {
       row(widths.map("-" * _)) +
       escaped.map(row).mkString
   }
+
+  private def renderDirection(direction: Direction) = {
+    (direction.backward, direction.forward) match {
+      case (true, true)   => "Both"
+      case (true, false)  => "Backward"
+      case (false, true)  => "Forward"
+      case (false, false) => "None"
+    }
+  }
+
+  implicit val directionOrdering: Ordering[Direction] = Ordering.by(d => (d.forward, d.backward))
+
+  case class DependencyChangeInfo(direction: Direction,
+                                  organizationId: String,
+                                  moduleName: String,
+                                  status: DependencyCheckReport.ModuleStatus) {
+    val directionString = renderDirection(direction)
+    val artifactString = organizationId + ":" + moduleName
+    val (previousVersion, currentVersion, versionScheme) = {
+      import DependencyCheckReport.{IncompatibleVersion, Missing}
+      status match {
+        case i: IncompatibleVersion => (i.previousVersion, i.version, i.reconciliation.name.capitalize)
+        case m: Missing             => (m.version, "Absent", "")
+        case _                      => ("", "", "")
+      }
+    }
+  }
+
+  object DependencyChangeInfo {
+    implicit val ordering: Ordering[DependencyChangeInfo] =
+      Ordering.by(info => (info.direction, info.organizationId, info.moduleName))
+  }
+
+  case class CodeChangeInfo(direction: Direction, problem: Problem) {
+    val directionString = renderDirection(direction)
+    val symbolName = (problem.matchName: Some[String]).get
+    val problemName = problem.getClass.getSimpleName
+    val description = problem.description("current")
+  }
+
+  object CodeChangeInfo {
+    implicit val ordering: Ordering[CodeChangeInfo] =
+      Ordering.by(info => (info.direction, info.symbolName, info.problemName))
+  }
+
+  private def renderDependencyChangesMarkdownTable(dependencyChanges: Seq[DependencyChangeInfo]) =
+    markdownTable("Incompatibility", "Artifact", "Previous version", "Current version", "Version scheme")(
+      dependencyChanges.map { info =>
+        Seq(info.directionString, info.artifactString, info.previousVersion, info.currentVersion, info.versionScheme)
+      }
+    )
+
+  private def renderDependencyChangesMarkdownSection(dependencyChanges: Seq[DependencyChangeInfo]) =
+    if (dependencyChanges.isEmpty)
+      ""
+    else
+      " #### Dependency changes\n" +
+        renderDependencyChangesMarkdownTable(dependencyChanges) +
+        "\n"
+
+  private def renderCodeChangesMarkdownTable(codeChanges: Seq[CodeChangeInfo]) =
+    markdownTable("Incompatibility", "Symbol", "Problem", "Description")(
+      codeChanges.map { info =>
+        Seq(info.directionString, info.symbolName, info.problemName, info.description)
+      }
+    )
+
+  private def renderCodeChangesMarkdownSection(codeChanges: Seq[CodeChangeInfo]) =
+    if (codeChanges.isEmpty) ""
+    else
+      " #### Code changes" + "\n" +
+        renderCodeChangesMarkdownTable(codeChanges) +
+        "\n"
+
+  private def tupleWithDirection[A](forward: Iterable[A], backward: Iterable[A]) = {
+    val b = backward.toSet
+    val f = forward.toSet
+    val all = b ++ f
+    all
+      .toSeq
+      .map { a =>
+        val dir =
+          (b.contains(a), f.contains(a)) match {
+            case (true, true)   => Direction.both
+            case (true, false)  => Direction.backward
+            case (false, true)  => Direction.forward
+            case (false, false) => Direction.none
+          }
+        dir -> a
+      }
+  }
+
+  private def renderModuleMarkdownSection(title: String,
+                                          depChanges: Seq[DependencyChangeInfo],
+                                          codeChanges: Seq[CodeChangeInfo]) =
+    if (depChanges.isEmpty && codeChanges.isEmpty) None
+    else
+      Some(
+        " ### Changes since `" + title + "`\n" +
+          renderDependencyChangesMarkdownSection(depChanges) + "\n" +
+          renderCodeChangesMarkdownSection(codeChanges) + "\n"
+      )
 
   override def projectSettings = {
     def fallbackVersion(d: Date): String = s"HEAD-${DynVer.timestamp(d)}"
@@ -141,7 +247,7 @@ object Versioning extends AutoPlugin {
             versionPolicyPreviousVersions := previousRelease.value.toList,
             versionPolicyCheckDirection := Direction.both,
             versionPolicyIntention := BumpMinor,
-            printCompatReport := {
+            compatReportData := {
               val dependencyIssues =
                 versionPolicyFindDependencyIssues.value.toMap
                   .map { case (m, report) => m.toString -> report }
@@ -152,100 +258,40 @@ object Versioning extends AutoPlugin {
                     module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)).toString -> problems
                   }
 
-              def byDirection[A](forward: Iterable[A], backward: Iterable[A]) = {
-                val b = backward.toSet
-                val f = forward.toSet
-                val all = b ++ f
-                all
-                  .toSeq
-                  .map { a =>
-                    val dir =
-                      (b.contains(a), f.contains(a)) match {
-                        case (true, true)   => Direction.both
-                        case (true, false)  => Direction.backward
-                        case (false, true)  => Direction.forward
-                        case (false, false) => Direction.none
-                      }
-                    dir -> a
-                  }
-              }
-
-              for (module <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) {
-                val depIssues =
-                  dependencyIssues.get(module)
-                    .map(report => byDirection(report.forwardStatuses, report.backwardStatuses))
-                    .getOrElse(Nil)
-                    .filterNot(_._2._2.validated)
-                    .sortBy(_._2._1)
-
-                val codeIssues =
-                  mimaIssues.get(module)
-                    .map { case (backward, forward) => byDirection(forward, backward) }
-                    .getOrElse(Nil)
-
-                if (depIssues.nonEmpty || codeIssues.nonEmpty) {
-                  println(" ### `" + module + "`")
-
-                  if (depIssues.nonEmpty) {
-                    println(" #### Dependency changes")
-
-                    println(
-                      markdownTable(
-                        "Incompatibility",
-                        "Artifact",
-                        "Previous version",
-                        "Current version",
-                        "Version scheme"
-                      )(
-                        depIssues.map { case (direction, ((org, name), status)) =>
-                          Seq(renderDirection(direction), org + ":" + name) ++
-                            (status match {
-                              case version: DependencyCheckReport.IncompatibleVersion =>
-                                Seq(version.previousVersion, version.version, version.reconciliation.name.capitalize)
-                              case missing: DependencyCheckReport.Missing             =>
-                                Seq(missing.version, "Absent", "")
-                              case _                                                  =>
-                                Seq("", "", "")
-                            })
+              for (moduleString <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) yield {
+                val depChanges =
+                  dependencyIssues.get(moduleString)
+                    .fold(Seq.empty[DependencyChangeInfo]) { report =>
+                      tupleWithDirection(report.forwardStatuses, report.backwardStatuses)
+                        .collect { case (direction, ((org, name), status)) if !status.validated =>
+                          DependencyChangeInfo(direction, org, name, status)
                         }
-                      )
-                    )
+                    }
+                    .sorted
 
-                    println()
-                  }
+                val codeChanges =
+                  mimaIssues.get(moduleString)
+                    .fold(Seq.empty[CodeChangeInfo]) { case (backward, forward) =>
+                      tupleWithDirection(forward, backward)
+                        .map { case (direction, problem) => CodeChangeInfo(direction, problem) }
+                    }
+                    .sorted
 
-                  if (codeIssues.nonEmpty) {
-                    println(" #### Code changes")
-
-                    println(
-                      markdownTable("Incompatibility", "Problem", "Symbol", "Description")(
-                        codeIssues
-                          .map { case (direction, problem) =>
-                            Seq(
-                              renderDirection(direction),
-                              problem.getClass.getSimpleName,
-                              problem.matchName.get,
-                              problem.description("current")
-                            )
-                          }
-                      )
-                    )
-
-                    println()
-                  }
-                }
+                (moduleString, depChanges, codeChanges)
               }
+            },
+            compatReportMarkdown := {
+              compatReportData.value
+                .flatMap { case (title, depChanges, codeChanges) =>
+                  renderModuleMarkdownSection(
+                    title = title,
+                    depChanges = depChanges,
+                    codeChanges = codeChanges
+                  )
+                }
+                .mkString("\n")
             }
           )
       )
-  }
-
-  private def renderDirection(direction: Direction) = {
-    (direction.backward, direction.forward) match {
-      case (true, true)   => "Both"
-      case (true, false)  => "Backward"
-      case (false, true)  => "Forward"
-      case (false, false) => "None"
-    }
   }
 }
