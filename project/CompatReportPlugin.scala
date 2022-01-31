@@ -11,19 +11,24 @@ import sbtversionpolicy.{DependencyCheckReport, Direction, SbtVersionPolicyMima,
 import scala.jdk.CollectionConverters._
 
 
-object CompatReport extends AutoPlugin {
+object CompatReportPlugin extends AutoPlugin {
   override def requires = SbtVersionPolicyPlugin
 
   override def trigger = allRequirements
 
   val previousRelease = settingKey[Option[String]]("Determine the artifact of the previous release")
 
-  val CompatReport = config("compatReport").extend(Compile)
+  object autoImport {
+    val CompatReport = config("compatReport").extend(Compile)
 
-  val compatReportData =
-    taskKey[Seq[(String, Seq[DependencyChangeInfo], Seq[CodeChangeInfo])]]("Generate the compatibility report data")
+    val compatReportData =
+      taskKey[Seq[(String, Seq[DependencyChangeInfo], Seq[CodeChangeInfo])]]("Generate the compatibility report data")
 
-  val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
+    val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
+  }
+
+  import autoImport._
+
 
   private def markdownTable(headers: String*)(rows: Seq[Seq[String]]) = {
     val escaped = rows.map(_.map(_.replaceAllLiterally("|", "\\|")))
@@ -45,10 +50,10 @@ object CompatReport extends AutoPlugin {
 
   private def renderDirection(direction: Direction) = {
     (direction.backward, direction.forward) match {
-      case (true, true)   => "Both"
+      case (true, true)   => "Backward and forward"
       case (true, false)  => "Backward"
       case (false, true)  => "Forward"
-      case (false, false) => "None"
+      case (false, false) => "Compatible"
     }
   }
 
@@ -90,7 +95,13 @@ object CompatReport extends AutoPlugin {
   private def renderDependencyChangesMarkdownTable(dependencyChanges: Seq[DependencyChangeInfo]) =
     markdownTable("Incompatibility", "Artifact", "Previous version", "Current version", "Version scheme")(
       dependencyChanges.map { info =>
-        Seq(info.directionString, info.artifactString, info.previousVersion, info.currentVersion, info.versionScheme)
+        Seq(
+          info.directionString,
+          s"`${info.artifactString}`",
+          info.previousVersion,
+          info.currentVersion,
+          info.versionScheme
+        )
       }
     )
 
@@ -98,23 +109,26 @@ object CompatReport extends AutoPlugin {
     if (dependencyChanges.isEmpty)
       ""
     else
-      " #### Dependency changes\n" +
+      "#### Dependency changes\n\n" +
         renderDependencyChangesMarkdownTable(dependencyChanges) +
         "\n"
 
   private def renderCodeChangesMarkdownTable(codeChanges: Seq[CodeChangeInfo]) =
-    markdownTable("Incompatibility", "Symbol", "Problem", "Description")(
+    markdownTable("Incompatibility", "Symbol", "Problem")(
       codeChanges.map { info =>
-        Seq(info.directionString, info.symbolName, info.problemName, info.description)
+        Seq(
+          info.directionString,
+          s"`${info.symbolName}`",
+          s"<strong>${info.problemName}</strong><p><small>${info.description}</small></p>"
+        )
       }
     )
 
   private def renderCodeChangesMarkdownSection(codeChanges: Seq[CodeChangeInfo]) =
     if (codeChanges.isEmpty) ""
     else
-      " #### Code changes" + "\n" +
-        renderCodeChangesMarkdownTable(codeChanges) +
-        "\n"
+      "#### Code changes" + "\n\n" +
+        renderCodeChangesMarkdownTable(codeChanges)
 
   private def tupleWithDirection[A](forward: Iterable[A], backward: Iterable[A]) = {
     val b = backward.toSet
@@ -140,7 +154,7 @@ object CompatReport extends AutoPlugin {
     if (depChanges.isEmpty && codeChanges.isEmpty) None
     else
       Some(
-        " ### Changes since `" + title + "`\n" +
+        "### Changes since `" + title + "`\n\n" +
           renderDependencyChangesMarkdownSection(depChanges) + "\n" +
           renderCodeChangesMarkdownSection(codeChanges) + "\n"
       )
