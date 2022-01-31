@@ -9,7 +9,6 @@ import java.nio.file.Files
 
 object Docs extends AutoPlugin {
   object autoImport {
-    val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
     val preprocessDocs = taskKey[File]("Prepare the documentation directory for Paradox")
     val checkScaladocLinks = taskKey[Unit]("Prepare the documentation directory for Paradox")
     val scaladocDirs = taskKey[Seq[(String, File)]]("Scaladoc directories to include with documentation")
@@ -115,7 +114,6 @@ object Docs extends AutoPlugin {
     Compile / paradox := {
       val outDir = (Compile / paradox).value
       val files = IO.listFiles(outDir, globFilter("*.html"))
-      println(files.toList)
       for (f <- files)
         modifyFileLines(f) { line =>
           line
@@ -130,9 +128,6 @@ object Docs extends AutoPlugin {
         }
       outDir
     },
-    (Compile / paradoxMarkdownToHtml / excludeFilter) :=
-      (Compile / paradoxMarkdownToHtml / excludeFilter).value ||
-        globFilter("capabilities.md"),
     checkScaladocLinks := {
       for ((name, dir) <- scaladocDirs.value)
         new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log)

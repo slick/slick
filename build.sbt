@@ -96,6 +96,8 @@ ThisBuild / versionScheme := Some("pvp")
 
 ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
+val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
+
 val docDir = settingKey[File]("Base directory for documentation")
 
 ThisBuild / docDir := (site / baseDirectory).value
@@ -235,10 +237,25 @@ lazy val site =
         "testkit-api" -> (testkit / Compile / doc).value
       ),
       preprocessDocs := {
-        val file = (testkit / buildCapabilitiesTable).value
-        IO.copyFile(file, (preprocessDocs / target).value / file.getName)
+        val capabilitiesTableFile = (testkit / buildCapabilitiesTable).value
+        val out = (preprocessDocs / target).value
+        IO.copyFile(capabilitiesTableFile, out / capabilitiesTableFile.getName)
+
+        val compatReports = (CompatReport / compatReportMarkdown).all(ScopeFilter(inAnyProject)).value
+        IO.write(
+          out / "compat-reports.md",
+          compatReports.mkString(
+            "## Incompatible changes\n\n",
+            "\n\n",
+            "\n"
+          )
+        )
+
         preprocessDocs.value
       },
+      (Compile / paradoxMarkdownToHtml / excludeFilter) :=
+        (Compile / paradoxMarkdownToHtml / excludeFilter).value ||
+          globFilter("capabilities.md"),
       publishArtifact := false,
       publish := {},
       publishLocal := {},
