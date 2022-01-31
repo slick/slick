@@ -16,9 +16,13 @@ and @scaladoc[StreamingDBIO](slick.dbio.package#StreamingDBIO[+R,+T]:StreamingDB
 streaming Database I/O Actions. They omit the optional *effect types* supported by @scaladoc[DBIOAction](slick.dbio.DBIOAction).
 
 @@@ note
+
 In the code examples below we assume the following imports:
+
 @@snip [Connection.scala](../code/Connection.scala) { #imports }
+
 If you're new to Slick, please start with the  @ref:[Getting Started](gettingstarted.md) page.
+
 @@@
 
 Executing Database Actions
@@ -66,7 +70,7 @@ convenience method `mapResult` is provided for this purpose:
 @@snip [Connection.scala](../code/Connection.scala) { #streamblob }
 
 @@@ note
-Note: Some database systems may require session parameters to be set in a certain way to support streaming without
+Some database systems may require session parameters to be set in a certain way to support streaming without
 caching all data at once in memory on the client side. For example, @extref[PostgreSQL](postgresql:) requires both
 `.withStatementParameters(rsType = ResultSetType.ForwardOnly, rsConcurrency = ResultSetConcurrency.ReadOnly, fetchSize = n)`
 (with the desired page size `n`) and `.transactionally` for proper streaming.
@@ -110,7 +114,7 @@ way Slick ensures that no non-database code is run on the database thread pool. 
 provided by your application or framework (e.g. @extref[Akka](akka:) or @extref[Play](play:)).
 
 @@@ note
-Note: You should prefer the less flexible methods without an `ExecutionContext` where possible. The
+You should prefer the less flexible methods without an `ExecutionContext` where possible. The
 resulting actions can be executed more efficiently.
 @@@
 
@@ -128,12 +132,14 @@ is @scaladoc[cleanUp](slick.dbio.DBIOAction#cleanUp[E2%3C:Effect]((Option[Throwa
 It lets you transform the failure and decide how to fail the resulting action if both the original
 one and the cleanup failed.
 
-@@@ note Note: For even more flexible error handling use
+@@@ note
+For even more flexible error handling use
 @scaladoc[asTry](slick.dbio.DBIOAction#asTry:DBIOAction[Try[R],NoStream,E])
 and @scaladoc[failed](slick.dbio.DBIOAction#failed:DBIOAction[Throwable,NoStream,E]). Unlike with
 @scaladoc[andFinally](slick.dbio.DBIOAction#andFinally[E2%3C:Effect](DBIOAction[_,NoStream,E2]):DBIOAction[R,S,EwithE2])
 and @scaladoc[cleanUp](slick.dbio.DBIOAction#cleanUp[E2%3C:Effect]((Option[Throwable])=%3EDBIOAction[_,NoStream,E2],Boolean)(ExecutionContext):DBIOAction[R,S,EwithE2])
-the resulting actions cannot be used for streaming. @@@
+the resulting actions cannot be used for streaming.
+@@@
 
 ### Primitives
 

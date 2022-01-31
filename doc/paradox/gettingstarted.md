@@ -8,7 +8,7 @@ sample plus an @extref[sbt](sbt:) launcher.
   one we are using in this chapter.
 
 * The @extref[**Plain SQL Queries** sample](samplerepo:slick-plainsql) shows you how to do SQL queries with Slick.
-  See [](sql.md) for details.
+  See @ref[Plain SQL Queries](sql.md) for details.
 
 * The @extref[**Multi-DB Patterns** sample](samplerepo:slick-multidb) shows you how to write Slick applications that can
   use different database systems and how to use custom database functions in Slick queries.
@@ -35,22 +35,23 @@ is used more extensively but to assist with learning the type information was in
 To include Slick in an existing project use the library published on Maven Central. Add the following to your
 build definition (`build.sbt` for @extref[sbt](sbt:) or `pom.xml` for Maven):
 
-```scala expandVars=true tab=sbt
+@@@ vars
+```scala
 libraryDependencies ++= Seq(
-  "com.typesafe.slick" %% "slick" % "{{version}}",
+  "com.typesafe.slick" %% "slick" % "$project.version$",
   "org.slf4j" % "slf4j-nop" % "1.7.26",
-  "com.typesafe.slick" %% "slick-hikaricp" % "{{version}}"
+  "com.typesafe.slick" %% "slick-hikaricp" % "$project.version$"
 )
 ```
 
-```xml expandVars=true tab=Maven
+```xml
 <!-- Make sure to use the correct Scala version suffix "_2.12" or "_2.13"
      to match your project's Scala version. -->
 <dependencies>
   <dependency>
     <groupId>com.typesafe.slick</groupId>
     <artifactId>slick_2.13</artifactId>
-    <version>{{version}}</version>
+    <version>$project.version$</version>
   </dependency>
   <dependency>
     <groupId>org.slf4j</groupId>
@@ -60,10 +61,11 @@ libraryDependencies ++= Seq(
   <dependency>
     <groupId>com.typesafe.slick</groupId>
     <artifactId>slick-hikaricp_2.13</artifactId>
-    <version>{{version}}</version>
+    <version>$project.version$</version>
   </dependency>
 </dependencies>
 ```
+@@@
 
 Slick uses @extref[SLF4J](slf4j:) for its own debug logging so you also need to add an SLF4J
 implementation. *Hello Slick* uses `slf4j-nop` to disable logging. You have
@@ -116,8 +118,8 @@ following scaffolding:
 
 @@snip [FirstExample.scala](../code/FirstExample.scala) { #setup }
 
-@@@
-Note: A `Database` object usually manages a thread pool and a connection pool. You should always
+@@@ note
+A `Database` object usually manages a thread pool and a connection pool. You should always
 shut it down properly when it is no longer needed (unless the JVM process terminates anyway).
 Do not create a new `Database` for every database operation. A single instance is meant to be kept
 alive for the entire lifetime your your application.
@@ -266,7 +268,7 @@ case class. For example:
 This uses the `mapTo` macro to convert between `(Option[Int], String)` and `User` bidirectionally. Now all of the
 queries can work with a `User` object instead of the tuples. 
 
-See [](schemas.md#mapped-tables) for details.
+See @ref[Mapped Tables](schemas.md#mapped-tables) for details.
 
 ### Auto-Generated Primary Keys
 
@@ -275,7 +277,7 @@ primary key:
 
 @@snip [CaseClassMapping.scala](../../../samples/hello-slick/src/main/scala/CaseClassMapping.scala) { #autoInc }
 
-See [](schemas.md#table-rows) for more column options.
+See @ref[Table Rows](schemas.md#table-rows) for more column options.
 
 ### Running Queries
 
@@ -291,4 +293,4 @@ computed execution plan. As a side-effect, all parameters are automatically turn
 
 @@snip [QueryActions.scala](../../../samples/hello-slick/src/main/scala/QueryActions.scala) { #upTo }
 
-See [](queries.md#compiled-queries) for details.
+See @ref[Compiled Queries](queries.md#compiled-queries) for details.
