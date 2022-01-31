@@ -27,7 +27,7 @@ lead. There are *no compatibility guarantees* whatsoever for milestones and snap
 Latest changes
 --------------
 
-See @ref:[.](compat-reports.md)
+See @ref:[the generated tables of incompatible changes](compat-reports.md)
 
 
 Upgrade from 3.2 to 3.3

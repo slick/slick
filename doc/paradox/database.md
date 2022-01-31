@@ -21,18 +21,20 @@ of this method for details on the configuration parameters).
 #### Examples
 
 ##### PostgreSQL
-@@snip [_](../code/application.conf) { #postgres }
+@@snip [application.conf](../code/application.conf) { #postgres }
 
 When specifying a dataSourceClass you will need to bring in the sbt dependency for that class. The following is an example for the `org.postgresql.ds.PGSimpleDataSource` data source class:
 
-```scala expandVars=true
+@@@ vars
+```scala
 libraryDependencies ++= Seq(
-  "com.typesafe.slick" %% "slick" % "{{version}}",
+  "com.typesafe.slick" %% "slick" % "$project.version$",
   "org.slf4j" % "slf4j-nop" % "1.7.26",
-  "com.typesafe.slick" %% "slick-hikaricp" % "{{version}}",
+  "com.typesafe.slick" %% "slick-hikaricp" % "$project.version$",
   "org.postgresql" % "postgresql" % "42.2.5" //org.postgresql.ds.PGSimpleDataSource dependency
 )
 ``` 
+@@@
 
 Note, some examples on the internet point to the 9.4.X versions of the
 PostgreSQL JDBC drivers. Those examples are incorrect and many years out of
@@ -46,11 +48,11 @@ about when you may want to use the 9.4 line.
 
 Very simple example without a connection pool and using the driver directly:
 
-@@snip [_](../code/application.conf) { #mysql }
+@@snip [application.conf](../code/application.conf) { #mysql }
 
 To use the MySQL driver, the following library dependency needs to be configured via SBT:
 
-```scala expandVars=true
+```scala
 libraryDependencies += "mysql" % "mysql-connector-java" % "6.0.6"
 ```
 
@@ -72,7 +74,7 @@ Using a Database URL
 A Database URL, a platform independent URL in the form `vendor://user:password@host:port/db`, is often provided by
 platforms such as Heroku. You can use a Database URL in Typesafe Config as shown here:
 
-@@snip [_](../code/application.conf) { #dburl }
+@@snip [application.conf](../code/application.conf) { #dburl }
 
 By default, the data source will use the value of the `DATABASE_URL` environment variable. Thus you may omit the `url`
 property if the `DATABASE_URL` environment variable is set. You may also define a custom environment variable with
@@ -159,7 +161,7 @@ The `JdbcProfile` type annotation specifies the profile level whose API you get.
 a matching type in the external configuration file. Since we're using the basic `forConfig` method with only a path
 ("h2_dc"), the configuration must be located in the global application config, usually found in `application.conf`:
 
-@@snip [application.conf](../../../samples/slick-multidb/src/main/resources/application.conf) { #--doc-h2_db }
+@@snip [application.conf](../../../samples/slick-multidb/src/main/resources/application.conf) { #doc-h2_db }
 
 You can use different database systems in your application by either switching out or overriding the application
 config (e.g. different `application.conf` files for development and production) or by passing a config path into
