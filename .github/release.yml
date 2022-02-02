@@ -1,0 +1,18 @@
+changelog:
+  categories:
+    - title: Enhancements 🎉
+      labels:
+        - improvement
+    - title: Bugs fixed 🐛️
+      labels:
+        - bug
+    - title: Documentation improvements 📃️
+      labels:
+        - topic:documentation
+    - title: Chores 🛠
+      labels:
+        - build
+        - refactor
+    - title: Other Changes
+      labels:
+        - "*"

@@ -1,20 +1,22 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main, nafg/build-fixes ]
+ pull_request:
+   branches: ['**']
+ push:
+   branches: ['**']
+   tags: [v*]
 
 jobs:
-  test:
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
         java: [8, 11, 17]
-        scala: [2.12.15, 2.13.6]
+        scala: [2.12.15, 2.13.8]
 
     services:
       postgres:
@@ -53,8 +55,6 @@ jobs:
           --privileged
 
     steps:
-    - uses: ts-graphviz/setup-graphviz@v1
-
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
@@ -65,16 +65,78 @@ jobs:
     - name: Start MySQL
       run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
+    - uses: ts-graphviz/setup-graphviz@v1
+
     - name: Set up JDK
       uses: actions/setup-java@v2
       with:
         distribution: adopt
         java-version: ${{ matrix.java }}
 
-    - if: ${{ startsWith('refs/tags/', github.ref) }}
-      run: export CI_TAG="${GITHUB_REF#refs/tags/}"
-
     - name: Build and test
-      run: SCALA_VERSION=${{ matrix.scala }} TESTKIT_CONF=test-dbs/testkit.github-actions.conf admin/build.sh
+      run: |
+        sbt \
+          -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
+          ++${{ matrix.scala }} \
+          coverage testAll coverageReport \
+          testAllSamples
       env:
         TZ: Asia/Kamchatka
+
+  deploy_docs:
+    name: Deploy Docs
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - uses: ts-graphviz/setup-graphviz@v1
+
+    - name: Set up JDK
+      uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: 8
+
+    - name: Create deploy key
+      run: |
+        echo "${{ secrets.PUBLISH_DOCS_KEY }}" > deploy-key
+        chmod 600 deploy-key
+
+    - name: Set git user config to github actions bot
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Publish docs to website
+      run: GIT_SSH_COMMAND="ssh -i $(pwd)/deploy-key" sbt site/deployDocs
+
+  publish:
+    name: Release
+    needs: [build]
+    if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - uses: ts-graphviz/setup-graphviz@v1
+
+    - name: Set up JDK
+      uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: 8
+
+    - name: Publish artifacts to Maven Central
+      env:
+        PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+        PGP_SECRET: ${{ secrets.PGP_SECRET }}
+        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+      run: sbt ci-release

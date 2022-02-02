@@ -1,0 +1,24 @@
+queue_rules:
+  - name: default
+    conditions: []
+pull_request_rules:
+  - name: Automatic merge on approval
+    conditions:
+      - "check-success=typesafe-cla-validator"
+      - "check-success=Build and Test (8, 2.12.15)"
+      - "check-success=Build and Test (8, 2.13.8)"
+      - "check-success=Build and Test (11, 2.12.15)"
+      - "check-success=Build and Test (11, 2.13.8)"
+      - "check-success=Build and Test (17, 2.12.15)"
+      - "check-success=Build and Test (17, 2.13.8)"
+      - "check-success=continuous-integration/appveyor/pr"
+      - "#changes-requested-reviews-by=0"
+      - "-draft"
+      - or:
+          - "#approved-reviews-by>=1"
+          - "author=scala-steward"
+          - "author=nafg"
+    actions:
+      queue:
+        name: default
+        method: merge

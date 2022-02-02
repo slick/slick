@@ -25,8 +25,8 @@ object PlainSQL extends App {
   case class Coffee(name: String, supID: Int, price: Double, sales: Int, total: Int)
 
   // Result set getters
-  implicit val getSupplierResult = GetResult(r => Supplier(r.nextInt, r.nextString, r.nextString,
-    r.nextString, r.nextString, r.nextString))
+  implicit val getSupplierResult = GetResult(r => Supplier(r.nextInt(), r.nextString(), r.nextString(),
+    r.nextString(), r.nextString(), r.nextString()))
   implicit val getCoffeeResult = GetResult(r => Coffee(r.<<, r.<<, r.<<, r.<<, r.<<))
   //#getresult
 
