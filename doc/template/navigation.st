@@ -3,7 +3,7 @@
         <span class="home-icon">⌂</span>$page.home.title$
     </a>
     <div class="version-number">
-        <ul class="menu version-menu" data-options="disableHover: true; clickOpen: true;">
+        <ul class="menu version-menu" data-options="disableHover: true; clickOpen: true; closeOnClickInside: false;">
             <li class="is-dropdown-submenu-parent">
                 <a href="#">
                     $page.properties.("project.version")$
