@@ -53,6 +53,9 @@ jobs:
         options: >-
           --privileged
 
+    env:
+      TZ: Asia/Kamchatka
+
     steps:
       - uses: actions/checkout@v3
         with:
@@ -75,14 +78,17 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: sbt
 
-      - name: Build and test
-        run: |
-          sbt \
-            -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
-            ++${{ matrix.scala }} \
-            coverage testAll coverageReport
-        env:
-          TZ: Asia/Kamchatka
+      - run: sbt ++${{ matrix.scala }} compile
+      - run: sbt ++${{ matrix.scala }} Test/compile
+      - run: sbt ++${{ matrix.scala }} versionPolicyCheck
+      - run: sbt ++${{ matrix.scala }} coverage "reactive-streams-tests / Test / test"
+      - run: |
+          sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
+            coverage "testkit / DocTest / test"
+      - run: |
+          sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
+            coverage "testkit / Test / test"
+      - run: sbt ++${{ matrix.scala }} coverageReport
 
   deploy_docs:
     name: Deploy Docs
