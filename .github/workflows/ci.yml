@@ -2,10 +2,10 @@ name: CI
 
 on:
   pull_request:
-    branches: [ '**' ]
+    branches: ['**']
   push:
     branches: [ 'main' ]
-    tags: [ v* ]
+    tags: [v*]
 
 jobs:
 
@@ -186,23 +186,18 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: sbt
 
-      - name: Download target directories
-        uses: actions/download-artifact@v2
-        with:
-          name: targets-${{ matrix.scala }}
-      - name: Inflate target directories
-        run: |
-          tar xf targets.tar
-          rm targets.tar
-
-      - run: |
-          sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
-            ++${{ matrix.scala }} coverage "testkit/testOnly ${{ matrix.test }}"
-      - run: sbt ++${{ matrix.scala }} coverageAggregate
-      - uses: actions/upload-artifact@v2
-        with:
-          name: scoverage-report-${{ matrix.scala }}
-          path: target/*/scoverage-report/
+    - run: sbt ++${{ matrix.scala }} compile
+    - run: sbt ++${{ matrix.scala }} Test/compile
+    - run: sbt ++${{ matrix.scala }} versionPolicyCheck
+    - run: sbt ++${{ matrix.scala }} coverage "reactive-streams-tests / Test / test"
+    - run: sbt ++${{ matrix.scala }} coverage testAllSamples
+    - run: |
+        sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
+          coverage "testkit / DocTest / test"
+    - run: |
+        sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
+          coverage "testkit / Test / test"
+    - run: sbt ++${{ matrix.scala }} coverageReport
 
   deploy_docs:
     name: Deploy Docs
