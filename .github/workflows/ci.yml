@@ -191,13 +191,19 @@ jobs:
     - run: sbt ++${{ matrix.scala }} versionPolicyCheck
     - run: sbt ++${{ matrix.scala }} coverage "reactive-streams-tests / Test / test"
     - run: sbt ++${{ matrix.scala }} coverage testAllSamples
-    - run: |
+    - name: Run DocTest
+      run: |
         sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
           coverage "testkit / DocTest / test"
-    - run: |
+    - name: Run testkit
+      run: |
         sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
           coverage "testkit / Test / test"
-    - run: sbt ++${{ matrix.scala }} coverageReport
+    - run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate
+    - uses: actions/upload-artifact@v2
+      with:
+        name: scoverage-report
+        path: target/*/scoverage-report/
 
   deploy_docs:
     name: Deploy Docs
