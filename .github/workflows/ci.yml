@@ -8,14 +8,62 @@ on:
     tags: [ v* ]
 
 jobs:
+
   build:
-    name: Build and Test
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: 8
+        cache: sbt
+    - run: sbt +coverage +compile
+    - run: sbt +coverage +Test/compile
+
+    - name: Compress target directories
+      run: tar cf targets.tar target */target
+
+    - name: Upload target directories
+      uses: actions/upload-artifact@v2
+      with:
+        name: targets
+        path: targets.tar
+
+  versionPolicyCheck:
+    name: Check version
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: 8
+        cache: sbt
+    - name: Download target directories
+      uses: actions/download-artifact@v2
+      with:
+        name: targets
+    - name: Inflate target directories
+      run: |
+        tar xf targets.tar
+        rm targets.tar
+    - run: sbt +versionPolicyCheck
+
+  test:
+    name: Test
+    needs: [build]
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        java: [ 8, 17 ]
-        scala: [ 2.12.15, 2.13.8 ]
+        java: [8, 17]
 
     services:
       postgres:
@@ -71,26 +119,25 @@ jobs:
 
       - uses: ts-graphviz/setup-graphviz@v1
 
-      - name: Set up JDK
-        uses: actions/setup-java@v3
+      - uses: actions/setup-java@v3
         with:
           distribution: adopt
           java-version: ${{ matrix.java }}
           cache: sbt
 
-      - run: sbt ++${{ matrix.scala }} compile
-      - run: sbt ++${{ matrix.scala }} Test/compile
-      - run: sbt ++${{ matrix.scala }} versionPolicyCheck
-      - run: sbt ++${{ matrix.scala }} coverage "reactive-streams-tests / Test / test"
-      - name: Run DocTest
+      - name: Download target directories
+        uses: actions/download-artifact@v2
+        with:
+          name: targets
+      - name: Inflate target directories
         run: |
-          sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
-            coverage "testkit / DocTest / test"
-      - name: Run testkit
-        run: |
-          sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} \
-            coverage "testkit / Test / test"
-      - run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate
+          tar xf targets.tar
+          rm targets.tar
+
+      - run: sbt +coverage +reactive-streams-tests/test
+      - run: sbt +coverage +testkit/DocTest/test
+      - run: sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf +coverage +testkit/test
+      - run: sbt coverageAggregate
       - uses: actions/upload-artifact@v2
         with:
           name: scoverage-report
@@ -130,7 +177,7 @@ jobs:
 
   publish:
     name: Release
-    needs: [ build ]
+    needs: [ test , versionPolicyCheck]
     if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
 
@@ -141,8 +188,7 @@ jobs:
 
       - uses: ts-graphviz/setup-graphviz@v1
 
-      - name: Set up JDK
-        uses: actions/setup-java@v3
+      - uses: actions/setup-java@v3
         with:
           distribution: adopt
           java-version: 8
