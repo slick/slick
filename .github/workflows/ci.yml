@@ -51,7 +51,7 @@ jobs:
     - uses: actions/setup-java@v2
       with:
         distribution: adopt
-        java-version: ${{ matrix.java }}
+        java-version: 8
     - uses: actions/cache@v2
       with:
         path: |
