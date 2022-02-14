@@ -15,6 +15,10 @@ jobs:
     strategy:
       matrix:
         scala: [2.12.15, 2.13.8]
+
+    outputs:
+      testGroups: ${{ steps.printTestGroups.outputs.tests }}
+
     steps:
     - uses: actions/checkout@v2
       with:
@@ -33,6 +37,9 @@ jobs:
         key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('*.sbt') }}-${{ hashFiles('project/*.scala') }}-${{ hashFiles('project/build.properties') }}
     - run: sbt ++${{ matrix.scala }} coverage compile
     - run: sbt ++${{ matrix.scala }} coverage Test/compile
+
+    - id: printTestGroups
+      run: sbt testkit/printTestGroups
 
     - name: Compress target directories
       run: tar cf targets.tar target */target
@@ -244,37 +251,7 @@ jobs:
       matrix:
         java: [8, 17]
         scala: [2.12.15, 2.13.8]
-        test:
-        - 'slick.test.codegen*'
-        - 'slick.test.collection.heterogenous*'
-        - 'slick.test.jdbc*'
-        - 'slick.test.jdbc.hikaricp*'
-        - 'slick.test.lifted*'
-        - 'slick.test.memory*'
-        - 'slick.test.model*'
-        - 'slick.test.profile.DB2Test'
-        - 'slick.test.profile.DerbyDiskTest'
-        - 'slick.test.profile.DerbyMemTest'
-        - 'slick.test.profile.H2DiskTest'
-        - 'slick.test.profile.H2MemTest'
-        - 'slick.test.profile.H2RownumTest'
-        - 'slick.test.profile.HeapTest'
-        - 'slick.test.profile.HsqldbDiskTest'
-        - 'slick.test.profile.HsqldbMemTest'
-        - 'slick.test.profile.MySQLTest'
-        - 'slick.test.profile.OracleTest'
-        - 'slick.test.profile.PostgresTest'
-        - 'slick.test.profile.ProfileNameTest'
-        - 'slick.test.profile.SQLServer2012JTDSTest'
-        - 'slick.test.profile.SQLServer2012SQLJDBCTest'
-        - 'slick.test.profile.SQLServer2014JTDSTest'
-        - 'slick.test.profile.SQLServer2014SQLJDBCTest'
-        - 'slick.test.profile.SQLServer2017JTDSTest'
-        - 'slick.test.profile.SQLServer2017SQLJDBCTest'
-        - 'slick.test.profile.SQLServerJTDSTest'
-        - 'slick.test.profile.SQLServerSQLJDBCTest'
-        - 'slick.test.profile.SQLiteDiskTest'
-        - 'slick.test.profile.SQLiteMemTest'
+        test: ${{ fromJson(needs.build.outputs.testGroups) }}
 
 
     services:
