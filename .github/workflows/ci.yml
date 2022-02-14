@@ -12,6 +12,9 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scala: [2.12.15, 2.13.8]
     steps:
     - uses: actions/checkout@v2
       with:
@@ -28,8 +31,8 @@ jobs:
           ~/.coursier/cache/v1
           ~/.cache/coursier/v1
         key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('*.sbt') }}-${{ hashFiles('project/*.scala') }}-${{ hashFiles('project/build.properties') }}
-    - run: sbt +coverage +compile
-    - run: sbt +coverage +Test/compile
+    - run: sbt ++${{ matrix.scala }} coverage compile
+    - run: sbt ++${{ matrix.scala }} coverage Test/compile
 
     - name: Compress target directories
       run: tar cf targets.tar target */target
@@ -37,7 +40,7 @@ jobs:
     - name: Upload target directories
       uses: actions/upload-artifact@v2
       with:
-        name: targets
+        name: targets-${{ matrix.scala }}
         path: targets.tar
 
   versionPolicyCheck:
@@ -63,12 +66,12 @@ jobs:
     - name: Download target directories
       uses: actions/download-artifact@v2
       with:
-        name: targets
+        name: targets-2.13.8
     - name: Inflate target directories
       run: |
         tar xf targets.tar
         rm targets.tar
-    - run: sbt +versionPolicyCheck
+    - run: sbt versionPolicyCheck
 
   test:
     name: Test
@@ -261,7 +264,7 @@ jobs:
     - name: Download target directories
       uses: actions/download-artifact@v2
       with:
-        name: targets
+        name: targets-${{ matrix.scala }}
     - name: Inflate target directories
       run: |
         tar xf targets.tar
