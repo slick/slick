@@ -120,7 +120,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [8, 11, 17]
+        java: [8, 17]
         scala: [2.12.15, 2.13.8]
         test:
         - 'slick.test.codegen*'
