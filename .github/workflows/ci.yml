@@ -73,8 +73,8 @@ jobs:
         rm targets.tar
     - run: sbt versionPolicyCheck
 
-  test:
-    name: Test
+  test-basic:
+    name: Basic tests
     needs: [build]
     runs-on: ubuntu-latest
     strategy:
@@ -192,6 +192,91 @@ jobs:
         java: [8, 11, 17]
         scala: [2.12.15, 2.13.8]
 
+    env:
+      TZ: Asia/Kamchatka
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - uses: ts-graphviz/setup-graphviz@v1
+
+    - uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: ${{ matrix.java }}
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.sbt
+          ~/.ivy2/cache
+          ~/.coursier/cache/v1
+          ~/.cache/coursier/v1
+        key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('*.sbt') }}-${{ hashFiles('project/*.scala') }}-${{ hashFiles('project/build.properties') }}
+
+    - name: Download target directories
+      uses: actions/download-artifact@v2
+      with:
+        name: targets-${{ matrix.scala }}
+    - name: Inflate target directories
+      run: |
+        tar xf targets.tar
+        rm targets.tar
+
+    - run: sbt ++${{ matrix.scala }} coverage reactive-streams-tests/test
+    - run: sbt ++${{ matrix.scala }} coverage testAllSamples
+    - run: sbt ++${{ matrix.scala }} coverage testkit/DocTest/test
+    - run: sbt ++${{ matrix.scala }} coverageAggregate
+    - uses: actions/upload-artifact@v2
+      with:
+        name: scoverage-report-${{ matrix.scala }}
+        path: target/*/scoverage-report/
+
+  test-testkit:
+    name: Run Testkit tests
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [8, 11, 17]
+        scala: [2.12.15, 2.13.8]
+        test:
+        - 'slick.test.codegen*'
+        - 'slick.test.collection.heterogenous*'
+        - 'slick.test.jdbc*'
+        - 'slick.test.jdbc.hikaricp*'
+        - 'slick.test.lifted*'
+        - 'slick.test.memory*'
+        - 'slick.test.model*'
+        - 'slick.test.profile.DB2Test'
+        - 'slick.test.profile.DerbyDiskTest'
+        - 'slick.test.profile.DerbyMemTest'
+        - 'slick.test.profile.H2DiskTest'
+        - 'slick.test.profile.H2MemTest'
+        - 'slick.test.profile.H2RownumTest'
+        - 'slick.test.profile.HeapTest'
+        - 'slick.test.profile.HsqldbDiskTest'
+        - 'slick.test.profile.HsqldbMemTest'
+        - 'slick.test.profile.MySQLTest'
+        - 'slick.test.profile.OracleTest'
+        - 'slick.test.profile.PostgresTest'
+        - 'slick.test.profile.ProfileNameTest'
+        - 'slick.test.profile.SQLServer2012JTDSTest'
+        - 'slick.test.profile.SQLServer2012SQLJDBCTest'
+        - 'slick.test.profile.SQLServer2014JTDSTest'
+        - 'slick.test.profile.SQLServer2014SQLJDBCTest'
+        - 'slick.test.profile.SQLServer2017JTDSTest'
+        - 'slick.test.profile.SQLServer2017SQLJDBCTest'
+        - 'slick.test.profile.SQLServerJTDSTest'
+        - 'slick.test.profile.SQLServerSQLJDBCTest'
+        - 'slick.test.profile.SQLiteDiskTest'
+        - 'slick.test.profile.SQLiteMemTest'
+
+
     services:
       postgres:
         image: postgres
@@ -270,10 +355,9 @@ jobs:
         tar xf targets.tar
         rm targets.tar
 
-    - run: sbt ++${{ matrix.scala }} coverage reactive-streams-tests/test
-    - run: sbt ++${{ matrix.scala }} coverage testAllSamples
-    - run: sbt ++${{ matrix.scala }} coverage testkit/DocTest/test
-    - run: sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} coverage testkit/test
+    - run: |
+        sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
+          ++${{ matrix.scala }} coverage "testkit/testOnly ${{ matrix.test }}"
     - run: sbt ++${{ matrix.scala }} coverageAggregate
     - uses: actions/upload-artifact@v2
       with:
@@ -314,7 +398,7 @@ jobs:
 
   publish:
     name: Release
-    needs: [test, versionPolicyCheck]
+    needs: [test-basic, test-testkit, versionPolicyCheck]
     if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
 
