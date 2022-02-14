@@ -28,11 +28,10 @@ jobs:
         distribution: adopt
         java-version: 8
         cache: sbt
-    - run: sbt ++${{ matrix.scala }} coverage compile
-    - run: sbt ++${{ matrix.scala }} coverage Test/compile
+    - run: sbt ++${{ matrix.scala }} coverage compile Test/compile
 
     - id: printTestGroups
-      run: sbt testkit/printTestGroups
+      run: sbt ++${{ matrix.scala }} coverage testkit/printTestGroups
 
     - name: Compress target directories
       run: tar cf targets.tar target */target
@@ -84,8 +83,6 @@ jobs:
       with:
         fetch-depth: 0
 
-    - uses: ts-graphviz/setup-graphviz@v1
-
     - uses: actions/setup-java@v2
       with:
         distribution: adopt
@@ -130,7 +127,6 @@ jobs:
         java: [8, 17]
         scala: [2.12.15, 2.13.8]
         test: ${{ fromJson(needs.build.outputs.testGroups) }}
-
 
     services:
       postgres:
@@ -183,8 +179,6 @@ jobs:
 
       - name: Start MySQL
         run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
-
-      - uses: ts-graphviz/setup-graphviz@v1
 
       - uses: actions/setup-java@v3
         with:
