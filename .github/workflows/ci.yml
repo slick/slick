@@ -187,6 +187,7 @@ jobs:
       fail-fast: false
       matrix:
         java: [8, 11, 17]
+        scala: [2.12.15, 2.13.8]
 
     services:
       postgres:
@@ -266,14 +267,14 @@ jobs:
         tar xf targets.tar
         rm targets.tar
 
-    - run: sbt +coverage +reactive-streams-tests/test
-    - run: sbt +coverage +testAllSamples
-    - run: sbt +coverage +testkit/DocTest/test
-    - run: sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf +coverage +testkit/test
-    - run: sbt coverageAggregate
+    - run: sbt ++${{ matrix.scala }} coverage reactive-streams-tests/test
+    - run: sbt ++${{ matrix.scala }} coverage testAllSamples
+    - run: sbt ++${{ matrix.scala }} coverage testkit/DocTest/test
+    - run: sbt -Dslick.testkit-config=test-dbs/testkit.github-actions.conf ++${{ matrix.scala }} coverage testkit/test
+    - run: sbt ++${{ matrix.scala }} coverageAggregate
     - uses: actions/upload-artifact@v2
       with:
-        name: scoverage-report
+        name: scoverage-report-${{ matrix.scala }}
         path: target/*/scoverage-report/
 
   deploy_docs:
