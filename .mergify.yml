@@ -2,6 +2,13 @@ queue_rules:
   - name: default
     conditions: []
 pull_request_rules:
+  - name: Label Scala Steward PRs with 'build'
+    conditions:
+      - "author=scala-steward"
+    actions:
+      label:
+        add:
+          - build
   - name: Automatic merge on approval
     conditions:
       - "check-success=typesafe-cla-validator"
