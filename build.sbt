@@ -152,7 +152,6 @@ lazy val testkit =
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
-      Test / parallelExecution := false,
       run / fork := true,
       //connectInput in run := true,
       run / javaOptions += "-Dslick.ansiDump=true",
