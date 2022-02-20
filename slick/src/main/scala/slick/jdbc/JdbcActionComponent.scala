@@ -328,7 +328,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters
-          converter.set(value, st)
+          converter.set(value, st, 0)
           sres.setter(st, converter.width+1, param)
           st.executeUpdate
         }
@@ -516,7 +516,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     class SingleInsertAction(a: compiled.Artifacts, value: U) extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
       def run(ctx: Backend#Context, sql: Vector[String]) = preparedInsert(sql.head, ctx.session) { st =>
         st.clearParameters()
-        a.converter.set(value, st)
+        a.converter.set(value, st, 0)
         val count = st.executeUpdate()
         retOne(st, value, count)
       }
@@ -529,14 +529,14 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           retMany(values, values.iterator.map { v =>
             preparedInsert(sql1, ctx.session) { st =>
               st.clearParameters()
-              a.converter.set(v, st)
+              a.converter.set(v, st, 0)
               retOne(st, v, st.executeUpdate())
             }
           }.toVector)
         else preparedInsert(sql1, ctx.session) { st =>
           st.clearParameters()
           for(value <- values) {
-            a.converter.set(value, st)
+            a.converter.set(value, st, 0)
             st.addBatch()
           }
           val counts = st.executeBatch()
@@ -580,7 +580,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       protected def nativeUpsert(value: U, sql: String)(implicit session: Backend#Session): SingleInsertOrUpdateResult =
         preparedInsert(sql, session) { st =>
           st.clearParameters()
-          compiled.upsert.converter.set(value, st)
+          compiled.upsert.converter.set(value, st, 0)
           val count = st.executeUpdate()
           retOneInsertOrUpdate(st, value, count)
         }
@@ -588,18 +588,18 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       protected def emulate(value: U, checkSql: String, updateSql: String, insertSql: String)(implicit session: Backend#Session): SingleInsertOrUpdateResult = {
         val found = preparedOther(checkSql, session) { st =>
           st.clearParameters()
-          compiled.checkInsert.converter.set(value, st)
+          compiled.checkInsert.converter.set(value, st, 0)
           val rs = st.executeQuery()
           try rs.next() finally rs.close()
         }
         if(found) preparedOther(updateSql, session) { st =>
           st.clearParameters()
-          compiled.updateInsert.converter.set(value, st)
+          compiled.updateInsert.converter.set(value, st, 0)
           st.executeUpdate()
           retOneInsertOrUpdateFromUpdate
         } else preparedInsert(insertSql, session) { st =>
           st.clearParameters()
-          compiled.standardInsert.converter.set(value, st)
+          compiled.standardInsert.converter.set(value, st, 0)
           val count = st.executeUpdate()
           retOneInsertOrUpdateFromInsert(st, value, count)
         }
