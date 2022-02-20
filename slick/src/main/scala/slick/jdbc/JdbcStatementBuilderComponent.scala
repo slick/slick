@@ -505,12 +505,19 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
-      if(syms.isEmpty) new InsertBuilderResult(table, emptyInsert, syms)
-      else new InsertBuilderResult(table, s"$start values $allVars", syms) {
+      if(syms.isEmpty) {
+        new InsertBuilderResult(table, emptyInsert, syms) {
+          override def buildInsertMultipleRowsSql(size: Int): String =
+            if(allFields.isEmpty) throw new SlickException("Bulk insert is not supported for 'default values' phrase.")
+            else s"insert into $tableName (${quoteIdentifier(allFields.head.name)}) values ${(1 to size).map(_ => "(default)").mkString(",")}"
+        }
+      } else new InsertBuilderResult(table, s"$start values $allVars", syms) {
         override def buildInsert(compiledQuery: Node) = {
           val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery)
           SQLBuilder.Result(start + sbr.sql, sbr.setter)
         }
+        override def buildInsertMultipleRowsSql(size: Int): String =
+          s"${buildInsertStart} values ${(1 to size).map(_ => allVars).mkString(",")}"
       }
     }
 
@@ -770,4 +777,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 class InsertBuilderResult(val table: TableNode, val sql: String, val fields: ConstArray[FieldSymbol]) {
   def buildInsert(compiledQuery: Node): SQLBuilder.Result =
     throw new SlickException("Building Query-based inserts from this InsertBuilderResult is not supported")
+
+  def buildInsertMultipleRowsSql(size: Int): String =
+    throw new SlickException("Building bulk sql from this InsertBuilderResult is not supported")
+
 }

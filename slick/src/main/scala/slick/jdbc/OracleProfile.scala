@@ -4,7 +4,6 @@ import java.time.format.DateTimeFormatter
 import java.time._
 import java.util.UUID
 import java.sql.{Array => _, _}
-
 import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.ast._
@@ -15,6 +14,7 @@ import slick.lifted._
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.basic.Capability
+import slick.sql.FixedSqlAction
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -44,6 +44,11 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     which is always mapped back to BigDecimal in model and generated code.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     Oracle does not have a BYTE type.</li>
+ *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
+ *      Oracle returns the last generated key only.</li>
+ *   <li>[[slick.jdbc.JdbcCapabilities.insertMultipleRowsWithSingleStatement]]:
+ *      Oracle doesn't support this feature directly.
+ *      There are several alternative ways, but the library doesn't support them, so far.</li>
   * </ul>
   *
   * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns
@@ -63,6 +68,8 @@ trait OracleProfile extends JdbcProfile {
     - JdbcCapabilities.booleanMetaData
     - JdbcCapabilities.distinguishesIntTypes
     - JdbcCapabilities.supportsByte
+    - JdbcCapabilities.returnMultipleInsertKey
+    - JdbcCapabilities.insertMultipleRowsWithSingleStatement
   )
 
   override protected lazy val useServerSideUpsert = true
@@ -532,6 +539,24 @@ END;
         }
       }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
     else super.createOptionResultConverter(ti, idx)
+
+
+  private trait OverrideInsertAll[U] { self : InsertActionComposerImpl[U] =>
+    override def insertAll(values: Iterable[U], option: StatementOption = StatementOption.Batch): FixedSqlAction[MultiInsertResult, NoStream, Effect.Write] = {
+      option match {
+        case StatementOption.Batch =>
+          new self.MultiInsertAction(compiled.standardInsert, values)
+        case StatementOption.SingleStatement =>
+          throw new SlickException("OracleProfile doesn't support multiple insert with single statement.")
+      }
+    }
+  }
+
+  override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
+    new CountingInsertActionComposerImpl[T](compiled) with OverrideInsertAll[T]
+
+  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
+    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) with OverrideInsertAll[U]
 
   // Does not work to get around the ORA-00904 issue when returning columns
   // with lower-case names
