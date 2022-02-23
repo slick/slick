@@ -172,6 +172,18 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
+      Test / testGrouping :=
+        (Test / definedTests).value
+          .groupBy { td =>
+            td.name.split('.').toSeq match {
+              case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
+              case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
+              case _                                                              => ""
+            }
+          }
+          .map { case (name, tests) => new Tests.Group(name, tests, Tests.SubProcess(ForkOptions())) }
+          .toSeq
+          .sortBy(_.name),
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
@@ -186,18 +198,7 @@ lazy val testkit =
       },
       DocTest / unmanagedSourceDirectories += docDir.value / "code",
       DocTest / unmanagedResourceDirectories += docDir.value / "code",
-      Test / testGrouping :=
-        (Test / definedTests).value
-          .groupBy { td =>
-            td.name.split('.').toSeq match {
-              case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
-              case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
-              case _                                                              => ""
-            }
-          }
-          .map { case (name, tests) => new Tests.Group(name, tests, Tests.SubProcess(ForkOptions())) }
-          .toSeq
-          .sortBy(_.name)
+      DocTest / parallelExecution := false
     )
 
 lazy val codegen =
