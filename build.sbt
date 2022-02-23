@@ -15,6 +15,12 @@ val cleanCompileTimeTests =
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
 
+Global / concurrentRestrictions :=
+  List(
+    Tags.limit(Tags.ForkedTestGroup, 4),
+    Tags.exclusiveGroup(Tags.Clean)
+  )
+
 inThisBuild(
   Seq(
     organizationName := "Typesafe",
