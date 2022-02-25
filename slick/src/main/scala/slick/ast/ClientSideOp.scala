@@ -15,23 +15,25 @@ object ClientSideOp {
   /** Perform a computation only on the server side of a tree that may be
     * wrapped in client-side operations. Types are preserved unless
     * ``keepType`` is set to false. */
+  //TODO make tailrec or leave comment why we decided not to
   def mapServerSide(n: Node, keepType: Boolean = true)(f: Node => Node): Node = n match {
-    case n: ClientSideOp => n.nodeMapServerSide(keepType, (ch => mapServerSide(ch, keepType)(f)))
+    case n: ClientSideOp => n.nodeMapServerSide(keepType, ch => mapServerSide(ch, keepType)(f))
     case n => f(n)
   }
+  //TODO  make tailrec or leave comment why we decided not to
   def mapResultSetMapping(n: Node, keepType: Boolean = true)(f: ResultSetMapping => Node): Node = n match {
     case r: ResultSetMapping => f(r)
-    case n: ClientSideOp => n.nodeMapServerSide(keepType, (ch => mapResultSetMapping(ch, keepType)(f)))
-    case n => throw new SlickException("No ResultSetMapping found in tree")
+    case n: ClientSideOp => n.nodeMapServerSide(keepType, ch => mapResultSetMapping(ch, keepType)(f))
+    case n => throw new SlickException(s"No ResultSetMapping found in tree, found $n")
   }
 }
 
 /** Get the first element of a collection. For client-side operations only. */
 final case class First(child: Node) extends UnaryNode with SimplyTypedNode with ClientSideOp {
-  type Self = First
-  protected[this] def rebuild(ch: Node) = copy(child = ch)
-  protected def buildType = child.nodeType.asCollectionType.elementType
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
+  override type Self = First
+  override protected[this] def rebuild(ch: Node): Self = copy(child = ch)
+  override protected def buildType = child.nodeType.asCollectionType.elementType
+  override def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = mapChildren(r, keepType)
 }
 
 /** A client-side projection of type
@@ -41,15 +43,16 @@ final case class First(child: Node) extends UnaryNode with SimplyTypedNode with 
   * a type of ``(t, u) => u`` where ``t`` and ``u`` are primitive or Option
   * types. */
 final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) extends BinaryNode with DefNode with ClientSideOp {
-  type Self = ResultSetMapping
-  def left = from
-  def right = map
-  override def childNames = Seq("from "+generator, "map")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, map = right)
-  def generators = ConstArray((generator, from))
+  override type Self = ResultSetMapping
+  override def left: Node = from
+  override def right: Node = map
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from "+generator, "map")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, map = right)
+  override def generators = ConstArray((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(generator = gen(0))
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val (map2, newType) = from2.nodeType match {
       case CollectionType(cons, elem) =>
@@ -61,7 +64,7 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
     }
     withChildren(ConstArray[Node](from2, map2)) :@ (if(!hasType) newType else nodeType)
   }
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = {
+  override def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
     val this2 = mapScopedChildren {
       case (Some(_), ch) => r(ch)
       case (None, ch) => ch
@@ -73,14 +76,15 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
 
 /** A switch for special-cased parameters that needs to be interpreted in order
   * to find the correct query string for the query arguments. */
-final case class ParameterSwitch(cases: ConstArray[((Any => Boolean), Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
-  type Self = ParameterSwitch
-  def children = cases.map(_._2) :+ default
-  override def childNames = cases.map("[" + _._1 + "]").toSeq :+ "default"
-  protected[this] def rebuild(ch: ConstArray[Node]): Self =
+final case class ParameterSwitch(cases: ConstArray[(Any => Boolean, Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
+  override type Self = ParameterSwitch
+  override def children = cases.map(_._2) :+ default
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = cases.map("[" + _._1 + "]").toSeq :+ "default"
+  override protected[this] def rebuild(ch: ConstArray[Node]): Self =
     copy(cases = cases.zip(ch).map { case (c, n) => (c._1, n) }, default = ch.last)
-  protected def buildType = default.nodeType
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
+  override protected def buildType = default.nodeType
+  override def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
     val ch = children
     val ch2 = ch.endoMap(r)
     val this2 = if(ch2 eq ch) this else rebuild(ch2)

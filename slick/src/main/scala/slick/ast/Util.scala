@@ -26,8 +26,9 @@ final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
 
   def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): ConstArray[T] = {
-    val retNull: (Node => T) = (_ => null.asInstanceOf[T])
+    val retNull: Node => T = _ => null.asInstanceOf[T]
     val b = ConstArray.newBuilder[T]()
+    //TODO make tailrec or leave comment why we decided not to
     def f(n: Node): Unit = {
       val r = pf.applyOrElse(n, retNull)
       if(r.asInstanceOf[AnyRef] ne null) {
@@ -62,6 +63,7 @@ final class NodeOps(val tree: Node) extends AnyVal {
     import TypeUtil.typeToTypeUtil
     val invalid = mutable.HashSet.empty[TypeSymbol]
     val default = (_: Node) => null
+    //TODO make tailrec or leave comment why we decided not to
     def tr(n: Node): Node = {
       val n2 = n.mapChildren(tr)
       val res = f.applyOrElse(n2, default)
@@ -83,6 +85,7 @@ final class NodeOps(val tree: Node) extends AnyVal {
     }, bottomUp = true)
   }
 
+  //TODO make tailrec or leave comment why we decided not to
   def findNode(p: Node => Boolean): Option[Node] = {
     if(p(tree)) Some(tree)
     else {

@@ -8,8 +8,8 @@ import slick.util.ConstArray
 object Library {
   trait AggregateFunctionSymbol extends TermSymbol
   class JdbcFunction(name: String) extends FunctionSymbol(name) {
-    override def hashCode = name.hashCode
-    override def equals(o: Any) = o match {
+    override def hashCode: Int = name.hashCode
+    override def equals(o: Any): Boolean = o match {
       case o: JdbcFunction => name == o.name
       case _ => false
     }
@@ -110,5 +110,5 @@ class FunctionSymbol(val name: String) extends TermSymbol {
   /** Create a typed Apply of this Symbol */
   def typed[T : ScalaBaseType](ch: Node*): Apply = Apply(this, ConstArray.from(ch))(implicitly[ScalaBaseType[T]])
 
-  override def toString = "Function "+name
+  override def toString: String = s"Function $name"
 }

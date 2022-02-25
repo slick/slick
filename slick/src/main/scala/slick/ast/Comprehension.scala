@@ -12,9 +12,10 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
                                fetch: Option[Node] = None,
                                offset: Option[Node] = None,
                                forUpdate: Boolean = false) extends DefNode {
-  type Self = Comprehension
-  lazy val children = (ConstArray.newBuilder() + from + select ++ where ++ groupBy ++ orderBy.map(_._1) ++ having ++ distinct ++ fetch ++ offset).result
-  override def childNames =
+  override type Self = Comprehension
+  override lazy val children = (ConstArray.newBuilder() + from + select ++ where ++ groupBy ++ orderBy.map(_._1) ++ having ++ distinct ++ fetch ++ offset).result
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] =
     Seq("from "+sym, "select") ++
     where.map(_ => "where") ++
     groupBy.map(_ => "groupBy") ++
@@ -23,7 +24,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
     distinct.map(_ => "distinct") ++
     fetch.map(_ => "fetch") ++
     offset.map(_ => "offset")
-  protected[this] def rebuild(ch: ConstArray[Node]) = {
+  override protected[this] def rebuild(ch: ConstArray[Node]): Self = {
     val newFrom = ch(0)
     val newSelect = ch(1)
     val whereOffset = 2
@@ -52,9 +53,9 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
       offset = newOffset.headOption
     )
   }
-  def generators = ConstArray((sym, from))
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(sym = gen.head)
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override def generators = ConstArray((sym, from))
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(sym = gen.head)
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     // Assign type to "from" Node and compute the resulting scope
     val f2 = from.infer(scope, typeChildren)
     val genScope = scope + (sym -> f2.nodeType.asCollectionType.elementType)
@@ -92,11 +93,12 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
 
 /** The row_number window function */
 final case class RowNumber(by: ConstArray[(Node, Ordering)] = ConstArray.empty) extends SimplyTypedNode {
-  type Self = RowNumber
-  def buildType = ScalaBaseType.longType
-  lazy val children = by.map(_._1)
-  protected[this] def rebuild(ch: ConstArray[Node]) =
+  override type Self = RowNumber
+  override def buildType = ScalaBaseType.longType
+  override lazy val children = by.map(_._1)
+  override protected[this] def rebuild(ch: ConstArray[Node]): Self =
     copy(by = by.zip(ch).map{ case ((_, o), n) => (n, o) })
-  override def childNames = by.zipWithIndex.map("by" + _._2).toSeq
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = by.zipWithIndex.map("by" + _._2).toSeq
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }

@@ -1,6 +1,5 @@
 package slick.ast
 
-import scala.collection.compat.immutable._
 import scala.collection.mutable.ListBuffer
 import scala.language.existentials
 import scala.reflect.ClassTag
@@ -91,7 +90,7 @@ trait Node extends Dumpable {
 
   protected[this] def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self
 
-  def getDumpInfo = {
+  override def getDumpInfo = {
     val (objName, mainInfo) = this match {
       case p: Product =>
         val cln = DumpInfo.simpleNameFor(getClass)
@@ -103,19 +102,19 @@ trait Node extends Dumpable {
     val t = peekType
     val ch = this match {
       // Omit path details unless dumpPaths is set
-      case Path(l @ (_ :: _ :: _)) if !GlobalConfig.dumpPaths => Vector.empty
+      case Path(_ @ _ :: _ :: _) if !GlobalConfig.dumpPaths => Vector.empty
       case _ => childNames.zip(children.toSeq).toVector
     }
     DumpInfo(objName, mainInfo, if(t != UnassignedType) ": " + t.toString else "", ch)
   }
 
-  override final def toString = getDumpInfo.getNamePlusMainInfo
+  override final def toString: String = getDumpInfo.getNamePlusMainInfo
 }
 
 /** A Node which can be typed without access to its scope, and whose children can be typed
   * independently of each other. */
 trait SimplyTypedNode extends Node {
-  type Self >: this.type <: SimplyTypedNode
+  override type Self >: this.type <: SimplyTypedNode
 
   protected def buildType: Type
 
@@ -127,16 +126,17 @@ trait SimplyTypedNode extends Node {
 
 /** An expression that represents a conjunction of expressions. */
 final case class ProductNode(children: ConstArray[Node]) extends SimplyTypedNode {
-  type Self = ProductNode
+  override type Self = ProductNode
   override def getDumpInfo = super.getDumpInfo.copy(name = "ProductNode", mainInfo = "")
-  protected[this] def rebuild(ch: ConstArray[Node]): Self = copy(ch)
+  override protected[this] def rebuild(ch: ConstArray[Node]): Self = copy(ch)
   override def childNames: Iterable[String] = LazyList.from(1).map(_.toString)
-  protected def buildType: Type = ProductType(children.map { ch =>
+  override protected def buildType: Type = ProductType(children.map { ch =>
     val t = ch.nodeType
     if(t == UnassignedType) throw new SlickException(s"ProductNode child $ch has UnassignedType")
     t
   })
   def flatten: ProductNode = {
+    //TODO make tailrec or leave comment why we decided not to
     def f(n: Node): ConstArray[Node] = n match {
       case ProductNode(ns) => ns.flatMap(f)
       case StructNode(els) => els.flatMap(el => f(el._2))
@@ -149,14 +149,15 @@ final case class ProductNode(children: ConstArray[Node]) extends SimplyTypedNode
 /** An expression that represents a structure, i.e. a conjunction where the
   * individual components have Symbols associated with them. */
 final case class StructNode(elements: ConstArray[(TermSymbol, Node)]) extends SimplyTypedNode with DefNode {
-  type Self = StructNode
+  override type Self = StructNode
   override def getDumpInfo = super.getDumpInfo.copy(name = "StructNode", mainInfo = "")
-  override def childNames = elements.map(_._1.toString).toSeq
-  val children = elements.map(_._2)
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = elements.map(_._1.toString).toSeq
+  override val children = elements.map(_._2)
   override protected[this] def rebuild(ch: ConstArray[Node]) =
-    new StructNode(elements.zip(ch).map{ case ((s,_),n) => (s,n) })
-  def generators = elements
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Node =
+    StructNode(elements.zip(ch).map{ case ((s,_),n) => (s,n) })
+  override def generators = elements
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Node =
     copy(elements = elements.zip(gen).map { case (e, s) => (s, e._2) })
 
   override protected def buildType: Type = StructType(elements.map { case (s, n) =>
@@ -173,12 +174,12 @@ final case class StructNode(elements: ConstArray[(TermSymbol, Node)]) extends Si
   *                     is otherwise the same query. A database back-end should usually turn
   *                     volatile constants into bind variables. */
 class LiteralNode(val buildType: Type, val value: Any, val volatileHint: Boolean = false) extends NullaryNode with SimplyTypedNode {
-  type Self = LiteralNode
+  override type Self = LiteralNode
   override def getDumpInfo = super.getDumpInfo.copy(name = "LiteralNode", mainInfo = s"$value (volatileHint=$volatileHint)")
-  protected[this] def rebuild = new LiteralNode(buildType, value, volatileHint)
+  override protected[this] def rebuild = new LiteralNode(buildType, value, volatileHint)
 
-  override def hashCode = buildType.hashCode() + (if(value == null) 0 else value.asInstanceOf[AnyRef].hashCode)
-  override def equals(o: Any) = o match {
+  override def hashCode: Int = buildType.hashCode() + (if(value == null) 0 else value.asInstanceOf[AnyRef].hashCode)
+  override def equals(o: Any): Boolean = o match {
     case l: LiteralNode => buildType == l.buildType && value == l.value
     case _ => false
   }
@@ -195,8 +196,8 @@ object LiteralNode {
 trait BinaryNode extends Node {
   def left: Node
   def right: Node
-  lazy val children = ConstArray(left, right)
-  protected[this] final def rebuild(ch: ConstArray[Node]): Self = rebuild(ch(0), ch(1))
+  override lazy val children = ConstArray(left, right)
+  override protected[this] final def rebuild(ch: ConstArray[Node]): Self = rebuild(ch(0), ch(1))
   protected[this] def rebuild(left: Node, right: Node): Self
   override final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = {
     val l = left
@@ -243,25 +244,26 @@ trait NullaryNode extends Node {
 final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) extends UnaryNode with SimplyTypedNode with TypeGenerator {
   type Self = Pure
   def child = value
-  override def childNames = Seq("value")
-  protected[this] def rebuild(child: Node) = copy(child)
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("value")
+  protected[this] def rebuild(child: Node): Self = copy(child)
   protected def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, value.nodeType))
 }
 
 final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) extends UnaryNode with SimplyTypedNode {
-  type Self = CollectionCast
-  protected[this] def rebuild(child: Node) = copy(child = child)
-  protected def buildType = CollectionType(cons, child.nodeType.asCollectionType.elementType)
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
+  override type Self = CollectionCast
+  override protected[this] def rebuild(child: Node): Self = copy(child = child)
+  override protected def buildType = CollectionType(cons, child.nodeType.asCollectionType.elementType)
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = mapChildren(r, keepType)
 }
 
 /** Forces a subquery to be created in `mergeToComprehension` if it occurs between two other
   * collection-valued operations that would otherwise be fused, and the subquery condition
   * is true. */
 final case class Subquery(child: Node, condition: Subquery.Condition) extends UnaryNode with SimplyTypedNode {
-  type Self = Subquery
-  protected[this] def rebuild(child: Node) = copy(child = child)
-  protected def buildType = child.nodeType
+  override type Self = Subquery
+  override protected[this] def rebuild(child: Node): Self = copy(child = child)
+  override protected def buildType = child.nodeType
 }
 
 object Subquery {
@@ -282,22 +284,22 @@ object Subquery {
 
 /** Common superclass for expressions of type (CollectionType(c, t), _) => CollectionType(c, t). */
 abstract class FilteredQuery extends Node {
-  type Self >: this.type <: FilteredQuery
+  override type Self >: this.type <: FilteredQuery
   def from: Node
 }
 
 /** A FilteredQuery without a Symbol. */
 abstract class SimpleFilteredQuery extends FilteredQuery with SimplyTypedNode {
-  type Self >: this.type <: SimpleFilteredQuery
+  override type Self >: this.type <: SimpleFilteredQuery
   def buildType = from.nodeType
 }
 
 /** A FilteredQuery with a Symbol. */
 abstract class ComplexFilteredQuery extends FilteredQuery with DefNode {
-  type Self >: this.type <: ComplexFilteredQuery
+  override type Self >: this.type <: ComplexFilteredQuery
   protected[this] def generator: TermSymbol
-  def generators = ConstArray((generator, from))
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override def generators = ConstArray((generator, from))
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val genScope = scope + (generator -> from2.nodeType.asCollectionType.elementType)
     val this2 = mapChildren { ch =>
@@ -309,12 +311,13 @@ abstract class ComplexFilteredQuery extends FilteredQuery with DefNode {
 
 /** A .filter call of type (CollectionType(c, t), Boolean) => CollectionType(c, t). */
 final case class Filter(generator: TermSymbol, from: Node, where: Node) extends ComplexFilteredQuery with BinaryNode {
-  type Self = Filter
-  def left = from
-  def right = where
-  override def childNames = Seq("from "+generator, "where")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, where = right)
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
+  override type Self = Filter
+  override  def left = from
+  override def right = where
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from "+generator, "where")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, where = right)
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(generator = gen(0))
 }
 
 object Filter {
@@ -326,46 +329,48 @@ object Filter {
 
 /** A .sortBy call of type (CollectionType(c, t), _) => CollectionType(c, t). */
 final case class SortBy(generator: TermSymbol, from: Node, by: ConstArray[(Node, Ordering)]) extends ComplexFilteredQuery {
-  type Self = SortBy
-  lazy val children = from +: by.map(_._1)
-  protected[this] def rebuild(ch: ConstArray[Node]) =
+  override type Self = SortBy
+  override  lazy val children = from +: by.map(_._1)
+  override  protected[this] def rebuild(ch: ConstArray[Node]): Self =
     copy(from = ch(0), by = by.zip(ch.tail).map{ case ((_, o), n) => (n, o) })
-  override def childNames = ("from "+generator) +: by.zipWithIndex.map("by" + _._2).toSeq
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = ("from "+generator) +: by.zipWithIndex.map("by" + _._2).toSeq
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = by.map(_._2).mkString(", "))
 }
 
 final case class Ordering(direction: Ordering.Direction = Ordering.Asc, nulls: Ordering.NullOrdering = Ordering.NullsDefault) {
-  def asc = copy(direction = Ordering.Asc)
-  def desc = copy(direction = Ordering.Desc)
-  def reverse = copy(direction = direction.reverse)
-  def nullsDefault = copy(nulls = Ordering.NullsDefault)
-  def nullsFirst = copy(nulls = Ordering.NullsFirst)
-  def nullsLast = copy(nulls = Ordering.NullsLast)
+  def asc: Ordering = copy(direction = Ordering.Asc)
+  def desc: Ordering = copy(direction = Ordering.Desc)
+  def reverse: Ordering = copy(direction = direction.reverse)
+  def nullsDefault: Ordering = copy(nulls = Ordering.NullsDefault)
+  def nullsFirst: Ordering = copy(nulls = Ordering.NullsFirst)
+  def nullsLast: Ordering = copy(nulls = Ordering.NullsLast)
 }
 
 object Ordering {
   sealed abstract class NullOrdering(val first: Boolean, val last: Boolean)
-  case object NullsDefault extends NullOrdering(false, false)
-  case object NullsFirst extends NullOrdering(true, false)
-  case object NullsLast extends NullOrdering(false, true)
+  final case object NullsDefault extends NullOrdering(false, false)
+  final case object NullsFirst extends NullOrdering(true, false)
+  final case object NullsLast extends NullOrdering(false, true)
 
   sealed abstract class Direction(val desc: Boolean) { def reverse: Direction }
-  case object Asc extends Direction(false) { def reverse = Desc }
-  case object Desc extends Direction(true) { def reverse = Asc }
+  override final case object Asc extends Direction(false) { def reverse = Desc }
+  override final case object Desc extends Direction(true) { def reverse = Asc }
 }
 
 /** A .groupBy call. */
 final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: TypeSymbol = new AnonTypeSymbol) extends BinaryNode with DefNode with TypeGenerator {
-  type Self = GroupBy
-  def left = from
-  def right = by
-  override def childNames = Seq("from "+fromGen, "by")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, by = right)
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(fromGen = gen(0))
-  def generators = ConstArray((fromGen, from))
+  override type Self = GroupBy
+  override def left = from
+  override def right = by
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from "+fromGen, "by")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, by = right)
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(fromGen = gen(0))
+  override def generators = ConstArray((fromGen, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = identity.toString)
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val from2Type = from2.nodeType.asCollectionType
     val by2 = by.infer(scope + (fromGen -> from2Type.elementType), typeChildren)
@@ -379,38 +384,41 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
 
 /** A .forUpdate call */
 final case class ForUpdate(generator: TermSymbol, from: Node) extends ComplexFilteredQuery {
-  type Self = ForUpdate
-  lazy val children = ConstArray(from)
-  protected[this] def rebuild(ch: ConstArray[Node]) = copy(from = ch(0))
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
+  override type Self = ForUpdate
+  override lazy val children = ConstArray(from)
+  override protected[this] def rebuild(ch: ConstArray[Node]): Self = copy(from = ch(0))
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(generator = gen(0))
 }
 
 /** A .take call. */
 final case class Take(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
-  type Self = Take
-  def left = from
-  def right = count
-  override def childNames = Seq("from", "count")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, count = right)
+  override type Self = Take
+  override def left = from
+  override def right = count
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from", "count")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, count = right)
 }
 
 /** A .drop call. */
 final case class Drop(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
-  type Self = Drop
-  def left = from
-  def right = count
-  override def childNames = Seq("from", "count")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, count = right)
+  override type Self = Drop
+  override def left = from
+  override def right = count
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from", "count")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, count = right)
 }
 
 /** A .distinct call of type (CollectionType(c, t), _) => CollectionType(c, t). */
 final case class Distinct(generator: TermSymbol, from: Node, on: Node) extends ComplexFilteredQuery with BinaryNode {
-  type Self = Distinct
-  def left = from
-  def right = on
-  override def childNames = Seq("from", "on")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, on = right)
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
+  override type Self = Distinct
+  override def left = from
+  override def right = on
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from", "on")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, on = right)
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(generator = gen(0))
 }
 
 /** A join expression. For joins without option extension, the type rule is
@@ -422,15 +430,16 @@ final case class Distinct(generator: TermSymbol, from: Node, on: Node) extends C
   * and Option-extended full outer joins as
   * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (Option(t), Option(u))). */
 final case class Join(leftGen: TermSymbol, rightGen: TermSymbol, left: Node, right: Node, jt: JoinType, on: Node) extends DefNode {
-  type Self = Join
-  lazy val children = ConstArray(left, right, on)
-  protected[this] def rebuild(ch: ConstArray[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
-  override def childNames = Seq("left "+leftGen, "right "+rightGen, "on")
+  override type Self = Join
+  override lazy val children = ConstArray(left, right, on)
+  override protected[this] def rebuild(ch: ConstArray[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("left "+leftGen, "right "+rightGen, "on")
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = jt.toString)
-  def generators = ConstArray((leftGen, left), (rightGen, right))
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) =
+  override def generators = ConstArray((leftGen, left), (rightGen, right))
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self =
     copy(leftGen = gen(0), rightGen = gen(1))
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val left2 = left.infer(scope, typeChildren)
     val right2 = right.infer(scope, typeChildren)
     val left2Type = left2.nodeType.asCollectionType
@@ -451,25 +460,27 @@ final case class Join(leftGen: TermSymbol, rightGen: TermSymbol, left: Node, rig
 /** A union of type
   * (CollectionType(c, t), CollectionType(_, t)) => CollectionType(c, t). */
 final case class Union(left: Node, right: Node, all: Boolean) extends BinaryNode with SimplyTypedNode {
-  type Self = Union
-  protected[this] def rebuild(left: Node, right: Node) = copy(left = left, right = right)
+  override type Self = Union
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(left = left, right = right)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = if(all) "all" else "")
-  override def childNames = Seq("left", "right")
-  protected def buildType = left.nodeType
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("left", "right")
+  override protected def buildType = left.nodeType
 }
 
 /** A .flatMap call of type
   * (CollectionType(c, _), CollectionType(_, u)) => CollectionType(c, u). */
 final case class Bind(generator: TermSymbol, from: Node, select: Node) extends BinaryNode with DefNode {
-  type Self = Bind
-  def left = from
-  def right = select
-  override def childNames = Seq("from "+generator, "select")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, select = right)
-  def generators = ConstArray((generator, from))
+  override type Self = Bind
+  override def left = from
+  override def right = select
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from "+generator, "select")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, select = right)
+  override def generators = ConstArray((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(generator = gen(0))
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val from2Type = from2.nodeType.asCollectionType
     val select2 = select.infer(scope + (generator -> from2Type.elementType), typeChildren)
@@ -484,15 +495,16 @@ final case class Bind(generator: TermSymbol, from: Node, select: Node) extends B
   * projection contains a mapping function application. The return type is an aggregated
   * scalar value though, not a collection. */
 final case class Aggregate(sym: TermSymbol, from: Node, select: Node) extends BinaryNode with DefNode {
-  type Self = Aggregate
-  def left = from
-  def right = select
-  override def childNames = Seq("from "+sym, "select")
-  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, select = right)
-  def generators = ConstArray((sym, from))
+  override type Self = Aggregate
+  override def left = from
+  override def right = select
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("from "+sym, "select")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(from = left, select = right)
+  override def generators = ConstArray((sym, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(sym = gen(0))
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(sym = gen(0))
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 :@ CollectionType(_, el) = from.infer(scope, typeChildren)
     val select2 = select.infer(scope + (sym -> el), typeChildren)
     val this2 = if((from2 eq from) && (select2 eq select)) this else copy(from = from2, select = select2)
@@ -502,15 +514,16 @@ final case class Aggregate(sym: TermSymbol, from: Node, select: Node) extends Bi
 
 /** A table together with its expansion into columns. */
 final case class TableExpansion(generator: TermSymbol, table: Node, columns: Node) extends BinaryNode with DefNode {
-  type Self = TableExpansion
-  def left = table
-  def right = columns
-  override def childNames = Seq("table "+generator, "columns")
-  protected[this] def rebuild(left: Node, right: Node) = copy(table = left, columns = right)
-  def generators = ConstArray((generator, table))
+  override type Self = TableExpansion
+  override def left = table
+  override def right = columns
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("table "+generator, "columns")
+  override protected[this] def rebuild(left: Node, right: Node): Self = copy(table = left, columns = right)
+  override def generators = ConstArray((generator, table))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(generator = gen(0))
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val table2 = table.infer(scope, typeChildren)
     val columns2 = columns.infer(scope + (generator -> table2.nodeType.asCollectionType.elementType), typeChildren)
     val this2 = if((table2 eq table) && (columns2 eq columns)) this else copy(table = table2, columns = columns2)
@@ -526,18 +539,19 @@ trait PathElement extends Node {
 
 /** An expression that selects a field in another expression. */
 final case class Select(in: Node, field: TermSymbol) extends PathElement with UnaryNode with SimplyTypedNode {
-  def sym = field
-  type Self = Select
-  def child = in
-  override def childNames = Seq("in")
-  protected[this] def rebuild(child: Node) = copy(in = child)
+  override def sym = field
+  override type Self = Select
+  override def child = in
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = Seq("in")
+  protected[this] def rebuild(child: Node): Self = copy(in = child)
   override def getDumpInfo = Path.unapply(this) match {
     case Some(l) => super.getDumpInfo.copy(name = "Path", mainInfo = l.reverseIterator.mkString("."))
     case None => super.getDumpInfo
   }
-  protected def buildType = in.nodeType.select(field)
-  def pathString = in.asInstanceOf[PathElement].pathString+"."+field
-  def untypedPath = {
+  override protected def buildType = in.nodeType.select(field)
+  override def pathString: String = s"${in.asInstanceOf[PathElement].pathString}.$field"
+  override def untypedPath: Self = {
     val in2 = in.asInstanceOf[PathElement].untypedPath
     if(in2 eq in) untyped else Select(in2, field)
   }
@@ -545,24 +559,24 @@ final case class Select(in: Node, field: TermSymbol) extends PathElement with Un
 
 /** A function call expression. */
 final case class Apply(sym: TermSymbol, children: ConstArray[Node])(val buildType: Type) extends SimplyTypedNode {
-  type Self = Apply
-  protected[this] def rebuild(ch: ConstArray[slick.ast.Node]) = copy(children = ch)(buildType)
+  override type Self = Apply
+  override protected[this] def rebuild(ch: ConstArray[slick.ast.Node]): Self = copy(children = ch)(buildType)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = sym.toString)
 }
 
 /** A reference to a Symbol */
 final case class Ref(sym: TermSymbol) extends PathElement with NullaryNode {
-  type Self = Ref
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self =
+  override type Self = Ref
+  override def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self =
     if(hasType) this else {
       scope.get(sym) match {
         case Some(t) => this :@ t
         case _ => throw new SlickException("No type for symbol "+sym+" found for "+this)
       }
     }
-  def rebuild = copy()
-  def pathString = sym.toString
-  def untypedPath = untyped
+  override def rebuild = copy()
+  override def pathString: String = sym.toString
+  override def untypedPath: PathElement = untyped
 }
 
 /** A constructor/extractor for nested Selects starting at a Ref so that, for example,
@@ -574,7 +588,7 @@ object Path {
     case _ => throw new SlickException("Empty Path")
   }
   def unapply(n: PathElement): Option[List[TermSymbol]] = {
-    var l = new ListBuffer[TermSymbol]
+    val l = new ListBuffer[TermSymbol]
     var el: Node = n
     while(el.isInstanceOf[Select]) {
       val sel = el.asInstanceOf[Select]
@@ -621,17 +635,17 @@ object FwdPath {
 
 /** A Node representing a database table. */
 final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, baseIdentity: TableIdentitySymbol)(val profileTable: Any) extends NullaryNode with SimplyTypedNode with TypeGenerator {
-  type Self = TableNode
-  def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedType))
-  def rebuild = copy()(profileTable)
+  override type Self = TableNode
+  override def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedType))
+  override def rebuild: Self = copy()(profileTable)
   override def getDumpInfo = super.getDumpInfo.copy(name = "Table", mainInfo = schemaName.map(_ + ".").getOrElse("") + tableName)
 }
 
 /** A node that represents an SQL sequence. */
 final case class SequenceNode(name: String)(val increment: Long) extends NullaryNode with SimplyTypedNode {
-  type Self = SequenceNode
-  def buildType = ScalaBaseType.longType
-  def rebuild = copy()(increment)
+  override type Self = SequenceNode
+  override def buildType = ScalaBaseType.longType
+  override def rebuild: Self = copy()(increment)
 }
 
 /** A Query of this special Node represents an infinite stream of consecutive
@@ -639,19 +653,20 @@ final case class SequenceNode(name: String)(val increment: Long) extends Nullary
   * zipWithIndex. It is not exposed directly in the query language because it
   * cannot be represented in SQL outside of a 'zip' operation. */
 final case class RangeFrom(start: Long = 1L) extends NullaryNode with SimplyTypedNode {
-  type Self = RangeFrom
-  def buildType = CollectionType(TypedCollectionTypeConstructor.seq, ScalaBaseType.longType)
-  def rebuild = copy()
+  override type Self = RangeFrom
+  override def buildType = CollectionType(TypedCollectionTypeConstructor.seq, ScalaBaseType.longType)
+  override def rebuild: Self = copy()
 }
 
 /** A conditional expression; The clauses should be: `(if then)+ else`.
   * The result type is taken from the first `then` (i.e. the second clause). */
 final case class IfThenElse(clauses: ConstArray[Node]) extends SimplyTypedNode {
-  type Self = IfThenElse
-  def children = clauses
-  override def childNames = (0 until clauses.length-1).map { i => if(i%2 == 0) "if" else "then" } :+ "else"
-  protected[this] def rebuild(ch: ConstArray[Node]): Self = copy(clauses = ch)
-  protected def buildType = clauses(1).nodeType
+  override type Self = IfThenElse
+  override def children = clauses
+  //TODO 4.0.0: should we really expose that it is a Seq and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Seq[String] = (0 until clauses.length-1).map { i => if(i%2 == 0) "if" else "then" } :+ "else"
+  override protected[this] def rebuild(ch: ConstArray[Node]): Self = copy(clauses = ch)
+  override protected def buildType = clauses(1).nodeType
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   private[this] def mapClauses(f: Node => Node, keepType: Boolean, pred: Int => Boolean): IfThenElse = {
     var equal = true
@@ -663,31 +678,32 @@ final case class IfThenElse(clauses: ConstArray[Node]) extends SimplyTypedNode {
     val this2 = if(equal) this else rebuild(mapped)
     if(peekType == UnassignedType || !keepType) this2 else this2 :@ peekType
   }
-  def mapConditionClauses(f: Node => Node, keepType: Boolean = false) =
-    mapClauses(f, keepType, (i => i%2 == 0 && i != clauses.length-1))
-  def mapResultClauses(f: Node => Node, keepType: Boolean = false) =
-    mapClauses(f, keepType, (i => i%2 == 1 || i == clauses.length-1))
+  def mapConditionClauses(f: Node => Node, keepType: Boolean = false): Self =
+    mapClauses(f, keepType, i => i%2 == 0 && i != clauses.length-1)
+  def mapResultClauses(f: Node => Node, keepType: Boolean = false): Self =
+    mapClauses(f, keepType, i => i%2 == 1 || i == clauses.length-1)
   def ifThenClauses: Iterator[(Node, Node)] =
     clauses.iterator.grouped(2).withPartial(false).map { case Seq(i, t) => (i, t) }
-  def elseClause = clauses.last
+  def elseClause: Node = clauses.last
 }
 
 /** Lift a value into an Option as Some (or None if the value is a `null` column). */
 final case class OptionApply(child: Node) extends UnaryNode with SimplyTypedNode {
-  type Self = OptionApply
-  protected[this] def rebuild(ch: Node) = copy(child = ch)
-  protected def buildType = OptionType(child.nodeType)
+  override type Self = OptionApply
+  override protected[this] def rebuild(ch: Node): Self = copy(child = ch)
+  override protected def buildType = OptionType(child.nodeType)
 }
 
 /** The catamorphism of OptionType. */
 final case class OptionFold(from: Node, ifEmpty: Node, map: Node, gen: TermSymbol) extends DefNode {
-  type Self = OptionFold
-  lazy val children = ConstArray(from, ifEmpty, map)
-  def generators = ConstArray((gen, from))
-  override def childNames = Vector("from "+gen, "ifEmpty", "map")
-  protected[this] def rebuild(ch: ConstArray[Node]) = copy(ch(0), ch(1), ch(2))
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(gen = gen(0))
-  protected[this] def withInferredType(scope: Type.Scope, typeChildren: Boolean) = {
+  override type Self = OptionFold
+  override lazy val children = ConstArray(from, ifEmpty, map)
+  override def generators = ConstArray((gen, from))
+  //TODO 4.0.0: should we really expose that it is a Vector and not an Iterable as defined in Node? Changing it to Iterable is breaking
+  override def childNames: Vector[String] = Vector("from "+gen, "ifEmpty", "map")
+  override protected[this] def rebuild(ch: ConstArray[Node]): Self = copy(ch(0), ch(1), ch(2))
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Self = copy(gen = gen(0))
+  override protected[this] def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val ifEmpty2 = ifEmpty.infer(scope, typeChildren)
     val genScope = scope + (gen -> from2.nodeType.structural.asOptionType.elementType)
@@ -698,41 +714,41 @@ final case class OptionFold(from: Node, ifEmpty: Node, map: Node, gen: TermSymbo
 }
 
 final case class GetOrElse(child: Node, default: () => Any) extends UnaryNode with SimplyTypedNode {
-  type Self = GetOrElse
-  protected[this] def rebuild(ch: Node) = copy(child = ch)
-  protected def buildType = child.nodeType.structural.asOptionType.elementType
+  override type Self = GetOrElse
+  override protected[this] def rebuild(ch: Node): Self = copy(child = ch)
+  override protected def buildType = child.nodeType.structural.asOptionType.elementType
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }
 
 /** A compiled statement with a fixed type, a statement string and profile-specific extra data. */
 final case class CompiledStatement(statement: String, extra: Any, buildType: Type) extends NullaryNode with SimplyTypedNode {
-  type Self = CompiledStatement
-  def rebuild = copy()
+  override type Self = CompiledStatement
+  override def rebuild : Self = copy()
   override def getDumpInfo =
-    super.getDumpInfo.copy(mainInfo = if(statement contains '\n') statement else ("\"" + statement + "\""))
+    super.getDumpInfo.copy(mainInfo = if(statement contains '\n') statement else "\"" + statement + "\"")
 }
 
 /** A client-side type mapping */
 final case class TypeMapping(child: Node, mapper: MappedScalaType.Mapper, classTag: ClassTag[_]) extends UnaryNode with SimplyTypedNode { self =>
-  type Self = TypeMapping
-  def rebuild(ch: Node) = copy(child = ch)
+  override type Self = TypeMapping
+  override def rebuild(ch: Node) = copy(child = ch)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
-  protected def buildType = new MappedScalaType(child.nodeType, mapper, classTag)
+  override protected def buildType = new MappedScalaType(child.nodeType, mapper, classTag)
 }
 
 /** Rebuild an Option type on the client side */
 final case class RebuildOption(discriminator: Node, data: Node) extends BinaryNode with SimplyTypedNode { self =>
-  type Self = RebuildOption
-  def left = discriminator
-  def right = data
-  def rebuild(left: Node, right: Node) = copy(left, right)
-  protected def buildType = OptionType(data.nodeType)
+  override type Self = RebuildOption
+  override def left = discriminator
+  override def right = data
+  override def rebuild(left: Node, right: Node): Self = copy(left, right)
+  override protected def buildType = OptionType(data.nodeType)
 }
 
 /** A parameter from a QueryTemplate which gets turned into a bind variable. */
-final case class QueryParameter(extractor: (Any => Any), buildType: Type, id: TermSymbol = new AnonSymbol) extends NullaryNode with SimplyTypedNode {
-  type Self = QueryParameter
-  def rebuild = copy()
+final case class QueryParameter(extractor: Any => Any, buildType: Type, id: TermSymbol = new AnonSymbol) extends NullaryNode with SimplyTypedNode {
+  override type Self = QueryParameter
+  override def rebuild: Self = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"$id $extractor")
 }
 
@@ -746,17 +762,17 @@ object QueryParameter {
     case (LiteralNode(lv) :@ (lt: TypedType[_]), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe => LiteralNode[T](op(lv.asInstanceOf[T], rv.asInstanceOf[T])).infer()
     case (LiteralNode(lv) :@ (lt: TypedType[_]), QueryParameter(re, rt: TypedType[_], _)) if lt.scalaType == tpe && rt.scalaType == tpe =>
       QueryParameter(new (Any => T) {
-        def apply(param: Any) = op(lv.asInstanceOf[T], re(param).asInstanceOf[T])
+        override def apply(param: Any): T = op(lv.asInstanceOf[T], re(param).asInstanceOf[T])
         override def toString = s"($lv $name $re)"
       }, tpe)
     case (QueryParameter(le, lt: TypedType[_], _), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
       QueryParameter(new (Any => T) {
-        def apply(param: Any) = op(le(param).asInstanceOf[T], rv.asInstanceOf[T])
+        override def apply(param: Any): T = op(le(param).asInstanceOf[T], rv.asInstanceOf[T])
         override def toString = s"($le $name $rv)"
       }, tpe)
     case (QueryParameter(le, lt: TypedType[_], _), QueryParameter(re, rt: TypedType[_], _)) if lt.scalaType == tpe && rt.scalaType == tpe =>
       QueryParameter(new (Any => T) {
-        def apply(param: Any) = op(le(param).asInstanceOf[T], re(param).asInstanceOf[T])
+        override def apply(param: Any): T = op(le(param).asInstanceOf[T], re(param).asInstanceOf[T])
         override def toString = s"($le $name $re)"
       }, tpe)
     case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations of type $tpe")

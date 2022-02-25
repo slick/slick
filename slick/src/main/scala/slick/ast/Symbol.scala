@@ -1,6 +1,8 @@
 package slick.ast
 
 import slick.util.ConstArray
+
+import scala.collection.mutable
 import scala.collection.mutable.HashMap
 import scala.reflect.ClassTag
 import scala.util.DynamicVariable
@@ -8,7 +10,7 @@ import scala.util.DynamicVariable
 /** A symbol which can be used in the AST. It can be either a TypeSymbol or a TermSymbol. */
 sealed trait Symbol {
   def name: String
-  override def toString = SymbolNamer(this)
+  override def toString: String = SymbolNamer(this)
 }
 
 /** The symbol of a nominal type */
@@ -25,7 +27,7 @@ case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe:
 
 /** An element of a ProductNode (using a 1-based index) */
 case class ElementSymbol(idx: Int) extends TermSymbol {
-  def name = "_" + idx
+  override def name: String = "_" + idx
 }
 
 /** A TypeSymbol which uniquely identifies a table type */
@@ -33,22 +35,22 @@ trait TableIdentitySymbol extends TypeSymbol
 
 /** Default implementation of TableIdentitySymbol */
 case class SimpleTableIdentitySymbol(constituents: AnyRef*) extends TableIdentitySymbol {
-  def name = constituents.mkString("@(", ".", ")")
+  override def name: String = constituents.mkString("@(", ".", ")")
 }
 
 /** An anonymous symbol defined in the AST. */
 class AnonTypeSymbol extends TypeSymbol {
-  def name = "$@"+System.identityHashCode(this)
+  override def name: String = "$@"+System.identityHashCode(this)
 }
 
 /** An anonymous TableIdentitySymbol. */
 class AnonTableIdentitySymbol extends AnonTypeSymbol with TableIdentitySymbol {
-  override def toString = "@"+SymbolNamer(this)+""
+  override def toString: String = "@"+SymbolNamer(this)+""
 }
 
 /** An anonymous symbol defined in the AST. */
 class AnonSymbol extends TermSymbol {
-  def name = "@"+System.identityHashCode(this)
+  override def name: String = "@"+System.identityHashCode(this)
 }
 
 /** A Node which introduces a NominalType. */
@@ -81,14 +83,15 @@ trait DefNode extends Node {
 
 /** Provides names for symbols */
 class SymbolNamer(treeSymbolPrefix: String, typeSymbolPrefix: String, parent: Option[SymbolNamer] = None) {
-  private var curSymbolId = 1
-  private val map = new HashMap[Symbol, String]
+  private var curSymbolId = 1d
+  private val map = new mutable.HashMap[Symbol, String]
 
-  def create(prefix: String) = {
+  def create(prefix: String): String = {
     curSymbolId += 1
     prefix + curSymbolId
   }
 
+  //TODO make tailrec or leave comment why we decided not to
   def get(s: Symbol): Option[String] =
     map.get(s) orElse parent.flatMap(_.get(s))
 
@@ -104,7 +107,7 @@ class SymbolNamer(treeSymbolPrefix: String, typeSymbolPrefix: String, parent: Op
     case s => namedSymbolName(s)
   })
 
-  def namedSymbolName(s: Symbol) = s.name
+  def namedSymbolName(s: Symbol): String = s.name
 
   def update(s: Symbol, n: String): Unit = map += s -> n
 
