@@ -143,6 +143,7 @@ $endif$
 <script type="text/javascript" src="$page.base$lib/foundation/dist/foundation.min.js"></script>
 <script type="text/javascript">jQuery(document).foundation();</script>
 <script type="text/javascript" src="$page.base$js/magellan.js"></script>
+<script type="text/javascript" src="$page.base$js/versions.js"></script>
 
 <style type="text/css">@import "$page.base$lib/prettify/prettify.css";</style>
 <script type="text/javascript" src="$page.base$lib/prettify/prettify.js"></script>

@@ -15,6 +15,12 @@ val cleanCompileTimeTests =
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
 
+Global / concurrentRestrictions :=
+  List(
+    Tags.limit(Tags.ForkedTestGroup, 4),
+    Tags.exclusiveGroup(Tags.Clean)
+  )
+
 inThisBuild(
   Seq(
     organizationName := "Typesafe",
@@ -96,6 +102,8 @@ ThisBuild / versionScheme := Some("pvp")
 
 ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
+val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
+
 val docDir = settingKey[File]("Base directory for documentation")
 
 ThisBuild / docDir := (site / baseDirectory).value
@@ -150,7 +158,6 @@ lazy val testkit =
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
-      Test / parallelExecution := false,
       run / fork := true,
       //connectInput in run := true,
       run / javaOptions += "-Dslick.ansiDump=true",
@@ -165,6 +172,18 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
+      Test / testGrouping :=
+        (Test / definedTests).value
+          .groupBy { td =>
+            td.name.split('.').toSeq match {
+              case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
+              case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
+              case _                                                              => ""
+            }
+          }
+          .map { case (name, tests) => new Tests.Group(name, tests, Tests.SubProcess(ForkOptions())) }
+          .toSeq
+          .sortBy(_.name),
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
@@ -178,7 +197,8 @@ lazy val testkit =
           .get
       },
       DocTest / unmanagedSourceDirectories += docDir.value / "code",
-      DocTest / unmanagedResourceDirectories += docDir.value / "code"
+      DocTest / unmanagedResourceDirectories += docDir.value / "code",
+      DocTest / parallelExecution := false
     )
 
 lazy val codegen =
@@ -235,10 +255,25 @@ lazy val site =
         "testkit-api" -> (testkit / Compile / doc).value
       ),
       preprocessDocs := {
-        val file = (testkit / buildCapabilitiesTable).value
-        IO.copyFile(file, (preprocessDocs / target).value / file.getName)
+        val capabilitiesTableFile = (testkit / buildCapabilitiesTable).value
+        val out = (preprocessDocs / target).value
+        IO.copyFile(capabilitiesTableFile, out / capabilitiesTableFile.getName)
+
+        val compatReports = (CompatReport / compatReportMarkdown).all(ScopeFilter(inAnyProject)).value
+        IO.write(
+          out / "compat-reports.md",
+          compatReports.mkString(
+            "## Incompatible changes\n\n",
+            "\n\n",
+            "\n"
+          )
+        )
+
         preprocessDocs.value
       },
+      (Compile / paradoxMarkdownToHtml / excludeFilter) :=
+        (Compile / paradoxMarkdownToHtml / excludeFilter).value ||
+          globFilter("capabilities.md"),
       publishArtifact := false,
       publish := {},
       publishLocal := {},

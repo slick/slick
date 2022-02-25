@@ -50,7 +50,7 @@ install:
           Write-Host "${config}"
           $port += 100
       }
-  - bash -v ./travis/extractNonPublicDeps
+  - bash -v ./appveyor/extractNonPublicDeps
 build_script:
   - sbt ++2.12.15 clean compile coverage test:compile coverageReport
 test_script:

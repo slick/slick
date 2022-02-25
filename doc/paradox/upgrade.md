@@ -23,6 +23,13 @@ changes.
 Release candidates have the same compatibility guarantees as the final versions to which they
 lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
 
+
+Latest changes
+--------------
+
+See @ref:[the generated tables of incompatible changes](compat-reports.md)
+
+
 Upgrade from 3.2 to 3.3
 -----------------------
 
@@ -210,3 +217,8 @@ When configuring a  @ref:[database connection](database.md) with a connection po
 should always specify the correct size limit in Slick. This is necessary to prevent deadlocks when using transactions
 (or other pinned sessions). The configuration is done automatically when using Slick's built-in HikariCP support.
 You only need to configure it manually if you use a connection pool through a JDBC `DataSource` or JNDI name.
+
+
+@@@ index
+  * @ref:[.](compat-reports.md)
+@@@

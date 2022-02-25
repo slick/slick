@@ -6,7 +6,9 @@ with Slick's Scala API.
 
 @@@ note
 In the code examples below we assume the following imports:
+
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #imports }
+
 If you're new to Slick, please start with the  @ref:[Getting Started](gettingstarted.md) page.
 @@@
 

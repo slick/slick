@@ -5,7 +5,7 @@ In addition to configuring your  @ref:[database connections](database.md) in `ap
 global options in this file or through system properties (see the @extref[Typesafe Config](typesafe-config:) documentation for details).
 These are the available options and their default values as defined in Slick's own `reference.conf`:
 
-@@snip [reference.conf(../../slick/src/main/resources/reference.conf)
+@@snip [reference.conf](../../../slick/src/main/resources/reference.conf)
 
 Logging
 -------
@@ -19,7 +19,7 @@ contains a list of all loggers that are used by Slick for debug output:
 @@@ note
 Messages on WARNING and ERROR levels may also be emitted by loggers that are not explicitly mentioned in this
 configuration.
-@@@ note
+@@@
 
 You should generally enable logging for the root package `slick` at level `INFO` (currently unused)
 or `WARNING`. Debug logging should only be enabled selectively for individual loggers, otherwise you will get a huge

@@ -1,18 +1,21 @@
 import com.lightbend.paradox.sbt.ParadoxPlugin
 import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport._
 import com.typesafe.sbt.git.ConsoleGitRunner
+import coursier.version.{Version, VersionParse}
 import sbt.Keys._
 import sbt._
-
+import sjsonnew.support.scalajson.unsafe.Converter
+import sjsonnew.support.scalajson.unsafe.PrettyPrinter
+import sjsonnew.BasicJsonProtocol._
 import java.nio.file.Files
 
 
 object Docs extends AutoPlugin {
   object autoImport {
-    val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
     val preprocessDocs = taskKey[File]("Prepare the documentation directory for Paradox")
     val checkScaladocLinks = taskKey[Unit]("Prepare the documentation directory for Paradox")
     val scaladocDirs = taskKey[Seq[(String, File)]]("Scaladoc directories to include with documentation")
+    val addDocsToDocRepo = taskKey[Boolean]("Pull doc repo and add generated documentation to it")
     val deployDocs = taskKey[Unit]("Deploy docs to GitHub Pages")
     val showParadoxProperties = taskKey[Unit]("Show a table of paradoxProperties")
   }
@@ -24,6 +27,51 @@ object Docs extends AutoPlugin {
 
   def modifyFileLines(file: File)(f: String => String): Unit =
     IO.writeLines(file, IO.readLines(file).map(f))
+
+  lazy val docRepoCheckoutDir = {
+    val dir = Files.createTempDirectory("slick-docs").toFile
+    dir.deleteOnExit()
+    dir
+  }
+
+  private def addDocsToDocRepoImpl(src: File, ver: String, log: Logger) = {
+    val dir = docRepoCheckoutDir
+    val repo = "git@github.com:slick/doc.git"
+    log.info(s"Cloning $repo into $dir")
+    if (dir.listFiles().isEmpty)
+      ConsoleGitRunner("clone", "--branch=gh-pages", "--depth=1", repo, ".")(dir, log)
+    else {
+      ConsoleGitRunner("reset", "--hard")(dir, log)
+      ConsoleGitRunner("clean", "-fd")(dir, log)
+      ConsoleGitRunner("pull")(dir, log)
+    }
+
+    val dest = dir / ver
+    val existed = dest.exists()
+    IO.delete(dest)
+    log.info("Copying docs")
+    IO.copyDirectory(src, dest)
+
+    val versionNumberParts = Version(ver).items.takeWhile(Version.isNumeric)
+
+    val versions =
+      IO.listFiles(dir)
+        .filter(_.isDirectory)
+        .flatMap(f => VersionParse.version(f.getName))
+        .toSeq
+        .filter { v =>
+          val (numberParts, otherParts) = v.items.span(Version.isNumeric)
+          otherParts.isEmpty || numberParts == versionNumberParts
+        }
+        .sorted
+
+    IO.write(
+      dir / "versions.json",
+      PrettyPrinter(Converter.toJson(versions.map(_.repr)).get)
+    )
+
+    existed
+  }
 
   override def projectSettings = Seq(
     homepage := None,
@@ -115,41 +163,39 @@ object Docs extends AutoPlugin {
     Compile / paradox := {
       val outDir = (Compile / paradox).value
       val files = IO.listFiles(outDir, globFilter("*.html"))
-      println(files.toList)
+      val ref = Versioning.currentRef(baseDirectory.value)
       for (f <- files)
         modifyFileLines(f) { line =>
-          line.replaceAllLiterally(
-            "https://github.com/slick/slick/tree/master/doc/target/preprocessed/",
-            s"https://github.com/slick/slick/tree/${Versioning.currentRef(baseDirectory.value)}/doc/paradox/"
-          )
+          line
+            .replaceAllLiterally(
+              "https://github.com/slick/slick/tree/master/doc/target/preprocessed/",
+              s"https://github.com/slick/slick/tree/$ref/doc/paradox/"
+            )
+            .replaceAllLiterally(
+              "https://github.com/slick/slick/tree/master/doc/target/code/",
+              s"https://github.com/slick/slick/tree/$ref/doc/code/"
+            )
         }
       outDir
     },
-    (Compile / paradoxMarkdownToHtml / excludeFilter) :=
-      (Compile / paradoxMarkdownToHtml / excludeFilter).value ||
-        globFilter("capabilities.md"),
     checkScaladocLinks := {
       for ((name, dir) <- scaladocDirs.value)
         new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log)
           .run()
     },
+    addDocsToDocRepo := {
+      val dir = (Compile / paradox).value
+      addDocsToDocRepoImpl(dir, version.value, streams.value.log)
+    },
     deployDocs := {
       checkScaladocLinks.value
 
       val log = streams.value.log
-      val ver = version.value
-      val dir = Files.createTempDirectory("slick-docs").toFile
-      dir.deleteOnExit()
-      val repo = "git@github.com:slick/doc.git"
-      log.info(s"Cloning $repo into $dir")
-      ConsoleGitRunner("clone", "--branch", "gh-pages", repo, ".")(dir, log)
-      val dest = dir / ver
-      val existed = dest.exists()
-      IO.delete(dest)
-      log.info("Copying docs")
-      IO.copyDirectory((Compile / paradox).value, dest)
+      val dir = docRepoCheckoutDir
+      val existed = addDocsToDocRepo.value
       log.info("Pushing changes")
-      ConsoleGitRunner.commitAndPush((if (existed) "Updated" else "Added") + " docs for version " + ver)(dir, log)
+      val commitMessage = (if (existed) "Updated" else "Added") + " docs for version " + version.value
+      ConsoleGitRunner.commitAndPush(commitMessage)(dir, log)
     },
     showParadoxProperties := {
       val props = (Compile / paradoxProperties).value
