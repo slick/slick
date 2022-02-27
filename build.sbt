@@ -104,6 +104,8 @@ ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
 val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
 
+val buildCompatReport = taskKey[File]("Build the compatibility report")
+
 val docDir = settingKey[File]("Base directory for documentation")
 
 ThisBuild / docDir := (site / baseDirectory).value
@@ -243,7 +245,7 @@ lazy val `reactive-streams-tests` =
       commonTestResourcesSetting
     )
 
-lazy val site =
+lazy val site: Project =
   project
     .in(file("doc"))
     .enablePlugins(Docs)
@@ -254,20 +256,33 @@ lazy val site =
         "hikaricp-api" -> (hikaricp / Compile / doc).value,
         "testkit-api" -> (testkit / Compile / doc).value
       ),
+      buildCompatReport := {
+        val compatReports =
+          (CompatReport / compatReportMarkdown)
+            .all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit)))
+            .value
+        val file = (buildCompatReport / target).value / "compat-report.md"
+        IO.write(
+          file,
+          if (compatReports.forall(_.trim.isEmpty))
+            "There are no incompatible changes"
+          else
+            compatReports.mkString(
+              "## Incompatible changes\n\n",
+              "\n\n",
+              "\n"
+            )
+        )
+        file
+      },
       preprocessDocs := {
-        val capabilitiesTableFile = (testkit / buildCapabilitiesTable).value
         val out = (preprocessDocs / target).value
+
+        val capabilitiesTableFile = (testkit / buildCapabilitiesTable).value
         IO.copyFile(capabilitiesTableFile, out / capabilitiesTableFile.getName)
 
-        val compatReports = (CompatReport / compatReportMarkdown).all(ScopeFilter(inAnyProject)).value
-        IO.write(
-          out / "compat-reports.md",
-          compatReports.mkString(
-            "## Incompatible changes\n\n",
-            "\n\n",
-            "\n"
-          )
-        )
+        val compatReportFile = buildCompatReport.value
+        IO.copyFile(compatReportFile, out / compatReportFile.getName)
 
         preprocessDocs.value
       },
