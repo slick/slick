@@ -19,7 +19,9 @@ object Versioning extends AutoPlugin {
     new DefaultReadableGit(dir)
       .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
 
-  def versionFor(compat: Compatibility, lastTag: String, cleanAfterTag: Boolean): String = {
+  def versionFor(compat: Compatibility, out: GitDescribeOutput): String = {
+    val cleanAfterTag = out.isCleanAfterTag
+    val lastTag = out.ref.dropPrefix
     if (cleanAfterTag) lastTag
     else {
       val lastVersion = Version(lastTag)
@@ -37,14 +39,11 @@ object Versioning extends AutoPlugin {
           case other                                                          =>
             sys.error(s"Unhandled version format: $other")
         }
-      nextVersionParts.mkString(".") + "-SNAPSHOT"
-    }
-  }
 
-  def versionFor(compat: Compatibility, out: GitDescribeOutput): String = {
-    val cleanAfterTag = out.isCleanAfterTag
-    val lastTag = out.ref.dropPrefix
-    versionFor(compat, lastTag, cleanAfterTag)
+      nextVersionParts.mkString(".") +
+        s"-pre.${out.commitSuffix.distance}.${out.commitSuffix.sha}" +
+        (if (out.isDirty()) ".dirty" else "")
+    }
   }
 
   def versionFor(compat: Compatibility, date: Date = new Date): Option[String] =
