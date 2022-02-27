@@ -1,4 +1,5 @@
 import com.jsuereth.sbtpgp.PgpKeys
+import com.typesafe.tools.mima.core.{MissingClassProblem, ProblemFilters}
 
 
 val testAll = taskKey[Unit]("Run all tests")
@@ -40,7 +41,7 @@ inThisBuild(
       (CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, v)) if v <= 12 => Seq("-Xfuture")
         case _                       => Nil
-      })
+      }),
   )
 )
 
@@ -136,7 +137,12 @@ lazy val slick =
       Compile / unmanagedClasspath ++= (MacroConfig / products).value,
       libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
       (Compile / packageSrc / mappings) ++= (MacroConfig / packageSrc / mappings).value,
-      (Compile / packageBin / mappings) ++= (MacroConfig / packageBin / mappings).value
+      (Compile / packageBin / mappings) ++= (MacroConfig / packageBin / mappings).value,
+
+      mimaBinaryIssueFilters ++= Seq(
+        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
+        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl"),
+      )
     )
 
 lazy val testkit =

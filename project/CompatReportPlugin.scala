@@ -1,5 +1,5 @@
 import com.typesafe.tools.mima.core.Problem
-import com.typesafe.tools.mima.plugin.MimaKeys.mimaFindBinaryIssues
+import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaFindBinaryIssues}
 import com.typesafe.tools.mima.plugin.MimaPlugin
 import coursier.version.Version
 import sbt.librarymanagement.CrossVersion
@@ -211,10 +211,14 @@ object CompatReportPlugin extends AutoPlugin {
                 versionPolicyFindDependencyIssues.value.toMap
                   .map { case (m, report) => m.toString -> report }
 
+              val filters = mimaBinaryIssueFilters.value
+
               val mimaIssues =
                 mimaFindBinaryIssues.value
-                  .map { case (module, problems) =>
-                    module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)).toString -> problems
+                  .map { case (module, (backwardProblems, forwardProblems)) =>
+                    module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)).toString ->
+                      (backwardProblems.filter(p => filters.forall(f => f(p))),
+                        forwardProblems.filter(p => filters.forall(f => f(p))))
                   }
 
               for (moduleString <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) yield {
