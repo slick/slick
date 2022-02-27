@@ -1,0 +1,54 @@
+name: Generate PR compat report
+
+on:
+ pull_request:
+   branches: ['**']
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up JDK
+      uses: actions/setup-java@v2
+      with:
+        distribution: adopt
+        java-version: 8
+
+    - uses: actions/checkout@v2
+      name: Check out PR base
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.base.sha }}
+
+    - name: Get base version
+      id: getBaseVer
+      run: echo "::set-output name=baseVer::$(sbt -error 'print slick/version')"
+
+    - run: sbt publishLocal
+      name: Publish ${{ steps.getBaseVer.outputs.baseVer }} locally
+
+    - uses: actions/checkout@v2
+      name: Check out PR
+      with:
+        fetch-depth: 0
+        clean: false
+
+    - name: Generate compatibility changes report
+      id: createReport
+      run: |
+        echo -n "::set-output name=reportFile::"
+        sbt \
+          -error \
+          'set every CompatReportPlugin.previousRelease := Some("${{ steps.getBaseVer.outputs.baseVer }}")' \
+          'print site/buildCompatReport'
+
+    - name: Show report saved in ${{ steps.createReport.outputs.reportFile }}
+      run: cat ${{ steps.createReport.outputs.reportFile }}
+
+    - name: Post as comment to PR
+      run: |
+        echo Adding to PR...
+        gh pr comment ${{ github.event.pull_request.number }} -F ${{ steps.createReport.outputs.reportFile }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
