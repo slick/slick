@@ -39,6 +39,6 @@ jobs:
 
     - name: Post as comment to PR
       run: |
-        gh pr comment $(cat ./NR.txt) -F ./compat-report.md
+        gh pr comment $(cat ./NR.txt) -F ./compat-report.md -R slick/slick
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
