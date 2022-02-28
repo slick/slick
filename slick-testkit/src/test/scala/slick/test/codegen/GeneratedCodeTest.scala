@@ -106,6 +106,7 @@ object GeneratedCodeTest {
 
 	(r.ts, r.ts2, r.ts3, r.ts4, r.ts5, r.ts6, r.ts7) match {
 	  case (c.ts, c.ts2, c.ts3, c.ts4, c.ts5, now, c.ts7) =>  assertTrue(c.ts6.compareTo(r.ts6) <= diff)
+    case _ => fail
 	}
       },
       Suppliers.result.map(assertEquals(List(s), _)),

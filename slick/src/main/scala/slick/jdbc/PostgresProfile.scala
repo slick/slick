@@ -59,14 +59,14 @@ trait PostgresProfile extends JdbcProfile {
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable)
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
-    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta)
+    override def createTableNamer(mTable: MTable): TableNamer = new PostgresTableNamer(mTable)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new PostgresColumnBuilder(tableBuilder, meta)
+    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new PostgresIndexBuilder(tableBuilder, meta)
 
-    class TableNamer(mTable: MTable) extends super.TableNamer(mTable){
+    class PostgresTableNamer(mTable: MTable) extends TableNamer(mTable){
       override def schema = super.schema.filter(_ != "public") // remove default schema
     }
-    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
+    class PostgresColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       /*
       The default value for numeric type behave different with postgres version
       PG9.5 - PG9.6:
@@ -134,7 +134,7 @@ trait PostgresProfile extends JdbcProfile {
         case _ => super.tpe
       }
     }
-    class IndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]) extends super.IndexBuilder(tableBuilder, meta) {
+    class PostgresIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]) extends IndexBuilder(tableBuilder, meta) {
       // FIXME: this needs a test
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
@@ -146,12 +146,12 @@ trait PostgresProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, Some("%"), Some(Seq("TABLE")))
 
-  override val columnTypes = new JdbcTypes
+  override val columnTypes: PostgresJdbcTypes = new PostgresJdbcTypes
   override protected def computeQueryCompiler = super.computeQueryCompiler - Phase.rewriteDistinct
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createQueryBuilder(n: Node, state: CompilerState): PostgresQueryBuilder = new PostgresQueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): PostgresUpsertBuilder = new PostgresUpsertBuilder(node)
+  override def createTableDDLBuilder(table: Table[_]): PostgresTableDDLBuilder = new PostgresTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): PostgresColumnDDLBuilder = new PostgresColumnDDLBuilder(column)
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useTransactionForUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
@@ -167,7 +167,7 @@ trait PostgresProfile extends JdbcProfile {
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class PostgresQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
     override protected val quotedJdbcFns = Some(Vector(Library.Database, Library.User))
 
@@ -211,7 +211,7 @@ trait PostgresProfile extends JdbcProfile {
     }
   }
 
-  class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+  class PostgresUpsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
     override def buildInsert: InsertBuilderResult = {
       val update = "update " + tableName + " set " + softNames.map(n => s"$n=?").mkString(",") + " where " + pkNames.map(n => s"$n=?").mkString(" and ")
       val nonAutoIncNames = nonAutoIncSyms.map(fs => quoteIdentifier(fs.name)).mkString(",")
@@ -224,20 +224,20 @@ trait PostgresProfile extends JdbcProfile {
     override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
   }
 
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+  class PostgresTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override def createPhase1 = super.createPhase1 ++ columns.flatMap {
-      case cb: ColumnDDLBuilder => cb.createLobTrigger(table.tableName)
+      case cb: PostgresColumnDDLBuilder => cb.createLobTrigger(table.tableName)
     }
     override def dropPhase1 = {
       val dropLobs = columns.flatMap {
-        case cb: ColumnDDLBuilder => cb.dropLobTrigger(table.tableName)
+        case cb: PostgresColumnDDLBuilder => cb.dropLobTrigger(table.tableName)
       }
       if(dropLobs.isEmpty) super.dropPhase1
       else Seq("delete from "+quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class PostgresColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
@@ -268,17 +268,17 @@ trait PostgresProfile extends JdbcProfile {
       ) else None
   }
 
-  class JdbcTypes extends super.JdbcTypes {
-    override val byteArrayJdbcType = new ByteArrayJdbcType
-    override val uuidJdbcType = new UUIDJdbcType
-    override val localDateType = new LocalDateJdbcType
-    override val localTimeType = new LocalTimeJdbcType
-    override val offsetTimeType = new OffsetTimeJdbcType
+  class PostgresJdbcTypes extends JdbcTypes {
+    override val byteArrayJdbcType = new PostgresByteArrayJdbcType
+    override val uuidJdbcType      = new PostgresUUIDJdbcType
+    override val localDateType     = new PostgresLocalDateJdbcType
+    override val localTimeType     = new PostgresLocalTimeJdbcType
+    override val offsetTimeType    = new PostgresOffsetTimeJdbcType
     //OffsetDateTime and ZonedDateTime not currently supportable natively by the backend
-    override val instantType = new InstantJdbcType
-    override val localDateTimeType = new LocalDateTimeJdbcType
+    override val instantType       = new PostgresInstantJdbcType
+    override val localDateTimeType = new PostgresLocalDateTimeJdbcType
 
-    class ByteArrayJdbcType extends super.ByteArrayJdbcType {
+    class PostgresByteArrayJdbcType extends ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BYTEA"
     }
@@ -314,7 +314,7 @@ trait PostgresProfile extends JdbcProfile {
     }
 
     import PGUtils.createPGObject
-    class LocalDateJdbcType extends super.LocalDateJdbcType with PostgreTimeJdbcType[LocalDate] {
+    class PostgresLocalDateJdbcType extends LocalDateJdbcType with PostgreTimeJdbcType[LocalDate] {
 
       private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE
 
@@ -335,7 +335,7 @@ trait PostgresProfile extends JdbcProfile {
       override val hasLiteralForm : Boolean = false
     }
 
-    class LocalTimeJdbcType extends super.LocalTimeJdbcType with PostgreTimeJdbcType[LocalTime] {
+    class PostgresLocalTimeJdbcType extends LocalTimeJdbcType with PostgreTimeJdbcType[LocalTime] {
 
       private[this] val formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
 
@@ -356,7 +356,7 @@ trait PostgresProfile extends JdbcProfile {
       override val hasLiteralForm : Boolean = false
     }
 
-    class OffsetTimeJdbcType extends super.OffsetTimeJdbcType with PostgreTimeJdbcType[OffsetTime] {
+    class PostgresOffsetTimeJdbcType extends OffsetTimeJdbcType with PostgreTimeJdbcType[OffsetTime] {
 
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
@@ -385,7 +385,7 @@ trait PostgresProfile extends JdbcProfile {
       override val hasLiteralForm : Boolean = false
     }
 
-    class InstantJdbcType extends super.InstantJdbcType with PostgreTimeJdbcType[Instant] {
+    class PostgresInstantJdbcType extends InstantJdbcType with PostgreTimeJdbcType[Instant] {
 
       private[this] val formatter = {
         new DateTimeFormatterBuilder()
@@ -433,7 +433,7 @@ trait PostgresProfile extends JdbcProfile {
       override val hasLiteralForm : Boolean = false
     }
 
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType with PostgreTimeJdbcType[LocalDateTime] {
+    class PostgresLocalDateTimeJdbcType extends LocalDateTimeJdbcType with PostgreTimeJdbcType[LocalDateTime] {
 
       private[this] val formatter = {
         new DateTimeFormatterBuilder()
@@ -461,7 +461,7 @@ trait PostgresProfile extends JdbcProfile {
       override val hasLiteralForm : Boolean = false
     }
 
-    class UUIDJdbcType extends super.UUIDJdbcType {
+    class PostgresUUIDJdbcType extends UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UUID"
       override def setValue(v: UUID, p: PreparedStatement, idx: Int) = p.setObject(idx, v, sqlType)
       override def getValue(r: ResultSet, idx: Int) = r.getObject(idx).asInstanceOf[UUID]

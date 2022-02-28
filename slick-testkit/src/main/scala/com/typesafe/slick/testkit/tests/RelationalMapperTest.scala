@@ -149,8 +149,8 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     class T(tag: Tag) extends Table[Row](tag, "t".withUniquePostFix) {
       val id = column[String]("id", O.PrimaryKey)
       val name = column[Option[String]]("name")
-      val upperName = name.shaped <> (toLower, toUpper)
-      def * = (id, upperName) <> (Row.tupled, Row.unapply)
+      val upperName = name.shaped.<>(toLower, toUpper)
+      def * = (id, upperName).<>(Row.tupled, Row.unapply)
     }
     val ts = TableQuery[T]
 

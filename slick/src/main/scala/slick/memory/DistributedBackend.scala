@@ -15,24 +15,24 @@ import slick.util.Logging
 /** The backend for DistributedProfile. */
 trait DistributedBackend extends RelationalBackend with Logging {
   type This = DistributedBackend
-  type Database = DatabaseDef
-  type Session = SessionDef
-  type DatabaseFactory = DatabaseFactoryDef
+  type Database = DistributedDatabaseDef
+  type Session = DistributedSessionDef
+  type DatabaseFactory = DistributedDatabaseFactoryDef
   type Context = BasicActionContext
   type StreamingContext = BasicStreamingActionContext
 
-  val Database = new DatabaseFactoryDef
+  val Database = new DistributedDatabaseFactoryDef
   val backend: DistributedBackend = this
 
   def createDatabase(config: Config, path: String): Database =
     throw new SlickException("DistributedBackend cannot be configured with an external config file")
 
-  class DatabaseDef(val dbs: Vector[BasicBackend#DatabaseDef], val executionContext: ExecutionContext) extends super.DatabaseDef {
+  class DistributedDatabaseDef(val dbs: Vector[BasicBackend#BasicDatabaseDef], val executionContext: ExecutionContext) extends BasicDatabaseDef {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new BasicActionContext { val useSameThread = _useSameThread }
 
     protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
-      new BasicStreamingActionContext(s, useSameThread, DatabaseDef.this)
+      new BasicStreamingActionContext(s, useSameThread, DistributedDatabaseDef.this)
 
     def createSession(): Session = {
       val sessions = new ArrayBuffer[BasicBackend#Session]
@@ -41,13 +41,13 @@ trait DistributedBackend extends RelationalBackend with Logging {
           sessions.reverseIterator.foreach { s => Try(s.close()) }
           Failure(ex)
         }.get
-      new SessionDef(sessions.toVector)
+      new DistributedSessionDef(sessions.toVector)
     }
 
     protected[this] val synchronousExecutionContext: ExecutionContext = new ExecutionContext {
       def reportFailure(t: Throwable): Unit = executionContext.reportFailure(t)
       def execute(runnable: Runnable): Unit = executionContext.execute(new Runnable {
-        def run(): Unit = blocking(runnable.run)
+        def run(): Unit = blocking(runnable.run())
       })
     }
 
@@ -55,14 +55,14 @@ trait DistributedBackend extends RelationalBackend with Logging {
     def close: Unit = ()
   }
 
-  class DatabaseFactoryDef {
+  class DistributedDatabaseFactoryDef {
     /** Create a new distributed database instance that uses the supplied ExecutionContext for
       * asynchronous execution of database actions. */
-    def apply(dbs: IterableOnce[BasicBackend#DatabaseDef], executionContext: ExecutionContext): Database =
-      new DatabaseDef(dbs.iterator.toVector, executionContext)
+    def apply(dbs: IterableOnce[BasicBackend#BasicDatabaseDef], executionContext: ExecutionContext): Database =
+      new DistributedDatabaseDef(dbs.iterator.toVector, executionContext)
   }
 
-  class SessionDef(val sessions: Vector[BasicBackend#Session]) extends super.SessionDef {
+  class DistributedSessionDef(val sessions: Vector[BasicBackend#Session]) extends BasicSessionDef {
     def close(): Unit = {
       sessions.map(s => Try(s.close())).collectFirst{ case Failure(t) => t }.foreach(throw _)
     }

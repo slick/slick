@@ -153,11 +153,11 @@ trait SqlUtilsComponent { self: SqlProfile =>
 
 trait SqlTableComponent extends RelationalTableComponent { this: SqlProfile =>
 
-  trait ColumnOptions extends super.ColumnOptions {
+  trait SqlColumnOptions extends RelationalColumnOptions {
     def SqlType(typeName: String) = SqlProfile.ColumnOption.SqlType(typeName)
   }
 
-  override val columnOptions: ColumnOptions = new ColumnOptions {}
+  override val columnOptions: SqlColumnOptions = new SqlColumnOptions {}
 }
 
 trait SqlActionComponent extends RelationalActionComponent { this: SqlProfile =>

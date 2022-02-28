@@ -17,11 +17,10 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
-      def * = id.? ~: baseProjection <> (User.tupled, User.unapply _)
+      def * = (id.? ~: baseProjection).<>(User.tupled, User.unapply _)
       def baseProjection = first ~ last
-      def forUpdate = baseProjection.shaped <>
-        ({ case (f, l) => User(None, f, l) }, { (u:User) => Some((u.first, u.last)) })
-      def asFoo = forUpdate <> ((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
+      def forUpdate = baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
+      def asFoo = forUpdate.<>((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
     object users extends TableQuery(new Users(_)) {
       val byID = this.findBy(_.id)
@@ -46,8 +45,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       users.filter(_.last inSet Set("Bouvier", "Ferdinand")).size.result.map(_ shouldBe 1),
       updateQ.update(User(None, "Marge", "Simpson")),
       Query(users.filter(_.id === 1).exists).result.head.map(_ shouldBe true),
-      users.filter(_.id between(1, 2)).to[Set].result.map(_ shouldBe Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson"))),
-      users.filter(_.id between(1, 2)).map(_.asFoo).to[Set].result.map(_ shouldBe Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson")))),
+      users.filter(_.id.between(1, 2)).to[Set].result.map(_ shouldBe Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson"))),
+      users.filter(_.id.between(1, 2)).map(_.asFoo).to[Set].result.map(_ shouldBe Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson")))),
       users.byID(3).result.head.map(_ shouldBe User(Some(3), "Carl", "Carlson")),
       q1.result.head.map(_.should(_.isInstanceOf[User]))
     )
@@ -116,7 +115,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def m1 = (
         id,
         (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6).mapTo[Part],
-        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6) <> (Part.tupled, Part.unapply _),
+        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6).<>(Part.tupled, Part.unapply _),
         (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6).mapTo[Part],
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6).mapTo[Part]
       ).mapTo[Whole]
@@ -127,7 +126,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6),
         (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6),
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
-        ).shaped <> ({ case (id, p1, p2, p3, p4) =>
+        ).shaped.<>({ case (id, p1, p2, p3, p4) =>
         // We could do this without .shaped but then we'd have to write a type annotation for the parameters
         Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
       }, { (w: Whole) =>
@@ -172,9 +171,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def p2 = column[String]("p2")
       def p3 = column[String]("p3")
       def p4 = column[Int]("p4")
-      def part1 = (p1,p2) <> (Part1.tupled,Part1.unapply)
+      def part1 = (p1,p2).<>(Part1.tupled,Part1.unapply)
       def part2 = (p3,p4).mapTo[Part2]
-      def * = (part1, part2) <> (Whole.tupled,Whole.unapply)
+      def * = (part1, part2).<>(Whole.tupled,Whole.unapply)
     }
     val T = TableQuery[T]
 

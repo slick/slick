@@ -52,15 +52,15 @@ trait H2Profile extends JdbcProfile {
     - RelationalCapabilities.reverse
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable)
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
+  class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createTableNamer(mTable: MTable): TableNamer = new H2TableNamer(mTable)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new H2ColumnBuilder(tableBuilder, meta)
 
-    class TableNamer(mTable: MTable) extends super.TableNamer(mTable) {
+    class H2TableNamer(mTable: MTable) extends TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
     }
 
-    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
+    class H2ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
       override def default = rawDefault.map((_,tpe)).collect{
           case (v,"java.util.UUID") =>
@@ -77,15 +77,15 @@ trait H2Profile extends JdbcProfile {
   }
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+    new H2ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override val columnTypes = new JdbcTypes
+  override val columnTypes = new H2JdbcTypes
   override protected def computeQueryCompiler = super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) - Phase.fixRowNumberOrdering
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new H2QueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new H2UpsertBuilder(node)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new H2ColumnDDLBuilder(column)
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new CountingInsertActionComposerImpl[T](compiled)
+    new H2CountingInsertActionComposerImpl[T](compiled)
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
@@ -94,7 +94,7 @@ trait H2Profile extends JdbcProfile {
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class H2QueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
     override protected val alwaysAliasSubqueries = false
     override protected val supportsLiteralGroupBy = true
@@ -115,7 +115,7 @@ trait H2Profile extends JdbcProfile {
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class H2ColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
@@ -125,7 +125,7 @@ trait H2Profile extends JdbcProfile {
     }
   }
 
-  class JdbcTypes extends super.JdbcTypes {
+  class H2JdbcTypes extends JdbcTypes {
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UUID"
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
@@ -161,11 +161,11 @@ trait H2Profile extends JdbcProfile {
   }
 
   /* Extending super.InsertBuilder here instead of super.UpsertBuilder. MERGE is almost identical to INSERT on H2. */
-  class UpsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+  class H2UpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
     override protected def buildInsertStart = allNames.mkString(s"merge into $tableName (", ",", ") ")
   }
 
-  class CountingInsertActionComposerImpl[U](compiled: CompiledInsert) extends super.CountingInsertActionComposerImpl[U](compiled) {
+  class H2CountingInsertActionComposerImpl[U](compiled: CompiledInsert) extends CountingInsertActionComposerImpl[U](compiled) {
     // H2 cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
     // the same in ReturningInsertInvoker because H2 does not allow returning non-AutoInc keys anyway.
     override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
