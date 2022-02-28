@@ -37,16 +37,8 @@ jobs:
 
     - run: unzip compat-report.zip
 
-    - name: 'Comment on PR'
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          var fs = require('fs');
-          var issue_number = Number(fs.readFileSync('./NR.txt'));
-          await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: issue_number,
-            body: fs.readFileSync('./compat-report.md')
-          });
+    - name: Post as comment to PR
+      run: |
+        gh pr comment $(cat ./NR.txt) -F ./compat-report.md
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
