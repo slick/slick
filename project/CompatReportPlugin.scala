@@ -1,7 +1,8 @@
 import com.typesafe.tools.mima.core.Problem
-import com.typesafe.tools.mima.plugin.MimaKeys.mimaFindBinaryIssues
+import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaFindBinaryIssues}
 import com.typesafe.tools.mima.plugin.MimaPlugin
 import coursier.version.Version
+import sbt.Keys.projectDependencies
 import sbt.librarymanagement.CrossVersion
 import sbt.{AutoPlugin, Compile, Def, Defaults, Keys, config, inConfig, settingKey, taskKey}
 import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVersions
@@ -207,14 +208,23 @@ object CompatReportPlugin extends AutoPlugin {
             versionPolicyCheckDirection := Direction.both,
             versionPolicyIntention := Versioning.BumpMinor,
             compatReportData := {
+              val projectDeps = projectDependencies.value
+
               val dependencyIssues =
                 versionPolicyFindDependencyIssues.value.toMap
                   .map { case (m, report) => m.toString -> report }
 
+              val filters = mimaBinaryIssueFilters.value
+
+              def stripModuleNameSuffix(name: String) =
+                name.stripSuffix("_" + Keys.scalaBinaryVersion.value)
+
               val mimaIssues =
                 mimaFindBinaryIssues.value
-                  .map { case (module, problems) =>
-                    module.withName(module.name.stripSuffix("_" + Keys.scalaBinaryVersion.value)).toString -> problems
+                  .map { case (module, (backwardProblems, forwardProblems)) =>
+                    module.withName(stripModuleNameSuffix(module.name)).toString ->
+                      (backwardProblems.filter(p => filters.forall(f => f(p))),
+                        forwardProblems.filter(p => filters.forall(f => f(p))))
                   }
 
               for (moduleString <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) yield {
@@ -222,7 +232,11 @@ object CompatReportPlugin extends AutoPlugin {
                   dependencyIssues.get(moduleString)
                     .fold(Seq.empty[DependencyChangeInfo]) { report =>
                       tupleWithDirection(report.forwardStatuses, report.backwardStatuses)
-                        .collect { case (direction, ((org, name), status)) if !status.validated =>
+                        .filter { case (_, ((org, name), status)) =>
+                          !status.validated &&
+                            !projectDeps.exists(p => p.organization == org && p.name == stripModuleNameSuffix(name))
+                        }
+                        .map { case (direction, ((org, name), status)) =>
                           DependencyChangeInfo(direction, org, name, status)
                         }
                     }

@@ -27,7 +27,7 @@ lead. There are *no compatibility guarantees* whatsoever for milestones and snap
 Latest changes
 --------------
 
-See @ref:[the generated tables of incompatible changes](compat-reports.md)
+See @ref:[the generated tables of incompatible changes](compat-report.md)
 
 
 Upgrade from 3.2 to 3.3
@@ -220,5 +220,5 @@ You only need to configure it manually if you use a connection pool through a JD
 
 
 @@@ index
-  * @ref:[.](compat-reports.md)
+  * @ref:[.](compat-report.md)
 @@@

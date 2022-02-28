@@ -1,4 +1,5 @@
 import com.jsuereth.sbtpgp.PgpKeys
+import com.typesafe.tools.mima.core.{MissingClassProblem, ProblemFilters}
 
 
 val testAll = taskKey[Unit]("Run all tests")
@@ -14,6 +15,12 @@ val cleanCompileTimeTests =
 /* Test Configuration for running tests on doc sources */
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
+
+Global / concurrentRestrictions :=
+  List(
+    Tags.limit(Tags.ForkedTestGroup, 4),
+    Tags.exclusiveGroup(Tags.Clean)
+  )
 
 inThisBuild(
   Seq(
@@ -34,7 +41,7 @@ inThisBuild(
       (CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, v)) if v <= 12 => Seq("-Xfuture")
         case _                       => Nil
-      })
+      }),
   )
 )
 
@@ -98,6 +105,8 @@ ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
 val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
 
+val buildCompatReport = taskKey[File]("Build the compatibility report")
+
 val docDir = settingKey[File]("Base directory for documentation")
 
 ThisBuild / docDir := (site / baseDirectory).value
@@ -128,7 +137,12 @@ lazy val slick =
       Compile / unmanagedClasspath ++= (MacroConfig / products).value,
       libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
       (Compile / packageSrc / mappings) ++= (MacroConfig / packageSrc / mappings).value,
-      (Compile / packageBin / mappings) ++= (MacroConfig / packageBin / mappings).value
+      (Compile / packageBin / mappings) ++= (MacroConfig / packageBin / mappings).value,
+
+      mimaBinaryIssueFilters ++= Seq(
+        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
+        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl"),
+      )
     )
 
 lazy val testkit =
@@ -152,7 +166,6 @@ lazy val testkit =
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
-      Test / parallelExecution := false,
       run / fork := true,
       //connectInput in run := true,
       run / javaOptions += "-Dslick.ansiDump=true",
@@ -167,6 +180,18 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
+      Test / testGrouping :=
+        (Test / definedTests).value
+          .groupBy { td =>
+            td.name.split('.').toSeq match {
+              case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
+              case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
+              case _                                                              => ""
+            }
+          }
+          .map { case (name, tests) => new Tests.Group(name, tests, Tests.SubProcess(ForkOptions())) }
+          .toSeq
+          .sortBy(_.name),
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
@@ -180,7 +205,8 @@ lazy val testkit =
           .get
       },
       DocTest / unmanagedSourceDirectories += docDir.value / "code",
-      DocTest / unmanagedResourceDirectories += docDir.value / "code"
+      DocTest / unmanagedResourceDirectories += docDir.value / "code",
+      DocTest / parallelExecution := false
     )
 
 lazy val codegen =
@@ -225,7 +251,7 @@ lazy val `reactive-streams-tests` =
       commonTestResourcesSetting
     )
 
-lazy val site =
+lazy val site: Project =
   project
     .in(file("doc"))
     .enablePlugins(Docs)
@@ -236,20 +262,33 @@ lazy val site =
         "hikaricp-api" -> (hikaricp / Compile / doc).value,
         "testkit-api" -> (testkit / Compile / doc).value
       ),
+      buildCompatReport := {
+        val compatReports =
+          (CompatReport / compatReportMarkdown)
+            .all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit)))
+            .value
+        val file = (buildCompatReport / target).value / "compat-report.md"
+        IO.write(
+          file,
+          if (compatReports.forall(_.trim.isEmpty))
+            "There are no incompatible changes"
+          else
+            compatReports.mkString(
+              "## Incompatible changes\n\n",
+              "\n\n",
+              "\n"
+            )
+        )
+        file
+      },
       preprocessDocs := {
-        val capabilitiesTableFile = (testkit / buildCapabilitiesTable).value
         val out = (preprocessDocs / target).value
+
+        val capabilitiesTableFile = (testkit / buildCapabilitiesTable).value
         IO.copyFile(capabilitiesTableFile, out / capabilitiesTableFile.getName)
 
-        val compatReports = (CompatReport / compatReportMarkdown).all(ScopeFilter(inAnyProject)).value
-        IO.write(
-          out / "compat-reports.md",
-          compatReports.mkString(
-            "## Incompatible changes\n\n",
-            "\n\n",
-            "\n"
-          )
-        )
+        val compatReportFile = buildCompatReport.value
+        IO.copyFile(compatReportFile, out / compatReportFile.getName)
 
         preprocessDocs.value
       },
