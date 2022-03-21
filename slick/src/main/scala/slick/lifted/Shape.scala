@@ -273,8 +273,7 @@ class CaseClassShape[
   override def toMapped(v: Any): PlainCaseClass = mapPlain(v.asInstanceOf[PlainTuple])
   override def buildValue(elems: IndexedSeq[Any]): LiftedCaseClass =
     mapLifted(TupleSupport.buildTuple(elems).asInstanceOf[LiftedTuple])
-  override def copy(s: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]
-                   ): CaseClassShape[P, LiftedTuple, LiftedCaseClass, PlainTuple, PlainCaseClass] =
+  override def copy(s: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]) =
     new CaseClassShape(mapLifted, mapPlain) {
       override val shapes = s
     }
