@@ -223,7 +223,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
 
     new util.Iterator[PrioritizedRunnable] {
       override def hasNext: Boolean = items.hasNext
-      override def next(): PrioritizedRunnable = items.next()
+      override def next: PrioritizedRunnable = items.next()
       override def remove(): Unit = throw new UnsupportedOperationException
     }
   }
