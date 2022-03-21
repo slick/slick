@@ -76,7 +76,10 @@ def slickGeneralSettings =
 def compilerDependencySetting(config: String) =
   libraryDependencies ++=
     (if (sys.props("scala.home.local") == null && scalaVersion.value.startsWith("2."))
-      List("org.scala-lang" % "scala-compiler" % scalaVersion.value % config)
+      List(
+        "org.scala-lang" % "scala-compiler" % scalaVersion.value % config)
+      else
+      Nil)
     else
       Nil)
 
