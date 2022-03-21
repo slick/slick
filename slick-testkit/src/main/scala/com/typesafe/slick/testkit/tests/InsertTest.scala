@@ -387,7 +387,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     class TestTable(tag: Tag) extends Table[Test](tag, "test") {
       def id = column[Int]("id", O.PrimaryKey)
       def name = column[String]("name", O.Length(2))
-      def * = (id, name) <> (Test.tupled, Test.unapply)
+      def * = (id, name) <> ((Test.apply _).tupled, Test.unapply)
     }
     val ts = TableQuery[TestTable]
     DBIO.seq(

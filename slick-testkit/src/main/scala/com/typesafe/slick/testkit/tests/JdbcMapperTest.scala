@@ -22,8 +22,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def last = column[String]("last")
       def * = (id.? ~: baseProjection).mapTo[User]
       def baseProjection = first ~ last
-      def forUpdate = baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { (u: User) => Some((u.first, u.last)) })
-      def asFoo = forUpdate.<>((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
+      def forUpdate = baseProjection.shaped <>
+        ({ case (f, l) => User(None, f, l) }, { (u:User) => Some((u.first, u.last)) })
+      def asFoo = forUpdate <> ((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
     object users extends TableQuery(new Users(_)) {
       val byID = this.findBy(_.id)
