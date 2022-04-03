@@ -234,7 +234,7 @@ lazy val hikaricp =
       description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-hikaricp"),
       test := {}, testOnly := {}, // suppress test status output
-      libraryDependencies += Dependencies.hikariCP,
+      libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
     )
 
 lazy val `reactive-streams-tests` =
