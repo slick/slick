@@ -29,6 +29,37 @@ Latest changes
 
 See @ref:[the generated tables of incompatible changes](compat-report.md)
 
+Upgrade from 3.3 to 3.4
+-----------------------
+
+The full list of changes and bug fixes in version 3.4 is [available on github](https://github.com/slick/slick/discussions/2344). 
+
+### Dependency upgrades
+
+Slick 3.4 updates the following upstream dependencies. If you use these libraries as part of your build, 
+you should update your dependency versions to match:
+
+|Dependency|Slick 3.3 depends on|Slick 3.4 depends on|Notes|
+|----------|--------------------|--------------------|-----|
+| [com.typesafe:config](https://github.com/lightbend/config) | 1.3.2 | 1.4.2 | See the `config` library's [release notes](https://github.com/lightbend/config/blob/main/NEWS.md) for changes. |
+| [com.zaxxer:HikariCP](https://github.com/brettwooldridge/HikariCP) | 3.2.0 | 4.0.3 | See the `HikariCP` [changelog](https://github.com/brettwooldridge/HikariCP/blob/dev/CHANGES) for changes. This only affects users who depend on the `slick-hikaricp` artifact.  |
+| [org.scala-lang.modules:scala-collection-compat](https://github.com/scala/scala-collection-compat) | 2.0.0 | 2.6.0 | Versions >= 2.0.0 should be binary-compatible, so no issues are expected. This only affects users building with Scala 2.11 or 2.12. |
+
+### AsyncExecutor defaults
+
+`AsyncExecutor` wraps the thread pool that Slick uses to run blocking I/O (such as database queries). The
+previous default constructor arguments could potentially cause deadlocks in some cases, so Slick 3.4 changes these 
+to safer defaults. In most cases this should be a drop-in replacement but users are encourage to test performance
+carefully after upgrading. See issue [#1938](https://github.com/slick/slick/issues/1938) for details.  
+
+### PostgreSQL `java.time` mappings
+
+The following bug fixes are highlighted here because they change the default mapping behaviour for some `java.time`
+columns in PostgreSQL:
+
+- `java.time.Instant.MIN` and `java.time.Instant.MAX` are now correctly mapped to `-infinity` and `infinity` 
+- respectively in PostgreSQL profile ([#2237](https://github.com/slick/slick/issues/2237))
+- changes to handling of timezone part of `java.time.Instant` in PostgreSQL profile ([#2005](https://github.com/slick/slick/issues/2005))
 
 Upgrade from 3.2 to 3.3
 -----------------------
