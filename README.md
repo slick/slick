@@ -34,7 +34,7 @@ found on the [Slick web site](https://scala-slick.org).
 ## Maintenance status
 
 Slick is community-maintained by a loose assortment of volunteers.
-Please help if you can.
+Please help if you can. We talk on [Gitter](https://gitter.im/slick/slick).
 
 Lightbend staff (such as @SethTisue) may be able to assist with
 administrative issues.
