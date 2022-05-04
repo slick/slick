@@ -1,7 +1,7 @@
 libraryDependencies ++= List(
   "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.11" % Test,
-  "org.postgresql" % "postgresql" % "42.3.4" % Test,
+  "org.postgresql" % "postgresql" % "42.3.5" % Test,
 )
 
 scalacOptions += "-deprecation"
