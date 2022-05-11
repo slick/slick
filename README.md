@@ -4,7 +4,7 @@
 
 Slick is a functional database library for Scala.
 
-Slick allows you to work with relational databases almost as if you were using 
+It allows you to work with relational databases almost as if you were using 
 Scala collections, while at the same time giving you full control over when a 
 database access happens and what data is transferred. By writing your queries 
 in Scala you can benefit from the static type checking, compile-time safety, and 
@@ -15,7 +15,22 @@ Slick also features an advanced query compiler which can generate SQL for a vari
 of different database engines from the same Scala code, allowing you to focus on
 application logic without worrying about database-specific syntax and quirks.
 
-## Documentation
+## Resources
+
+- full documentation, including Scaladocs and more complex examples, can be 
+found on the [Slick website](https://scala-slick.org)
+
+- we have an active [gitter channel](https://gitter.im/slick/slick) where you
+can ask for help
+
+- think you've found a bug? Have an idea for a new feature? Please raise it in
+our [issue tracker](https://github.com/slick/slick/issues) here on github
+
+- our friends at [`underscore.io`](https://underscore.io/) have written "Essential 
+Slick", an excellent guide to using slick from first principles, which is now 
+available [as a free download](https://underscore.io/books/essential-slick/)
+
+## Example
 
 As a simple example we will create a Scala object `Coffee`, and a table to store 
 instances of this object in the database:
@@ -47,9 +62,6 @@ coffees.map(_.name)
 // SQL: select NAME, PRICE from COFFEES where PRICE < 10.0 order by NAME
 coffees.filter(_.price < 10.0).sortBy(_.name)
 ```
-
-Full documentation, including Scaladocs and more complex examples, can be 
-found on the [Slick website](https://scala-slick.org).
 
 ## Database support
 
