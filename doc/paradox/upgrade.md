@@ -58,7 +58,7 @@ The following bug fixes are highlighted here because they change the default map
 columns in PostgreSQL:
 
 - `java.time.Instant.MIN` and `java.time.Instant.MAX` are now correctly mapped to `-infinity` and `infinity` 
-- respectively in PostgreSQL profile ([#2237](https://github.com/slick/slick/issues/2237))
+  respectively in PostgreSQL profile ([#2237](https://github.com/slick/slick/issues/2237))
 - changes to handling of timezone part of `java.time.Instant` in PostgreSQL profile ([#2005](https://github.com/slick/slick/issues/2005))
 
 Upgrade from 3.2 to 3.3
