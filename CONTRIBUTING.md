@@ -34,8 +34,8 @@ This is the process for committing code into `main`. There are of course excepti
 For a Pull Request to be considered at all it has to meet these requirements:
 
 1. Live up to the current code standard:
-   - Not violate [DRY](http://programmer.97things.oreilly.com/wiki/index.php/Don%27t_Repeat_Yourself).
-   - [Boy Scout Rule](http://programmer.97things.oreilly.com/wiki/index.php/The_Boy_Scout_Rule) needs to have been applied.
+   - Not violate [DRY](http://web.archive.org/web/20180511202436/http://programmer.97things.oreilly.com/wiki/index.php/Don't_Repeat_Yourself).
+   - [Boy Scout Rule](http://web.archive.org/web/20180523180601/http://programmer.97things.oreilly.com/wiki/index.php/The_Boy_Scout_Rule) needs to have been applied.
 2. Regardless if the code introduces new features or fixes bugs or regressions, it must have comprehensive tests.
 3. The code must be well documented in the Typesafe's standard documentation format (see the ‘Documentation’ section below).
 
