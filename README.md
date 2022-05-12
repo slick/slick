@@ -17,16 +17,16 @@ application logic without worrying about database-specific syntax and quirks.
 
 ## Resources
 
-- full documentation, including Scaladocs and more complex examples, can be 
+- Full documentation, including Scaladocs and more complex examples, can be 
 found on the [Slick website](https://scala-slick.org)
 
-- we have an active [gitter channel](https://gitter.im/slick/slick) where you
+- We have an active [gitter channel](https://gitter.im/slick/slick) where you
 can ask for help
 
-- think you've found a bug? Have an idea for a new feature? Please raise it in
+- Think you've found a bug? Have an idea for a new feature? Please raise it in
 our [issue tracker](https://github.com/slick/slick/issues) here on github
 
-- our friends at [`underscore.io`](https://underscore.io/) have written "Essential 
+- Our friends at [`underscore.io`](https://underscore.io/) have written "Essential 
 Slick", an excellent guide to using slick from first principles, which is now 
 available [as a free download](https://underscore.io/books/essential-slick/)
 
@@ -85,8 +85,8 @@ set.
 
 ## Contributing
 
-Slick is maintained by the Scala community. Pull requests are very welcome, and we
+Slick is community-maintained: pull requests are very welcome, and we
 ask that all contributors abide by the [Lightbend Community Code of Conduct](https://www.lightbend.com/conduct).
 
-Lightbend staff (such as @SethTisue) may be able to assist directly with
+Lightbend staff (such as @SethTisue) may be able to assist with
 administrative issues.
