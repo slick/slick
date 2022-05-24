@@ -207,6 +207,7 @@ val  SimpleA = CustomTyping.SimpleA
           }
         })
     },
+    new UUIDConfig("SQLServer1", StandardTestDBs.SQLServer2014SQLJDBC, "SQLServer2014SQLJDBC", Seq("/dbs/uuid-sqlserver.sql")),
     new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
     new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
       override def useSingleLineStatements = true

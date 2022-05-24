@@ -95,15 +95,19 @@ trait SQLServerProfile extends JdbcProfile {
         case Some("date") => "java.sql.Date"
         case Some("time") => "java.sql.Time"
         case Some("datetime2") => "java.sql.Timestamp"
+        case Some("uniqueidentifier") => "java.util.UUID"
         case _ => super.tpe
       }
       override def rawDefault = super.rawDefault.map(_.stripPrefix("(") // jtds
                                                       .stripPrefix("(")
                                                       .stripSuffix(")")
                                                       .stripSuffix(")"))
+      val UUIDPattern = "^'(.*)'".r
       override def default = rawDefault.map((_,tpe)).collect{
         case ("0","Boolean")  => Some(false)
         case ("1","Boolean")  => Some(true)
+        case (UUIDPattern(v),"java.util.UUID") => Some(java.util.UUID.fromString(v))
+        case (_,"java.util.UUID") => None // The UUID is generated through a function - treat it as if there was no default.
       }.map(d => Some(d)).getOrElse{super.default}
     }
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
@@ -278,8 +282,12 @@ trait SQLServerProfile extends JdbcProfile {
     override val instantType = new InstantJdbcType
     override val offsetDateTimeType = new OffsetDateTimeJdbcType
     override val uuidJdbcType = new UUIDJdbcType {
+      override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UNIQUEIDENTIFIER"
-      override def valueToSQLLiteral(uuid: UUID) = s"'${uuid.toString}'"
+      override def hasLiteralForm: Boolean = true
+      override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
+      override def fromBytes(data: Array[Byte]): UUID = if (data eq null) null else SQLServerProfile.Util.bytesToUUID(data)
+      override def toBytes(uuid: UUID): Array[Byte] = if (uuid eq null) null else SQLServerProfile.Util.uuidToBytes(uuid)
     }
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
@@ -453,7 +461,83 @@ trait SQLServerProfile extends JdbcProfile {
   }
 }
 
-object SQLServerProfile extends SQLServerProfile
+object SQLServerProfile extends SQLServerProfile {
+
+  // conversion utilities from sqlserver jdbc driver
+  object Util {
+
+    def bytesToUUID(inputGUID: Array[Byte]): UUID = {
+      if (inputGUID.length != 16) return null
+      // For the first three fields, UUID uses network byte order,
+      // Guid uses native byte order. So we need to reverse
+      // the first three fields before creating a UUID.
+      var tmpByte: Byte = 0
+      // Reverse the first 4 bytes
+      tmpByte = inputGUID(0)
+      inputGUID(0) = inputGUID(3)
+      inputGUID(3) = tmpByte
+      tmpByte = inputGUID(1)
+      inputGUID(1) = inputGUID(2)
+      inputGUID(2) = tmpByte
+      // Reverse the 5th and the 6th
+      tmpByte = inputGUID(4)
+      inputGUID(4) = inputGUID(5)
+      inputGUID(5) = tmpByte
+      // Reverse the 7th and the 8th
+      tmpByte = inputGUID(6)
+      inputGUID(6) = inputGUID(7)
+      inputGUID(7) = tmpByte
+      var msb = 0L
+      for (i <- 0 until 8) {
+        msb = msb << 8 | (inputGUID(i).toLong & 0xFFL)
+      }
+      var lsb = 0L
+      for (i <- 8 until 16) {
+        lsb = lsb << 8 | (inputGUID(i).toLong & 0xFFL)
+      }
+      new UUID(msb, lsb)
+    }
+
+    def uuidToBytes(aId: UUID): Array[Byte] = {
+      val msb = aId.getMostSignificantBits
+      val lsb = aId.getLeastSignificantBits
+      val buffer = new Array[Byte](16)
+      writeLongBigEndian(msb, buffer, 0)
+      writeLongBigEndian(lsb, buffer, 8)
+      // For the first three fields, UUID uses network byte order,
+      // Guid uses native byte order. So we need to reverse
+      // the first three fields before sending to server.
+      var tmpByte: Byte = 0
+      // Reverse the first 4 bytes
+      tmpByte = buffer(0)
+      buffer(0) = buffer(3)
+      buffer(3) = tmpByte
+      tmpByte = buffer(1)
+      buffer(1) = buffer(2)
+      buffer(2) = tmpByte
+      // Reverse the 5th and the 6th
+      tmpByte = buffer(4)
+      buffer(4) = buffer(5)
+      buffer(5) = tmpByte
+      // Reverse the 7th and the 8th
+      tmpByte = buffer(6)
+      buffer(6) = buffer(7)
+      buffer(7) = tmpByte
+      buffer
+    }
+
+    def writeLongBigEndian(value: Long, valueBytes: Array[Byte], offset: Int): Unit = {
+      valueBytes(offset + 0) = ((value >> 56) & 0xFF).toByte
+      valueBytes(offset + 1) = ((value >> 48) & 0xFF).toByte
+      valueBytes(offset + 2) = ((value >> 40) & 0xFF).toByte
+      valueBytes(offset + 3) = ((value >> 32) & 0xFF).toByte
+      valueBytes(offset + 4) = ((value >> 24) & 0xFF).toByte
+      valueBytes(offset + 5) = ((value >> 16) & 0xFF).toByte
+      valueBytes(offset + 6) = ((value >> 8) & 0xFF).toByte
+      valueBytes(offset + 7) = ((value >> 0) & 0xFF).toByte
+    }
+  }
+}
 
 /** Ensure that every expression in a GroupBy's "by" clause contains a reference to a proper
   * source field. If this is not the case, wrap the source in a Subquery boundary. */
