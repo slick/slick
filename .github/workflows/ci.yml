@@ -78,8 +78,7 @@ jobs:
         sbt \
           -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
           ++${{ matrix.scala }} \
-          coverage testAll coverageReport \
-          testAllSamples
+          coverage testAll coverageReport
       env:
         TZ: Asia/Kamchatka
 
