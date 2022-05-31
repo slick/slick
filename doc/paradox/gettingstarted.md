@@ -184,7 +184,7 @@ only enforced at the end when the transaction is committed.
 When inserting data, the database usually returns the number of affected rows, therefore the return type is
 `Option[Int]` as can be seen in this definition of `insertAction`:
 
-@@snip [HelloSlick.scala](../../../samples/hello-slick/src/main/scala/HelloSlick.scala) { #insertAction }
+@@snip [HelloSlick.scala](samples/hello-slick/src/main/scala/HelloSlick.scala) { #insertAction }
 
 We can use the `map` combinator to run some code and compute a new value from the value returned by the action
 (or in this case run it only for its side effects and return `Unit`).
@@ -243,7 +243,7 @@ key `Coffees.supplier`. Instead of repeating the join condition here we can use 
 Aggregates values like minimum, maximum, summation, and average can be computed by the database using the query
 functions `min`, `max`, `sum` and `avg` like:
 
-@@snip [HelloSlick.scala](../../../samples/hello-slick/src/main/scala/HelloSlick.scala) { #maxPrice }
+@@snip [HelloSlick.scala](samples/hello-slick/src/main/scala/HelloSlick.scala) { #maxPrice }
 
 This creates a new scalar query (`Rep`) that can be run like a collection-valued `Query` by calling `.result`.
 
@@ -253,7 +253,7 @@ Sometimes writing SQL code manually is the easiest and best way to go but we don
 protection that Slick includes.  @ref:[SQL String Interpolation](sql.md) provides a nice API for doing this.
 In *Hello Slick* we use the `sql` interpolator:
 
-@@snip [HelloSlick.scala](../../../samples/hello-slick/src/main/scala/HelloSlick.scala) { #plainSql }
+@@snip [HelloSlick.scala](samples/hello-slick/src/main/scala/HelloSlick.scala) { #plainSql }
 
 This produces a database I/O action that can be run or streamed in the usual way.
 
@@ -263,7 +263,7 @@ The `CaseClassMapping.scala` app provides an example which uses a *case class* i
 To use case classes instead of tuples setup a `def *` projection which transforms the tuple values to and from the
 case class. For example:
 
-@@snip [CaseClassMapping.scala](../../../samples/hello-slick/src/main/scala/CaseClassMapping.scala) { #mapTo }
+@@snip [CaseClassMapping.scala](samples/hello-slick/src/main/scala/CaseClassMapping.scala) { #mapTo }
 
 This uses the `mapTo` macro to convert between `(Option[Int], String)` and `User` bidirectionally. Now all of the
 queries can work with a `User` object instead of the tuples. 
@@ -275,7 +275,7 @@ See @ref[Mapped Tables](schemas.md#mapped-tables) for details.
 The `Users` table mapping in `CaseClassMapping.scala` defines an `id` column which uses an auto-incrementing
 primary key:
 
-@@snip [CaseClassMapping.scala](../../../samples/hello-slick/src/main/scala/CaseClassMapping.scala) { #autoInc }
+@@snip [CaseClassMapping.scala](samples/hello-slick/src/main/scala/CaseClassMapping.scala) { #autoInc }
 
 See @ref[Table Rows](schemas.md#table-rows) for more column options.
 
@@ -291,6 +291,6 @@ queries in real-world applications. It prevents the (possibly expensive) compila
 same SQL statement (or a small, fixed set of SQL statements) so that the database system can also reuse a previously
 computed execution plan. As a side-effect, all parameters are automatically turned into bind variables:
 
-@@snip [QueryActions.scala](../../../samples/hello-slick/src/main/scala/QueryActions.scala) { #upTo }
+@@snip [QueryActions.scala](samples/hello-slick/src/main/scala/QueryActions.scala) { #upTo }
 
 See @ref[Compiled Queries](queries.md#compiled-queries) for details.

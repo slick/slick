@@ -1,13 +1,13 @@
+import java.nio.file.Files
+
 import com.lightbend.paradox.sbt.ParadoxPlugin
 import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport._
 import com.typesafe.sbt.git.ConsoleGitRunner
 import coursier.version.{Version, VersionParse}
 import sbt.Keys._
 import sbt._
-import sjsonnew.support.scalajson.unsafe.Converter
-import sjsonnew.support.scalajson.unsafe.PrettyPrinter
 import sjsonnew.BasicJsonProtocol._
-import java.nio.file.Files
+import sjsonnew.support.scalajson.unsafe.{Converter, PrettyPrinter}
 
 
 object Docs extends AutoPlugin {
@@ -113,7 +113,7 @@ object Docs extends AutoPlugin {
         "extref.postgresql.base_url" -> "https://www.postgresql.org/",
         "extref.reactive-manifesto.base_url" -> "https://www.reactivemanifesto.org/",
         "extref.reactive-streams.base_url" -> "https://www.reactive-streams.org/",
-        "extref.samplerepo.base_url" -> s"https://github.com/slick/slick/tree/$ref/samples/%s",
+        "extref.samplerepo.base_url" -> s"https://github.com/slick/samples/%s",
         "extref.sbt.base_url" -> "https://www.scala-sbt.org/",
         "extref.scala-futures.base_url" -> "https://docs.scala-lang.org/overviews/core/futures.html",
         "extref.scalaquery.base_url" -> "http://scalaquery.org",
@@ -155,6 +155,9 @@ object Docs extends AutoPlugin {
           }
         }
       }
+
+      for (sample <- List("hello-slick", "slick-multidb", "slick-testkit-example"))
+        ConsoleGitRunner.updated("https://github.com/slick/" + sample, None, out / "samples" / sample, log)
 
       out
     },
