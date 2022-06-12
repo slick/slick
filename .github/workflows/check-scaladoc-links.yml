@@ -22,6 +22,6 @@ jobs:
       uses: actions/setup-java@v2
       with:
         distribution: adopt
-        java-version: 8
+        java-version: 11
 
     - run: sbt checkScaladocLinks
