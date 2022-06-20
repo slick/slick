@@ -87,21 +87,16 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def compoundValue(values: Seq[Code]): Code
     /** If HList should be used as a compound type instead of tuples. Only if hugeClassEnabled is false.
         @group Basic customization now overrides */
-    def hlistEnabled = !hugeClassEnabled && columns.size > 22;
+    def hlistEnabled = !hugeClassEnabled && columns.size > 22
     /**
        Default is true, i.e. a case class will be generated even if column.size > 22.
        Override to false to get the code as before Slick 3.3, i.e. a HList based type will be generated instead.
        @group Basic customization now overrides */
     def hugeClassEnabled = true
-    /** Indicates whether auto increment columns should be put last and made an Option with a None default.
-        Please set to !hlistEnabled for switching this on.
-        @group Basic customization overrides */
-    @deprecated("Use autoIncLast = true and ColumnDef.asOption = autoInc instead.", "3.2.0")
-    def autoIncLastAsOption = false
     /** Indicates whether auto increment columns should be put last.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
-    def autoIncLast = autoIncLastAsOption
+    def autoIncLast = false
     /** Indicates if this table should be mapped using factory and extractor or not, in which case tuples are used. (Consider overriding EntityType.enabled instead, which affects this, too.) Disabled by default when using hlists.
         @group Basic customization overrides */
     def mappingEnabled = !hlistEnabled
@@ -230,18 +225,16 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
        */
       def rawType: Code = parseType(model.tpe)
       /**
-       * Indicates whether the exposed type of this column should be wrapped in an Option. Useful for autoInc and automatically created columns.
+       * Indicates whether the exposed type of this column should be wrapped in an Option.
+       * Useful for autoInc and automatically created columns.
        * Set to autoInc to expose autoInc columns as Option.
        * @group Basic customization overrides
        */
-      def asOption = fakeNullable
+      def asOption = autoIncLast && autoInc
       /** Possibly Option-wrapped Scala type of this column. @see rawType and @see exposedType */
       final def actualType: Code      = if(model.nullable) optionType(rawType) else rawType
       /** Option of actualType if fakeNullable else actualType. */
       final def exposedType: Code  = if(asOption) optionType(actualType) else actualType
-      /** Indicates whether this column should be user facing as a nullable column with default None even though it is not. Useful for autoInc columns. */
-      @deprecated("Use asOption instead.", "3.2.0")
-      final def fakeNullable = autoIncLastAsOption && autoInc
 
       assert(!(model.nullable && asOption),s"Cannot enable 'fakeNullable' for a 'nullable' column. $model")
 
@@ -251,14 +244,14 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def columnOptionCode: ColumnOption[_] => Option[Code]
       /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
       def options: Iterable[Code] = model.options.filter{
-        case t: SqlProfile.ColumnOption.SqlType => dbType
-        case _ => true
+        case _: SqlProfile.ColumnOption.SqlType => dbType
+        case _                                  => true
       }.flatMap(columnOptionCode(_).toSeq)
       /** Indicates if a (non-portable) DBType ColumnOption should be generated */
       def dbType: Boolean = false
       /** Returns a function, that maps a value to its literal representation as code */
       def defaultCode: Any => Code
-      /** Generates a literal represenation of the default value or None in case of an Option-typed autoinc column */
+      /** Generates a literal representation of the default value or None in case of an Option-typed autoInc column */
       def default: Option[Code] = model.options.collect{
         case RelationalProfile.ColumnOption.Default(value) => value
         case _ if asOption => None
@@ -285,7 +278,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Name used in the db or a default name */
       def dbName = model.name.getOrElse(table.model.name.table+"_PK")
       def rawName = disambiguateTerm("pk")
-      def doc = "Primary key of "+TableValue.name+s" (database name ${dbName})"
+      def doc = "Primary key of "+TableValue.name+s" (database name $dbName)"
     }
 
     private var _freshFkId = 0
@@ -322,13 +315,14 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def rawName: String = disambiguateTerm({
         val fksToSameTable = foreignKeys.filter(_.referencedTable == referencedTable)
         require(
-          fksToSameTable.filter(_.model.name.isEmpty).size <= 1,
-          s"Found multiple unnamed foreign keys to same table, please manually provide names using overrides. ${referencingTable.model.name.table} -> ${referencedTable.model.name.table}"
+          fksToSameTable.count(_.model.name.isEmpty) <= 1,
+          s"Found multiple unnamed foreign keys to same table, please manually provide names using overrides." +
+            s" ${referencingTable.model.name.table} -> ${referencedTable.model.name.table}"
         )
         val baseName = referencedTable.TableClass.rawName.uncapitalize + "Fk"
         disambiguateTerm(if(fksToSameTable.size > 1) baseName + id else baseName)
       })
-      def doc = s"Foreign key referencing ${referencedTable.TableValue.name} (database name ${dbName})"
+      def doc = s"Foreign key referencing ${referencedTable.TableValue.name} (database name $dbName)"
     }
 
     private var _freshIdxId = 0
@@ -355,7 +349,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def rawName = disambiguateTerm("index"+id)
       def doc: String =
         (if(model.unique)"Uniqueness " else "")+
-          "Index over "+columns.map(_.name).mkString("(",",",")")+s" (database name ${dbName})"
+          "Index over "+columns.map(_.name).mkString("(",",",")")+s" (database name $dbName)"
     }
 
     /** Common interface for any kind of definition within the generated code */
@@ -408,7 +402,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
 }
 
 /** Helper methods for code generation */
-trait GeneratorHelpers[Code,TermName,TypeName]{
+trait GeneratorHelpers[Code, TermName, TypeName] {
   def indent(code: String): String = {
     val lines = code.split("\n")
     lines.tail.foldLeft(lines.head) { (out, line) =>

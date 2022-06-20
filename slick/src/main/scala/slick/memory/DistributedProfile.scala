@@ -87,7 +87,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }
@@ -171,7 +171,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
 
     case class Scope(m: Map[TermSymbol, (Node, Scope)]) {
       def get(s: TermSymbol) = m.get(s)
-      def + (s: TermSymbol, n: Node) = Scope(m + (s -> (n, this)))
+      def + (sn: (TermSymbol, Node)) = Scope(m + (sn._1 -> (sn._2, this)))
     }
   }
 }

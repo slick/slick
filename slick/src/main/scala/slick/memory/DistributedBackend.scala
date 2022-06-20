@@ -50,7 +50,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     protected[this] val synchronousExecutionContext: ExecutionContext = new ExecutionContext {
       def reportFailure(t: Throwable): Unit = executionContext.reportFailure(t)
       def execute(runnable: Runnable): Unit = executionContext.execute(new Runnable {
-        def run(): Unit = blocking(runnable.run)
+        def run(): Unit = blocking(runnable.run())
       })
     }
 

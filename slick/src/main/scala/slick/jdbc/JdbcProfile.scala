@@ -28,8 +28,8 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcCapabilities.all
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect())
-  lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
-  lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
+  lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate())
+  lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete())
   lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.NonAutoInc), new JdbcInsertCodeGen(createInsertBuilder))
   lazy val forceInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createInsertBuilder))
   lazy val upsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createUpsertBuilder))

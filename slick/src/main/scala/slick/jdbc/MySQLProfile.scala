@@ -152,7 +152,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     new MySQLColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new MySQLSequenceDDLBuilder(seq)
 
-  override def quoteIdentifier(id: String) = s"`${id}`"
+  override def quoteIdentifier(id: String) = s"`$id`"
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>

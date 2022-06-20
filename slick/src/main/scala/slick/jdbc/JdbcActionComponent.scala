@@ -2,20 +2,22 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, Statement}
 
-import scala.language.{existentials, higherKinds}
+import scala.collection.compat._
 import scala.collection.mutable.Builder
+import scala.language.{existentials, higherKinds}
 import scala.util.control.NonFatal
 
 import slick.SlickException
 import slick.ast.ColumnOption.PrimaryKey
-import slick.dbio._
-import slick.ast._
-import slick.ast.Util._
 import slick.ast.TypeUtil.:@
-import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
-import slick.relational.{ResultConverter, CompiledMapping}
-import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
+import slick.ast.Util._
+import slick.ast._
+import slick.dbio._
+import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
+import slick.relational.{CompiledMapping, ResultConverter}
+import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
 import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
+
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
@@ -192,7 +194,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       val mu = if(state ne null) state else {
         val inv = createQueryInvoker[T](rsm, param, sql)
         new Mutator(
-          inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).right.get,
+          inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).getOrElse(throw new NoSuchElementException),
           ctx.bufferNext,
           inv)
       }
@@ -764,7 +766,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): Seq[RU] =
-      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
+      values.lazyZip(buildKeysResult(st).buildColl[Vector](null, implicitly)).map(mux).toSeq
 
     protected def retQuery(st: Statement, updateCount: Int) =
       buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"

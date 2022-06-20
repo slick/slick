@@ -1,16 +1,17 @@
 package slick.codegen
 
-import slick.SlickException
+import scala.collection.compat._
+
 import slick.ast.ColumnOption
-import slick.{model => m}
 import slick.model.ForeignKeyAction
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
+import slick.{SlickException, model => m}
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)
   extends AbstractGenerator[String,String,String](model)
-    with StringGeneratorHelpers{
+    with StringGeneratorHelpers {
   /** Generates code for the complete model (not wrapped in a package yet)
       @group Basic customization overrides */
   def code = {
@@ -267,7 +268,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       }
       def code = {
         val pkTable = referencedTable.TableValue.name
-        val (pkColumns, fkColumns) = (referencedColumns, referencingColumns).zipped.map { (p, f) =>
+        val (pkColumns, fkColumns) = referencedColumns.lazyZip(referencingColumns).map { (p, f) =>
           val pk = s"r.${p.name}"
           val fk = f.name
           if(p.model.nullable && !f.model.nullable) (pk, s"Rep.Some($fk)")
