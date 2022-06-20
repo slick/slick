@@ -18,6 +18,7 @@ object Docs extends AutoPlugin {
     val addDocsToDocRepo = taskKey[Boolean]("Pull doc repo and add generated documentation to it")
     val deployDocs = taskKey[Unit]("Deploy docs to GitHub Pages")
     val showParadoxProperties = taskKey[Unit]("Show a table of paradoxProperties")
+    val docsSubdirectory = settingKey[String]("The subdirectory of the doc repo to write the docs into")
   }
 
   import autoImport._
@@ -76,8 +77,9 @@ object Docs extends AutoPlugin {
   override def projectSettings = Seq(
     homepage := None,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
+    docsSubdirectory := Versioning.shortVersionString(version.value),
     Compile / paradoxProperties ++= {
-      val scaladocBaseUrl = s"https://scala-slick.org/doc/${version.value}"
+      val scaladocBaseUrl = s"https://scala-slick.org/doc/${docsSubdirectory.value}"
       val ref = Versioning.currentRef(baseDirectory.value)
       Map(
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/${scalaVersion.value}",
@@ -188,7 +190,7 @@ object Docs extends AutoPlugin {
     },
     addDocsToDocRepo := {
       val dir = (Compile / paradox).value
-      addDocsToDocRepoImpl(dir, version.value, streams.value.log)
+      addDocsToDocRepoImpl(dir, docsSubdirectory.value, streams.value.log)
     },
     deployDocs := {
       checkScaladocLinks.value
