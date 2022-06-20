@@ -50,6 +50,6 @@ object Dependencies {
     "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
-    "org.apache.felix"       % "org.apache.felix.framework" % "6.0.2"
+    "org.apache.felix"       % "org.apache.felix.framework" % "6.0.5"
   )
 }
