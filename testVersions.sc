@@ -31,7 +31,7 @@ def assertVersions(epoch: String, major: String, minor: String): Unit = {
   println(fansi.Color.Yellow(s"Expecting version bumps to be $epoch / $major / $minor"))
 
   def assertExpr(expect: String, mode: String) =
-    s"""  Versioning.versionFor(Versioning.Bump$mode) match {
+    s"""  Versioning.versionFor(Versioning.Bump$mode).map(Versioning.shortVersionString) match {
        |    case Some("$expect") =>
        |      System.out.println("Good, $mode bump would produce $expect")
        |    case other =>
