@@ -46,6 +46,9 @@ object Versioning extends AutoPlugin {
     }
   }
 
+  def shortVersionString(version: String) =
+    version.replaceFirst("-pre\\..*", "-SNAPSHOT")
+
   def versionFor(compat: Compatibility, date: Date = new Date): Option[String] =
     DynVer.getGitDescribeOutput(date).map(versionFor(compat, _))
 
