@@ -16,4 +16,4 @@ jobs:
       - name: Launch Scala Steward
         uses: scala-steward-org/scala-steward-action@v2
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.SCALA_STEWARD_TOKEN }}
