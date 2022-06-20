@@ -41,12 +41,12 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   final def buildTableSchemaDescription(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
-  trait LowPriorityAPI {
+  trait JdbcLowPriorityAPI {
     implicit def queryUpdateActionExtensionMethods[U, C[_]](q: Query[_, U, C]): UpdateActionExtensionMethodsImpl[U] =
       createUpdateActionExtensionMethods(updateCompiler.run(q.toNode).tree, ())
   }
 
-  trait API extends LowPriorityAPI with super.API with ImplicitColumnTypes {
+  trait JdbcAPI extends JdbcLowPriorityAPI with RelationalAPI with JdbcImplicitColumnTypes {
     type SimpleDBIO[+R] = SimpleJdbcAction[R]
     val SimpleDBIO = SimpleJdbcAction
 
@@ -64,7 +64,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
     implicit def actionBasedSQLInterpolation(s: StringContext): ActionBasedSQLInterpolation = new ActionBasedSQLInterpolation(s)
   }
 
-  val api: API = new API {}
+  val api: JdbcAPI = new JdbcAPI {}
 
   def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R = tree match {
     case rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType)) :@ CollectionType(cons, el) =>

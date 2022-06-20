@@ -27,11 +27,11 @@ trait BasicBackend { self =>
 
   type This >: this.type <: BasicBackend
   /** The type of database objects used by this backend. */
-  type Database <: DatabaseDef
+  type Database <: BasicDatabaseDef
   /** The type of the database factory used by this backend. */
   type DatabaseFactory
   /** The type of session objects used by this backend. */
-  type Session >: Null <: SessionDef
+  type Session >: Null <: BasicSessionDef
   /** The type of the context used for running SynchronousDatabaseActions */
   type Context >: Null <: BasicActionContext
   /** The type of the context used for streaming SynchronousDatabaseActions */
@@ -50,7 +50,7 @@ trait BasicBackend { self =>
   def createDatabase(config: Config, path: String): Database
 
   /** A database instance to which connections can be created. */
-  trait DatabaseDef extends Closeable { this: Database =>
+  trait BasicDatabaseDef extends Closeable { this: Database =>
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
@@ -481,7 +481,7 @@ trait BasicBackend { self =>
   }
 
   /** A logical session of a `Database`. The underlying database connection is created lazily on demand. */
-  trait SessionDef extends Closeable {
+  trait BasicSessionDef extends Closeable {
     /** Close this Session. */
     def close(): Unit
 

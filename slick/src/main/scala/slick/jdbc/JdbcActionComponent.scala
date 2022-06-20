@@ -125,8 +125,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   //////////////////////////////////////////////////////////// Query Actions
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
-  type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
-  type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
+  type QueryActionExtensionMethods[R, S <: NoStream] = JdbcQueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] = JdbcStreamingQueryActionExtensionMethodsImpl[R, T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
     new QueryActionExtensionMethods[R, S](tree, param)
@@ -204,7 +204,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       new MutatingResultAction[T](rsm, elemType, collectionType, _statements.head, param, sendEndMarker)
   }
 
-  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
+  class JdbcQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any)
+    extends BasicQueryActionExtensionMethodsImpl[R, S] {
+
     def result: ProfileAction[R, S, Effect.Read] = {
       def findSql(n: Node): String = n match {
         case c: CompiledStatement => c.extra.asInstanceOf[SQLBuilder.Result].sql
@@ -230,8 +232,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
   }
 
-  class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
+  class JdbcStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any)
+    extends JdbcQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param)
+      with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
+
+    override def result: StreamingProfileAction[R, T, Effect.Read] =
+      super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
 
     /** Same as `mutate(sendEndMarker = false)`. */
     def mutate: ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = mutate(false)
@@ -279,12 +285,14 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   //////////////////////////////////////////////////////////// Schema Actions
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
-  type SchemaActionExtensionMethods = SchemaActionExtensionMethodsImpl
+  type SchemaActionExtensionMethods = JdbcSchemaActionExtensionMethodsImpl
 
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
-    new SchemaActionExtensionMethodsImpl(schema)
+    new JdbcSchemaActionExtensionMethodsImpl(schema)
 
-  class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
+  class JdbcSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
+    extends RelationalSchemaActionExtensionMethodsImpl {
+
     def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)

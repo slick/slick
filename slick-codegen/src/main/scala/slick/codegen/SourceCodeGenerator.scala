@@ -32,27 +32,27 @@ import slick.util.ConfigExtensionMethods.configExtensionMethods
 class SourceCodeGenerator(model: m.Model)
                    extends AbstractSourceCodeGenerator(model) with OutputHelpers{
   // "Tying the knot": making virtual classes concrete
-  type Table = TableDef
-  def Table = new TableDef(_)
-  class TableDef(model: m.Table) extends super.TableDef(model){
+  type Table = SourceCodeTableDef
+  def Table = new SourceCodeTableDef(_)
+  class SourceCodeTableDef(model: m.Table) extends AbstractSourceCodeTableDef(model) {
     // Using defs instead of (caching) lazy vals here to provide consitent interface to the user.
     // Performance should really not be critical in the code generator. Models shouldn't be huge.
     // Also lazy vals don't inherit docs from defs
-    type EntityType     =     EntityTypeDef
-    def  EntityType     = new EntityType{}
-    type PlainSqlMapper =     PlainSqlMapperDef
-    def  PlainSqlMapper = new PlainSqlMapper{}
-    type TableClass     =     TableClassDef
-    def  TableClass     = new TableClass{}
-    type TableValue     =     TableValueDef
-    def  TableValue     = new TableValue{}
-    type Column         =     ColumnDef
+    type EntityType     =     AbstractSourceCodeEntityTypeDef
+    def  EntityType     = new EntityType {}
+    type PlainSqlMapper =     AbstractSourceCodePlainSqlMapperDef
+    def  PlainSqlMapper = new PlainSqlMapper {}
+    type TableClass     =     AbstractSourceCodeTableClassDef
+    def  TableClass     = new TableClass {}
+    type TableValue     =     AbstractSourceCodeTableValueDef
+    def  TableValue     = new TableValue {}
+    type Column         =     AbstractSourceCodeColumnDef
     def  Column         = new Column(_)
-    type PrimaryKey     =     PrimaryKeyDef
+    type PrimaryKey     =     AbstractSourceCodePrimaryKeyDef
     def  PrimaryKey     = new PrimaryKey(_)
-    type ForeignKey     =     ForeignKeyDef  
+    type ForeignKey     =     AbstractSourceCodeForeignKeyDef
     def  ForeignKey     = new ForeignKey(_)
-    type Index          =     IndexDef  
+    type Index          =     AbstractSourceCodeIndexDef
     def  Index          = new Index(_)
   }
 }

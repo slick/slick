@@ -94,7 +94,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
 
   protected def tuple(i: Int) = termName(s"_${i+1}")
 
-  abstract class TableDef(model: m.Table) extends super.TableDef(model){
+  abstract class AbstractSourceCodeTableDef(model: m.Table) extends AbstractTableDef(model) {
 
     def compoundType(types: Seq[String]): String = {
       if(hlistEnabled){
@@ -117,7 +117,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     def factory   = if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType else s"${TableClass.elementType}.tupled"
     def extractor = s"${TableClass.elementType}.unapply"
 
-    trait EntityTypeDef extends super.EntityTypeDef{
+    trait AbstractSourceCodeEntityTypeDef extends AbstractEntityTypeDef {
       def code = {
         val args = columns.map(c=>
           c.default.map( v =>
@@ -144,7 +144,7 @@ def $name($args): $name = {
       }
     }
 
-    trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
+    trait AbstractSourceCodePlainSqlMapperDef extends AbstractPlainSqlMapperDef {
       def code = {
         val types = columnsPositional.map(c => (if(c.asOption || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]"))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
@@ -172,7 +172,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
       }
     }
 
-    trait TableClassDef extends super.TableClassDef{
+    trait AbstractSourceCodeTableClassDef extends AbstractTableClassDef {
       def star = {
         val struct = compoundValue(columns.map(c=>if(c.asOption)s"Rep.Some(${c.name})" else s"${c.name}"))
         val rhs = if (isMappedToHugeClass) s"($struct).mapTo[${typeName(entityName(model.name.table))}]" else if(mappingEnabled) s"$struct.<>($factory, $extractor)" else struct
@@ -213,11 +213,11 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       }
     }
 
-    trait TableValueDef extends super.TableValueDef{
+    trait AbstractSourceCodeTableValueDef extends AbstractTableValueDef {
       def code = s"lazy val $name = new TableQuery(tag => new ${TableClass.name}(tag))"
     }
 
-    class ColumnDef(model: m.Column) extends super.ColumnDef(model){
+    class AbstractSourceCodeColumnDef(model: m.Column) extends AbstractColumnDef(model) {
       import ColumnOption._
       import RelationalProfile.ColumnOption._
       import SqlProfile.ColumnOption._
@@ -253,11 +253,11 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       def code = s"""val $name: Rep[$actualType] = column[$actualType]("${model.name}"${options.map(", "+_).mkString("")})"""
     }
 
-    class PrimaryKeyDef(model: m.PrimaryKey) extends super.PrimaryKeyDef(model){
+    class AbstractSourceCodePrimaryKeyDef(model: m.PrimaryKey) extends AbstractPrimaryKeyDef(model) {
       def code = s"""val $name = primaryKey("$dbName", ${compoundValue(columns.map(_.name))})"""
     }
 
-    class ForeignKeyDef(model: m.ForeignKey) extends super.ForeignKeyDef(model){
+    class AbstractSourceCodeForeignKeyDef(model: m.ForeignKey) extends AbstractForeignKeyDef(model) {
       def actionCode(action: ForeignKeyAction) = action match{
         case ForeignKeyAction.Cascade    => "ForeignKeyAction.Cascade"
         case ForeignKeyAction.Restrict   => "ForeignKeyAction.Restrict"
@@ -278,7 +278,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       }
     }
 
-    class IndexDef(model: m.Index) extends super.IndexDef(model){
+    class AbstractSourceCodeIndexDef(model: m.Index) extends AbstractIndexDef(model) {
       def code = {
         val unique = if(model.unique) s", unique=true" else ""
         s"""val $name = index("$dbName", ${compoundValue(columns.map(_.name))}$unique)"""
