@@ -57,11 +57,11 @@ trait DB2Profile extends JdbcProfile {
   override protected def computeQueryCompiler =
     (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
       + Phase.rewriteBooleans)
-  override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
+  override val columnTypes = new DB2JdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DB2QueryBuilder(n, state)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DB2TableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new DB2ColumnDDLBuilder(column)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new DB2SequenceDDLBuilder(seq)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(_.name.schema.filter(_ == "SYSTOOLS").isEmpty))
@@ -73,7 +73,7 @@ trait DB2Profile extends JdbcProfile {
 
   override val scalarFrom = Some("sysibm.sysdummy1")
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class DB2QueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
 
     override protected val hasPiFunction = false
     override protected val hasRadDegConversion = false
@@ -125,7 +125,7 @@ trait DB2Profile extends JdbcProfile {
     }
   }
 
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+  class DB2TableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override protected def createIndex(idx: Index) = {
       if(idx.unique) {
         /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
@@ -167,7 +167,7 @@ trait DB2Profile extends JdbcProfile {
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class DB2ColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override def appendColumn(sb: StringBuilder): Unit = {
       val qname = quoteIdentifier(column.name)
       sb append qname append ' '
@@ -179,7 +179,7 @@ trait DB2Profile extends JdbcProfile {
     }
   }
 
-  class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
+  class DB2SequenceDDLBuilder(seq: Sequence[_]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       val b = new StringBuilder append "create sequence " append quoteIdentifier(seq.name)
       b append " as " append jdbcTypeFor(seq.tpe).sqlTypeName(None)
@@ -192,12 +192,12 @@ trait DB2Profile extends JdbcProfile {
     }
   }
 
-  class JdbcTypes extends super.JdbcTypes {
-    override val booleanJdbcType = new BooleanJdbcType
-    override val uuidJdbcType = new UUIDJdbcType
-    override val instantType = new InstantJdbcType
+  class DB2JdbcTypes extends JdbcTypes {
+    override val booleanJdbcType = new DB2BooleanJdbcType
+    override val uuidJdbcType = new DB2UUIDJdbcType
+    override val instantType = new DB2InstantJdbcType
 
-    class UUIDJdbcType extends super.UUIDJdbcType {
+    class DB2UUIDJdbcType extends UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
       override def hasLiteralForm = true
       override def valueToSQLLiteral(value: UUID): String =
@@ -207,12 +207,12 @@ trait DB2Profile extends JdbcProfile {
 
     /* DB2 does not have a proper BOOLEAN type. The suggested workaround is
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanJdbcType extends super.BooleanJdbcType {
+    class DB2BooleanJdbcType extends BooleanJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
 
-    class InstantJdbcType extends super.InstantJdbcType {
+    class DB2InstantJdbcType extends InstantJdbcType {
       // Can't use Timestamp as the type here as subject to 2 hours DST loss each year
       override def sqlType : Int = {
         java.sql.Types.VARCHAR

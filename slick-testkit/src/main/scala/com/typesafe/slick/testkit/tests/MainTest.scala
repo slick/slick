@@ -115,7 +115,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
 
       val q4e = for (
         u <- users if u.first inSetBind List("Homer", "Marge");
-        o <- orders if o.userID in (u.id, u.id)
+        o <- orders if o.userID.in(u.id, u.id)
       ) yield (u.first, o.orderID)
       q4e.result.statements.toSeq.length.should(_ >= 1)
 

@@ -11,7 +11,7 @@ import slick.jdbc.H2Profile.api._
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class MBeansTest {
 

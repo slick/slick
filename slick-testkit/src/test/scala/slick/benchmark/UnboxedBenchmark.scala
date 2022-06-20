@@ -24,10 +24,10 @@ object UnboxedBenchmark extends App {
   val as = TableQuery[ARow]
 
   // Standard converters
-  val q1 =  as.map(a => a.proj <> (A.tupled, A.unapply))
+  val q1 =  as.map(a => a.proj.<>(A.tupled, A.unapply))
 
   // Fast path
-  val q2 =  as.map(a => a.proj <> (A.tupled, A.unapply)
+  val q2 =  as.map(a => a.proj.<>(A.tupled, A.unapply)
     fastPath(new FastPath(_) {
       val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
       override def read(r: Reader) = new A(a.read(r), b.read(r), c.read(r), d.read(r))
@@ -36,7 +36,7 @@ object UnboxedBenchmark extends App {
 
   // Allocation-free fast path
   val sharedA = new A(0, 0, 0, 0)
-  val q3 =  as.map(a => a.proj <> (A.tupled, A.unapply)
+  val q3 =  as.map(a => a.proj.<>(A.tupled, A.unapply)
     fastPath(new FastPath(_) {
       val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
       override def read(r: Reader) = {

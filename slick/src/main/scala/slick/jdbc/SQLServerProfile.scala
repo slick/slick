@@ -81,16 +81,16 @@ trait SQLServerProfile extends JdbcProfile {
       + Phase.rewriteBooleans)
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
-  override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createInsertBuilder(node: Insert): super.InsertBuilder = new InsertBuilder(node)
-  override def createUpsertBuilder(node: Insert): super.InsertBuilder = new UpsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override val columnTypes = new SQLServerJdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new SQLServerQueryBuilder(n, state)
+  override def createInsertBuilder(node: Insert): InsertBuilder = new SQLServerInsertBuilder(node)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new SQLServerUpsertBuilder(node)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new SQLServerTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new SQLServerColumnDDLBuilder(column)
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
-    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new SQLServerColumnBuilder(tableBuilder, meta)
+    class SQLServerColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       override def tpe = dbType match {
         case Some("date") => "java.sql.Date"
         case Some("time") => "java.sql.Time"
@@ -145,7 +145,7 @@ trait SQLServerProfile extends JdbcProfile {
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class SQLServerQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
 
@@ -206,17 +206,17 @@ trait SQLServerProfile extends JdbcProfile {
     }
   }
 
-  class InsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+  class SQLServerInsertBuilder(ins: Insert) extends InsertBuilder(ins) {
     override protected def emptyInsert: String = s"insert into $tableName default values"
   }
 
-  class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+  class SQLServerUpsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
     // SQL Server requires MERGE statements to end with a semicolon (unlike all other
     // statements that you can execute via JDBC)
     override protected def buildMergeEnd: String = super.buildMergeEnd + ";"
   }
 
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+  class SQLServerTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit = {
       val updateAction = fk.onUpdate.action
       val deleteAction = fk.onDelete.action
@@ -260,7 +260,7 @@ trait SQLServerProfile extends JdbcProfile {
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class SQLServerColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
@@ -270,18 +270,20 @@ trait SQLServerProfile extends JdbcProfile {
     }
   }
 
-  class JdbcTypes extends super.JdbcTypes {
-    override val booleanJdbcType = new BooleanJdbcType
-    override val byteJdbcType = new ByteJdbcType
-    override val byteArrayJdbcType = new ByteArrayJdbcType
-    override val dateJdbcType = new DateJdbcType
-    override val timeJdbcType = new TimeJdbcType
-    override val localTimeType = new LocalTimeJdbcType
-    override val timestampJdbcType = new TimestampJdbcType
-    override val localDateTimeType = new LocalDateTimeJdbcType
-    override val instantType = new InstantJdbcType
-    override val offsetDateTimeType = new OffsetDateTimeJdbcType
-    override val uuidJdbcType = new UUIDJdbcType {
+  class SQLServerJdbcTypes extends JdbcTypes {
+    override val booleanJdbcType    = new SQLiteBooleanJdbcType
+    override val byteJdbcType       = new SQLiteByteJdbcType
+    override val byteArrayJdbcType  = new SQLiteByteArrayJdbcType
+    override val dateJdbcType       = new SQLiteDateJdbcType
+    override val timeJdbcType       = new SQLiteTimeJdbcType
+    override val localTimeType      = new SQLiteLocalTimeJdbcType
+    override val timestampJdbcType  = new SQLiteTimestampJdbcType
+    override val localDateTimeType  = new SQLiteLocalDateTimeJdbcType
+    override val instantType        = new SQLiteInstantJdbcType
+    override val offsetDateTimeType = new SQLiteOffsetDateTimeJdbcType
+    override val uuidJdbcType       = new SQLiteUUIDJdbcType
+
+    class SQLiteUUIDJdbcType extends UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UNIQUEIDENTIFIER"
       override def hasLiteralForm: Boolean = true
@@ -289,9 +291,10 @@ trait SQLServerProfile extends JdbcProfile {
       override def fromBytes(data: Array[Byte]): UUID = if (data eq null) null else SQLServerProfile.Util.bytesToUUID(data)
       override def toBytes(uuid: UUID): Array[Byte] = if (uuid eq null) null else SQLServerProfile.Util.uuidToBytes(uuid)
     }
+
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanJdbcType extends super.BooleanJdbcType {
+    class SQLiteBooleanJdbcType extends BooleanJdbcType {
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* Selecting a straight Date or Timestamp literal fails with a NPE (probably
@@ -300,10 +303,10 @@ trait SQLServerProfile extends JdbcProfile {
      * be required for Time values. */
     /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
      * want is DATETIME2. */
-    class DateJdbcType extends super.DateJdbcType {
+    class SQLiteDateJdbcType extends DateJdbcType {
       override def valueToSQLLiteral(value: Date) = "(convert(date, {d '" + value + "'}))"
     }
-    class TimeJdbcType extends super.TimeJdbcType {
+    class SQLiteTimeJdbcType extends TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = "(convert(time, {t '" + value + "'}))"
       override def getValue(r: ResultSet, idx: Int) = {
         r.getString(idx) match {
@@ -321,7 +324,7 @@ trait SQLServerProfile extends JdbcProfile {
       }
     }
 
-    class LocalTimeJdbcType extends super.LocalTimeJdbcType {
+    class SQLiteLocalTimeJdbcType extends LocalTimeJdbcType {
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("HH:mm:ss"))
@@ -348,11 +351,11 @@ trait SQLServerProfile extends JdbcProfile {
         s"(convert(time(6), '$value'))"
       }
     }
-    class TimestampJdbcType extends super.TimestampJdbcType {
+    class SQLiteTimestampJdbcType extends TimestampJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def valueToSQLLiteral(value: Timestamp) = s"'$value'"
     }
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+    class SQLiteLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
@@ -371,7 +374,7 @@ trait SQLServerProfile extends JdbcProfile {
         }
       }
     }
-    class InstantJdbcType extends super.InstantJdbcType {
+    class SQLiteInstantJdbcType extends InstantJdbcType {
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
@@ -405,7 +408,7 @@ trait SQLServerProfile extends JdbcProfile {
         s"(convert(datetimeoffset(6), '${serializeInstantValue(value)}'))"
       }
     }
-    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
+    class SQLiteOffsetDateTimeJdbcType extends OffsetDateTimeJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
 
       private[this] val formatter: DateTimeFormatter = {
@@ -437,13 +440,13 @@ trait SQLServerProfile extends JdbcProfile {
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result
      * sets, so we read as Short and then convert to Byte. */
-    class ByteJdbcType extends super.ByteJdbcType {
+    class SQLiteByteJdbcType extends ByteJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "SMALLINT"
       override def getValue(r: ResultSet, idx: Int) = r.getShort(idx).toByte
     }
     /* SQL Server supports a literal notation for byte arrays */
     private[this] val hexChars = "0123456789ABCDEF".toCharArray()
-    class ByteArrayJdbcType extends super.ByteArrayJdbcType {
+    class SQLiteByteArrayJdbcType extends ByteArrayJdbcType {
       override def hasLiteralForm = true
       override def valueToSQLLiteral(value: Array[Byte]) = "0x" +  bytesToHex(value)
       private[this] def bytesToHex(bytes: Array[Byte]) = {
