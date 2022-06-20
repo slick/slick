@@ -3,11 +3,6 @@ import com.typesafe.tools.mima.core.{MissingClassProblem, ProblemFilters}
 
 
 val testAll = taskKey[Unit]("Run all tests")
-val testAllSamples = taskKey[Unit]("Run tests in the all sample apps")
-val testSampleHelloSlick = taskKey[Unit]("Run tests in the hello-slick sample app")
-val testSamplePlainSql = taskKey[Unit]("Run tests in the plain-sql sample app")
-val testSampleMultiDb = taskKey[Unit]("Run tests in the multidb sample app")
-val testSampleTestkit = taskKey[Unit]("Run tests in the testkit-example sample app")
 
 val cleanCompileTimeTests =
   taskKey[Unit]("Delete files used for compile-time tests which should be recompiled every time.")
@@ -318,41 +313,6 @@ lazy val root =
       // suppress test status output
       test := {},
       testOnly := {},
-      testSampleHelloSlick := {
-        Def.sequential(
-          `sample-hello-slick` / Test / test,
-          (`sample-hello-slick` / Compile / runMain).toTask(" HelloSlick"),
-          (`sample-hello-slick` / Compile / runMain).toTask(" CaseClassMapping"),
-          (`sample-hello-slick` / Compile / runMain).toTask(" QueryActions")
-        ).value
-      },
-      testSamplePlainSql := {
-        Def.sequential(
-          (`sample-slick-plainsql` / Compile / runMain).toTask(" PlainSQL"),
-          (`sample-slick-plainsql` / Compile / runMain).toTask(" TypedSQL")
-        ).value
-      },
-      testSampleMultiDb := {
-        Def.sequential(
-          (`sample-slick-multidb` / Compile / runMain).toTask(" SimpleExample"),
-          (`sample-slick-multidb` / Compile / runMain).toTask(" MultiDBExample"),
-          (`sample-slick-multidb` / Compile / runMain).toTask(" MultiDBCakeExample"),
-          (`sample-slick-multidb` / Compile / runMain).toTask(" CallNativeDBFunction")
-        ).value
-      },
-      testSampleTestkit := {
-        Def.sequential(
-          `sample-slick-testkit-example` / Test / compile // running would require external setup
-        ).value
-      },
-      testAllSamples := {
-        Def.sequential(
-          testSampleHelloSlick,
-          testSamplePlainSql,
-          testSampleMultiDb,
-          testSampleTestkit
-        ).value
-      },
       testAll := {
         Def.sequential(
           testkit / Test / test,
@@ -366,28 +326,3 @@ lazy val root =
         ).value
       }
     )
-
-// sample projects under ./samples
-lazy val `sample-hello-slick` =
-  project
-    .in(file("samples/hello-slick"))
-    .settings(sampleSettings)
-    .dependsOn(slick)
-
-lazy val `sample-slick-multidb` =
-  project
-    .in(file("samples/slick-multidb"))
-    .settings(sampleSettings)
-    .dependsOn(slick)
-
-lazy val `sample-slick-plainsql` =
-  project
-    .in(file("samples/slick-plainsql"))
-    .settings(sampleSettings)
-    .dependsOn(slick)
-
-lazy val `sample-slick-testkit-example` =
-  project
-    .in(file("samples/slick-testkit-example"))
-    .settings(sampleSettings)
-    .dependsOn(slick, testkit % "test")

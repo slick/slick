@@ -16,7 +16,7 @@ Scaffolding
 Its `build.sbt` file is straight-forward. It adds the dependencies for Slick, TestKit, junit-interface, Logback and
 the PostgreSQL JDBC driver, and it sets some options for the test runs:
 
-@@snip [build.sbt](../../../samples/slick-testkit-example/build.sbt)
+@@snip [build.sbt](samples/slick-testkit-example/build.sbt)
 
 There is a copy of Slick's logback configuration in `src/test/resources/logback-test.xml` but you can swap out the
 logging framework if you prefer a different one.
@@ -26,7 +26,7 @@ Profile
 
 The actual profile implementation can be found under `src/main/scala`:
 
-@@snip [MyPostgresProfile.scala](../../../samples/slick-testkit-example/src/main/scala/MyPostgresProfile.scala) { #outline }
+@@snip [MyPostgresProfile.scala](samples/slick-testkit-example/src/main/scala/MyPostgresProfile.scala) { #outline }
 
 Test Harness
 ------------
@@ -40,11 +40,11 @@ most of the default implementations can be used out of the box. Only `localTable
 `getLocalSequences` require custom implementations. We also modify the profile's `capabilities`
 to indicate that our profile does not support the JDBC `getFunctions` call:
 
-@@snip [MyPostgresTest.scala](../../../samples/slick-testkit-example/src/test/scala/MyPostgresTest.scala) { #outline }
+@@snip [MyPostgresTest.scala](samples/slick-testkit-example/src/test/scala/MyPostgresTest.scala) { #outline }
 
 The name of a configuration prefix, in this case `mypostgres`, is passed to `ExternalJdbcTestDB`:
 
-@@snip [MyPostgresTest.scala](../../../samples/slick-testkit-example/src/test/scala/MyPostgresTest.scala) { #tdb }
+@@snip [MyPostgresTest.scala](samples/slick-testkit-example/src/test/scala/MyPostgresTest.scala) { #tdb }
 
 Database Configuration
 ----------------------
@@ -52,13 +52,13 @@ Database Configuration
 Since the PostgreSQL test harness is based on `ExternalJdbcTestDB`, it needs to be configured in
 `test-dbs/testkit.conf`:
 
-@@snip [testkit.conf](../../../samples/slick-testkit-example/test-dbs/testkit.conf)
+@@snip [testkit.conf](samples/slick-testkit-example/test-dbs/testkit.conf)
 
 There are several other configuration options that need to be set for an `ExternalJdbcTestDB`.
 These are defined with suitable defaults in `testkit-reference.conf` so that `testkit.conf` can
 be kept very simple in most cases:
 
-@@snip [testkit-reference.conf](../../../samples/slick-testkit-example/src/test/resources/testkit-reference.conf)
+@@snip [testkit-reference.conf](samples/slick-testkit-example/src/test/resources/testkit-reference.conf)
 
 Testing
 -------
