@@ -17,3 +17,4 @@ jobs:
         uses: scala-steward-org/scala-steward-action@v2
         with:
           github-token: ${{ secrets.SCALA_STEWARD_TOKEN }}
+          author-email: 98384+nafg@users.noreply.github.com
