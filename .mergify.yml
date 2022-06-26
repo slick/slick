@@ -2,9 +2,11 @@ queue_rules:
   - name: default
     conditions: []
 pull_request_rules:
-  - name: Label Scala Steward PRs with 'build'
+  - name: Label Scala Steward and Renovate PRs with 'build'
     conditions:
-      - "author=scala-steward"
+      - or:
+        - "author=scala-steward"
+        - "author=renovate[bot]"
     actions:
       label:
         add:
@@ -27,6 +29,7 @@ pull_request_rules:
           - "#approved-reviews-by>=1"
           - "author=scala-steward"
           - "author=nafg"
+          - "author=renovate[bot]"
     actions:
       queue:
         name: default
