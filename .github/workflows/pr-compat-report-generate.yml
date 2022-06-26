@@ -9,17 +9,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up JDK
-      uses: actions/setup-java@v3
-      with:
-        distribution: adopt
-        java-version: 8
-
     - uses: actions/checkout@v3
       name: Check out PR base
       with:
         fetch-depth: 0
         ref: ${{ github.event.pull_request.base.sha }}
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        distribution: adopt
+        java-version: 8
+        cache: sbt
 
     - name: Get base version
       id: getBaseVer

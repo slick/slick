@@ -23,5 +23,6 @@ jobs:
       with:
         distribution: adopt
         java-version: 11
+        cache: sbt
 
     - run: sbt checkScaladocLinks
