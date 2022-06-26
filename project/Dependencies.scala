@@ -45,7 +45,7 @@ object Dependencies {
     "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1"
   )
 
-  val paxExamVersion = "4.13.1"
+  val paxExamVersion = "4.13.5"
   val paxExam = Seq(
     "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
