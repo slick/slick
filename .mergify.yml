@@ -13,7 +13,7 @@ pull_request_rules:
     conditions:
       - or:
           - "check-success=typesafe-cla-validator"
-          - "author=renovate"
+          - "author=renovate[bot]"
       - "check-success=Build and Test (8, 2.12.15)"
       - "check-success=Build and Test (8, 2.13.8)"
       - "check-success=Build and Test (11, 2.12.15)"
