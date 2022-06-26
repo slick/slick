@@ -1,0 +1,66 @@
+name: CI on Windows
+
+on:
+  pull_request:
+    branches: ['**']
+  push:
+    branches: ['**']
+    tags: ['v*']
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: windows-latest
+
+    env:
+      SBT_OPTS: -Xmx4g -Xss2m -Dslick.testkit-config=test-dbs/testkit.appveyor.conf
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      # Start up sqlservers: 2008 on port 1433, 2012 on 1533, 2014 on 1633, 2017 on 1733. Enable tcp connections
+      - name: Start up SQL Server instances
+        shell: powershell
+        run: |
+          [reflection.assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") | Out-Null;
+          [reflection.assembly]::LoadWithPartialName("Microsoft.SqlServer.SqlWmiManagement") | Out-Null;
+          $port = 1433
+          foreach($instancename in @('SQL2008R2SP2', 'SQL2012SP1', 'SQL2014', 'SQL2017'))
+          {
+              $wmi = New-Object('Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer');
+              $tcp = $wmi.GetSmoObject("ManagedComputer[@Name='${env:computername}']/ServerInstance[@Name='${instancename}']/ServerProtocol[@Name='Tcp']");
+              $tcp.IsEnabled = $true;
+              foreach ($ipAddress in $tcp.IPAddresses)
+              {
+                $ipAddress.IPAddressProperties["TcpDynamicPorts"].Value = ""
+                $ipAddress.IPAddressProperties["TcpPort"].Value = "${port}"
+              }
+              $tcp.Alter();
+              Start-Service -Name "MSSQL`$$instancename";
+              $wmi = New-Object('Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer');
+              $ipall = $wmi.GetSmoObject("ManagedComputer[@Name='${env:computername}']/ServerInstance[@Name='${instancename}']/ServerProtocol[@Name='Tcp']/IPAddress[@Name='IPAll']");
+              $config = @{
+                instanceName = $instancename;
+                config = @{
+                  server = "localhost";
+                  userName = "sa";
+                  password = "Password12!";
+                  options = @{
+                    port = ${port};
+                    database = "master";
+                      cryptoCredentialsDetails = @{
+                    ciphers = "RC4-MD5"
+                    }
+                  }
+                }
+              } | ConvertTo-Json -Depth 3;
+              Write-Host "${config}"
+              $port += 100
+          }
+      - shell: bash
+        run: ./appveyor/extractNonPublicDeps
+      - run: sbt ++2.13.8 clean compile coverage test:compile coverageReport
+      - run: sbt ++2.13.8 coverage testkit/test:test coverageReport
