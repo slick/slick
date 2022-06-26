@@ -2,16 +2,20 @@ queue_rules:
   - name: default
     conditions: []
 pull_request_rules:
-  - name: Label Scala Steward PRs with 'build'
+  - name: Label Scala Steward and Renovate PRs with 'build'
     conditions:
-      - "author=scala-steward"
+      - or:
+        - "author=scala-steward"
+        - "author=renovate[bot]"
     actions:
       label:
         add:
           - build
   - name: Automatic merge on approval
     conditions:
-      - "check-success=typesafe-cla-validator"
+      - or:
+          - "check-success=typesafe-cla-validator"
+          - "author=renovate[bot]"
       - "check-success=Build and Test (8, 2.12.15)"
       - "check-success=Build and Test (8, 2.13.8)"
       - "check-success=Build and Test (11, 2.12.15)"
@@ -25,6 +29,7 @@ pull_request_rules:
           - "#approved-reviews-by>=1"
           - "author=scala-steward"
           - "author=nafg"
+          - "author=renovate[bot]"
     actions:
       queue:
         name: default
