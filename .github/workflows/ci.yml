@@ -5,11 +5,7 @@ on:
     branches: [ '**' ]
   push:
     branches: [ 'main' ]
-    tags: [ 'v*' ]
-
-concurrency:
-  group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: true
+    tags: [ v* ]
 
 jobs:
   build:
@@ -18,8 +14,8 @@ jobs:
 
     strategy:
       matrix:
-        java: [ 11, 21 ]
-        scala: [ 2.12.x, 2.13.x, 3.x ]
+        java: [ 8, 17 ]
+        scala: [ 2.12.15, 2.13.8 ]
 
     services:
       postgres:
@@ -34,21 +30,19 @@ jobs:
         ports:
           - 5432:5432
       oracle:
-        image: gvenzl/oracle-free:23-slim-faststart
-        env:
-          ORACLE_PASSWORD: oracle
+        image: oracleinanutshell/oracle-xe-11g
         ports:
           - 49160:22
           - 49161:1521
       sqlserver:
-        image: mcr.microsoft.com/mssql/server:2025-latest
+        image: mcr.microsoft.com/mssql/server:2017-latest
         env:
           ACCEPT_EULA: Y
           MSSQL_SA_PASSWORD: Freeslick18
         ports:
           - 1401:1433
       db2:
-        image: ibmcom/db2:11.5.8.0
+        image: ibmcom/db2:11.5.5.1
         ports:
           - 50000:50000
         env:
@@ -60,60 +54,52 @@ jobs:
           --privileged
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Copy DB2 jar file out of docker container
+        run: mkdir -p slick-testkit/lib && docker cp ${{ job.services.db2.id }}:/opt/ibm/db2/V11.5/java/db2jcc4.jar slick-testkit/lib/
 
       - name: Start MySQL
         run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
-      - uses: ts-graphviz/setup-graphviz@v2
+      - uses: ts-graphviz/setup-graphviz@v1
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
           distribution: adopt
           java-version: ${{ matrix.java }}
           cache: sbt
 
-      - name: Setup SBT
-        uses: sbt/setup-sbt@v1
-
       - name: Build and test
         run: |
-          sbt ++${{ matrix.scala }} coverage testAll coverageReport
+          sbt \
+            -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
+            ++${{ matrix.scala }} \
+            coverage testAll coverageReport
         env:
-          SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
           TZ: Asia/Kamchatka
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()    # run this step even if previous step failed
-        with:
-          name: test-results-java${{ matrix.java }}-scala${{ matrix.scala }}
-          path: '**/target/test-reports/TEST-*.xml'
 
   deploy_docs:
     name: Deploy Docs
     needs: [ build ]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - uses: ts-graphviz/setup-graphviz@v2
+      - uses: ts-graphviz/setup-graphviz@v1
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
           distribution: adopt
           java-version: 11
           cache: sbt
-
-      - name: Setup SBT
-        uses: sbt/setup-sbt@v1
 
       - name: Create deploy key
         run: |
@@ -135,21 +121,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - uses: ts-graphviz/setup-graphviz@v2
+      - uses: ts-graphviz/setup-graphviz@v1
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
           distribution: adopt
-          java-version: 11
+          java-version: 8
           cache: sbt
-
-      - name: Setup SBT
-        uses: sbt/setup-sbt@v1
 
       - name: Publish artifacts to Maven Central
         env:
