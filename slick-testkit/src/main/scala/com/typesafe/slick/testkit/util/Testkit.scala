@@ -39,7 +39,7 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) exte
 
   def describeChild(ch: TestMethod) = ch.desc
 
-  def getChildren = if(tdb.isEnabled) {
+  def getChildren =
     profileTest.tests.flatMap { t =>
       val ms = t.getMethods.filter { m =>
         m.getName.startsWith("test") && m.getParameterTypes.length == 0
@@ -49,37 +49,39 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) exte
         new TestMethod(tname, Description.createTestDescription(t, tname), m, t)
       }
     }
-  } else Nil
 
-  override def runChildren(notifier: RunNotifier) = if(!children.isEmpty) {
-    tdb.cleanUpBefore()
-    try {
-      val is = children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance()))
-        .filter{ case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
-      val last = is.length - 1
-      var previousTestObject: GenericTest[_ >: Null <: TestDB] = null
-      for(((ch, preparedTestObject), idx) <- is) {
-        val desc = describeChild(ch)
-        notifier.fireTestStarted(desc)
-        try {
-          val testObject =
-            if(previousTestObject ne null) previousTestObject
-            else preparedTestObject
-          previousTestObject = null
-          try ch.run(testObject) finally {
-            val skipCleanup = idx == last || (testObject.reuseInstance && (ch.cl eq is(idx+1)._1._1.cl))
-            if(skipCleanup) {
-              if(idx == last) testObject.closeKeepAlive()
-              else previousTestObject = testObject
+  override def runChildren(notifier: RunNotifier) =
+    if (!tdb.isEnabled)
+      children.foreach(child => notifier.fireTestIgnored(describeChild(child)))
+    else {
+      tdb.cleanUpBefore()
+      try {
+        val is = children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance()))
+          .filter { case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
+        val last = is.length - 1
+        var previousTestObject: GenericTest[_ >: Null <: TestDB] = null
+        for (((ch, preparedTestObject), idx) <- is) {
+          val desc = describeChild(ch)
+          notifier.fireTestStarted(desc)
+          try {
+            val testObject =
+              if (previousTestObject ne null) previousTestObject
+              else preparedTestObject
+            previousTestObject = null
+            try ch.run(testObject) finally {
+              val skipCleanup = idx == last || (testObject.reuseInstance && (ch.cl eq is(idx + 1)._1._1.cl))
+              if (skipCleanup) {
+                if (idx == last) testObject.closeKeepAlive()
+                else previousTestObject = testObject
+              }
+              else testObject.cleanup()
             }
-            else testObject.cleanup()
-          }
-        } catch {
-          case t: Throwable => addFailure(t, notifier, desc)
-        } finally notifier.fireTestFinished(desc)
-      }
-    } finally tdb.cleanUpAfter()
-  }
+          } catch {
+            case t: Throwable => addFailure(t, notifier, desc)
+          } finally notifier.fireTestFinished(desc)
+        }
+      } finally tdb.cleanUpAfter()
+    }
 }
 
 abstract class ProfileTest(val tdb: TestDB) {
