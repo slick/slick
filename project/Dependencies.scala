@@ -39,17 +39,17 @@ object Dependencies {
     "org.apache.derby" % "derby" % "10.14.2.0",
     "org.xerial" % "sqlite-jdbc" % "3.36.0.3",
     "org.hsqldb" % "hsqldb" % "2.5.2",
-    "org.postgresql" % "postgresql" % "42.3.6",
+    "org.postgresql" % "postgresql" % "42.4.0",
     "mysql" % "mysql-connector-java" % "8.0.29",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.5.0.0"
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1"
   )
 
-  val paxExamVersion = "4.13.1"
+  val paxExamVersion = "4.13.5"
   val paxExam = Seq(
     "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
-    "org.apache.felix"       % "org.apache.felix.framework" % "6.0.2"
+    "org.apache.felix"       % "org.apache.felix.framework" % "7.0.5"
   )
 }
