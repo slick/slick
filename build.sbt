@@ -14,6 +14,7 @@ val MacroConfig = config("macro")
 Global / concurrentRestrictions :=
   List(
     Tags.limit(Tags.ForkedTestGroup, 4),
+    Tags.limit(Tags.Tag("test-group-other"), 1),
     Tags.exclusiveGroup(Tags.Clean)
   )
 
@@ -189,10 +190,12 @@ lazy val testkit =
             td.name.split('.').toSeq match {
               case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
               case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
-              case _                                                              => ""
+              case _                                                              => "other"
             }
           }
-          .map { case (name, tests) => new Tests.Group(name, tests, Tests.SubProcess(ForkOptions())) }
+          .map { case (name, tests) =>
+            new Tests.Group(name, tests, Tests.SubProcess(ForkOptions()), Seq(Tags.Tag(s"test-group-$name") -> 1))
+          }
           .toSeq
           .sortBy(_.name),
       buildCapabilitiesTable := {
