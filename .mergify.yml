@@ -34,3 +34,5 @@ pull_request_rules:
       queue:
         name: default
         method: merge
+        update_method: rebase
+        update_bot_account: nafg
