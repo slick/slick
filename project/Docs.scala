@@ -158,8 +158,11 @@ object Docs extends AutoPlugin {
         }
       }
 
-      for (sample <- List("hello-slick", "slick-multidb", "slick-testkit-example"))
-        ConsoleGitRunner.updated("https://github.com/slick/" + sample, None, out / "samples" / sample, log)
+      for (sample <- List("hello-slick", "slick-multidb", "slick-testkit-example")) {
+        val dir = out / "samples" / sample
+        ConsoleGitRunner.updated("https://github.com/slick/" + sample, None, dir, log)
+        IO.delete(dir / ".git")
+      }
 
       out
     },
