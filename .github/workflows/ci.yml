@@ -81,11 +81,9 @@ jobs:
 
       - name: Build and test
         run: |
-          sbt \
-            -Dslick.testkit-config=test-dbs/testkit.github-actions.conf \
-            ++${{ matrix.scala }} \
-            coverage testAll coverageReport
+          sbt ++${{ matrix.scala }} coverage testAll coverageReport
         env:
+          SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
           TZ: Asia/Kamchatka
 
   deploy_docs:
