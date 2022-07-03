@@ -16,7 +16,7 @@ import slick.SlickException
   */
 object TestkitConfig {
   private[this] lazy val (conf, testkitConfig, defaults, ref) = {
-    val configFileName = sys.props.get("slick.testkit-config")
+    val configFileName = sys.props.get("slick.testkit-config").orElse(sys.env.get("SLICK_TESTKIT_CONFIG"))
     val configFile = new File(configFileName.getOrElse("test-dbs/testkit.conf"))
     if(configFileName.isDefined && !configFile.isFile)
       throw new SlickException("TestKit config file \""+configFileName.get+"\" not found")

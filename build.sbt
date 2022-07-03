@@ -11,9 +11,14 @@ val cleanCompileTimeTests =
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
 
+val tagTestGroupOther = Tags.Tag("test-group-other")
 Global / concurrentRestrictions :=
   List(
     Tags.limit(Tags.ForkedTestGroup, 4),
+    Tags.limit(tagTestGroupOther, 1),
+    Tags.limit(Tags.Tag("test-group-DB2"), 1),
+    Tags.limit(Tags.Tag("test-group-Postgres"), 1),
+    Tags.exclusiveGroup(tagTestGroupOther),
     Tags.exclusiveGroup(Tags.Clean)
   )
 
@@ -183,18 +188,19 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
-      Test / testGrouping :=
+      Test / testGrouping := {
+        val re = """slick\.test\.profile\.(.+?)(?:\d\d+)?(?:Disk|Mem|Rownum|SQLJDBC|JTDS)?Test$""".r
         (Test / definedTests).value
-          .groupBy { td =>
-            td.name.split('.').toSeq match {
-              case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
-              case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
-              case _                                                              => ""
-            }
+          .groupBy(_.name match {
+            case re(name) => name
+            case _        => "other"
+          })
+          .map { case (name, tests) =>
+            new Tests.Group(name, tests, Tests.SubProcess(ForkOptions()), Seq(Tags.Tag(s"test-group-$name") -> 1))
           }
-          .map { case (name, tests) => new Tests.Group(name, tests, Tests.SubProcess(ForkOptions())) }
           .toSeq
-          .sortBy(_.name),
+          .sortBy(_.name)
+      },
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
