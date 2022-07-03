@@ -154,7 +154,15 @@ lazy val testkit =
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-testkit"),
-      testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a", "-Djava.awt.headless=true"),
+      testOptions +=
+        Tests.Argument(
+          Some(TestFrameworks.JUnit),
+          List("-q", "-v", "-s", "-a", "-Djava.awt.headless=true") ++
+            (if (sys.env.get("GITHUB_ACTIONS").contains("true"))
+              Some("--run-listener=com.typesafe.slick.testkit.util.GitHubActionsRunListener")
+            else
+              None)
+        ),
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
         Dependencies.junit ++:
