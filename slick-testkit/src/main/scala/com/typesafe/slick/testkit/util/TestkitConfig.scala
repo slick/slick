@@ -21,7 +21,7 @@ object TestkitConfig {
     if(configFileName.isDefined && !configFile.isFile)
       throw new SlickException("TestKit config file \""+configFileName.get+"\" not found")
     val ref = ConfigFactory.parseResources(getClass, "/testkit-reference.conf")
-    val conf = ConfigFactory.parseFile(configFile)
+    val conf = ConfigFactory.systemProperties().withFallback(ConfigFactory.parseFile(configFile))
     val testkitConfig = {
       val c =
         if(conf.hasPath("testkit")) conf.getConfig("testkit").withFallback(ref.getObject("testkit")).resolve()

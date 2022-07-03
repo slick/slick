@@ -53,10 +53,14 @@ abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Fi
   }
 
   def run(notifier: RunNotifier): Unit = {
-    try runChildren(notifier) catch {
+    val description = getDescription
+    notifier.fireTestSuiteStarted(description)
+    try runChildren(notifier)
+    catch {
       case e: StoppedByUserException => throw e
-      case e: Throwable => addFailure(e, notifier, getDescription)
+      case e: Throwable              => addFailure(e, notifier, description)
     }
+    finally notifier.fireTestSuiteFinished(description)
   }
 
   final def filter(filter: Filter): Unit = {
