@@ -15,6 +15,8 @@ Global / concurrentRestrictions :=
   List(
     Tags.limit(Tags.ForkedTestGroup, 4),
     Tags.limit(Tags.Tag("test-group-other"), 1),
+    Tags.limit(Tags.Tag("test-group-DB2"), 1),
+    Tags.limit(Tags.Tag("test-group-Postgres"), 1),
     Tags.exclusiveGroup(Tags.Clean)
   )
 
