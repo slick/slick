@@ -184,20 +184,19 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
-      Test / testGrouping :=
+      Test / testGrouping := {
+        val re = """slick\.test\.profile\.(.+?)(?:\d\d+)?(?:Disk|Mem|Rownum|SQLJDBC|JTDS)?Test$""".r
         (Test / definedTests).value
-          .groupBy { td =>
-            td.name.split('.').toSeq match {
-              case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
-              case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
-              case _                                                              => "other"
-            }
-          }
+          .groupBy(_.name match {
+            case re(name) => name
+            case _        => "other"
+          })
           .map { case (name, tests) =>
             new Tests.Group(name, tests, Tests.SubProcess(ForkOptions()), Seq(Tags.Tag(s"test-group-$name") -> 1))
           }
           .toSeq
-          .sortBy(_.name),
+          .sortBy(_.name)
+      },
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
