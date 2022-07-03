@@ -86,6 +86,10 @@ jobs:
           SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
           TZ: Asia/Kamchatka
 
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v3
+        if: always() # always run even if the previous step fails
+
   deploy_docs:
     name: Deploy Docs
     needs: [ build ]
