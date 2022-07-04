@@ -10,7 +10,7 @@ object Dependencies {
 
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.36"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
-  val reactiveStreamsVersion = "1.0.3"
+  val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.7.0"
