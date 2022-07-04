@@ -62,11 +62,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Copy DB2 jar file out of docker container
-        run: |
-          mkdir -p slick-testkit/lib && \
-            docker cp ${{ job.services.db2.id }}:/opt/ibm/db2/V11.5/java/db2jcc4.jar slick-testkit/lib/
-
       - name: Start MySQL
         run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
