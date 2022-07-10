@@ -3,11 +3,6 @@ import com.typesafe.tools.mima.core.{MissingClassProblem, ProblemFilters}
 
 
 val testAll = taskKey[Unit]("Run all tests")
-val testAllSamples = taskKey[Unit]("Run tests in the all sample apps")
-val testSampleHelloSlick = taskKey[Unit]("Run tests in the hello-slick sample app")
-val testSamplePlainSql = taskKey[Unit]("Run tests in the plain-sql sample app")
-val testSampleMultiDb = taskKey[Unit]("Run tests in the multidb sample app")
-val testSampleTestkit = taskKey[Unit]("Run tests in the testkit-example sample app")
 
 val cleanCompileTimeTests =
   taskKey[Unit]("Delete files used for compile-time tests which should be recompiled every time.")
@@ -16,9 +11,14 @@ val cleanCompileTimeTests =
 val DocTest = config("doctest").extend(Test)
 val MacroConfig = config("macro")
 
+val tagTestGroupOther = Tags.Tag("test-group-other")
 Global / concurrentRestrictions :=
   List(
     Tags.limit(Tags.ForkedTestGroup, 4),
+    Tags.limit(tagTestGroupOther, 1),
+    Tags.limit(Tags.Tag("test-group-DB2"), 1),
+    Tags.limit(Tags.Tag("test-group-Postgres"), 1),
+    Tags.exclusiveGroup(tagTestGroupOther),
     Tags.exclusiveGroup(Tags.Clean)
   )
 
@@ -159,7 +159,15 @@ lazy val testkit =
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-testkit"),
-      testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a", "-Djava.awt.headless=true"),
+      testOptions +=
+        Tests.Argument(
+          Some(TestFrameworks.JUnit),
+          List("-q", "-v", "-s", "-a", "-Djava.awt.headless=true") ++
+            (if (sys.env.get("GITHUB_ACTIONS").contains("true"))
+              Some("--run-listener=com.typesafe.slick.testkit.util.GitHubActionsRunListener")
+            else
+              None)
+        ),
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
         Dependencies.junit ++:
@@ -180,18 +188,19 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
-      Test / testGrouping :=
+      Test / testGrouping := {
+        val re = """slick\.test\.profile\.(.+?)(?:\d\d+)?(?:Disk|Mem|Rownum|SQLJDBC|JTDS)?Test$""".r
         (Test / definedTests).value
-          .groupBy { td =>
-            td.name.split('.').toSeq match {
-              case Seq("slick", "test", "profile", name) if name.startsWith("H2") => "H2"
-              case Seq("slick", "test", "profile", name)                          => name.take(4).toLowerCase
-              case _                                                              => ""
-            }
+          .groupBy(_.name match {
+            case re(name) => name
+            case _        => "other"
+          })
+          .map { case (name, tests) =>
+            new Tests.Group(name, tests, Tests.SubProcess(ForkOptions()), Seq(Tags.Tag(s"test-group-$name") -> 1))
           }
-          .map { case (name, tests) => new Tests.Group(name, tests, Tests.SubProcess(ForkOptions())) }
           .toSeq
-          .sortBy(_.name),
+          .sortBy(_.name)
+      },
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
@@ -243,7 +252,7 @@ lazy val `reactive-streams-tests` =
     .settings(
       slickGeneralSettings,
       name := "Slick-ReactiveStreamsTests",
-      libraryDependencies += "org.scalatestplus" %% "testng-6-7" % "3.2.9.0",
+      libraryDependencies += "org.scalatestplus" %% "testng-7-5" % "3.2.12.0",
       libraryDependencies ++=
         (Dependencies.logback +: Dependencies.testDBs).map(_ % Test),
       libraryDependencies += Dependencies.reactiveStreamsTCK,
@@ -318,41 +327,6 @@ lazy val root =
       // suppress test status output
       test := {},
       testOnly := {},
-      testSampleHelloSlick := {
-        Def.sequential(
-          `sample-hello-slick` / Test / test,
-          (`sample-hello-slick` / Compile / runMain).toTask(" HelloSlick"),
-          (`sample-hello-slick` / Compile / runMain).toTask(" CaseClassMapping"),
-          (`sample-hello-slick` / Compile / runMain).toTask(" QueryActions")
-        ).value
-      },
-      testSamplePlainSql := {
-        Def.sequential(
-          (`sample-slick-plainsql` / Compile / runMain).toTask(" PlainSQL"),
-          (`sample-slick-plainsql` / Compile / runMain).toTask(" TypedSQL")
-        ).value
-      },
-      testSampleMultiDb := {
-        Def.sequential(
-          (`sample-slick-multidb` / Compile / runMain).toTask(" SimpleExample"),
-          (`sample-slick-multidb` / Compile / runMain).toTask(" MultiDBExample"),
-          (`sample-slick-multidb` / Compile / runMain).toTask(" MultiDBCakeExample"),
-          (`sample-slick-multidb` / Compile / runMain).toTask(" CallNativeDBFunction")
-        ).value
-      },
-      testSampleTestkit := {
-        Def.sequential(
-          `sample-slick-testkit-example` / Test / compile // running would require external setup
-        ).value
-      },
-      testAllSamples := {
-        Def.sequential(
-          testSampleHelloSlick,
-          testSamplePlainSql,
-          testSampleMultiDb,
-          testSampleTestkit
-        ).value
-      },
       testAll := {
         Def.sequential(
           testkit / Test / test,
@@ -366,28 +340,3 @@ lazy val root =
         ).value
       }
     )
-
-// sample projects under ./samples
-lazy val `sample-hello-slick` =
-  project
-    .in(file("samples/hello-slick"))
-    .settings(sampleSettings)
-    .dependsOn(slick)
-
-lazy val `sample-slick-multidb` =
-  project
-    .in(file("samples/slick-multidb"))
-    .settings(sampleSettings)
-    .dependsOn(slick)
-
-lazy val `sample-slick-plainsql` =
-  project
-    .in(file("samples/slick-plainsql"))
-    .settings(sampleSettings)
-    .dependsOn(slick)
-
-lazy val `sample-slick-testkit-example` =
-  project
-    .in(file("samples/slick-testkit-example"))
-    .settings(sampleSettings)
-    .dependsOn(slick, testkit % "test")

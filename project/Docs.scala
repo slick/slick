@@ -1,13 +1,13 @@
+import java.nio.file.Files
+
 import com.lightbend.paradox.sbt.ParadoxPlugin
 import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport._
 import com.typesafe.sbt.git.ConsoleGitRunner
 import coursier.version.{Version, VersionParse}
 import sbt.Keys._
 import sbt._
-import sjsonnew.support.scalajson.unsafe.Converter
-import sjsonnew.support.scalajson.unsafe.PrettyPrinter
 import sjsonnew.BasicJsonProtocol._
-import java.nio.file.Files
+import sjsonnew.support.scalajson.unsafe.{Converter, PrettyPrinter}
 
 
 object Docs extends AutoPlugin {
@@ -18,6 +18,7 @@ object Docs extends AutoPlugin {
     val addDocsToDocRepo = taskKey[Boolean]("Pull doc repo and add generated documentation to it")
     val deployDocs = taskKey[Unit]("Deploy docs to GitHub Pages")
     val showParadoxProperties = taskKey[Unit]("Show a table of paradoxProperties")
+    val docsSubdirectory = settingKey[String]("The subdirectory of the doc repo to write the docs into")
   }
 
   import autoImport._
@@ -76,8 +77,9 @@ object Docs extends AutoPlugin {
   override def projectSettings = Seq(
     homepage := None,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
+    docsSubdirectory := Versioning.shortVersionString(version.value),
     Compile / paradoxProperties ++= {
-      val scaladocBaseUrl = s"https://scala-slick.org/doc/${version.value}"
+      val scaladocBaseUrl = s"https://scala-slick.org/doc/${docsSubdirectory.value}"
       val ref = Versioning.currentRef(baseDirectory.value)
       Map(
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/${scalaVersion.value}",
@@ -113,7 +115,7 @@ object Docs extends AutoPlugin {
         "extref.postgresql.base_url" -> "https://www.postgresql.org/",
         "extref.reactive-manifesto.base_url" -> "https://www.reactivemanifesto.org/",
         "extref.reactive-streams.base_url" -> "https://www.reactive-streams.org/",
-        "extref.samplerepo.base_url" -> s"https://github.com/slick/slick/tree/$ref/samples/%s",
+        "extref.samplerepo.base_url" -> s"https://github.com/slick/samples/%s",
         "extref.sbt.base_url" -> "https://www.scala-sbt.org/",
         "extref.scala-futures.base_url" -> "https://docs.scala-lang.org/overviews/core/futures.html",
         "extref.scalaquery.base_url" -> "http://scalaquery.org",
@@ -156,6 +158,12 @@ object Docs extends AutoPlugin {
         }
       }
 
+      for (sample <- List("hello-slick", "slick-multidb", "slick-testkit-example")) {
+        val dir = out / "samples" / sample
+        ConsoleGitRunner.updated("https://github.com/slick/" + sample, None, dir, log)
+        IO.delete(dir / ".git")
+      }
+
       out
     },
     Compile / paradox / unmanagedSourceDirectories := Seq((preprocessDocs / target).value),
@@ -185,7 +193,7 @@ object Docs extends AutoPlugin {
     },
     addDocsToDocRepo := {
       val dir = (Compile / paradox).value
-      addDocsToDocRepoImpl(dir, version.value, streams.value.log)
+      addDocsToDocRepoImpl(dir, docsSubdirectory.value, streams.value.log)
     },
     deployDocs := {
       checkScaladocLinks.value

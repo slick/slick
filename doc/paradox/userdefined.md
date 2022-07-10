@@ -17,8 +17,7 @@ Scalar Database Functions
 
 @@@ note
 
-This section is based on the ready-to-run `CallNativeDBFunction` app in @extref[the **
-MultiDB** sample](samplerepo:slick-multidb).
+This section is based on the ready-to-run `CallNativeDBFunction` app in @extref[the **MultiDB** sample](samplerepo:slick-multidb).
 
 @@@
 
@@ -48,7 +47,7 @@ Other Database Functions And Stored Procedures
 For database functions that return complete tables or stored procedures please use @ref:[Plain SQL Queries](sql.md).
 Stored procedures that return multiple result sets are currently not supported.
 
-Using Custom Scalar Types in Queries {#scalar-types index="scalar,type,user-defined; type,scalar,user-defined; MappedColumnType; MappedJdbcType; MappedTo"}
+Using Custom Scalar Types in Queries
 ------------------------------------
 
 If you need a custom column type you can implement
