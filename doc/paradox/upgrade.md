@@ -29,10 +29,11 @@ Latest changes
 
 See @ref:[the generated tables of incompatible changes](compat-report.md)
 
-Upgrade from 3.3 to 3.4
+Upgrade from 3.3.x to 3.4.0
 -----------------------
 
-The full list of changes and bug fixes in version 3.4 is [available on github](https://github.com/slick/slick/discussions/2344). 
+The full list of bug fixes and changes in version 3.4.0 is
+[available on github](https://github.com/slick/slick/pulls?q=is%3Apr+is%3Amerged+milestone%3A3.4.0). 
 
 ### Dependency upgrades
 
