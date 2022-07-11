@@ -29,21 +29,22 @@ Latest changes
 
 See @ref:[the generated tables of incompatible changes](compat-report.md)
 
-Upgrade from 3.3 to 3.4
+Upgrade from 3.3.x to 3.4.0
 -----------------------
 
-The full list of changes and bug fixes in version 3.4 is [available on github](https://github.com/slick/slick/discussions/2344). 
+The full list of bug fixes and changes in version 3.4.0 is
+[available on github](https://github.com/slick/slick/pulls?q=is%3Apr+is%3Amerged+milestone%3A3.4.0). 
 
 ### Dependency upgrades
 
-Slick 3.4 updates the following upstream dependencies. If you use these libraries as part of your build, 
+Slick 3.4.0 updates the following upstream dependencies. If you use these libraries as part of your build, 
 you should update your dependency versions to match:
 
-|Dependency|Slick 3.3 depends on|Slick 3.4 depends on|Notes|
-|----------|--------------------|--------------------|-----|
-| [com.typesafe:config](https://github.com/lightbend/config) | 1.3.2 | 1.4.2 | See the `config` library's [release notes](https://github.com/lightbend/config/blob/main/NEWS.md) for changes. |
-| [com.zaxxer:HikariCP](https://github.com/brettwooldridge/HikariCP) | 3.2.0 | 4.0.3 | See the `HikariCP` [changelog](https://github.com/brettwooldridge/HikariCP/blob/dev/CHANGES) for changes. This only affects users who depend on the `slick-hikaricp` artifact.  |
-| [org.scala-lang.modules:scala-collection-compat](https://github.com/scala/scala-collection-compat) | 2.0.0 | 2.6.0 | Versions >= 2.0.0 should be binary-compatible, so no issues are expected. This only affects users building with Scala 2.11 or 2.12. |
+| Dependency                                                                                         | Slick 3.3 depends on | Slick 3.4 depends on | Notes                                                                                                                                                                          |
+|----------------------------------------------------------------------------------------------------|----------------------|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [com.typesafe:config](https://github.com/lightbend/config)                                         | 1.3.2                | 1.4.2                | See the `config` library's [release notes](https://github.com/lightbend/config/blob/main/NEWS.md) for changes.                                                                 |
+| [com.zaxxer:HikariCP](https://github.com/brettwooldridge/HikariCP)                                 | 3.2.0                | 4.0.3                | See the `HikariCP` [changelog](https://github.com/brettwooldridge/HikariCP/blob/dev/CHANGES) for changes. This only affects users who depend on the `slick-hikaricp` artifact. |
+| [org.scala-lang.modules:scala-collection-compat](https://github.com/scala/scala-collection-compat) | 2.0.0                | 2.6.0                | Versions >= 2.0.0 should be binary-compatible, so no issues are expected. This only affects users building with Scala 2.11 or 2.12.                                            |
 
 ### AsyncExecutor defaults
 
@@ -59,20 +60,24 @@ columns in PostgreSQL:
 
 - `java.time.Instant.MIN` and `java.time.Instant.MAX` are now correctly mapped to `-infinity` and `infinity` 
   respectively in PostgreSQL profile ([#2237](https://github.com/slick/slick/issues/2237))
-- changes to handling of timezone part of `java.time.Instant` in PostgreSQL profile ([#2005](https://github.com/slick/slick/issues/2005))
+- changes to handling of timezone part of `java.time.Instant` in PostgreSQL profile
+  ([#2005](https://github.com/slick/slick/issues/2005))
 
 Upgrade from 3.2 to 3.3
 -----------------------
 
 ### Create / Drop If Not Exists
 
-There is no major changes in the API except for the addition of `createIfNotExists` and `dropIfExistsPhase`. This has only impact on database profile developers. Regular users are not impacted by it.
+There is no major changes in the API except for the addition of `createIfNotExists` and `dropIfExistsPhase`.
+This has only impact on database profile developers. Regular users are not impacted by it.
 
 In other to support `createIfNotExists` and `dropIfExistsPhase`, the following changes were made:
 
-* slick.jdbc.JdbcStatementBuilderComponent#TableDDLBuilder.createTable receives not a `checkNotExists: Boolean` as argument
+* slick.jdbc.JdbcStatementBuilderComponent#TableDDLBuilder.createTable receives not a `checkNotExists: Boolean` as
+  argument
 * slick.jdbc.JdbcStatementBuilderComponent#TableDDLBuilder.dropTable receives not a `ifExists: Boolean` as argument
-* slick.sql.SqlProfile#DDL.apply has two more arguments `createIfNotExists: Iterable[String]` and `dropIfExists: Iterable[String]`
+* slick.sql.SqlProfile#DDL.apply has two more arguments `createIfNotExists: Iterable[String]` and 
+  `dropIfExists: Iterable[String]`
 
 ### Support for `java.time` columns
 
