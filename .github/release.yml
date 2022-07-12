@@ -1,6 +1,9 @@
 changelog:
   categories:
-    - title: Enhancements 🎉
+    - title: Highlights 🎉
+      labels:
+        - release-highlight
+    - title: Enhancements ✨
       labels:
         - improvement
     - title: Bugs fixed 🐛️
