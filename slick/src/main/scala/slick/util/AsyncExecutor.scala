@@ -30,8 +30,15 @@ object AsyncExecutor extends Logging {
     * @param numThreads The number of threads in the pool.
     * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size. */
   def apply(name: String, numThreads: Int, queueSize: Int): AsyncExecutor =
-    apply(name, minThreads = numThreads, maxThreads = numThreads, queueSize = queueSize, maxConnections = numThreads,
-      keepAliveTime = 1.minute, registerMbeans = false)
+    apply(
+      name = name,
+      minThreads = numThreads,
+      maxThreads = numThreads,
+      queueSize = queueSize,
+      maxConnections = if (queueSize == -1) Int.MaxValue else numThreads,
+      keepAliveTime = 1.minute,
+      registerMbeans = false
+    )
 
   /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
     * I/O. New threads are created as daemon threads.
@@ -103,14 +110,20 @@ object AsyncExecutor extends Logging {
           // NOTE: SynchronousQueue does not schedule high-priority tasks before others and so it cannot be used when
           // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
           // priority tasks all threads -- resulting in a deadlock).
-          require(maxConnections == Integer.MAX_VALUE, "When using queueSize == 0 (direct hand-off), maxConnections must be Integer.MAX_VALUE.")
+          require(
+            maxConnections == Int.MaxValue,
+            "When using queueSize == 0 (direct hand-off), maxConnections must be Int.MaxValue."
+          )
 
           new SynchronousQueue[Runnable]
         case -1 =>
           // NOTE: LinkedBlockingQueue does not schedule high-priority tasks before others and so it cannot be used when
           // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
           // priority tasks all threads -- resulting in a deadlock).
-          require(maxConnections == Integer.MAX_VALUE, "When using queueSize == -1 (unlimited), maxConnections must be Integer.MAX_VALUE.")
+          require(
+            maxConnections == Int.MaxValue,
+            "When using queueSize == -1 (unlimited), maxConnections must be Int.MaxValue."
+          )
 
           new LinkedBlockingQueue[Runnable]
         case n =>
