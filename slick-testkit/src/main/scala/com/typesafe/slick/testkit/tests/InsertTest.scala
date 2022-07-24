@@ -1,12 +1,14 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-import slick.jdbc.{DerbyProfile, PostgresProfile}
+import slick.jdbc.{DerbyProfile, JdbcCapabilities}
 
-import scala.collection.compat._
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
+
   import tdb.profile.api._
+
 
   def testSimple = {
     class TestTable(tag: Tag, tname: String) extends Table[(Int, String)](tag, tname) {
@@ -68,7 +70,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val atq = TableQuery[A]
 
-    import scala.util.{Success, Failure}
+    import scala.util.{Failure, Success}
     DBIO.seq(
       atq.schema.create,
       atq ++= Seq( ARow("unique@site.com") , ARow("user@site.com") ),
@@ -233,12 +235,10 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   // Regression test for https://github.com/slick/slick/issues/1627
-  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = tdb.profile match {
-    case _: PostgresProfile | _: DerbyProfile =>
-      // TODO DerbyProfile and PostgresProfile seems to have a problem in this case, so we skip testing them.
-      // See https://github.com/slick/slick/issues/2206 and https://github.com/slick/slick/issues/2207
-      DBIO.seq()
-    case _ =>
+  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] =
+    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly))
+      DBIO.successful(())
+    else {
       class T(tag: Tag) extends Table[Int](tag, "mytable") {
         def id = column[Int]("id", O.PrimaryKey)
         def * = id
@@ -263,7 +263,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         _ <- ts2.insertOrUpdate(V(1, "a")).map(_ shouldBe 1)
         _ <- ts2.insertOrUpdate(V(2, "d")).map(_ shouldBe 1)
       } yield ()).withPinnedSession
-  }
+    }
 
   // Regression test for https://github.com/slick/slick/issues/2045
   def testInsertOrUpdateWithIntegrityError: DBIOAction[Unit, NoStream, Effect.All] = {
@@ -286,7 +286,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val meta = TableQuery[BookMetaTable]
 
-    import scala.util.{Success, Failure}
+    import scala.util.Success
     val bookMeta = BookMeta(-1, -1, 0) // fail, because there are no books.
     DBIO.seq(
       (meta.insertOrUpdate(bookMeta)).asTry.map {
@@ -305,7 +305,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def * = (id, name) <> (Test.tupled, Test.unapply)
     }
     val ts = TableQuery[TestTable]
-    import scala.util.{Success, Failure}
+    import scala.util.Success
     DBIO.seq(
       ts.schema.create,
       ts ++= Seq(Test(1, "a")),
