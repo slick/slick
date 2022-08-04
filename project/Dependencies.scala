@@ -13,7 +13,7 @@ object Dependencies {
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.8.0"
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.8.1"
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
@@ -37,9 +37,9 @@ object Dependencies {
     h2,
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
-    "org.xerial" % "sqlite-jdbc" % "3.36.0.3",
+    "org.xerial" % "sqlite-jdbc" % "3.39.2.0",
     "org.hsqldb" % "hsqldb" % "2.5.2",
-    "org.postgresql" % "postgresql" % "42.4.0",
+    "org.postgresql" % "postgresql" % "42.4.1",
     "mysql" % "mysql-connector-java" % "8.0.30",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
     "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1",
