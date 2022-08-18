@@ -39,7 +39,7 @@ object Dependencies {
     "org.apache.derby" % "derby" % "10.14.2.0",
     "org.xerial" % "sqlite-jdbc" % "3.39.2.0",
     "org.hsqldb" % "hsqldb" % "2.5.2",
-    "org.postgresql" % "postgresql" % "42.4.1",
+    "org.postgresql" % "postgresql" % "42.4.2",
     "mysql" % "mysql-connector-java" % "8.0.30",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
     "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1",
