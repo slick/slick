@@ -46,7 +46,7 @@ jobs:
         ports:
           - 1401:1433
       db2:
-        image: ibmcom/db2:11.5.5.1
+        image: ibmcom/db2:11.5.7.0
         ports:
           - 50000:50000
         env:
