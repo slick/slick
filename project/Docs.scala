@@ -128,7 +128,7 @@ object Docs extends AutoPlugin {
         "extref.postgresql.base_url" -> "https://www.postgresql.org/",
         "extref.reactive-manifesto.base_url" -> "https://www.reactivemanifesto.org/",
         "extref.reactive-streams.base_url" -> "https://www.reactive-streams.org/",
-        "extref.samplerepo.base_url" -> s"https://github.com/slick/samples/%s",
+        "extref.samplerepo.base_url" -> s"https://github.com/slick/%s",
         "extref.sbt.base_url" -> "https://www.scala-sbt.org/",
         "extref.scala-futures.base_url" -> "https://docs.scala-lang.org/overviews/core/futures.html",
         "extref.scalaquery.base_url" -> "http://scalaquery.org",
