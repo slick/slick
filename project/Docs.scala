@@ -1,4 +1,4 @@
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
 import com.lightbend.paradox.sbt.ParadoxPlugin
 import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport._
@@ -29,7 +29,7 @@ object Docs extends AutoPlugin {
     IO.writeLines(file, IO.readLines(file).map(f))
 
   lazy val docRepoCheckoutDir = {
-    val dir = Files.createTempDirectory("slick-docs").toFile
+    val dir = Paths.get("/var/tmp/slick-docs").toFile
     dir.deleteOnExit()
     dir
   }
@@ -38,7 +38,7 @@ object Docs extends AutoPlugin {
     val dir = docRepoCheckoutDir
     val repo = "git@github.com:slick/doc.git"
     log.info(s"Cloning $repo into $dir")
-    if (dir.listFiles().isEmpty)
+    if (Option(dir.listFiles()).forall(_.isEmpty))
       ConsoleGitRunner("clone", "--branch=gh-pages", "--depth=1", repo, ".")(dir, log)
     else {
       ConsoleGitRunner("reset", "--hard")(dir, log)
@@ -173,6 +173,7 @@ object Docs extends AutoPlugin {
 
       for (sample <- List("hello-slick", "slick-multidb", "slick-testkit-example")) {
         val dir = out / "samples" / sample
+        IO.delete(dir)
         ConsoleGitRunner.updated("https://github.com/slick/" + sample, None, dir, log)
         IO.delete(dir / ".git")
       }
