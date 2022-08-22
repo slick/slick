@@ -3,7 +3,7 @@ package com.typesafe.slick.testkit.util
 import java.nio.file.{Files, Paths}
 import java.time.Duration
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.junit.runner.notification.{Failure, RunListener}
 import org.junit.runner.{Description, Result}
@@ -21,7 +21,7 @@ class GitHubActionsRunListener extends RunListener {
     error(failure.getTestHeader + " failed an assumption")(failure.getMessage)
 
   override def testRunStarted(description: Description) =
-    println(this + ": " + description.getTestClass + " started")
+    println(s"$this: ${description.getTestClass} started")
 
   override def testRunFinished(result: Result) = {
     val (runs, failures, ignores) =
