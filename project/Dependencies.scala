@@ -8,7 +8,7 @@ object Dependencies {
 
   val scalaVersions = Seq("2.12.15", "2.13.8") // When updating these also update ci.yml and appveyor.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.36"
+  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.0"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
@@ -39,7 +39,7 @@ object Dependencies {
     "org.apache.derby" % "derby" % "10.14.2.0",
     "org.xerial" % "sqlite-jdbc" % "3.39.2.0",
     "org.hsqldb" % "hsqldb" % "2.5.2",
-    "org.postgresql" % "postgresql" % "42.4.2",
+    "org.postgresql" % "postgresql" % "42.5.0",
     "mysql" % "mysql-connector-java" % "8.0.30",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
     "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1",

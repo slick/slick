@@ -1,4 +1,4 @@
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
 import com.lightbend.paradox.sbt.ParadoxPlugin
 import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport._
@@ -6,8 +6,6 @@ import com.typesafe.sbt.git.ConsoleGitRunner
 import coursier.version.{Version, VersionParse}
 import sbt.Keys._
 import sbt._
-import sjsonnew.BasicJsonProtocol._
-import sjsonnew.support.scalajson.unsafe.{Converter, PrettyPrinter}
 
 
 object Docs extends AutoPlugin {
@@ -29,7 +27,7 @@ object Docs extends AutoPlugin {
     IO.writeLines(file, IO.readLines(file).map(f))
 
   lazy val docRepoCheckoutDir = {
-    val dir = Files.createTempDirectory("slick-docs").toFile
+    val dir = Paths.get("/var/tmp/slick-docs").toFile
     dir.deleteOnExit()
     dir
   }
@@ -38,7 +36,7 @@ object Docs extends AutoPlugin {
     val dir = docRepoCheckoutDir
     val repo = "git@github.com:slick/doc.git"
     log.info(s"Cloning $repo into $dir")
-    if (dir.listFiles().isEmpty)
+    if (Option(dir.listFiles()).forall(_.isEmpty))
       ConsoleGitRunner("clone", "--branch=gh-pages", "--depth=1", repo, ".")(dir, log)
     else {
       ConsoleGitRunner("reset", "--hard")(dir, log)
@@ -46,29 +44,38 @@ object Docs extends AutoPlugin {
       ConsoleGitRunner("pull")(dir, log)
     }
 
-    val ver = docsSubdirectory(info)
-    val dest = dir / ver
+    val versionString = docsSubdirectory(info)
+    val dest = dir / versionString
     val existed = dest.exists()
     IO.delete(dest)
     log.info("Copying docs")
     IO.copyDirectory(src, dest)
 
-    val versionNumberParts = Version(ver).items.takeWhile(Version.isNumeric)
+    val version = Version(versionString)
+    val versionNumberParts = version.items.takeWhile(Version.isNumeric)
 
     val versions =
       IO.listFiles(dir)
         .filter(_.isDirectory)
         .flatMap(f => VersionParse.version(f.getName))
         .toSeq
-        .filter { v =>
-          val (numberParts, otherParts) = v.items.span(Version.isNumeric)
-          otherParts.isEmpty || numberParts == versionNumberParts
+        .filter {
+          case `version` => true
+          case v         =>
+            val (numberParts, otherParts) = v.items.span(Version.isNumeric)
+            def isValidTag = {
+              val tag = otherParts.collect { case tag: Version.Tag => tag.value }
+              numberParts == versionNumberParts &&
+                (tag == Seq("m") || tag == Seq("rc"))
+            }
+            otherParts.isEmpty || isValidTag
+
         }
         .sorted
 
     IO.write(
       dir / "versions.json",
-      PrettyPrinter(Converter.toJson(versions.map(_.repr)).get)
+      versions.map("  \"" + _.repr + '"').mkString("[\n", ",\n", "\n]\n")
     )
 
     info.maybeVersionInfo.map(_.versionType).foreach { versionType =>
@@ -128,7 +135,7 @@ object Docs extends AutoPlugin {
         "extref.postgresql.base_url" -> "https://www.postgresql.org/",
         "extref.reactive-manifesto.base_url" -> "https://www.reactivemanifesto.org/",
         "extref.reactive-streams.base_url" -> "https://www.reactive-streams.org/",
-        "extref.samplerepo.base_url" -> s"https://github.com/slick/samples/%s",
+        "extref.samplerepo.base_url" -> s"https://github.com/slick/%s",
         "extref.sbt.base_url" -> "https://www.scala-sbt.org/",
         "extref.scala-futures.base_url" -> "https://docs.scala-lang.org/overviews/core/futures.html",
         "extref.scalaquery.base_url" -> "http://scalaquery.org",
@@ -173,6 +180,7 @@ object Docs extends AutoPlugin {
 
       for (sample <- List("hello-slick", "slick-multidb", "slick-testkit-example")) {
         val dir = out / "samples" / sample
+        IO.delete(dir)
         ConsoleGitRunner.updated("https://github.com/slick/" + sample, None, dir, log)
         IO.delete(dir / ".git")
       }
