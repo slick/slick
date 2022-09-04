@@ -22,33 +22,52 @@
 [GitterBadge]: https://badges.gitter.im/Join%20Chat.svg
 [GitterLink]: https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 
-Slick is a functional database library for Scala.
 
-It allows you to work with relational databases almost as if you were using 
-Scala collections, while at the same time giving you full control over when a 
-database access happens and what data is transferred. By writing your queries 
-in Scala you can benefit from the static type checking, compile-time safety, and 
-compositionality of Scala, while retaining the ability to drop down to raw SQL 
-where needed for custom or advanced database features.
+Slick is an advanced, comprehensive database access library for Scala with strongly-typed, highly composable APIs.
 
-Slick also features an advanced query compiler which can generate SQL for a variety
+Slick makes it easy to use your database in a way that's natural to it. It allows you to work with relational databases
+almost as if you were using Scala collections, while at the same time giving you full control over when the
+database is accessed and how much data is transferred. And by writing your queries in Scala you can benefit from
+compile-time safety and great compositionality, while retaining the ability to drop down to raw SQL when necessary for
+custom or advanced database features.
+
+Its features include:
+
+ - Query API inspired by Scala's collections API
+ - Full control over how the database schema is seen by Slick,
+   by using an explicit representation that can be code-generated from the actual database
+ - Asynchronous API using `Future` for complete results, and a streaming API that conforms to
+   the [Reactive Streams](https://www.reactive-streams.org/) interface, for easy integration with
+   any streaming library, such as [Akka Streams](https://doc.akka.io/docs/akka/current/stream/index.html),
+   [FS2](https://fs2.io/#/), or [ZIO](https://github.com/zio/interop-reactive-streams).
+- Composability at many levels
+   - Compose actions (steps to run in a database context) with for comprehensions
+   - Compose queries with for comprehensions or combinators
+   - Compose row expressions (column sets, predicates, and column mappings)
+ - A database metadata introspection API
+
+Slick features an advanced query compiler which can generate SQL for a variety
 of different database engines from the same Scala code, allowing you to focus on
 application logic without worrying about database-specific syntax and quirks.
 
 ## Resources
 
+### Learn
 - Full documentation, including Scaladocs and more complex examples, can be 
-found on the [Slick website](https://scala-slick.org)
-
-- We have an active [gitter channel](https://gitter.im/slick/slick) where you
-can ask for help
-
-- Think you've found a bug? Have an idea for a new feature? Please raise it in
-our [issue tracker](https://github.com/slick/slick/issues) here on github
-
+found on the [website](https://scala-slick.org). For the latest release you can go straight to 
+https://scala-slick.org/doc/stable/
 - Our friends at [`underscore.io`](https://underscore.io/) have written "Essential 
-Slick", an excellent guide to using slick from first principles, which is now 
+Slick", an excellent guide to using slick from first principles, and is 
 available [as a free download](https://underscore.io/books/essential-slick/)
+
+- [Videos by Rock the JVM](https://www.youtube.com/playlist?list=PLmtsMNDRU0BxIFCdPgm77Dx5Ll9SQ76pR)
+
+### Get help
+- Post questions and suggestions on [GitHub Discussions](https://github.com/slick/slick/discussions)
+- Ask on the [#slick channel on the official Scala Discord server](https://discord.gg/yQheBhUtAa)
+- There is a [gitter channel](https://gitter.im/slick/slick) too, but Discord is preferred
+- Report bugs to [GitHub issues](https://github.com/slick/slick/issues)
+
 
 ## Example
 
