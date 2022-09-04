@@ -1,10 +1,24 @@
 # Slick
 
+[![Sponsor1Badge]][Sponsor1Link]
+
+
 [![MavenBadge]][MavenLink]
+
+[![DiscussionsBadge]][DiscussionsLink]
+[![DiscordBadge]][DiscordLink]
 [![GitterBadge]][GitterLink]
+
+[Sponsor1Badge]: https://img.shields.io/github/sponsors/nafg?label=Sponsor%20@nafg
+[Sponsor1Link]: https://github.com/sponsors/nafg
 
 [MavenBadge]: https://img.shields.io/maven-central/v/com.typesafe.slick/slick_2.13.svg
 [MavenLink]: http://mvnrepository.com/artifact/com.typesafe.slick/slick_2.13
+
+[DiscussionsBadge]: https://img.shields.io/github/discussions/slick/slick?label=GitHub+Discussions
+[DiscussionsLink]: https://github.com/slick/slick/discussions
+[DiscordBadge]: https://img.shields.io/badge/Discord%20-%23slick%20on%20Scala%20server-blue
+[DiscordLink]: https://discord.gg/yQheBhUtAa
 [GitterBadge]: https://badges.gitter.im/Join%20Chat.svg
 [GitterLink]: https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 
