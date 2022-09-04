@@ -1,6 +1,12 @@
 # Slick
 
-[![Maven](https://img.shields.io/maven-central/v/com.typesafe.slick/slick_2.13.svg)](http://mvnrepository.com/artifact/com.typesafe.slick/slick_2.13) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![MavenBadge]][MavenLink]
+[![GitterBadge]][GitterLink]
+
+[MavenBadge]: https://img.shields.io/maven-central/v/com.typesafe.slick/slick_2.13.svg
+[MavenLink]: http://mvnrepository.com/artifact/com.typesafe.slick/slick_2.13
+[GitterBadge]: https://badges.gitter.im/Join%20Chat.svg
+[GitterLink]: https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 
 Slick is a functional database library for Scala.
 
@@ -36,6 +42,8 @@ As a simple example we will create a Scala object `Coffee`, and a table to store
 instances of this object in the database:
 
 ```scala
+import slick.jdbc.PostgresProfile.api._
+
 // First declare our Scala object
 final case class Coffee(name: String, price: Double)
 
@@ -68,17 +76,18 @@ coffees.filter(_.price < 10.0).sortBy(_.name)
 The following databases are directly supported by Slick, and are currently covered
 by a large suite of automated tests to ensure compatibility:
 
-|Database|JDBC Driver|
-|--------|-----------|
-|DB2 10.5|[db2jcc4:4.19.20](http://www-01.ibm.com/support/docview.wss?uid=swg21363866)|
-|Derby/JavaDB|derby:10.14.2.0|
-|H2|com.h2database.h2:1.4.199|
-|HSQLDB/HyperSQL|hsqldb:2.4.1|
-|MySQL|mysql-connector-java:8.0.16|
-|Oracle 11g|[ojdbc7:12.1.0.2](http://www.oracle.com/technetwork/database/features/jdbc/index-091264.html)|
-|PostgreSQL|postgresql:42.2.5|
-|SQLite|sqlite-jdbc:3.27.2.1|
-|SQLServer 2008, 2012, 2014, 2017|[jtds:1.3.1](http://sourceforge.net/projects/jtds/files/jtds/) and [msjdbc:7.2.2](https://docs.microsoft.com/en-us/sql/connect/jdbc/download-microsoft-jdbc-driver-for-sql-server?view=sql-server-2017)|
+| Database        | JDBC Driver                                                    | Tested server version        |
+|-----------------|----------------------------------------------------------------|------------------------------|
+| PostgreSQL      | `"org.postgresql" % "postgresql" % "42.5.0"`                   | Latest                       |
+| MySQL           | `"mysql" % "mysql-connector-java" % "8.0.30"`                  | Latest                       |
+| SQLServer       | `"net.sourceforge.jtds" % "jtds" % "1.3.1"` and                | 2008, 2012, 2014, 2017, 2022 |
+|                 | `"com.microsoft.sqlserver" % "mssql-jdbc" % "7.2.2.jre11"`     |                              |
+| Oracle          | `"com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1"` | 11g                          |
+| DB2             | `"com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"`                     | 11.5.7.0                     |
+| Derby/JavaDB    | `"org.apache.derby" % "derby" % "10.14.2.0"`                   |                              |
+| H2              | `"com.h2database" % "h2" % "1.4.200"`                          |                              |
+| HSQLDB/HyperSQL | `"org.hsqldb" % "hsqldb" % "2.5.2"`                            |                              |
+| SQLite          | `"org.xerial" % "sqlite-jdbc" % "3.39.2.1"`                    |                              |
 
 Accessing other database systems is possible, although possibly with a reduced feature 
 set.
