@@ -22,6 +22,7 @@
 [GitterBadge]: https://badges.gitter.im/Join%20Chat.svg
 [GitterLink]: https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 
+<!--  [<snippet include-in-website>] -->
 
 Slick is an advanced, comprehensive database access library for Scala with strongly-typed, highly composable APIs.
 
@@ -132,3 +133,5 @@ ask that all contributors abide by the [Lightbend Community Code of Conduct](htt
 
 Lightbend staff (such as @SethTisue) may be able to assist with
 administrative issues.
+
+<!-- [<endsnippet include-in-website>] -->
