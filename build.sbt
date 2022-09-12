@@ -101,7 +101,7 @@ ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 
 ThisBuild / versionScheme := Some("pvp")
 
-ThisBuild / versionPolicyIntention := Versioning.BumpMajor
+ThisBuild / versionPolicyIntention := Versioning.BumpMinor
 
 val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
 
