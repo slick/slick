@@ -8,7 +8,7 @@ object Dependencies {
 
   val scalaVersions = Seq("2.12.15", "2.13.8") // When updating these also update ci.yml and appveyor.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.36"
+  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.0"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
