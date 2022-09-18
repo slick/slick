@@ -1,3 +1,5 @@
+import scala.jdk.CollectionConverters._
+
 import com.typesafe.tools.mima.core.Problem
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaFindBinaryIssues}
 import com.typesafe.tools.mima.plugin.MimaPlugin
@@ -9,8 +11,6 @@ import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVer
 import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport._
 import sbtversionpolicy.{DependencyCheckReport, Direction, SbtVersionPolicyMima, SbtVersionPolicyPlugin}
 
-import scala.jdk.CollectionConverters._
-
 
 object CompatReportPlugin extends AutoPlugin {
   override def requires = SbtVersionPolicyPlugin
@@ -19,11 +19,18 @@ object CompatReportPlugin extends AutoPlugin {
 
   val previousRelease = settingKey[Option[String]]("Determine the artifact of the previous release")
 
+  case class ModuleReport(module: String,
+                          sinceVersion: String,
+                          depChanges: Seq[DependencyChangeInfo],
+                          codeChanges: Seq[CodeChangeInfo]) {
+    lazy val count = depChanges.length + codeChanges.length
+  }
+
   object autoImport {
     val CompatReport = config("compatReport").extend(Compile)
 
     val compatReportData =
-      taskKey[Seq[(String, Seq[DependencyChangeInfo], Seq[CodeChangeInfo])]]("Generate the compatibility report data")
+      taskKey[Seq[ModuleReport]]("Generate the compatibility report data")
 
     val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
   }
@@ -149,16 +156,26 @@ object CompatReportPlugin extends AutoPlugin {
       }
   }
 
-  private def renderModuleMarkdownSection(title: String,
-                                          depChanges: Seq[DependencyChangeInfo],
-                                          codeChanges: Seq[CodeChangeInfo]) =
-    if (depChanges.isEmpty && codeChanges.isEmpty) None
-    else
-      Some(
-        "### Changes since `" + title + "`\n\n" +
-          renderDependencyChangesMarkdownSection(depChanges) + "\n" +
-          renderCodeChangesMarkdownSection(codeChanges) + "\n"
-      )
+  private def renderModuleMarkdownSection(moduleReport: ModuleReport) =
+    moduleReport.count match {
+      case 0 => None
+      case n =>
+        Some(
+          s"""
+             |<details>
+             |  <summary>
+             |    <h3>
+             |      $n change${if (n == 1) "" else "s"} to <code>${moduleReport.module}</code>
+             |      since <code>${moduleReport.sinceVersion}</code>
+             |    </h3>
+             |  </summary>
+             |
+             |${renderDependencyChangesMarkdownSection(moduleReport.depChanges)}
+             |${renderCodeChangesMarkdownSection(moduleReport.codeChanges)}
+             |</details>
+             |""".stripMargin
+        )
+    }
 
   // Code copied from sbt-version-policy
   private lazy val previousVersionsFromRepo = Def.setting {
@@ -250,18 +267,13 @@ object CompatReportPlugin extends AutoPlugin {
                     }
                     .sorted
 
-                (moduleString, depChanges, codeChanges)
+                val moduleOrgAndName :+ sinceVersion = moduleString.split(':').toSeq
+                ModuleReport(moduleOrgAndName.mkString(":"), sinceVersion, depChanges, codeChanges)
               }
             },
             compatReportMarkdown := {
               compatReportData.value
-                .flatMap { case (title, depChanges, codeChanges) =>
-                  renderModuleMarkdownSection(
-                    title = title,
-                    depChanges = depChanges,
-                    codeChanges = codeChanges
-                  )
-                }
+                .flatMap(renderModuleMarkdownSection)
                 .mkString("\n")
             }
           )
