@@ -1,19 +1,14 @@
 package slick.test.codegen
 
-import java.io.File
 import java.sql.Blob
 
-import com.typesafe.slick.testkit.util.{TestCodeGenerator, InternalJdbcTestDB, StandardTestDBs, JdbcTestDB}
-
-import scala.concurrent.{Future, Await}
-import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.io.{Codec, Source}
+
+import slick.codegen.SourceCodeGenerator
 import slick.dbio.DBIO
-import slick.codegen.{OutputHelpers, SourceCodeGenerator}
-import slick.jdbc.JdbcBackend
-import slick.jdbc.meta.MTable
-import slick.model.Model
+
+import com.typesafe.slick.testkit.util.{JdbcTestDB, StandardTestDBs, TestCodeGenerator}
+
 
 /** Generates files for GeneratedCodeTest */
 object GenerateMainSources extends TestCodeGenerator {
@@ -146,7 +141,7 @@ val  SimpleA = CustomTyping.SimpleA
     },
     new Config("MySQL1", StandardTestDBs.MySQL, "MySQL", Nil) {
       import tdb.profile.api._
-      class A(tag: Tag) extends Table[(String)](tag, "a") {
+      class A(tag: Tag) extends Table[String](tag, "a") {
         def quote = column[String]("x", O.Default("\"\"")) // column name with double quote
         def * = quote
       }
@@ -207,7 +202,7 @@ val  SimpleA = CustomTyping.SimpleA
           }
         })
     },
-    new UUIDConfig("SQLServer1", StandardTestDBs.SQLServer2014SQLJDBC, "SQLServer2014SQLJDBC", Seq("/dbs/uuid-sqlserver.sql")),
+    new UUIDConfig("SQLServer1", StandardTestDBs.SQLServerSQLJDBC, "SQLServerSQLJDBC", Seq("/dbs/uuid-sqlserver.sql")),
     new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
     new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
       override def useSingleLineStatements = true
@@ -230,7 +225,7 @@ val  SimpleA = CustomTyping.SimpleA
     override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
       override def Table = new Table(_) {
         override def Column = new Column(_){
-          override def defaultCode: (Any) => String = {
+          override def defaultCode: Any => String = {
             case v: java.util.UUID => s"""java.util.UUID.fromString("${v.toString}")"""
             case v => super.defaultCode(v)
           }
