@@ -20,11 +20,10 @@ pull_request_rules:
       - or:
           - "check-success=typesafe-cla-validator"
           - "author=renovate[bot]"
-      - "check-success=Build and Test (8, 2.12.15)"
-      - "check-success=Build and Test (8, 2.13.8)"
+      - "check-success=Build and Test (11, 2.12.15)"
+      - "check-success=Build and Test (11, 2.13.8)"
       - "check-success=Build and Test (17, 2.12.15)"
       - "check-success=Build and Test (17, 2.13.8)"
-      - "check-success=continuous-integration/appveyor/pr"
       - "#changes-requested-reviews-by=0"
       - or:
           - "#approved-reviews-by>=1"
