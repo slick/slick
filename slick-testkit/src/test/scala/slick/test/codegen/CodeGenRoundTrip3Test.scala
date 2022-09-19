@@ -7,7 +7,9 @@ import org.junit.Test
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object CodeGeneratorRoundTrip3Test extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerJTDS, SQLServerSQLJDBC)
+
+object CodeGeneratorRoundTrip3Test
+  extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerSQLJDBC)
 
 class CodeGeneratorRoundTrip3Test(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.quoteIdentifier
