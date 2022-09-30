@@ -340,7 +340,10 @@ lazy val root =
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
           testkit / Compile / packageDoc,
-          versionPolicyCheck
+          slick / versionPolicyCheck,
+          testkit / versionPolicyCheck,
+          hikaricp / versionPolicyCheck,
+          codegen / versionPolicyCheck
         ).value
       }
     )
