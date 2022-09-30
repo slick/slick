@@ -101,7 +101,7 @@ ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 
 ThisBuild / versionScheme := Some("pvp")
 
-ThisBuild / versionPolicyIntention := Versioning.BumpMinor
+ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
 ThisBuild / versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+\\.\\d+-pre\\.\\d+\\.\\w+\\.dirty".r)
 
