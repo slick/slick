@@ -9,10 +9,12 @@ object JdbcCapabilities {
   /** Can insert into AutoInc columns. */
   val forceInsert = Capability("jdbc.forceInsert")
   /** Supports a native insertOrUpdate command. Otherwise the functionality
-    * is emulated on the client side. The emulation uses transactions for
-    * consistency but does not guarantee atomicity, so it may fail if another
-    * insert for the same key happens concurrently. */
+   * is emulated on the client side. The emulation uses transactions for
+   * consistency but does not guarantee atomicity, so it may fail if another
+   * insert for the same key happens concurrently. */
   val insertOrUpdate = Capability("jdbc.insertOrUpdate")
+  /** Supports `insertOrUpdate` with only primary keys (equivalent to "insert if not exists") */
+  val insertOrUpdateWithPrimaryKeyOnly = Capability("jdbc.insertOrUpdateWithPrimaryKeyOnly")
   /** Supports mutable result sets */
   val mutable = Capability("jdbc.mutable")
   /** Can return primary key of inserted rows */
@@ -36,5 +38,20 @@ object JdbcCapabilities {
   val other = Capability("jdbc.other")
 
   /** All JDBC capabilities */
-  val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, distinguishesIntTypes, supportsByte, returnInsertOther, forUpdate)
+  val all = Set(
+    booleanMetaData,
+    createModel,
+    defaultValueMetaData,
+    distinguishesIntTypes,
+    forUpdate,
+    forceInsert,
+    insertOrUpdate,
+    insertOrUpdateWithPrimaryKeyOnly,
+    mutable,
+    nullableNoDefault,
+    other,
+    returnInsertKey,
+    returnInsertOther,
+    supportsByte,
+  )
 }

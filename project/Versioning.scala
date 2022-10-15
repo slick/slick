@@ -1,13 +1,14 @@
+import java.io.File
+import java.util.Date
+
+import Versioning.VersionInfo.VersionType
 import com.typesafe.sbt.git.DefaultReadableGit
 import coursier.version.Version
-import sbt.AutoPlugin
 import sbt.Keys.version
+import sbt.{AutoPlugin, settingKey}
 import sbtdynver.DynVerPlugin.autoImport.{dynver, dynverCurrentDate, dynverGitDescribeOutput}
 import sbtdynver.{DynVer, GitDescribeOutput}
 import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.{Compatibility, versionPolicyIntention}
-
-import java.io.File
-import java.util.Date
 
 
 object Versioning extends AutoPlugin {
@@ -19,55 +20,93 @@ object Versioning extends AutoPlugin {
     new DefaultReadableGit(dir)
       .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
 
-  def versionFor(compat: Compatibility, out: GitDescribeOutput): String = {
-    val cleanAfterTag = out.isCleanAfterTag
-    val lastTag = out.ref.dropPrefix
-    if (cleanAfterTag) lastTag
-    else {
-      val lastVersion = Version(lastTag)
-      val nextVersionParts =
-        lastVersion.items match {
-          case Seq(x: Version.Number, y: Version.Numeric, z: Version.Numeric, t: Version.Tag, _: Version.Numeric)
-            if t.isPreRelease                                                 =>
-            Seq(x.repr, y.repr, z.repr)
-          case Seq(x: Version.Number, y: Version.Numeric, z: Version.Numeric) =>
-            compat match {
-              case BumpMinor => Seq(x.repr, y.repr, z.next.repr)
-              case BumpMajor => Seq(x.repr, y.next.repr, "0")
-              case BumpEpoch => Seq(x.next.repr, "0", "0")
-            }
-          case other                                                          =>
-            sys.error(s"Unhandled version format: $other")
+  object VersionInfo {
+    sealed trait VersionType
+    object VersionType {
+      case object Devel extends VersionType
+      sealed trait Tag extends VersionType {
+        val x, y, z: Version.Numeric
+        def versionString = s"${x.repr}.${y.repr}.${z.repr}"
+      }
+      object Tag {
+        case class Prerelease(x: Version.Numeric, y: Version.Numeric, z: Version.Numeric) extends Tag
+        case class Stable(x: Version.Numeric, y: Version.Numeric, z: Version.Numeric) extends Tag {
+          def bumpMinor = copy(z = z.next)
+          def bumpMajor = copy(y = y.next, z = Version.Number(0))
+          def bumpEpoch = copy(x = x.next, y = Version.Number(0), z = Version.Number(0))
+          def bump(compat: Compatibility) = compat match {
+            case BumpMinor => bumpMinor
+            case BumpMajor => bumpMajor
+            case BumpEpoch => bumpEpoch
+          }
         }
-
-      nextVersionParts.mkString(".") +
-        s"-pre.${out.commitSuffix.distance}.${out.commitSuffix.sha}" +
-        (if (out.isDirty()) ".dirty" else "")
+      }
     }
   }
+  case class VersionInfo(compat: Compatibility, gitDescribeOutput: GitDescribeOutput) {
+    private val cleanAfterTag = gitDescribeOutput.isCleanAfterTag
+    private val lastTag = gitDescribeOutput.ref.dropPrefix
 
-  def shortVersionString(version: String) =
-    version.replaceFirst("-pre\\..*", "-SNAPSHOT")
+    private def versionType(version: Version): VersionInfo.VersionType.Tag = version.items match {
+      case Seq(x: Version.Numeric, y: Version.Numeric, z: Version.Numeric, t: Version.Tag, _: Version.Numeric)
+        if t.isPreRelease                                                  =>
+        VersionInfo.VersionType.Tag.Prerelease(x, y, z)
+      case Seq(x: Version.Numeric, y: Version.Numeric, z: Version.Numeric) =>
+        VersionInfo.VersionType.Tag.Stable(x, y, z)
+      case other                                                           =>
+        sys.error(s"Unhandled version format: $other")
+    }
+
+    private val lastTagVersion: VersionType.Tag = versionType(Version(lastTag))
+
+    def versionType =
+      if (cleanAfterTag)
+        lastTagVersion
+      else
+        VersionInfo.VersionType.Devel
+
+    def nextVersion = lastTagVersion match {
+      case v @ VersionInfo.VersionType.Tag.Prerelease(x, y, z) => v.versionString
+      case v @ VersionInfo.VersionType.Tag.Stable(x, y, z)     => v.bump(compat).versionString
+    }
+
+    def versionString =
+      if (cleanAfterTag) lastTag
+      else
+        nextVersion +
+          s"-pre.${gitDescribeOutput.commitSuffix.distance}.${gitDescribeOutput.commitSuffix.sha}" +
+          (if (gitDescribeOutput.isDirty()) ".dirty" else "")
+
+    def shortVersionString =
+      if (cleanAfterTag) lastTag
+      else nextVersion + "-SNAPSHOT"
+  }
+
+  case class MaybeVersionInfo(compat: Compatibility, date: Date, maybeGitDescribeOutput: Option[GitDescribeOutput]) {
+    def maybeVersionInfo = maybeGitDescribeOutput.map(VersionInfo(compat, _))
+    def versionString = maybeVersionInfo.fold(s"HEAD-${DynVer.timestamp(date)}")(_.versionString)
+  }
+
+  val maybeVersionInfo = settingKey[MaybeVersionInfo]("Versioning.VersionInfo instance")
 
   def versionFor(compat: Compatibility, date: Date = new Date): Option[String] =
-    DynVer.getGitDescribeOutput(date).map(versionFor(compat, _))
+    DynVer.getGitDescribeOutput(date)
+      .map(VersionInfo(compat, _).versionString)
+
+  def shortVersionFor(compat: Compatibility, date: Date = new Date): Option[String] =
+    DynVer.getGitDescribeOutput(date)
+      .map(VersionInfo(compat, _).shortVersionString)
 
   override def trigger = allRequirements
 
-  override def projectSettings = {
-    def fallbackVersion(d: Date): String = s"HEAD-${DynVer.timestamp(d)}"
-
+  override def projectSettings =
     List(
-      version :=
-        dynverGitDescribeOutput.value.mkVersion(
-          versionFor(versionPolicyIntention.value, _),
-          fallbackVersion(dynverCurrentDate.value)
-        ),
+      maybeVersionInfo :=
+        MaybeVersionInfo(versionPolicyIntention.value, dynverCurrentDate.value, dynverGitDescribeOutput.value),
+      version := maybeVersionInfo.value.versionString,
       dynver := {
         val d = new Date
-        DynVer.getGitDescribeOutput(d)
-          .mkVersion(versionFor(versionPolicyIntention.value, _), fallbackVersion(d))
+        MaybeVersionInfo(versionPolicyIntention.value, d, DynVer.getGitDescribeOutput(d)).versionString
       }
     )
-  }
 }

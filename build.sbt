@@ -26,7 +26,7 @@ inThisBuild(
   Seq(
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
-    resolvers += Resolver.sonatypeRepo("snapshots"),
+    resolvers ++= Resolver.sonatypeOssRepos("snapshots"),
     homepage := Some(url("https://scala-slick.org")),
     startYear := Some(2008),
     licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/main/LICENSE.txt")),
@@ -102,6 +102,8 @@ ThisBuild / scalaVersion := Dependencies.scalaVersions.last
 ThisBuild / versionScheme := Some("pvp")
 
 ThisBuild / versionPolicyIntention := Versioning.BumpMajor
+
+ThisBuild / versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+\\.\\d+-pre\\.\\d+\\.\\w+\\.dirty".r)
 
 val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
 
@@ -252,7 +254,7 @@ lazy val `reactive-streams-tests` =
     .settings(
       slickGeneralSettings,
       name := "Slick-ReactiveStreamsTests",
-      libraryDependencies += "org.scalatestplus" %% "testng-7-5" % "3.2.12.0",
+      libraryDependencies += "org.scalatestplus" %% "testng-7-5" % "3.2.14.0",
       libraryDependencies ++=
         (Dependencies.logback +: Dependencies.testDBs).map(_ % Test),
       libraryDependencies += Dependencies.reactiveStreamsTCK,
@@ -309,6 +311,7 @@ lazy val site: Project =
       publishLocal := {},
       test := {},
       testOnly := {},
+      versionPolicyPreviousVersions := Nil
     )
 
 lazy val root =
@@ -322,6 +325,7 @@ lazy val root =
       publishArtifact := false,
       publish := {},
       publishLocal := {},
+      versionPolicyPreviousVersions := Nil,
       PgpKeys.publishSigned := {},
       PgpKeys.publishLocalSigned := {},
       // suppress test status output
@@ -336,7 +340,10 @@ lazy val root =
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
           testkit / Compile / packageDoc,
-          versionPolicyCheck
+          slick / versionPolicyCheck,
+          testkit / versionPolicyCheck,
+          hikaricp / versionPolicyCheck,
+          codegen / versionPolicyCheck
         ).value
       }
     )

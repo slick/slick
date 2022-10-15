@@ -31,7 +31,7 @@ def assertVersions(epoch: String, major: String, minor: String): Unit = {
   println(fansi.Color.Yellow(s"Expecting version bumps to be $epoch / $major / $minor"))
 
   def assertExpr(expect: String, mode: String) =
-    s"""  Versioning.versionFor(Versioning.Bump$mode).map(Versioning.shortVersionString) match {
+    s"""  Versioning.shortVersionFor(Versioning.Bump$mode) match {
        |    case Some("$expect") =>
        |      System.out.println("Good, $mode bump would produce $expect")
        |    case other =>
@@ -64,11 +64,11 @@ try {
   )
 
   val filesToCopy =
-    List(os.sub / "build.sbt", os.sub / "project" / "Versioning.scala")
+    List(os.sub / "build.sbt", os.sub / "project" / "Versioning.scala", os.sub / "project" / "Docs.scala")
       .filter(p => !os.exists(dir / p) || os.read(dir / p) != os.read(os.pwd / p))
   filesToCopy.foreach { p =>
     os.copy.over(os.pwd / p, dir / p, replaceExisting = false)
-    stageChanges(p.toString())
+    stageChanges(p.toString)
   }
   if (filesToCopy.nonEmpty)
     createCommit(s"Local changes to ${filesToCopy.mkString(", ")}")

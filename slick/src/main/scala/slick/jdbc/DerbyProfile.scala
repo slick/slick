@@ -86,6 +86,7 @@ trait DerbyProfile extends JdbcProfile {
     - RelationalCapabilities.zip
     - RelationalCapabilities.joinFull
     - JdbcCapabilities.insertOrUpdate
+    - JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly
     - RelationalCapabilities.replace
     - RelationalCapabilities.reverse
     - JdbcCapabilities.booleanMetaData

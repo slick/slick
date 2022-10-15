@@ -1,0 +1,43 @@
+version: "3.6"
+
+services:
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d postgres -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+  oracle:
+    image: oracleinanutshell/oracle-xe-11g
+    ports:
+      - "49160:22"
+      - "49161:1521"
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: Freeslick18
+    ports:
+      - "1401:1433"
+  db2:
+    image: ibmcom/db2:11.5.7.0
+    ports:
+      - "50000:50000"
+    environment:
+      DB2INST1_PASSWORD: db2inst1-pwd
+      DB2INSTANCE: db2inst1
+      DBNAME: SLICKTST
+      LICENSE: accept
+    privileged: true
+  mysql:
+    image: mysql
+    command: "--disable-log-bin"
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
