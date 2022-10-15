@@ -6,9 +6,9 @@ object Dependencies {
   // NOTE: remember to change the version numbers in the sample projects
   // when changing them here
 
-  val scalaVersions = Seq("2.12.15", "2.13.8") // When updating these also update ci.yml and appveyor.yml
+  val scalaVersions = Seq("2.12.17", "2.13.8") // When updating these also update ci.yml and appveyor.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.0"
+  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.3"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
@@ -21,8 +21,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.3"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.11"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.4.4"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.1"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
@@ -42,7 +42,7 @@ object Dependencies {
     "org.postgresql" % "postgresql" % "42.5.0",
     "mysql" % "mysql-connector-java" % "8.0.30",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1",
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.7.0.0",
     "com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"
   )
 

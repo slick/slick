@@ -28,7 +28,8 @@ object StandardTestDBs {
     val url = "jdbc:h2:mem:test_rownum"
     override def isPersistent = false
     override val profile = new H2Profile {
-      override protected def computeQueryCompiler = super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
+      override protected def computeQueryCompiler =
+        super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
     }
   }
 
@@ -212,25 +213,7 @@ object StandardTestDBs {
   lazy val SQLServerJTDS = new SQLServerDB("sqlserver-jtds") {
     override def capabilities = super.capabilities - TestDB.capabilities.plainSql
   }
-  lazy val SQLServer2012JTDS = new SQLServerDB("sqlserver2012-jtds") {
-    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
-  }
-  lazy val SQLServer2014JTDS = new SQLServerDB("sqlserver2014-jtds") {
-    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
-  }
-  lazy val SQLServer2017JTDS = new SQLServerDB("sqlserver2017-jtds") {
-    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
-  }
   lazy val SQLServerSQLJDBC = new SQLServerDB("sqlserver-sqljdbc") {
-    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
-  }
-  lazy val SQLServer2012SQLJDBC = new SQLServerDB("sqlserver2012-sqljdbc") {
-    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
-  }
-  lazy val SQLServer2014SQLJDBC = new SQLServerDB("sqlserver2014-sqljdbc") {
-    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
-  }
-  lazy val SQLServer2017SQLJDBC = new SQLServerDB("sqlserver2017-sqljdbc") {
     override def capabilities = profile.capabilities - JdbcCapabilities.createModel
   }
 
