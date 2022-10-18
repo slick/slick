@@ -358,7 +358,7 @@ case class FailedAction[-E <: Effect](a: DBIOAction[_, NoStream, E]) extends DBI
 
 /** A DBIOAction that represents an `asTry` operation. */
 case class AsTryAction[+R, -E <: Effect](a: DBIOAction[R, NoStream, E]) extends DBIOAction[Try[R], NoStream, E] {
-  def getDumpInfo = DumpInfo("asTry")
+  def getDumpInfo = DumpInfo("asTry", children = Vector(("try", a)))
 }
 
 /** A DBIOAction that attaches a name for logging purposes to another action. */
