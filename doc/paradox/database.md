@@ -186,18 +186,8 @@ empty object. Not overriding any fields or methods provides basic functionality.
 @@snip [GenericJdbcProfile.scala](../code/GenericJdbcProfile.scala) { #genericJdbcProfile }
 
 This profile can then be used in the configuration.
-```conf
-databricks_db {
-  profile = "db.MyProfile$"
-  db {
-    driver = "com.databricks.client.jdbc.Driver"
-    url = "jdbc:databricks://DATABRICKS_HOST:443;HttpPath=/sql/1.0/endpoints/XXXXXXXXX;TransportMode=http;SSL=1"
-    PWD = "????????????"
-    UID = "token"
-    AuthMech = "3"
-  }
-}
-```
+
+@@snip [application.conf](../code/application.conf) { #databricks_db }
 
 Other Multi-DB Patterns
 -----------------------
