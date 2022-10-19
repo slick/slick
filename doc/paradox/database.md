@@ -167,6 +167,38 @@ You can use different database systems in your application by either switching o
 config (e.g. different `application.conf` files for development and production) or by passing a config path into
 the application. This way of implementing multi-database support is also used when building a Play app with Slick.
 
+Generic JDBC Connection
+-----------------------
+Sometimes a database system provides a JDBC driver, but no specific profile for its dialect has been implemented
+for Slick, yet. It is still possible to connect to such a database with not much effort and use the generic JDBC
+feature set.
+
+Here is an example for setting up a connection to a Databricks DB.
+
+build.sbt
+```sbt
+libraryDependencies += "com.databricks" % "databricks-jdbc" % "2.6.29"
+```
+
+To configure the connection a profile is required. It is sufficient to extend the `JdbcProfile` trait with an
+empty object. Not overriding any fields or methods provides basic functionality.
+
+@@snip [GenericJdbcProfile.scala](../code/GenericJdbcProfile.scala) { #genericJdbcProfile }
+
+This profile can then be used in the configuration.
+```conf
+databricks_db {
+  profile = "db.MyProfile$"
+  db {
+    driver = "com.databricks.client.jdbc.Driver"
+    url = "jdbc:databricks://DATABRICKS_HOST:443;HttpPath=/sql/1.0/endpoints/XXXXXXXXX;TransportMode=http;SSL=1"
+    PWD = "????????????"
+    UID = "token"
+    AuthMech = "3"
+  }
+}
+```
+
 Other Multi-DB Patterns
 -----------------------
 
