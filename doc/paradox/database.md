@@ -56,6 +56,28 @@ To use the MySQL driver, the following library dependency needs to be configured
 libraryDependencies += "mysql" % "mysql-connector-java" % "6.0.6"
 ```
 
+##### Generic JDBC
+Sometimes a database system provides a JDBC driver, but no specific profile for its dialect has been implemented
+for Slick, yet. It is still possible to connect to such a database with not much effort and use the generic JDBC
+feature set.
+
+Here is an example for setting up a connection to a Databricks DB using the Databricks JDBC driver, depended on via SBT:
+```scala
+libraryDependencies += "com.databricks" % "databricks-jdbc" % "2.6.29"
+```
+
+To configure the connection a profile implementation is required. It is sufficient to extend the `JdbcProfile` trait with an
+empty object.
+
+@@snip [GenericJdbcProfile.scala](../code/GenericJdbcProfile.scala) { #genericJdbcProfile }
+
+Now this profile can be used in the configuration.
+
+@@snip [application.conf](../code/application.conf) { #databricks_db }
+
+Connection parameters for database systems can differ significantly.
+Please refer to the respective documentation.
+
 Using a JDBC URL
 ----------------
 
