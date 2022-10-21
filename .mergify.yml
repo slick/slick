@@ -17,9 +17,6 @@ pull_request_rules:
 
   - name: Automatic merge on approval
     conditions:
-      - or:
-          - "check-success=typesafe-cla-validator"
-          - "author=renovate[bot]"
       - "check-success=Build and Test (11, 2.12.17)"
       - "check-success=Build and Test (11, 2.13.8)"
       - "check-success=Build and Test (17, 2.12.17)"
