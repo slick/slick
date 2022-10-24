@@ -1,8 +1,8 @@
 import java.nio.file.{Files, Paths}
 
+import com.github.sbt.git.ConsoleGitRunner
 import com.lightbend.paradox.sbt.ParadoxPlugin
 import com.lightbend.paradox.sbt.ParadoxPlugin.autoImport._
-import com.typesafe.sbt.git.ConsoleGitRunner
 import coursier.version.{Version, VersionParse}
 import sbt.Keys._
 import sbt._
