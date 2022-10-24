@@ -2,7 +2,7 @@ import java.io.File
 import java.util.Date
 
 import Versioning.VersionInfo.VersionType
-import com.typesafe.sbt.git.DefaultReadableGit
+import com.github.sbt.git.DefaultReadableGit
 import coursier.version.Version
 import sbt.Keys.version
 import sbt.{AutoPlugin, settingKey}
@@ -16,8 +16,8 @@ object Versioning extends AutoPlugin {
   val BumpMajor = Compatibility.BinaryCompatible
   val BumpEpoch = Compatibility.None
 
-  def currentRef(dir: File) =
-    new DefaultReadableGit(dir)
+  def currentRef(dir: File): String =
+    new DefaultReadableGit(dir, None)
       .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
 
   object VersionInfo {
