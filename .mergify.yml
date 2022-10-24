@@ -9,6 +9,7 @@ pull_request_rules:
     conditions:
       - or:
         - "author=scala-steward"
+        - "author=slick-scala-steward[bot]"
         - "author=renovate[bot]"
     actions:
       label:
@@ -24,8 +25,9 @@ pull_request_rules:
       - "#changes-requested-reviews-by=0"
       - or:
           - "#approved-reviews-by>=1"
-          - "author=scala-steward"
           - "author=nafg"
+          - "author=scala-steward"
+          - "author=slick-scala-steward[bot]"
           - "author=renovate[bot]"
     actions:
       queue:
