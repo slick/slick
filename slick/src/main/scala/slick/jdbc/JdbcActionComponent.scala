@@ -1,20 +1,15 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, Statement}
-
-import scala.language.{existentials, higherKinds}
-import scala.collection.mutable.Builder
-import scala.util.control.NonFatal
-
 import slick.SlickException
 import slick.ast.ColumnOption.PrimaryKey
 import slick.dbio._
-import slick.ast._
+import slick.ast.{Comment, _}
 import slick.ast.Util._
 import slick.ast.TypeUtil.:@
-import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
-import slick.relational.{ResultConverter, CompiledMapping}
-import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
+import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
+import slick.relational.{CompiledMapping, ResultConverter}
+import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
 import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
@@ -208,9 +203,15 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         case ParameterSwitch(cases, default) =>
           findSql(cases.find { case (f, n) => f(param) }.map(_._2).getOrElse(default))
       }
-      (tree match {
+      val (comment, tree2) = tree match {
+        case Comment(comment, child) =>
+          (s"/* $comment */\n", child)
+        case _ =>
+          ("", tree)
+      }
+      (tree2 match {
         case (rsm @ ResultSetMapping(_, compiled, CompiledMapping(_, elemType))) :@ (ct: CollectionType) =>
-          val sql = findSql(compiled)
+          val sql = comment + findSql(compiled)
           new StreamingInvokerAction[R, Any, Effect] { streamingAction =>
             protected[this] def createInvoker(sql: Iterable[String]) = createQueryInvoker(rsm, param, sql.head)
             protected[this] def createBuilder = ct.cons.createBuilder(ct.elementType.classTag).asInstanceOf[Builder[Any, R]]
@@ -218,7 +219,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
             override def getDumpInfo = super.getDumpInfo.copy(name = "result")
           }
         case First(rsm @ ResultSetMapping(_, compiled, _)) =>
-          val sql = findSql(compiled)
+          val sql = comment + findSql(compiled)
           new SimpleJdbcProfileAction[R]("result", Vector(sql)) {
             def run(ctx: Backend#Context, sql: Vector[String]): R =
               createQueryInvoker[R](rsm, param, sql.head).first(ctx.session)

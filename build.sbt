@@ -125,6 +125,7 @@ lazy val slick =
       extTarget("slick"),
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
+      version := "3.3.4-SNAPSHOT",
       libraryDependencies ++= Dependencies.mainDependencies,
       scaladocSourceUrl("slick"),
       Compile / doc / scalacOptions ++= Seq(

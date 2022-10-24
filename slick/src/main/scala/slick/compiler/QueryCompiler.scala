@@ -3,7 +3,7 @@ package slick.compiler
 import scala.collection.immutable.HashMap
 import slick.SlickException
 import slick.util._
-import slick.ast.{SymbolNamer, Node}
+import slick.ast.{SymbolNamer, Node, Comment}
 import org.slf4j.LoggerFactory
 
 /** An immutable, stateless query compiler consisting of a series of phases */
@@ -43,8 +43,15 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 
   /** Compile an AST with a new `CompilerState`. */
   def run(tree: Node): CompilerState = {
-    val state = new CompilerState(this, tree)
-    run(state)
+    tree match {
+      case c: Comment =>
+        val state = new CompilerState(this, c.child)
+        val childState = run(state)
+        childState.map(n => c.copy(child = n))
+      case _ =>
+        val state = new CompilerState(this, tree)
+        run(state)
+    }
   }
 
   /** Compile an AST in an existing `CompilerState`. This can be used for triggering
