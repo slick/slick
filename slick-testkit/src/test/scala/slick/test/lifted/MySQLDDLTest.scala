@@ -4,7 +4,7 @@ import org.junit.Test
 import org.junit.Assert._
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Test case for the MySQL SQL DDL overrides */
 @RunWith(classOf[Parameterized])
