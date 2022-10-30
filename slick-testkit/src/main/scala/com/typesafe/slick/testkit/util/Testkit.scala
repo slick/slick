@@ -30,6 +30,7 @@ import org.slf4j.MDC
 
 import org.reactivestreams.{Subscription, Subscriber, Publisher}
 import scala.collection.compat._
+import scala.concurrent.ExecutionContextExecutor
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
@@ -216,7 +217,7 @@ abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TD
 abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
   final override val reuseInstance = true
 
-  protected implicit def asyncTestExecutionContext = ExecutionContext.global
+  protected implicit def asyncTestExecutionContext: ExecutionContextExecutor = ExecutionContext.global
 
   /** Test Action: Get the current database session */
   object GetSession extends SynchronousDatabaseAction[TDB#Profile#Backend#Session, NoStream, TDB#Profile#Backend, Effect] {
