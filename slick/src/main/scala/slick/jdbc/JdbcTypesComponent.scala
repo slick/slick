@@ -482,30 +482,30 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
-    implicit def booleanColumnType = columnTypes.booleanJdbcType
-    implicit def blobColumnType = columnTypes.blobJdbcType
-    implicit def byteColumnType = columnTypes.byteJdbcType
-    implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
-    implicit def charColumnType = columnTypes.charJdbcType
-    implicit def clobColumnType = columnTypes.clobJdbcType
-    implicit def dateColumnType = columnTypes.dateJdbcType
-    implicit def doubleColumnType = columnTypes.doubleJdbcType
-    implicit def floatColumnType = columnTypes.floatJdbcType
-    implicit def intColumnType = columnTypes.intJdbcType
-    implicit def longColumnType = columnTypes.longJdbcType
-    implicit def shortColumnType = columnTypes.shortJdbcType
-    implicit def stringColumnType = columnTypes.stringJdbcType
-    implicit def timeColumnType = columnTypes.timeJdbcType
-    implicit def timestampColumnType = columnTypes.timestampJdbcType
-    implicit def uuidColumnType = columnTypes.uuidJdbcType
-    implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
-    implicit def offsetDateTimeColumnType = columnTypes.offsetDateTimeType
-    implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
-    implicit def localTimeColumnType = columnTypes.localTimeType
-    implicit def localDateColumnType = columnTypes.localDateType
-    implicit def localDateTimeColumnType = columnTypes.localDateTimeType
-    implicit def offsetTimeColumnType = columnTypes.offsetTimeType
-    implicit def instantColumnType = columnTypes.instantType
+    implicit def booleanColumnType: columnTypes.BooleanJdbcType = columnTypes.booleanJdbcType
+    implicit def blobColumnType: columnTypes.BlobJdbcType = columnTypes.blobJdbcType
+    implicit def byteColumnType: columnTypes.ByteJdbcType = columnTypes.byteJdbcType
+    implicit def byteArrayColumnType: columnTypes.ByteArrayJdbcType = columnTypes.byteArrayJdbcType
+    implicit def charColumnType: columnTypes.CharJdbcType = columnTypes.charJdbcType
+    implicit def clobColumnType: columnTypes.ClobJdbcType = columnTypes.clobJdbcType
+    implicit def dateColumnType: columnTypes.DateJdbcType = columnTypes.dateJdbcType
+    implicit def doubleColumnType: columnTypes.DoubleJdbcType = columnTypes.doubleJdbcType
+    implicit def floatColumnType: columnTypes.FloatJdbcType = columnTypes.floatJdbcType
+    implicit def intColumnType: columnTypes.IntJdbcType = columnTypes.intJdbcType
+    implicit def longColumnType: columnTypes.LongJdbcType = columnTypes.longJdbcType
+    implicit def shortColumnType: columnTypes.ShortJdbcType = columnTypes.shortJdbcType
+    implicit def stringColumnType: columnTypes.StringJdbcType = columnTypes.stringJdbcType
+    implicit def timeColumnType: columnTypes.TimeJdbcType = columnTypes.timeJdbcType
+    implicit def timestampColumnType: columnTypes.TimestampJdbcType = columnTypes.timestampJdbcType
+    implicit def uuidColumnType: columnTypes.UUIDJdbcType = columnTypes.uuidJdbcType
+    implicit def bigDecimalColumnType: columnTypes.BigDecimalJdbcType = columnTypes.bigDecimalJdbcType
+    implicit def offsetDateTimeColumnType: columnTypes.OffsetDateTimeJdbcType = columnTypes.offsetDateTimeType
+    implicit def zonedDateTimeColumnType: columnTypes.ZonedDateTimeJdbcType = columnTypes.zonedDateType
+    implicit def localTimeColumnType: columnTypes.LocalTimeJdbcType = columnTypes.localTimeType
+    implicit def localDateColumnType: columnTypes.LocalDateJdbcType = columnTypes.localDateType
+    implicit def localDateTimeColumnType: columnTypes.LocalDateTimeJdbcType = columnTypes.localDateTimeType
+    implicit def offsetTimeColumnType: columnTypes.OffsetTimeJdbcType = columnTypes.offsetTimeType
+    implicit def instantColumnType: columnTypes.InstantJdbcType = columnTypes.instantType
   }
 }
 
