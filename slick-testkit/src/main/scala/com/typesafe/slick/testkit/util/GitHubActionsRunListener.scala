@@ -3,7 +3,7 @@ package com.typesafe.slick.testkit.util
 import java.nio.file.{Files, Paths}
 import java.time.Duration
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.junit.runner.notification.{Failure, RunListener}
 import org.junit.runner.{Description, Result}

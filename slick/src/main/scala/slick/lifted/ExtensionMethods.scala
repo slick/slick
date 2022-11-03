@@ -12,17 +12,17 @@ trait ExtensionMethods[B1, P1] extends Any {
   protected[this] def c: Rep[P1]
   @inline protected[this] def n = c.toNode
   @inline protected[this] def tpe[T](r: Rep[T]): TypedType[T] = r.asInstanceOf[Rep.TypedRep[_]].tpe.asInstanceOf[TypedType[T]]
-  @inline protected[this] implicit def p1Type = tpe(c)
+  @inline protected[this] implicit def p1Type: TypedType[P1] = tpe(c)
   protected[this] implicit def b1Type: TypedType[B1]
   protected[this] type o = OptionMapperDSL.arg[B1, P1]
 }
 
 trait BaseExtensionMethods[B1] extends Any with ExtensionMethods[B1, B1] {
-  protected[this] implicit def b1Type = p1Type
+  protected[this] implicit def b1Type: TypedType[B1] = p1Type
 }
 
 trait OptionExtensionMethods[B1] extends Any with ExtensionMethods[B1, Option[B1]] {
-  protected[this] implicit def b1Type = p1Type.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]]
+  protected[this] implicit def b1Type: TypedType[B1] = p1Type.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]]
 }
 
 /** Extension methods for all columns */
