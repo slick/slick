@@ -416,6 +416,16 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       * Note that the return value will be None if an update was performed and Some if the operation was insert
       */
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write]
+
+    /** Insert multiple rows if its primary key does not exist in the table,
+     * otherwise update the existing record.
+     * Returns Some(rowsAffected), or None if the database returned no row
+     * count for some part of the batch. If any part of the batch fails, an
+     * exception is thrown.
+     * The option parameter specifies how the operation is to be performed.(default is [[RowsPerStatement.All]])
+     * Note unlike [[insertOrUpdate]], client-side emulation is not supported. */
+    def insertOrUpdateAll(values: Iterable[U], option: RowsPerStatement = RowsPerStatement.All)
+    : ProfileAction[MultiInsertResult, NoStream, Effect.Write]
   }
 
   /** Extension methods to generate the JDBC-specific insert actions. */
@@ -502,6 +512,13 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] =
       new InsertOrUpdateAction(value)
+
+    def insertOrUpdateAll(values: Iterable[U], option: RowsPerStatement): ProfileAction[MultiInsertResult, NoStream, Effect.Write] = {
+      option match {
+        case RowsPerStatement.One => new MultiInsertOrUpdateAction(values)
+        case RowsPerStatement.All => new InsertOrUpdateAllAction(values)
+      }
+    }
 
     def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) =
       buildQueryBasedInsert(Query(c)(shape)).sql
@@ -603,6 +620,25 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         }
     }
 
+    class MultiInsertOrUpdateAction(values: Iterable[U]) extends MultiInsertAction(compiled.upsert, values, RowsPerStatement.One) {
+      if (!capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
+        throw new SlickException("InsertOrUpdateAll is not supported for this profile")
+      }
+    }
+
+    class InsertAllAction(a: compiled.Artifacts, values: Iterable[U], name: String = "InsertAllAction") extends SimpleJdbcProfileAction[MultiInsertResult](name, Vector(a.ibr.buildMultiRowInsert(values.size))) {
+      override def run(ctx: Backend#Context, sql: Vector[String]): MultiInsertResult = {
+        val size = a.ibr.fields.length
+        preparedInsert(statements.head, ctx.session) { st =>
+          st.clearParameters()
+          values.zipWithIndex.foreach {
+            case (value, idx) => a.converter.set(value, st, idx * size)
+          }
+          retManyMultiRowStatement(st, values, st.executeUpdate())
+        }
+      }
+    }
+
     class InsertOrUpdateAction(value: U) extends SimpleJdbcProfileAction[SingleInsertOrUpdateResult]("InsertOrUpdateAction",
       if(useServerSideUpsert) Vector(compiled.upsert.sql) else Vector(compiled.checkInsert.sql, compiled.updateInsert.sql, compiled.standardInsert.sql)) {
 
@@ -661,6 +697,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           val count = st.executeUpdate()
           retOneInsertOrUpdateFromInsert(st, value, count)
         }
+      }
+    }
+
+    class InsertOrUpdateAllAction(values: Iterable[U]) extends InsertAllAction(compiled.upsert, values, "InsertOrUpdateAllAction") {
+      if (!capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
+        throw new SlickException("InsertOrUpdateAll is not supported for this profile")
       }
     }
 
