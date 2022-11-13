@@ -41,7 +41,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   * reserved word), otherwise a bug in the DB2 JDBC driver triggers a SQL
   * Error -206 (SQLState 42703).
   */
-trait DB2Profile extends JdbcProfile {
+trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - RelationalCapabilities.reverse
