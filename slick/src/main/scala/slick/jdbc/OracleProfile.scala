@@ -541,22 +541,26 @@ END;
     else super.createOptionResultConverter(ti, idx)
 
 
-  private trait OverrideInsertAll[U] { self : InsertActionComposerImpl[U] =>
-    override def insertAll(values: Iterable[U], option: StatementOption = StatementOption.Batch): FixedSqlAction[MultiInsertResult, NoStream, Effect.Write] = {
-      option match {
-        case StatementOption.Batch =>
-          new self.MultiInsertAction(compiled.standardInsert, values)
-        case StatementOption.SingleStatement =>
+  private trait OracleInsertAll[U] extends InsertActionComposerImpl[U] {
+    override def insertAll(values: Iterable[U],
+                           rowsPerStatement: RowsPerStatement = RowsPerStatement.One): FixedSqlAction[
+      MultiInsertResult,
+      NoStream,
+      Effect.Write
+    ] =
+      rowsPerStatement match {
+        case RowsPerStatement.One =>
+          new MultiInsertAction(compiled.standardInsert, values)
+        case RowsPerStatement.All =>
           throw new SlickException("OracleProfile doesn't support multiple insert with single statement.")
       }
-    }
   }
 
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new CountingInsertActionComposerImpl[T](compiled) with OverrideInsertAll[T]
+    new CountingInsertActionComposerImpl[T](compiled) with OracleInsertAll[T]
 
   override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
-    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) with OverrideInsertAll[U]
+    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) with OracleInsertAll[U]
 
   // Does not work to get around the ORA-00904 issue when returning columns
   // with lower-case names

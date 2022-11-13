@@ -4,6 +4,7 @@ import java.sql.{Date, Time, Timestamp}
 import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+
 import slick.relational.RelationalCapabilities
 import slick.sql.{FixedSqlAction, SqlCapabilities}
 
@@ -70,9 +71,9 @@ import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     SQLite does not distinguish integer types and maps them all to Int
   *     in the meta data.</li>
- *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
- *      SQLite returns the last generated key only.</li>
- * </ul>
+  *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
+  *     SQLite returns the last generated key only.</li>
+  * </ul>
   */
 trait SQLiteProfile extends JdbcProfile {
 
@@ -176,25 +177,28 @@ trait SQLiteProfile extends JdbcProfile {
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  private trait OverrideInsertAll[U] { self : InsertActionComposerImpl[U] =>
-    override def insertAll(values: Iterable[U], option: StatementOption = StatementOption.SingleStatement): FixedSqlAction[MultiInsertResult, NoStream, Effect.Write] = {
-      option match {
-        case StatementOption.Batch =>
-          new self.MultiInsertAction(compiled.standardInsert, values)
-        case StatementOption.SingleStatement =>
-          if (compiled.standardInsert.ibr.fields.isEmpty){
-            // Uses batch insert because sqlite doesn't support multi default values
-            ++=(values)
-          } else new self.InsertAllAction(compiled.standardInsert, values)
-      }
-    }
+  private trait SQLiteInsertAll[U] extends InsertActionComposerImpl[U] {
+    override def insertAll(values: Iterable[U],
+                           rowsPerStatement: RowsPerStatement = RowsPerStatement.All): FixedSqlAction[
+      MultiInsertResult,
+      NoStream,
+      Effect.Write
+    ] =
+      if (compiled.standardInsert.ibr.fields.isEmpty) {
+        // Use batch insert because sqlite doesn't support multi default values
+        new MultiInsertAction(compiled.standardInsert, values)
+      } else
+        super.insertAll(values, rowsPerStatement)
   }
 
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new CountingInsertActionComposerImpl[T](compiled) with OverrideInsertAll[T]
+    new CountingInsertActionComposerImpl[T](compiled) with SQLiteInsertAll[T]
 
-  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
-    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) with OverrideInsertAll[U]
+  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert,
+                                                              keys: Node,
+                                                              mux: (U, QR) => RU
+                                                             ): ReturningInsertActionComposer[U, RU] =
+    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) with SQLiteInsertAll[U]
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false

@@ -505,20 +505,26 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
-      if(syms.isEmpty) {
+      if (syms.isEmpty)
         new InsertBuilderResult(table, emptyInsert, syms) {
-          override def buildInsertMultipleRowsSql(size: Int): String =
-            if(allFields.isEmpty) throw new SlickException("Bulk insert is not supported for 'default values' phrase.")
-            else s"insert into $tableName (${quoteIdentifier(allFields.head.name)}) values ${(1 to size).map(_ => "(default)").mkString(",")}"
+          override def buildMultiRowInsert(size: Int): String =
+            if (allFields.isEmpty)
+              throw new SlickException("Multi-row insert is not supported for 'default values' phrase.")
+            else {
+              val valuesExpr = (1 to size).map(_ => "" + "(default)").mkString(",")
+              s"insert into $tableName (${quoteIdentifier(allFields.head.name)}) values $valuesExpr"
+            }
         }
-      } else new InsertBuilderResult(table, s"$start values $allVars", syms) {
-        override def buildInsert(compiledQuery: Node) = {
-          val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery)
-          SQLBuilder.Result(start + sbr.sql, sbr.setter)
+      else
+        new InsertBuilderResult(table, s"$start values $allVars", syms) {
+          override def buildInsert(compiledQuery: Node) = {
+            val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery)
+            SQLBuilder.Result(start + sbr.sql, sbr.setter)
+          }
+
+          override def buildMultiRowInsert(size: Int): String =
+            s"${buildInsertStart} values ${(1 to size).map(_ => allVars).mkString(",")}"
         }
-        override def buildInsertMultipleRowsSql(size: Int): String =
-          s"${buildInsertStart} values ${(1 to size).map(_ => allVars).mkString(",")}"
-      }
     }
 
     def transformMapping(n: Node) = n
@@ -778,7 +784,6 @@ class InsertBuilderResult(val table: TableNode, val sql: String, val fields: Con
   def buildInsert(compiledQuery: Node): SQLBuilder.Result =
     throw new SlickException("Building Query-based inserts from this InsertBuilderResult is not supported")
 
-  def buildInsertMultipleRowsSql(size: Int): String =
-    throw new SlickException("Building bulk sql from this InsertBuilderResult is not supported")
-
+  def buildMultiRowInsert(size: Int): String =
+    throw new SlickException("Building multi-row inserts from this InsertBuilderResult is not supported")
 }

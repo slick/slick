@@ -1,13 +1,13 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.{DerbyProfile, JdbcCapabilities}
+import slick.jdbc.{DerbyProfile, JdbcCapabilities, RowsPerStatement}
+
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
 
   import tdb.profile.api._
-  import tdb.profile.StatementOption
 
 
   def testSimple = {
@@ -69,7 +69,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val records = Seq((1, 10), (2, 20), (3, 30))
     DBIO.seq(
       as.schema.create,
-      as.insertAll(records, StatementOption.SingleStatement).map(_ shouldBe Some(3)),
+      as.insertAll(records, RowsPerStatement.All).map(_ shouldBe Some(3)),
       as.sortBy(_.id).result.map(_ shouldBe records)
     )
   }
@@ -84,7 +84,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val records = Seq(E(1, 10), E(2, 20), E(3, 30))
     DBIO.seq(
       as.schema.create,
-      as.insertAll(records, StatementOption.SingleStatement).map(_ shouldBe Some(3)),
+      as.insertAll(records, RowsPerStatement.All).map(_ shouldBe Some(3)),
       as.sortBy(_.id).result.map(_ shouldBe records)
     )
   }
@@ -98,7 +98,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val records = Seq((10, 10), (20, 20), (30, 30))
     for {
       _ <- as.schema.create
-      result <- as.returning(as.map(_.id)).insertAll(records, StatementOption.SingleStatement)
+      result <- as.returning(as.map(_.id)).insertAll(records, RowsPerStatement.All)
       _ <- ifCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Seq(1, 2, 3)))
       _ <- ifNotCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Nil))
       _ <- as.sortBy(_.id).result.map(_ shouldBe Seq((1, 10), (2, 20), (3, 30)))
@@ -113,7 +113,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val as = TableQuery[A]
     DBIO.seq(
       as.schema.create,
-      as.insertAll(Seq(1, 2, 3), StatementOption.SingleStatement),
+      as.insertAll(Seq(1, 2, 3), RowsPerStatement.All),
       as.result.map(_ shouldBe Seq(1, 2, 3))
     )
   }
