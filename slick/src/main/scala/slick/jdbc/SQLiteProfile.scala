@@ -178,17 +178,16 @@ trait SQLiteProfile extends JdbcProfile {
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   private trait SQLiteInsertAll[U] extends InsertActionComposerImpl[U] {
-    override def insertAll(values: Iterable[U],
-                           rowsPerStatement: RowsPerStatement = RowsPerStatement.All): FixedSqlAction[
-      MultiInsertResult,
-      NoStream,
-      Effect.Write
-    ] =
-      if (compiled.standardInsert.ibr.fields.isEmpty) {
-        // Use batch insert because sqlite doesn't support multi default values
-        new MultiInsertAction(compiled.standardInsert, values)
-      } else
-        super.insertAll(values, rowsPerStatement)
+    override def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement = RowsPerStatement.All) =
+      super.insertAll(
+        values = values,
+        rowsPerStatement =
+          if (compiled.standardInsert.ibr.fields.isEmpty) {
+            // Use batch insert because sqlite doesn't support multi default values
+            RowsPerStatement.One
+          } else
+            rowsPerStatement
+      )
   }
 
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =

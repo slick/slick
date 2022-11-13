@@ -542,17 +542,12 @@ END;
 
 
   private trait OracleInsertAll[U] extends InsertActionComposerImpl[U] {
-    override def insertAll(values: Iterable[U],
-                           rowsPerStatement: RowsPerStatement = RowsPerStatement.One): FixedSqlAction[
-      MultiInsertResult,
-      NoStream,
-      Effect.Write
-    ] =
+    override def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement = RowsPerStatement.One) =
       rowsPerStatement match {
         case RowsPerStatement.One =>
-          new MultiInsertAction(compiled.standardInsert, values)
+          super.insertAll(values, rowsPerStatement)
         case RowsPerStatement.All =>
-          throw new SlickException("OracleProfile doesn't support multiple insert with single statement.")
+          throw new SlickException("OracleProfile doesn't support inserting multiple rows with a single statement.")
       }
   }
 
