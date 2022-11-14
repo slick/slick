@@ -527,7 +527,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     protected def retOne(st: Statement, value: U, updateCount: Int): SingleInsertResult
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): MultiInsertResult
-    protected def retMulti(st: Statement, values: Iterable[U], updateCount: Int): MultiInsertResult
+    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int): MultiInsertResult
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): MultiInsertResult
     protected def retOneInsertOrUpdate(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult
     protected def retOneInsertOrUpdateFromInsert(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult
@@ -540,18 +540,21 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def preparedOther[T](sql: String, session: Backend#Session)(f: PreparedStatement => T) =
       session.withPreparedStatement(sql)(f)
 
-    class SingleInsertAction(a: compiled.Artifacts, value: U) extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
-      def run(ctx: Backend#Context, sql: Vector[String]) = preparedInsert(sql.head, ctx.session) { st =>
+    private def insertSingleRow(sql: Vector[String], ctx: Backend#Context, a: compiled.Artifacts, value: U) =
+      preparedInsert(sql.head, ctx.session) { st =>
         st.clearParameters()
         a.converter.set(value, st, 0)
         val count = st.executeUpdate()
         retOne(st, value, count)
       }
+
+    final class SingleInsertAction(a: compiled.Artifacts, value: U)
+      extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
+      override def run(ctx: Backend#Context, sql: Vector[String]) =
+        insertSingleRow(sql, ctx, a, value)
     }
 
-    class MultiInsertAction(a: compiled.Artifacts,
-                            values: Iterable[U],
-                            rowsPerStatement: RowsPerStatement)
+    class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U], rowsPerStatement: RowsPerStatement)
       extends SimpleJdbcProfileAction[MultiInsertResult](
         _name = "MultiInsertAction",
         statements = rowsPerStatement match {
@@ -559,16 +562,15 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           case RowsPerStatement.All => Vector(a.ibr.buildMultiRowInsert(values.size))
         }
       ) {
-      private def doUnbatched(ctx: Backend#Context, sql: Vector[String]) =
-        retMany(values, values.iterator.map { v =>
-          preparedInsert(sql.head, ctx.session) { st =>
-            st.clearParameters()
-            a.converter.set(v, st, 0)
-            retOne(st, v, st.executeUpdate())
-          }
-        }.toVector)
+      protected def doUnbatched(ctx: Backend#Context, sql: Vector[String]) = {
+        val results =
+          for (value <- values.iterator) yield
+            insertSingleRow(sql, ctx, a, value)
 
-      private def doBatched(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) =
+        retMany(values, results.toVector)
+      }
+
+      protected def doBatched(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) =
         preparedInsert(sql.head, ctx.session) { st =>
           st.clearParameters()
           for (value <- values) {
@@ -579,16 +581,15 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           retManyBatch(st, values, counts)
         }
 
-      private def doMultiRowStatement(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) = {
-        val size = a.ibr.fields.length
+      protected def doMultiRowStatement(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) =
         preparedInsert(sql.head, ctx.session) { st =>
           st.clearParameters()
-          values.zipWithIndex.foreach {
-            case (value, idx) => a.converter.set(value, st, idx * size)
-          }
-          retMulti(st, values, st.executeUpdate())
+          val size = a.ibr.fields.length
+          for ((value, idx) <- values.zipWithIndex)
+            a.converter.set(value, st, idx * size)
+          val count = st.executeUpdate()
+          retManyMultiRowStatement(st, values, count)
         }
-      }
 
       def run(ctx: Backend#Context, sql: Vector[String]) =
         rowsPerStatement match {
@@ -682,7 +683,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def retOneInsertOrUpdateFromUpdate = 1
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = Some(individual.sum)
-    protected def retMulti(st: Statement, values: Iterable[U], updateCount: Int) = Some(updateCount)
+    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int) = Some(updateCount)
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) = {
       var unknown = false
@@ -721,7 +722,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): Seq[SingleInsertResult] = individual
 
-    protected def retMulti(st: Statement, values: Iterable[U], updateCount: Int): Seq[RU] = {
+    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int): Seq[RU] = {
       if (capabilities.contains(JdbcCapabilities.returnMultipleInsertKey))
         (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
       else
