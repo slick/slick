@@ -575,7 +575,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     class InsertAllAction(a: compiled.Artifacts, values: Iterable[U]) extends SimpleJdbcProfileAction[MultiInsertResult]("InsertAllAction", Vector(a.ibr.buildInsertMultipleRowsSql(values.size))) {
       override def run(ctx: Backend#Context, sql: Vector[String]): MultiInsertResult = {
         val size = a.ibr.fields.length
-        preparedInsert(statements.head, ctx.session) { st =>
+        preparedInsert(sql.head, ctx.session) { st =>
           st.clearParameters()
           values.zipWithIndex.foreach {
             case (value, idx) => a.converter.set(value, st, idx * size)
