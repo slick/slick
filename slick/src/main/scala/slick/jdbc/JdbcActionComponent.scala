@@ -328,7 +328,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters
-          converter.set(value, st)
+          converter.set(value, st, 0)
           sres.setter(st, converter.width+1, param)
           st.executeUpdate
         }
@@ -376,11 +376,31 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def forceInsert(value: U): ProfileAction[SingleInsertResult, NoStream, Effect.Write]
 
     /** Insert multiple rows, skipping AutoInc columns.
+      *
+      * @param values           the rows to insert
+      * @param rowsPerStatement [[RowsPerStatement.All]] to use a single statement to insert all rows at once,
+      *                         or [[RowsPerStatement.One]] to use a separate SQL statement for each row.
+      *                         Even so, if supported this will use JDBC's batching functionality.
+      * @return Some(rowsAffected), or None if the database returned no row
+      *         count for some part of the batch. If any part of the batch fails, an
+      *         exception is thrown.
+      */
+    def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement = RowsPerStatement.All): ProfileAction[
+      MultiInsertResult,
+      NoStream,
+      Effect.Write
+    ]
+
+    /** Insert multiple rows, skipping AutoInc columns.
       * Uses JDBC's batch update feature if supported by the JDBC driver.
       * Returns Some(rowsAffected), or None if the database returned no row
       * count for some part of the batch. If any part of the batch fails, an
-      * exception is thrown. */
-    def ++= (values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write]
+      * exception is thrown.
+      *
+      * This method is a shorthand for [[insertAll]] with [[RowsPerStatement.One]].
+      */
+    final def ++= (values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write] =
+      insertAll(values, RowsPerStatement.One)
 
     /** Insert multiple rows, including AutoInc columns.
       * This is not supported by all database engines (see
@@ -429,7 +449,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     type SingleInsertOrUpdateResult = Int
     type QueryInsertResult = Int
 
-    /** Add a mapping from the inserted values and the generated key to compute a new return value. */
+    /** Add a mapping from the inserted values and the generated key to compute a new return value.
+     * When using [[insertAll]], some JDBC drivers may not be able to return the generated key.
+     * In that case, the collection of keys returned by [[insertAll]] will be Nil. */
     def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertActionComposer[U, RU]
   }
 
@@ -468,11 +490,15 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def forceInsert(value: U): ProfileAction[SingleInsertResult, NoStream, Effect.Write] =
       new SingleInsertAction(compiled.forceInsert, value)
 
-    def ++= (values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write] =
-      new MultiInsertAction(compiled.standardInsert, values)
+    def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
+      MultiInsertResult,
+      NoStream,
+      Effect.Write
+    ] =
+      new MultiInsertAction(compiled.standardInsert, values, rowsPerStatement)
 
     def forceInsertAll(values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write] =
-      new MultiInsertAction(compiled.forceInsert, values)
+      new MultiInsertAction(compiled.forceInsert, values, RowsPerStatement.One)
 
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] =
       new InsertOrUpdateAction(value)
@@ -501,6 +527,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     protected def retOne(st: Statement, value: U, updateCount: Int): SingleInsertResult
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): MultiInsertResult
+    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int): MultiInsertResult
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): MultiInsertResult
     protected def retOneInsertOrUpdate(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult
     protected def retOneInsertOrUpdateFromInsert(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult
@@ -513,36 +540,67 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def preparedOther[T](sql: String, session: Backend#Session)(f: PreparedStatement => T) =
       session.withPreparedStatement(sql)(f)
 
-    class SingleInsertAction(a: compiled.Artifacts, value: U) extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
-      def run(ctx: Backend#Context, sql: Vector[String]) = preparedInsert(sql.head, ctx.session) { st =>
+    private def insertSingleRow(sql: Vector[String], ctx: Backend#Context, a: compiled.Artifacts, value: U) =
+      preparedInsert(sql.head, ctx.session) { st =>
         st.clearParameters()
-        a.converter.set(value, st)
+        a.converter.set(value, st, 0)
         val count = st.executeUpdate()
         retOne(st, value, count)
       }
+
+    final class SingleInsertAction(a: compiled.Artifacts, value: U)
+      extends SimpleJdbcProfileAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
+      override def run(ctx: Backend#Context, sql: Vector[String]) =
+        insertSingleRow(sql, ctx, a, value)
     }
 
-    class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U]) extends SimpleJdbcProfileAction[MultiInsertResult]("MultiInsertAction", Vector(a.sql)) {
-      def run(ctx: Backend#Context, sql: Vector[String]) = {
-        val sql1 = sql.head
-        if(!useBatchUpdates(ctx.session) || (values.isInstanceOf[IndexedSeq[_]] && values.asInstanceOf[IndexedSeq[_]].length < 2))
-          retMany(values, values.iterator.map { v =>
-            preparedInsert(sql1, ctx.session) { st =>
-              st.clearParameters()
-              a.converter.set(v, st)
-              retOne(st, v, st.executeUpdate())
-            }
-          }.toVector)
-        else preparedInsert(sql1, ctx.session) { st =>
+    class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U], rowsPerStatement: RowsPerStatement)
+      extends SimpleJdbcProfileAction[MultiInsertResult](
+        _name = "MultiInsertAction",
+        statements = rowsPerStatement match {
+          case RowsPerStatement.One => Vector(a.sql)
+          case RowsPerStatement.All => Vector(a.ibr.buildMultiRowInsert(values.size))
+        }
+      ) {
+      protected def doUnbatched(ctx: Backend#Context, sql: Vector[String]) = {
+        val results =
+          for (value <- values.iterator) yield
+            insertSingleRow(sql, ctx, a, value)
+
+        retMany(values, results.toVector)
+      }
+
+      protected def doBatched(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) =
+        preparedInsert(sql.head, ctx.session) { st =>
           st.clearParameters()
-          for(value <- values) {
-            a.converter.set(value, st)
+          for (value <- values) {
+            a.converter.set(value, st, 0)
             st.addBatch()
           }
           val counts = st.executeBatch()
           retManyBatch(st, values, counts)
         }
-      }
+
+      protected def doMultiRowStatement(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) =
+        preparedInsert(sql.head, ctx.session) { st =>
+          st.clearParameters()
+          val size = a.ibr.fields.length
+          for ((value, idx) <- values.zipWithIndex)
+            a.converter.set(value, st, idx * size)
+          val count = st.executeUpdate()
+          retManyMultiRowStatement(st, values, count)
+        }
+
+      def run(ctx: Backend#Context, sql: Vector[String]) =
+        rowsPerStatement match {
+          case RowsPerStatement.One =>
+            values match {
+              case seq: IndexedSeq[_] if seq.length < 2 => doUnbatched(ctx, sql)
+              case _ if !useBatchUpdates(ctx.session)   => doUnbatched(ctx, sql)
+              case _                                    => doBatched(ctx, sql)
+            }
+          case RowsPerStatement.All => doMultiRowStatement(ctx, sql)
+        }
     }
 
     class InsertOrUpdateAction(value: U) extends SimpleJdbcProfileAction[SingleInsertOrUpdateResult]("InsertOrUpdateAction",
@@ -580,7 +638,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       protected def nativeUpsert(value: U, sql: String)(implicit session: Backend#Session): SingleInsertOrUpdateResult =
         preparedInsert(sql, session) { st =>
           st.clearParameters()
-          compiled.upsert.converter.set(value, st)
+          compiled.upsert.converter.set(value, st, 0)
           val count = st.executeUpdate()
           retOneInsertOrUpdate(st, value, count)
         }
@@ -588,18 +646,18 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       protected def emulate(value: U, checkSql: String, updateSql: String, insertSql: String)(implicit session: Backend#Session): SingleInsertOrUpdateResult = {
         val found = preparedOther(checkSql, session) { st =>
           st.clearParameters()
-          compiled.checkInsert.converter.set(value, st)
+          compiled.checkInsert.converter.set(value, st, 0)
           val rs = st.executeQuery()
           try rs.next() finally rs.close()
         }
         if(found) preparedOther(updateSql, session) { st =>
           st.clearParameters()
-          compiled.updateInsert.converter.set(value, st)
+          compiled.updateInsert.converter.set(value, st, 0)
           st.executeUpdate()
           retOneInsertOrUpdateFromUpdate
         } else preparedInsert(insertSql, session) { st =>
           st.clearParameters()
-          compiled.standardInsert.converter.set(value, st)
+          compiled.standardInsert.converter.set(value, st, 0)
           val count = st.executeUpdate()
           retOneInsertOrUpdateFromInsert(st, value, count)
         }
@@ -625,6 +683,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def retOneInsertOrUpdateFromUpdate = 1
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = Some(individual.sum)
+    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int) = Some(updateCount)
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) = {
       var unknown = false
@@ -662,6 +721,13 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def retOne(st: Statement, value: U, updateCount: Int) = mux(value, buildKeysResult(st).first(null))
 
     protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): Seq[SingleInsertResult] = individual
+
+    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int): Seq[RU] = {
+      if (capabilities.contains(JdbcCapabilities.returnMultipleInsertKey))
+        (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
+      else
+        Nil
+    }
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): Seq[RU] =
       (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq

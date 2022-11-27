@@ -72,6 +72,9 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     There's not builtin string function repeat in Derby.
   *     <a href="https://db.apache.org/derby/docs/10.10/ref/rrefsqlj29026.html" target="_parent"
   *     >https://db.apache.org/derby/docs/10.10/ref/rrefsqlj29026.html</a></li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
+  *     Derby's driver is unable to properly return the generated key for insert statements with multiple values.
+  *     (<a href="https://issues.apache.org/jira/browse/DERBY-3609" target="_parent"></a>DERBY-3609</li>)
   * </ul>
   */
 trait DerbyProfile extends JdbcProfile {
@@ -92,6 +95,7 @@ trait DerbyProfile extends JdbcProfile {
     - JdbcCapabilities.booleanMetaData
     - JdbcCapabilities.supportsByte
     - RelationalCapabilities.repeat
+    - JdbcCapabilities.returnMultipleInsertKey
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

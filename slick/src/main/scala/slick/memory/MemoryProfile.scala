@@ -93,7 +93,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     def += (value: T)(implicit session: Backend#Session): Unit = {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
-      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf)
+      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf, 0)
       htable.append(buf.toIndexedSeq)
     }
 
@@ -210,7 +210,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     class InsertResultConverter(tidx: Int) extends ResultConverter[MemoryResultConverterDomain, Any] {
       def read(pr: MemoryResultConverterDomain#Reader) = ??
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ??
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer) = pp(tidx) = value
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer, offset: Int) = pp(tidx + offset) = value
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tidx=$tidx")
       def width = 1
     }

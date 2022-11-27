@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.{DerbyProfile, JdbcCapabilities}
+import slick.jdbc.{DerbyProfile, JdbcCapabilities, RowsPerStatement}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
@@ -56,6 +56,65 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       as.schema.create,
       as += 42,
       as.result.map(_ shouldBe Seq(1))
+    )
+  }
+
+  def testInsertAllTupleWithSingleInsert = ifCap(jcap.insertMultipleRowsWithSingleStatement) {
+    class A(tag: Tag) extends Table[(Int, Int)](tag, "insert_all") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def v1 = column[Int]("v1")
+      def * = (id, v1)
+    }
+    val as = TableQuery[A]
+    val records = Seq((1, 10), (2, 20), (3, 30))
+    DBIO.seq(
+      as.schema.create,
+      as.insertAll(records, RowsPerStatement.All).map(_ shouldBe Some(3)),
+      as.sortBy(_.id).result.map(_ shouldBe records)
+    )
+  }
+  def testInsertAllProduct = ifCap(jcap.insertMultipleRowsWithSingleStatement) {
+    case class E(id: Int, v1: Int)
+    class A(tag: Tag) extends Table[E](tag, "insert_all_product") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def v1 = column[Int]("v1")
+      def * = (id, v1).mapTo[E]
+    }
+    val as = TableQuery[A]
+    val records = Seq(E(1, 10), E(2, 20), E(3, 30))
+    DBIO.seq(
+      as.schema.create,
+      as.insertAll(records, RowsPerStatement.All).map(_ shouldBe Some(3)),
+      as.sortBy(_.id).result.map(_ shouldBe records)
+    )
+  }
+  def testInsertAllAutoInc = ifCap (jcap.returnInsertKey, jcap.insertMultipleRowsWithSingleStatement) {
+    class A(tag: Tag) extends Table[(Int, Int)](tag, "insert_all_auto_inc") {
+      def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
+      def v1 = column[Int]("V1")
+      def * = (id, v1)
+    }
+    val as = TableQuery[A]
+    val records = Seq((10, 10), (20, 20), (30, 30))
+    for {
+      _ <- as.schema.create
+      result <- as.returning(as.map(_.id)).insertAll(records, RowsPerStatement.All)
+      _ <- ifCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Seq(1, 2, 3)))
+      _ <- ifNotCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Nil))
+      _ <- as.sortBy(_.id).result.map(_ shouldBe Seq((1, 10), (2, 20), (3, 30)))
+    } yield ()
+  }
+
+  def testInsertAllDefaultValue = ifCap(jcap.insertMultipleRowsWithSingleStatement) {
+    class A(tag: Tag) extends Table[Int](tag, "insert_all_default") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def * = id
+    }
+    val as = TableQuery[A]
+    DBIO.seq(
+      as.schema.create,
+      as.insertAll(Seq(1, 2, 3), RowsPerStatement.All),
+      as.result.map(_ shouldBe Seq(1, 2, 3))
     )
   }
 
