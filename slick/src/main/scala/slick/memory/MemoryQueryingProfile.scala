@@ -95,7 +95,7 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
         else v
       }
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ??
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer) = ??
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer, offset: Int) = ??
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"ridx=$ridx, nullable=$nullable")
       def width = 1
     }

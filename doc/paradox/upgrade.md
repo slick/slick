@@ -58,10 +58,23 @@ carefully after upgrading. See issue [#1938](https://github.com/slick/slick/issu
 The following bug fixes are highlighted here because they change the default mapping behaviour for some `java.time`
 columns in PostgreSQL:
 
-- `java.time.Instant.MIN` and `java.time.Instant.MAX` are now correctly mapped to `-infinity` and `infinity` 
+- `java.time.Instant.MIN` and `java.time.Instant.MAX` are now correctly mapped to `-infinity` and `infinity`
   respectively in PostgreSQL profile ([#2237](https://github.com/slick/slick/issues/2237))
 - changes to handling of timezone part of `java.time.Instant` in PostgreSQL profile
   ([#2005](https://github.com/slick/slick/issues/2005))
+
+Upgrade from 3.4 to 3.5
+-----------------------
+
+### ResultConverter
+
+``ResultConverter`` is an internal interface for converting between values handled in JDBC and values handled in
+application code (case classes, etc.). While you most likely aren't using it directly, you may need to call methods
+of this interface if you are override behavior of a profile or writing a new one.
+
+In order to support a single insert statement with multiple rows, the `set` method now takes an `offset` parameter.
+If you have extended a profile and used the `set` method of this interface, you may need to specify 0 for the offset
+(unless the number of variable placeholders in the SQL dynamically changes).
 
 Upgrade from 3.2 to 3.3
 -----------------------

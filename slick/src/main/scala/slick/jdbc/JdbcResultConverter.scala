@@ -12,8 +12,8 @@ class BaseResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Doub
     v
   }
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
-  def set(value: T, pp: PreparedStatement) =
-    ti.setValue(value, pp, idx)
+  def set(value: T, pp: PreparedStatement, offset: Int) =
+    ti.setValue(value, pp, idx + offset)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx, name=$name", attrInfo = ": " + ti)
   def width = 1
 }
@@ -29,9 +29,9 @@ class OptionResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Do
     case Some(v) => ti.updateValue(v, pr, idx)
     case _ => ti.updateNull(pr, idx)
   }
-  def set(value: Option[T], pp: PreparedStatement) = value match {
-    case Some(v) => ti.setValue(v, pp, idx)
-    case _ => ti.setNull(pp, idx)
+  def set(value: Option[T], pp: PreparedStatement, offset: Int) = value match {
+    case Some(v) => ti.setValue(v, pp, idx + offset)
+    case _ => ti.setNull(pp, idx + offset)
   }
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
   def width = 1
@@ -54,7 +54,7 @@ class DefaultingResultConverter[@specialized(Byte, Short, Int, Long, Char, Float
     if(ti.wasNull(pr, idx)) default() else v
   }
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
-  def set(value: T, pp: PreparedStatement) = ti.setValue(value, pp, idx)
+  def set(value: T, pp: PreparedStatement, offset: Int) = ti.setValue(value, pp, idx + offset)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx, default=" +
     { try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } },
     attrInfo = ": " + ti)
@@ -69,7 +69,7 @@ class IsDefinedResultConverter[@specialized(Byte, Short, Int, Long, Char, Float,
   }
   def update(value: Boolean, pr: ResultSet) =
     throw new SlickException("Cannot insert/update IsDefined check")
-  def set(value: Boolean, pp: PreparedStatement) =
+  def set(value: Boolean, pp: PreparedStatement, offset: Int) =
     throw new SlickException("Cannot insert/update IsDefined check")
   def width = 1
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
