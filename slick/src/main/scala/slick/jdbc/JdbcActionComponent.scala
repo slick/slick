@@ -4,7 +4,7 @@ import java.sql.{PreparedStatement, Statement}
 import slick.SlickException
 import slick.ast.ColumnOption.PrimaryKey
 import slick.dbio._
-import slick.ast.{Comment, _}
+import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil.:@
 import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
@@ -205,7 +205,11 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       }
       val (comment, tree2) = tree match {
         case Comment(comment, child) =>
-          (s"/* $comment */\n", child)
+          if(comment.isEmpty) {
+            ("", child)
+          } else {
+            (s"/* $comment */\n", child)
+          }
         case _ =>
           ("", tree)
       }
