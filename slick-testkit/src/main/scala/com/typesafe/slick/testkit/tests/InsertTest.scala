@@ -3,6 +3,9 @@ package com.typesafe.slick.testkit.tests
 import slick.jdbc.{DerbyProfile, JdbcCapabilities, RowsPerStatement}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import slick.jdbc.{DerbyProfile, JdbcCapabilities}
+
+import scala.util.{Failure, Success}
 
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -129,7 +132,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val atq = TableQuery[A]
 
-    import scala.util.{Failure, Success}
     DBIO.seq(
       atq.schema.create,
       atq ++= Seq( ARow("unique@site.com") , ARow("user@site.com") ),
@@ -223,6 +225,32 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       _ <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
       _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
     } yield ()
+  }
+
+  def testInsertOrUpdateAll = {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "insert_or_update") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+    def prepare = DBIO.seq(ts.schema.create, ts ++= Seq((1, "a"), (2, "b")))
+    if (tdb.capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
+      for {
+        _ <- prepare
+        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe 3))
+        _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
+      } yield ()
+    } else {
+      for {
+        _ <- prepare
+        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d")))
+      } yield ()
+    }.asTry.map {
+      case Failure(exception) => exception.isInstanceOf[SlickException] shouldBe true
+      case _ => throw new RuntimeException("Should insertOrUpdateAll is not supported for this profile.")
+    }
   }
 
   def testInsertOrUpdateNoPK = {
@@ -345,7 +373,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val meta = TableQuery[BookMetaTable]
 
-    import scala.util.Success
     val bookMeta = BookMeta(-1, -1, 0) // fail, because there are no books.
     DBIO.seq(
       (meta.insertOrUpdate(bookMeta)).asTry.map {
@@ -364,7 +391,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def * = (id, name) <> (Test.tupled, Test.unapply)
     }
     val ts = TableQuery[TestTable]
-    import scala.util.Success
     DBIO.seq(
       ts.schema.create,
       ts ++= Seq(Test(1, "a")),
