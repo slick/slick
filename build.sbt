@@ -109,6 +109,9 @@ val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for
 
 val buildCompatReport = taskKey[File]("Build the compatibility report")
 
+val writeVersionToGitHubOutput = taskKey[Unit]("Write the version to github output")
+val writeCompatReportToGitHubOutput = taskKey[Unit]("Write the compatibility report to github output")
+
 val docDir = settingKey[File]("Base directory for documentation")
 
 ThisBuild / docDir := (site / baseDirectory).value
@@ -262,6 +265,12 @@ lazy val `reactive-streams-tests` =
       commonTestResourcesSetting
     )
 
+def writeToGitHubOutput(text: String, logger: Logger) = {
+  val string = s"result=$text\n"
+  logger.info(s"Writing to GitHub Actions output file: $string")
+  IO.append(file(sys.env("GITHUB_OUTPUT")), string)
+}
+
 lazy val site: Project =
   project
     .in(file("doc"))
@@ -291,6 +300,12 @@ lazy val site: Project =
             )
         )
         file
+      },
+      writeVersionToGitHubOutput := {
+        writeToGitHubOutput(version.value, streams.value.log)
+      },
+      writeCompatReportToGitHubOutput := {
+        writeToGitHubOutput(buildCompatReport.value.toString, streams.value.log)
       },
       preprocessDocs := {
         val out = (preprocessDocs / target).value
