@@ -24,7 +24,7 @@ jobs:
 
     - name: Get base version
       id: getBaseVer
-      run: echo "::set-output name=baseVer::$(sbt -error 'print slick/version')"
+      run: echo baseVer=$(sbt -no-colors -error "print slick/version") | tee -a $GITHUB_OUTPUT
 
     - run: sbt publishLocal
       name: Publish ${{ steps.getBaseVer.outputs.baseVer }} locally
@@ -40,11 +40,12 @@ jobs:
     - name: Generate compatibility changes report
       id: createReport
       run: |
-        echo -n "::set-output name=reportFile::"
+        echo -n "reportFile=" | tee -a $GITHUB_OUTPUT
         sbt \
-          -error \
+          -no-colors -error \
           'set every CompatReportPlugin.previousRelease := Some("${{ steps.getBaseVer.outputs.baseVer }}")' \
-          'print site/buildCompatReport'
+          'print site/buildCompatReport' \
+          | tee -a $GITHUB_OUTPUT
 
     - name: Show report saved in ${{ steps.createReport.outputs.reportFile }}
       run: cat ${{ steps.createReport.outputs.reportFile }}
