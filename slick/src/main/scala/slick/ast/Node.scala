@@ -458,9 +458,8 @@ final case class Union(left: Node, right: Node, all: Boolean) extends BinaryNode
   protected def buildType = left.nodeType
 }
 
-/** A new Node of of type Comment which consists of a string (comment)
-  * and the actual query as the child node.
-  * */
+/** A Node of type Comment which consists of a string (comment)
+  * and the actual query as the child node. */
 final case class Comment(comment: String, child: Node) extends UnaryNode with SimplyTypedNode {
   override protected[this] def rebuild(child: Node) = copy(child = child)
   override type Self = Comment

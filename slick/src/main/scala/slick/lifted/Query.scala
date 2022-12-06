@@ -24,9 +24,8 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def shaped: ShapedValue[_ <: E, U]
   final lazy val packed = shaped.toNode
 
-  /** Add a comment on top of the query
-    * */
-  def withComments(comment: String): Query[E, U, C] = {
+  /** Add a comment on top of the query */
+  def withComment(comment: String): Query[E, U, C] = {
     new WrappingQuery[E, U, C](new Comment(comment, toNode), shaped)
   }
 

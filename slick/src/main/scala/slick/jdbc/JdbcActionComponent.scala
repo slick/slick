@@ -203,17 +203,13 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         case ParameterSwitch(cases, default) =>
           findSql(cases.find { case (f, n) => f(param) }.map(_._2).getOrElse(default))
       }
-      val (comment, tree2) = tree match {
-        case Comment(comment, child) =>
-          if(comment.isEmpty) {
-            ("", child)
-          } else {
-            (s"/* $comment */\n", child)
-          }
+      val (comment, updatedTree) = tree match {
+        case Comment(comment, child) if comment.trim.nonEmpty =>
+          (s"/* $comment */\n", child)
         case _ =>
           ("", tree)
       }
-      (tree2 match {
+      (updatedTree match {
         case (rsm @ ResultSetMapping(_, compiled, CompiledMapping(_, elemType))) :@ (ct: CollectionType) =>
           val sql = comment + findSql(compiled)
           new StreamingInvokerAction[R, Any, Effect] { streamingAction =>
