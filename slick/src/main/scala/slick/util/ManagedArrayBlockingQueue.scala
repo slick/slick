@@ -7,29 +7,29 @@ import java.util
 import slick.util.AsyncExecutor._
 
 /** A simplified copy of `java.util.concurrent.ArrayBlockingQueue` with additional logic for
-  * temporarily rejecting elements based on the current size. All features of the original
-  * ArrayBlockingQueue have been ported, except the mutation methods of the iterator. See
-  * `java.util.concurrent.ArrayBlockingQueue` for documentation.
-  *
-  * Furthermore this implementation has a `pause` feature where it does not pass through
-  * low- or mid-priority tasks when paused.
-  */
-class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: Int, capacity: Int, fair: Boolean = false)
-  extends util.AbstractQueue[E]
-  with BlockingQueue[E]
-  with Logging { self =>
+ * temporarily rejecting elements based on the current size. All features of the original
+ * ArrayBlockingQueue have been ported, except the mutation methods of the iterator. See
+ * `java.util.concurrent.ArrayBlockingQueue` for documentation.
+ *
+ * Furthermore this implementation has a `pause` feature where it does not pass through
+ * low- or mid-priority tasks when paused.
+ */
+class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean = false)
+  extends util.AbstractQueue[PrioritizedRunnable]
+    with BlockingQueue[PrioritizedRunnable]
+    with Logging { self =>
 
   private[this] val lock = new ReentrantLock(fair)
   private[this] val notEmpty = lock.newCondition
   private[this] val itemQueueNotFull = lock.newCondition
 
   private[this] def checkNotNull(v: AnyRef): Unit = if (v == null) throw new NullPointerException
-  private[this] def checkNotInUse(e: E) = require(!e.inUseCounterSet, "in use count is already set")
+  private[this] def checkNotInUse(e: PrioritizedRunnable) = require(!e.inUseCounterSet, "in use count is already set")
 
-  private[this] val itemQueue = new InternalArrayQueue[E](2*capacity)
-  private[this] val highPrioItemQueue = new InternalArrayQueue[E](capacity)
+  private[this] val itemQueue = new InternalArrayQueue[PrioritizedRunnable](2 * capacity)
+  private[this] val highPriorityItemQueue = new InternalArrayQueue[PrioritizedRunnable](capacity)
 
-  private[this] def counts = (if (paused) 0 else itemQueue.count) + highPrioItemQueue.count
+  private[this] def counts = (if (paused) 0 else itemQueue.count) + highPriorityItemQueue.count
 
   /**
    * The number of low/medium priority items in use
@@ -89,23 +89,25 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
       }
 
   // implementation of offer(e), put(e) and offer(e, timeout, unit)
-  private[this] def insert(e: E): Boolean = {
+  private[this] def insert(e: PrioritizedRunnable): Boolean = {
     val r = e.priority() match {
-      case WithConnection => highPrioItemQueue.insert(e)
-      case Continuation => itemQueue.insert(e)
-      case Fresh => if (itemQueue.count < capacity) itemQueue.insert(e) else false
+      case WithConnection => highPriorityItemQueue.insert(e)
+      case Continuation   => itemQueue.insert(e)
+      case Fresh          => if (itemQueue.count < capacity) itemQueue.insert(e) else false
     }
     if (r) notEmpty.signal()
     r
   }
 
-  def offer(e: E): Boolean = {
+  def offer(e: PrioritizedRunnable): Boolean = {
     checkNotNull(e)
     checkNotInUse(e)
-    locked { insert(e) }
+    locked {
+      insert(e)
+    }
   }
 
-  def put(e: E): Unit = {
+  def put(e: PrioritizedRunnable): Unit = {
     checkNotNull(e)
     checkNotInUse(e)
     lockedInterruptibly {
@@ -114,7 +116,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     }
   }
 
-  def offer(e: E, timeout: Long, unit: TimeUnit): Boolean = {
+  def offer(e: PrioritizedRunnable, timeout: Long, unit: TimeUnit): Boolean = {
     checkNotNull(e)
     checkNotInUse(e)
     var nanos: Long = unit.toNanos(timeout)
@@ -128,8 +130,8 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
   }
 
   // implementation of poll, take and poll(timeout, unit)
-  private[this] def extract(): E = {
-    if (highPrioItemQueue.count != 0) highPrioItemQueue.extract
+  private[this] def extract(): PrioritizedRunnable = {
+    if (highPriorityItemQueue.count != 0) highPriorityItemQueue.extract
     else if (!paused && itemQueue.count != 0) {
       val item = itemQueue.extract
       require(attemptPrepare(item), "In-use count limit reached")
@@ -138,14 +140,16 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     else null
   }
 
-  def poll: E = locked { extract() }
+  def poll: PrioritizedRunnable = locked {
+    extract()
+  }
 
-  def take: E = lockedInterruptibly {
+  def take: PrioritizedRunnable = lockedInterruptibly {
     while (counts == 0) notEmpty.await()
     extract()
   }
 
-  def poll(timeout: Long, unit: TimeUnit): E = {
+  def poll(timeout: Long, unit: TimeUnit): PrioritizedRunnable = {
     var nanos: Long = unit.toNanos(timeout)
     lockedInterruptibly {
       while (counts == 0) {
@@ -156,16 +160,16 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     }
   }
 
-  def peek: E = locked {
+  def peek: PrioritizedRunnable = locked {
     if (counts == 0) null
     else {
-      val e = highPrioItemQueue.peek
+      val e = highPriorityItemQueue.peek
       if (e != null) e else itemQueue.peek
     }
   }
 
   // how many items in the queue
-  def size: Int = locked(itemQueue.count + highPrioItemQueue.count) // can't use `counts`
+  def size: Int = locked(itemQueue.count + highPriorityItemQueue.count) // can't use `counts`
                                                                     // here, it refers to
                                                                     // `paused`
 
@@ -173,7 +177,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
   def remainingCapacity: Int = math.max(locked(capacity - itemQueue.count), 0)
 
   override def remove(o: AnyRef): Boolean = if (o eq null) false else locked {
-    highPrioItemQueue.remove(o) || {
+    highPriorityItemQueue.remove(o) || {
       val r = itemQueue.remove(o)
       if (r && remainingCapacity != 0) itemQueueNotFull.signalAll()
       r
@@ -181,25 +185,25 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
   }
 
   override def contains(o: AnyRef): Boolean = locked {
-    itemQueue.contains(o) || highPrioItemQueue.contains(o)
+    itemQueue.contains(o) || highPriorityItemQueue.contains(o)
   }
 
   override def clear(): Unit = locked {
     itemQueue.clear()
-    highPrioItemQueue.clear()
+    highPriorityItemQueue.clear()
     itemQueueNotFull.signalAll()
   }
 
-  def drainTo(c: util.Collection[_ >: E]): Int = locked {
-    val n = highPrioItemQueue.drainTo(c) + itemQueue.drainTo(c)
+  def drainTo(c: util.Collection[_ >: PrioritizedRunnable]): Int = locked {
+    val n = highPriorityItemQueue.drainTo(c) + itemQueue.drainTo(c)
     if (remainingCapacity != 0) {
       itemQueueNotFull.signalAll()
     }
     n
   }
 
-  def drainTo(c: util.Collection[_ >: E], maxElements: Int): Int = locked {
-    var n = highPrioItemQueue.drainTo(c, maxElements)
+  def drainTo(c: util.Collection[_ >: PrioritizedRunnable], maxElements: Int): Int = locked {
+    var n = highPriorityItemQueue.drainTo(c, maxElements)
     if (n < maxElements) {
       n += itemQueue.drainTo(c, maxElements - n)
     }
@@ -209,17 +213,17 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     n
   }
 
-  def iterator: util.Iterator[E] = {
+  def iterator: util.Iterator[PrioritizedRunnable] = {
     import scala.jdk.CollectionConverters._
 
     // copy all items from queues and build a snapshot
     val items = locked {
-      (highPrioItemQueue.iterator.asScala ++ itemQueue.iterator.asScala).toList.iterator
+      (highPriorityItemQueue.iterator.asScala ++ itemQueue.iterator.asScala).toList.iterator
     }
 
-    new util.Iterator[E] {
+    new util.Iterator[PrioritizedRunnable] {
       override def hasNext: Boolean = items.hasNext
-      override def next: E = items.next()
+      override def next: PrioritizedRunnable = items.next()
       override def remove(): Unit = throw new UnsupportedOperationException
     }
   }

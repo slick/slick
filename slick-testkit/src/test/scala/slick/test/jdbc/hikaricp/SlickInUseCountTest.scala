@@ -1,33 +1,34 @@
 package slick.test.jdbc.hikaricp
 
 import java.lang.management.ManagementFactory
-import java.util.concurrent.{ThreadPoolExecutor, TimeUnit}
-import javax.management.ObjectName
-
-import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-import org.junit.Assert.assertEquals
-import org.junit.{After, Before, Ignore, Test}
-import org.slf4j.LoggerFactory
-import slick.jdbc.H2Profile.api._
-import slick.lifted.{ProvenShape, TableQuery}
-import slick.util.{ManagedArrayBlockingQueue, SlickLogger}
+import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
+import slick.jdbc.H2Profile.api._
+import slick.lifted.{ProvenShape, TableQuery}
+import slick.util.{ManagedArrayBlockingQueue, SlickLogger}
+
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import javax.management.ObjectName
+import org.junit.Assert.assertEquals
+import org.junit.{After, Before, Test}
+import org.slf4j.LoggerFactory
+
 class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
 
   val poolName = "inUseCount"
-  val mbeanServer = ManagementFactory.getPlatformMBeanServer
+  val mBeanServer = ManagementFactory.getPlatformMBeanServer
   val aeBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$poolName")
   val poolBeanName = new ObjectName(s"com.zaxxer.hikari:type=Pool ($poolName)")
 
   val logger = new SlickLogger(LoggerFactory.getLogger("slick.util.AsyncExecutor"))
 
-  class TestTable(tag: Tag) extends Table[(Int)](tag, "SDL") {
+  class TestTable(tag: Tag) extends Table[Int](tag, "SDL") {
 
     def id: Rep[Int] = column[Int]("ID")
-    def * : ProvenShape[(Int)] = id
+    def * : ProvenShape[Int] = id
 
   }
 
@@ -61,9 +62,9 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
       Await.result(Future.sequence(tasks), Duration(10, TimeUnit.SECONDS))
 
     }
-    //we need to wait until there are no more active threads in the threadpool
+    //we need to wait until there are no more active threads in the thread pool
     //DBIOAction results might be available before the threads have completely finished their work
-    while (mbeanServer.getAttribute(aeBeanName, "ActiveThreads").asInstanceOf[Int] > 0) {
+    while (mBeanServer.getAttribute(aeBeanName, "ActiveThreads").asInstanceOf[Int] > 0) {
       Thread.sleep(100)
     }
 
@@ -88,9 +89,7 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
 
     val queue = threadPoolExecutor.getClass.getMethod("getQueue").invoke(threadPoolExecutor)
 
-    val inUseCountMember = ru.typeOf[ManagedArrayBlockingQueue[_]].decl(ru.TermName("nonHighItemsInUseCount")).asTerm
+    val inUseCountMember = ru.typeOf[ManagedArrayBlockingQueue].decl(ru.TermName("nonHighItemsInUseCount")).asTerm
     mirror.reflect(queue).reflectField(inUseCountMember).get.asInstanceOf[Int]
   }
-
-
 }
