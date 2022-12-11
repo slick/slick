@@ -3,23 +3,30 @@ package slick.util
 import java.io.Closeable
 import java.lang.management.ManagementFactory
 import java.util.concurrent._
-import javax.management.{InstanceNotFoundException, ObjectName}
-
-import scala.concurrent.duration._
-import scala.concurrent._
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.concurrent._
+import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
+import slick.util.AsyncExecutor.Priority
+
+import javax.management.{InstanceNotFoundException, ObjectName}
+
+
 /** A connection pool for asynchronous execution of blocking I/O actions.
-  * This is used for the asynchronous query execution API on top of blocking back-ends like JDBC. */
+ * This is used for the asynchronous query execution API on top of blocking back-ends like JDBC. */
 trait AsyncExecutor extends Closeable {
   /** An ExecutionContext for running Futures. */
   def executionContext: ExecutionContext
   /** Shut the thread pool down and try to stop running computations. The thread pool is
-    * transitioned into a state where it will not accept any new jobs. */
+   * transitioned into a state where it will not accept any new jobs. */
   def close(): Unit
 
+  def prioritizedRunnable(priority: => Priority,
+                          run: AsyncExecutor.PrioritizedRunnable.SetConnectionReleased => Unit
+                         ): AsyncExecutor.PrioritizedRunnable =
+    AsyncExecutor.PrioritizedRunnable(priority, run)
 }
 
 object AsyncExecutor extends Logging {
@@ -87,7 +94,7 @@ object AsyncExecutor extends Logging {
     *        queue and thread pool workload. */
   def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int, keepAliveTime: Duration,
             registerMbeans: Boolean): AsyncExecutor = new AsyncExecutor {
-    
+
     @volatile private[this] lazy val mbeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name");
 
     // Before init: 0, during init: 1, after init: 2, during/after shutdown: 3
@@ -102,80 +109,94 @@ object AsyncExecutor extends Logging {
       logger.warn("Having maxConnection > maxThreads can result in deadlocks if transactions or database locks are used.")
     }
 
+    val queue: BlockingQueue[Runnable] = queueSize match {
+      case 0 =>
+        // NOTE: SynchronousQueue does not schedule high-priority tasks before others and so it cannot be used when
+        // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
+        // priority tasks all threads -- resulting in a deadlock).
+        require(
+          maxConnections == Int.MaxValue,
+          "When using queueSize == 0 (direct hand-off), maxConnections must be Int.MaxValue."
+        )
+
+        new SynchronousQueue[Runnable]
+      case -1 =>
+        // NOTE: LinkedBlockingQueue does not schedule high-priority tasks before others and so it cannot be used when
+        // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
+        // priority tasks all threads -- resulting in a deadlock).
+        require(
+          maxConnections == Int.MaxValue,
+          "When using queueSize == -1 (unlimited), maxConnections must be Int.MaxValue."
+        )
+
+        new LinkedBlockingQueue[Runnable]
+      case n =>
+        // NOTE: The current implementation of ManagedArrayBlockingQueue is flawed. It makes the assumption that all
+        // tasks go through the queue (which is responsible for scheduling high-priority tasks first). However, that
+        // assumption is wrong since the ThreadPoolExecutor bypasses the queue when it creates new threads. This
+        // happens whenever it creates a new thread to run a task, i.e. when minThreads < maxThreads and the number
+        // of existing threads is < maxThreads.
+        //
+        // The only way to prevent problems is to have minThreads == maxThreads when using the
+        // ManagedArrayBlockingQueue.
+        require(minThreads == maxThreads, "When using queueSize > 0, minThreads == maxThreads is required.")
+
+        // NOTE: The current implementation of ManagedArrayBlockingQueue.increaseInUseCount implicitly `require`s that
+        // maxThreads <= maxConnections.
+        require(maxThreads <= maxConnections, "When using queueSize > 0, maxThreads <= maxConnections is required.")
+
+        // NOTE: Adding up the above rules
+        // - maxThreads >= maxConnections, to prevent database locking issues when using transactions
+        // - maxThreads <= maxConnections, required by ManagedArrayBlockingQueue
+        // - maxThreads == minThreads, ManagedArrayBlockingQueue
+        //
+        // We have maxThreads == minThreads == maxConnections as the only working configuration
+
+        new ManagedArrayBlockingQueue(maxConnections, n).asInstanceOf[BlockingQueue[Runnable]]
+    }
+
+    override def prioritizedRunnable(priority: => Priority,
+                                     run: PrioritizedRunnable.SetConnectionReleased => Unit): PrioritizedRunnable = {
+      def _priority = priority
+      def _run(setConnectionReleased: PrioritizedRunnable.SetConnectionReleased) =
+        run(setConnectionReleased)
+      new PrioritizedRunnable {
+        override def priority() = _priority
+        val setConnectionReleased = new PrioritizedRunnable.SetConnectionReleased(() => connectionReleased = true)
+
+        private def runAndCleanUp(q: ManagedArrayBlockingQueue[_]) =
+          try _run(setConnectionReleased)
+          finally {
+            // If the runnable/task has released the Jdbc connection we decrease the counter again
+            if (!q.attemptCleanUp(this))
+              logger.warn("After executing a task, the in-use count was already 0. This should not happen.")
+          }
+
+        override def run() =
+          queue match {
+            // If the runnable/task is a low/medium priority item, we increase the items in use count,
+            // because first thing it will do is open a Jdbc connection from the pool.
+            case q: ManagedArrayBlockingQueue[_] =>
+              if (priority() == WithConnection)
+                runAndCleanUp(q)
+              else if (q.attemptPrepare(this))
+                runAndCleanUp(q)
+              else {
+                logger.warn("Could not increase in-use count. Will resubmit...")
+                executor.execute(this)
+              }
+            case _                               =>
+              _run(setConnectionReleased)
+          }
+      }
+    }
     lazy val executionContext = {
-      if(!state.compareAndSet(0, 1))
+      if (!state.compareAndSet(0, 1))
         throw new IllegalStateException("Cannot initialize ExecutionContext; AsyncExecutor already shut down")
-      val queue: BlockingQueue[Runnable] = queueSize match {
-        case 0 =>
-          // NOTE: SynchronousQueue does not schedule high-priority tasks before others and so it cannot be used when
-          // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
-          // priority tasks all threads -- resulting in a deadlock).
-          require(
-            maxConnections == Int.MaxValue,
-            "When using queueSize == 0 (direct hand-off), maxConnections must be Int.MaxValue."
-          )
-
-          new SynchronousQueue[Runnable]
-        case -1 =>
-          // NOTE: LinkedBlockingQueue does not schedule high-priority tasks before others and so it cannot be used when
-          // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
-          // priority tasks all threads -- resulting in a deadlock).
-          require(
-            maxConnections == Int.MaxValue,
-            "When using queueSize == -1 (unlimited), maxConnections must be Int.MaxValue."
-          )
-
-          new LinkedBlockingQueue[Runnable]
-        case n =>
-          // NOTE: The current implementation of ManagedArrayBlockingQueue is flawed. It makes the assumption that all
-          // tasks go through the queue (which is responsible for scheduling high-priority tasks first). However, that
-          // assumption is wrong since the ThreadPoolExecutor bypasses the queue when it creates new threads. This
-          // happens whenever it creates a new thread to run a task, i.e. when minThreads < maxThreads and the number
-          // of existing threads is < maxThreads.
-          //
-          // The only way to prevent problems is to have minThreads == maxThreads when using the
-          // ManagedArrayBlockingQueue.
-          require(minThreads == maxThreads, "When using queueSize > 0, minThreads == maxThreads is required.")
-
-          // NOTE: The current implementation of ManagedArrayBlockingQueue.increaseInUseCount implicitly `require`s that
-          // maxThreads <= maxConnections.
-          require(maxThreads <= maxConnections, "When using queueSize > 0, maxThreads <= maxConnections is required.")
-
-          // NOTE: Adding up the above rules
-          // - maxThreads >= maxConnections, to prevent database locking issues when using transactions
-          // - maxThreads <= maxConnections, required by ManagedArrayBlockingQueue
-          // - maxThreads == minThreads, ManagedArrayBlockingQueue
-          //
-          // We have maxThreads == minThreads == maxConnections as the only working configuration
-
-          new ManagedArrayBlockingQueue(maxConnections, n).asInstanceOf[BlockingQueue[Runnable]]
-      }
       val tf = new DaemonThreadFactory(name + "-")
-      executor = new ThreadPoolExecutor(minThreads, maxThreads, keepAliveTime.toMillis, TimeUnit.MILLISECONDS, queue, tf) {
+      executor =
+        new ThreadPoolExecutor(minThreads, maxThreads, keepAliveTime.toMillis, TimeUnit.MILLISECONDS, queue, tf)
 
-        /** If the runnable/task is a low/medium priority item, we increase the items in use count, because first thing it will do
-          * is open a Jdbc connection from the pool.
-          */
-        override def beforeExecute(t: Thread, r: Runnable): Unit = {
-          (r, queue) match {
-            case (pr: PrioritizedRunnable, q: ManagedArrayBlockingQueue[Runnable]) if pr.priority != WithConnection => q.increaseInUseCount(pr)
-            case _ =>
-          }
-          super.beforeExecute(t, r)
-        }
-
-        /**
-          * If the runnable/task has released the Jdbc connection we decrease the counter again
-          */
-        override def afterExecute(r: Runnable, t: Throwable): Unit = {
-          super.afterExecute(r, t)
-          (r, queue) match {
-            case (pr: PrioritizedRunnable, q: ManagedArrayBlockingQueue[Runnable]) if pr.connectionReleased => q.decreaseInUseCount()
-            case _ =>
-          }
-        }
-
-      }
       if(registerMbeans) {
         try {
           val mbeanServer = ManagementFactory.getPlatformMBeanServer
@@ -205,7 +226,7 @@ object AsyncExecutor extends Logging {
             executor.execute(command)
           } else {
             executor.execute(new PrioritizedRunnable {
-              override val priority: Priority = WithConnection
+              override def priority(): Priority = WithConnection
               override def run(): Unit = command.run()
             })
           }
@@ -249,12 +270,26 @@ object AsyncExecutor extends Logging {
   /** WithConnection is used for database actions that already have a JDBC connection associated. */
   case object WithConnection extends Priority
 
-  trait PrioritizedRunnable extends Runnable {
-    def priority: Priority
+  sealed trait PrioritizedRunnable extends Runnable {
+    def priority(): Priority
     /** true if the JDBC connection was released */
     var connectionReleased = false
     /** true if the inUseCounter of the ManagedArrayBlockQueue was incremented */
     var inUseCounterSet = false
+  }
+  object PrioritizedRunnable {
+    class SetConnectionReleased(val f: () => Unit) extends AnyVal {
+      def apply() = f()
+    }
+
+    def apply(priority: => Priority, run: SetConnectionReleased => Unit): PrioritizedRunnable = {
+      def _priority = priority
+      def _run(setConnectionReleased: SetConnectionReleased) = run(setConnectionReleased)
+      new PrioritizedRunnable {
+        def priority(): Priority = _priority
+        def run(): Unit = _run(new SetConnectionReleased(() => connectionReleased = true))
+      }
+    }
   }
 
   private class DaemonThreadFactory(namePrefix: String) extends ThreadFactory {

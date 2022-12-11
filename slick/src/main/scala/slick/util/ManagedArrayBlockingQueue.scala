@@ -32,37 +32,65 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
   private[this] def counts = (if (paused) 0 else itemQueue.count) + highPrioItemQueue.count
 
   /**
-    * The number of low/medium priority items in use
-    */
-  private[this] var inUseCount = 0
+   * The number of low/medium priority items in use
+   */
+  private[this] var nonHighItemsInUseCount = 0
 
   private[this] var paused = false
 
-  private[util] def increaseInUseCount(pr: PrioritizedRunnable): Unit = locked {
-    if (!pr.inUseCounterSet) {
-      require(inUseCount < maximumInUse, "count cannot be increased")
-      inUseCount += 1
+  /**
+   * Non-high [[PrioritizedRunnable]]s should call this at the beginning of the run method.
+   *
+   * Ensures that [[nonHighItemsInUseCount]] accounts for the given [[PrioritizedRunnable]], as appropriate.
+   *
+   * @return true if the [[nonHighItemsInUseCount]] was incremented now or in the past for the [[PrioritizedRunnable]],
+   *         false if [[maximumInUse]] would be exceeded.
+   */
+  private[util] def attemptPrepare(pr: PrioritizedRunnable): Boolean = locked {
+    if (pr.inUseCounterSet)
+      true
+    else if (nonHighItemsInUseCount >= maximumInUse)
+      false
+    else {
+      nonHighItemsInUseCount += 1
       pr.inUseCounterSet = true
-      if (inUseCount == maximumInUse) {
+      if (nonHighItemsInUseCount == maximumInUse) {
         logger.debug("pausing")
         paused = true
       }
+      true
     }
   }
 
-  private[util] def decreaseInUseCount(): Unit = locked {
-    require(inUseCount > 0, "count cannot be decreased")
-    inUseCount -= 1
-    if (inUseCount == maximumInUse - 1) {
-      logger.debug("resuming")
-      paused = false
-      if (counts > 0) notEmpty.signalAll()
-    }
-  }
+  /**
+   * Non-high [[PrioritizedRunnable]]s should call this at the end of the run method.
+   *
+   * Decrement [[nonHighItemsInUseCount]] for the given [[PrioritizedRunnable]] as appropriate.
+   *
+   * @return true if [[PrioritizedRunnable.connectionReleased]] is false or [[nonHighItemsInUseCount]] is decremented,
+   *         false if [[nonHighItemsInUseCount]] was already 0
+   */
+  private[util] def attemptCleanUp(pr: PrioritizedRunnable): Boolean =
+    if (!pr.connectionReleased)
+      true
+    else
+      locked {
+        if (nonHighItemsInUseCount <= 0)
+          false
+        else {
+          nonHighItemsInUseCount -= 1
+          if (nonHighItemsInUseCount == maximumInUse - 1) {
+            logger.debug("resuming")
+            paused = false
+            if (counts > 0) notEmpty.signalAll()
+          }
+          true
+        }
+      }
 
   // implementation of offer(e), put(e) and offer(e, timeout, unit)
   private[this] def insert(e: E): Boolean = {
-    val r = e.priority match {
+    val r = e.priority() match {
       case WithConnection => highPrioItemQueue.insert(e)
       case Continuation => itemQueue.insert(e)
       case Fresh => if (itemQueue.count < capacity) itemQueue.insert(e) else false
@@ -81,7 +109,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     checkNotNull(e)
     checkNotInUse(e)
     lockedInterruptibly {
-      while (e.priority == Fresh && itemQueue.count >= capacity) itemQueueNotFull.await()
+      while (e.priority() == Fresh && itemQueue.count >= capacity) itemQueueNotFull.await()
       insert(e)
     }
   }
@@ -91,7 +119,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     checkNotInUse(e)
     var nanos: Long = unit.toNanos(timeout)
     lockedInterruptibly {
-      while (e.priority == Fresh && itemQueue.count >= capacity) {
+      while (e.priority() == Fresh && itemQueue.count >= capacity) {
         if (nanos <= 0) return false
         nanos = itemQueueNotFull.awaitNanos(nanos)
       }
@@ -104,7 +132,7 @@ class ManagedArrayBlockingQueue[E >: Null <: PrioritizedRunnable](maximumInUse: 
     if (highPrioItemQueue.count != 0) highPrioItemQueue.extract
     else if (!paused && itemQueue.count != 0) {
       val item = itemQueue.extract
-      increaseInUseCount(item)
+      require(attemptPrepare(item), "In-use count limit reached")
       item
     }
     else null

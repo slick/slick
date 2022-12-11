@@ -88,7 +88,7 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
 
     val queue = threadPoolExecutor.getClass.getMethod("getQueue").invoke(threadPoolExecutor)
 
-    val inUseCountMember = ru.typeOf[ManagedArrayBlockingQueue[_]].decl(ru.TermName("inUseCount")).asTerm
+    val inUseCountMember = ru.typeOf[ManagedArrayBlockingQueue[_]].decl(ru.TermName("nonHighItemsInUseCount")).asTerm
     mirror.reflect(queue).reflectField(inUseCountMember).get.asInstanceOf[Int]
   }
 
