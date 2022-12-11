@@ -40,7 +40,7 @@ import slick.jdbc.meta.{MColumn, MTable}
   *     is performmed natively on the server side.</li>
   * </ul>
   */
-trait H2Profile extends JdbcProfile {
+trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlCapabilities.sequenceMin

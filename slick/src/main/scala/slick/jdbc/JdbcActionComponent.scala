@@ -22,6 +22,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   type ProfileAction[+R, +S <: NoStream, -E <: Effect] = FixedSqlAction[R, S, E]
   type StreamingProfileAction[+R, +T, -E <: Effect] = FixedSqlStreamingAction[R, T, E]
 
+  type RowsPerStatement >: slick.jdbc.RowsPerStatement.One.type <: slick.jdbc.RowsPerStatement
+  def defaultRowsPerStatement: RowsPerStatement
+
   abstract class SimpleJdbcProfileAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, Backend, Effect] with ProfileAction[R, NoStream, Effect] { self =>
     def run(ctx: Backend#Context, sql: Vector[String]): R
     final override def getDumpInfo = super.getDumpInfo.copy(name = _name)
@@ -385,7 +388,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       *         count for some part of the batch. If any part of the batch fails, an
       *         exception is thrown.
       */
-    def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement = RowsPerStatement.All): ProfileAction[
+    def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement = defaultRowsPerStatement): ProfileAction[
       MultiInsertResult,
       NoStream,
       Effect.Write
@@ -424,7 +427,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
      * exception is thrown.
      * The option parameter specifies how the operation is to be performed.(default is [[RowsPerStatement.All]])
      * Note unlike [[insertOrUpdate]], client-side emulation is not supported. */
-    def insertOrUpdateAll(values: Iterable[U], option: RowsPerStatement = RowsPerStatement.All)
+    def insertOrUpdateAll(values: Iterable[U], option: RowsPerStatement = defaultRowsPerStatement)
     : ProfileAction[MultiInsertResult, NoStream, Effect.Write]
   }
 
@@ -513,7 +516,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] =
       new InsertOrUpdateAction(value)
 
-    def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
+    override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
       MultiInsertResult,
       NoStream,
       Effect.Write
@@ -574,7 +577,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         insertSingleRow(sql, ctx, a, value)
     }
 
-    class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U], rowsPerStatement: RowsPerStatement)
+    class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U], rowsPerStatement: slick.jdbc.RowsPerStatement)
       extends SimpleJdbcProfileAction[MultiInsertResult](
         _name = "MultiInsertAction",
         statements = rowsPerStatement match {
@@ -765,5 +768,15 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       Some(mux(value, buildKeysResult(st).first(null)))
 
     protected def retOneInsertOrUpdateFromUpdate: SingleInsertOrUpdateResult = None
+  }
+}
+object JdbcActionComponent {
+  trait MultipleRowsPerStatementSupport extends JdbcActionComponent { self: JdbcProfile =>
+    override type RowsPerStatement = slick.jdbc.RowsPerStatement
+    override def defaultRowsPerStatement = RowsPerStatement.All
+  }
+  trait OneRowPerStatementOnly extends JdbcActionComponent { self: JdbcProfile =>
+    override type RowsPerStatement = slick.jdbc.RowsPerStatement.One.type
+    override def defaultRowsPerStatement = slick.jdbc.RowsPerStatement.One
   }
 }
