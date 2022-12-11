@@ -55,11 +55,18 @@ object AsyncExecutor extends Logging {
     * @param maxThreads The maximum number of threads in the pool.
     * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
     * @param maxConnections The maximum number of configured connections for the connection pool.
-    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in use.
-    *                       It will resume as soon as a connection is released again to the pool */
+    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in
+    *                        use. It will resume as soon as a connection is released again to the pool */
   def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int): AsyncExecutor =
-    apply(name, minThreads = minThreads, maxThreads = maxThreads, queueSize = queueSize, maxConnections = maxConnections,
-      keepAliveTime = 1.minute, registerMbeans = false)
+    apply(
+      name,
+      minThreads = minThreads,
+      maxThreads = maxThreads,
+      queueSize = queueSize,
+      maxConnections = maxConnections,
+      keepAliveTime = 1.minute,
+      registerMbeans = false
+    )
 
   /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
     * I/O. New threads are created as daemon threads.
@@ -69,13 +76,25 @@ object AsyncExecutor extends Logging {
     * @param maxThreads The maximum number of threads in the pool.
     * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
     * @param maxConnections The maximum number of configured connections for the connection pool.
-    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in use.
-    *                       It will resume as soon as a connection is released again to the pool
+    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in
+    *                       use. It will resume as soon as a connection is released again to the pool
     * @param registerMbeans If set to true, register an MXBean that provides insight into the current
     *        queue and thread pool workload. */
-  def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int, registerMbeans: Boolean): AsyncExecutor =
-    apply(name, minThreads = minThreads, maxThreads = maxThreads, queueSize = queueSize, maxConnections = maxConnections,
-      keepAliveTime = 1.minute, registerMbeans = registerMbeans)
+  def apply(name: String,
+            minThreads: Int,
+            maxThreads: Int,
+            queueSize: Int,
+            maxConnections: Int,
+            registerMbeans: Boolean): AsyncExecutor =
+    apply(
+      name,
+      minThreads = minThreads,
+      maxThreads = maxThreads,
+      queueSize = queueSize,
+      maxConnections = maxConnections,
+      keepAliveTime = 1.minute,
+      registerMbeans = registerMbeans
+    )
 
   /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
     * I/O. New threads are created as daemon threads.
@@ -85,17 +104,22 @@ object AsyncExecutor extends Logging {
     * @param maxThreads The maximum number of threads in the pool.
     * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
     * @param maxConnections The maximum number of configured connections for the connection pool.
-    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in use.
-    *                       It will resume as soon as a connection is released again to the pool
+    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in
+    *                       use. It will resume as soon as a connection is released again to the pool
     * @param keepAliveTime when the number of threads is greater than
     *        the core, this is the maximum time that excess idle threads
     *        will wait for new tasks before terminating.
     * @param registerMbeans If set to true, register an MXBean that provides insight into the current
     *        queue and thread pool workload. */
-  def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int, keepAliveTime: Duration,
+  def apply(name: String,
+            minThreads: Int,
+            maxThreads: Int,
+            queueSize: Int,
+            maxConnections: Int,
+            keepAliveTime: Duration,
             registerMbeans: Boolean): AsyncExecutor = new AsyncExecutor {
 
-    @volatile private[this] lazy val mbeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name");
+    @volatile private[this] lazy val mBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name")
 
     // Before init: 0, during init: 1, after init: 2, during/after shutdown: 3
     private[this] val state = new AtomicInteger(0)
@@ -106,7 +130,9 @@ object AsyncExecutor extends Logging {
       // NOTE: when using transactions or DB locks, it may happen that a task has a lock on the database but no thread
       // to complete its action, while other tasks may have all the threads but are waiting for the first task to
       // complete. This creates a deadlock.
-      logger.warn("Having maxConnection > maxThreads can result in deadlocks if transactions or database locks are used.")
+      logger.warn(
+        "Having maxConnection > maxThreads can result in deadlocks if transactions or database locks are used."
+      )
     }
 
     val queue: BlockingQueue[Runnable] = queueSize match {
@@ -190,6 +216,7 @@ object AsyncExecutor extends Logging {
           }
       }
     }
+
     lazy val executionContext = {
       if (!state.compareAndSet(0, 1))
         throw new IllegalStateException("Cannot initialize ExecutionContext; AsyncExecutor already shut down")
@@ -199,25 +226,27 @@ object AsyncExecutor extends Logging {
 
       if(registerMbeans) {
         try {
-          val mbeanServer = ManagementFactory.getPlatformMBeanServer
-          if(mbeanServer.isRegistered(mbeanName))
-            logger.warn(s"MBean $mbeanName already registered (AsyncExecutor names should be unique)")
+          val mBeanServer = ManagementFactory.getPlatformMBeanServer
+          if (mBeanServer.isRegistered(mBeanName))
+            logger.warn(s"MBean $mBeanName already registered (AsyncExecutor names should be unique)")
           else {
-            logger.debug(s"Registering MBean $mbeanName")
-            mbeanServer.registerMBean(new AsyncExecutorMXBean {
+            logger.debug(s"Registering MBean $mBeanName")
+            mBeanServer.registerMBean(new AsyncExecutorMXBean {
               def getMaxQueueSize = queueSize
               def getQueueSize = queue.size()
               def getMaxThreads = maxThreads
               def getActiveThreads = executor.getActiveCount
-            }, mbeanName)
+            }, mBeanName)
           }
         } catch { case NonFatal(ex) => logger.error("Error registering MBean", ex) }
       }
       if(!state.compareAndSet(1, 2)) {
         unregisterMbeans()
         executor.shutdownNow()
-        throw new IllegalStateException("Cannot initialize ExecutionContext; AsyncExecutor shut down during initialization")
+        throw
+          new IllegalStateException("Cannot initialize ExecutionContext; AsyncExecutor shut down during initialization")
       }
+
       new ExecutionContextExecutor {
         override def reportFailure(t: Throwable): Unit = loggingReporter(t)
 
@@ -236,9 +265,9 @@ object AsyncExecutor extends Logging {
 
     private[this] def unregisterMbeans(): Unit = if(registerMbeans) {
       try {
-        val mbeanServer = ManagementFactory.getPlatformMBeanServer
-        logger.debug(s"Unregistering MBean $mbeanName")
-        try mbeanServer.unregisterMBean(mbeanName) catch { case _: InstanceNotFoundException => }
+        val mBeanServer = ManagementFactory.getPlatformMBeanServer
+        logger.debug(s"Unregistering MBean $mBeanName")
+        try mBeanServer.unregisterMBean(mBeanName) catch { case _: InstanceNotFoundException => }
       } catch { case NonFatal(ex) => logger.error("Error unregistering MBean", ex) }
     }
 
@@ -293,7 +322,8 @@ object AsyncExecutor extends Logging {
   }
 
   private class DaemonThreadFactory(namePrefix: String) extends ThreadFactory {
-    private[this] val group = Option(System.getSecurityManager).fold(Thread.currentThread.getThreadGroup)(_.getThreadGroup)
+    private[this] val group =
+      Option(System.getSecurityManager).fold(Thread.currentThread.getThreadGroup)(_.getThreadGroup)
     private[this] val threadNumber = new AtomicInteger(1)
 
     def newThread(r: Runnable): Thread = {
@@ -306,13 +336,11 @@ object AsyncExecutor extends Logging {
 
   /** An Executor which spawns a new daemon thread for each command. It is useful for wrapping
     * synchronous `close` calls for asynchronous `shutdown` operations. */
-  private[slick] val shutdownExecutor: Executor = new Executor {
-    def execute(command: Runnable): Unit = {
-      val t = new Thread(command)
-      t.setName("shutdownExecutor")
-      t.setDaemon(true)
-      t.start()
-    }
+  private[slick] val shutdownExecutor: Executor = { (command: Runnable) =>
+    val t = new Thread(command)
+    t.setName("shutdownExecutor")
+    t.setDaemon(true)
+    t.start()
   }
 
   val loggingReporter: Throwable => Unit = (t: Throwable) => {
