@@ -256,8 +256,12 @@ trait BasicBackend { self =>
       *        closing the Session. */
     protected[this] final def releaseSession(ctx: Context, discardErrors: Boolean): Unit =
       if(!ctx.isPinned) {
-        try ctx.currentSession.close() catch { case NonFatal(ex) if(discardErrors) => }
+        val session = ctx.currentSession
         ctx.currentSession = null
+        if (session != null)
+          try session.close() catch {
+            case NonFatal(_) if discardErrors =>
+          }
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
