@@ -77,7 +77,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     (<a href="https://issues.apache.org/jira/browse/DERBY-3609" target="_parent"></a>DERBY-3609</li>)
   * </ul>
   */
-trait DerbyProfile extends JdbcProfile {
+trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - RelationalCapabilities.functionDatabase

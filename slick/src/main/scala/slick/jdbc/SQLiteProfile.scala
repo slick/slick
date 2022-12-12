@@ -75,7 +75,7 @@ import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
   *     SQLite returns the last generated key only.</li>
   * </ul>
   */
-trait SQLiteProfile extends JdbcProfile {
+trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - RelationalCapabilities.functionDatabase

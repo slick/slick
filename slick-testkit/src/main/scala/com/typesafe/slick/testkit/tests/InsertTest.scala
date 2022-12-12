@@ -72,7 +72,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val records = Seq((1, 10), (2, 20), (3, 30))
     DBIO.seq(
       as.schema.create,
-      as.insertAll(records, RowsPerStatement.All).map(_ shouldBe Some(3)),
+      as.insertAll(records).map(_ shouldBe Some(3)),
       as.sortBy(_.id).result.map(_ shouldBe records)
     )
   }
@@ -87,7 +87,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val records = Seq(E(1, 10), E(2, 20), E(3, 30))
     DBIO.seq(
       as.schema.create,
-      as.insertAll(records, RowsPerStatement.All).map(_ shouldBe Some(3)),
+      as.insertAll(records).map(_ shouldBe Some(3)),
       as.sortBy(_.id).result.map(_ shouldBe records)
     )
   }
@@ -101,7 +101,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val records = Seq((10, 10), (20, 20), (30, 30))
     for {
       _ <- as.schema.create
-      result <- as.returning(as.map(_.id)).insertAll(records, RowsPerStatement.All)
+      result <- as.returning(as.map(_.id)).insertAll(records)
       _ <- ifCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Seq(1, 2, 3)))
       _ <- ifNotCap(jcap.returnMultipleInsertKey)(DBIO.successful(result shouldBe Nil))
       _ <- as.sortBy(_.id).result.map(_ shouldBe Seq((1, 10), (2, 20), (3, 30)))
@@ -116,7 +116,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val as = TableQuery[A]
     DBIO.seq(
       as.schema.create,
-      as.insertAll(Seq(1, 2, 3), RowsPerStatement.All),
+      as.insertAll(Seq(1, 2, 3)),
       as.result.map(_ shouldBe Seq(1, 2, 3))
     )
   }

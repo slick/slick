@@ -44,11 +44,11 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     which is always mapped back to BigDecimal in model and generated code.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     Oracle does not have a BYTE type.</li>
- *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
- *      Oracle returns the last generated key only.</li>
- *   <li>[[slick.jdbc.JdbcCapabilities.insertMultipleRowsWithSingleStatement]]:
- *      Oracle doesn't support this feature directly.
- *      There are several alternative ways, but the library doesn't support them, so far.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
+  *      Oracle returns the last generated key only.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.insertMultipleRowsWithSingleStatement]]:
+  *      Oracle doesn't support this feature directly.
+  *      There are several alternative ways, but the library doesn't support them, so far.</li>
   * </ul>
   *
   * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns
@@ -61,7 +61,6 @@ import slick.util.MacroSupport.macroSupportInterpolation
   * Updating Blob values in updatable result sets is not supported.
   */
 trait OracleProfile extends JdbcProfile {
-
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - RelationalCapabilities.foreignKeyActions
     - JdbcCapabilities.insertOrUpdate
@@ -540,22 +539,11 @@ END;
       }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
     else super.createOptionResultConverter(ti, idx)
 
-
-  private trait OracleInsertAll[U] extends InsertActionComposerImpl[U] {
-    override def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement = RowsPerStatement.One) =
-      rowsPerStatement match {
-        case RowsPerStatement.One =>
-          super.insertAll(values, rowsPerStatement)
-        case RowsPerStatement.All =>
-          throw new SlickException("OracleProfile doesn't support inserting multiple rows with a single statement.")
-      }
-  }
-
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new CountingInsertActionComposerImpl[T](compiled) with OracleInsertAll[T]
+    new CountingInsertActionComposerImpl[T](compiled)
 
   override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
-    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) with OracleInsertAll[U]
+    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
 
   // Does not work to get around the ORA-00904 issue when returning columns
   // with lower-case names
@@ -591,7 +579,7 @@ END;
   }
 }
 
-object OracleProfile extends OracleProfile {
+object OracleProfile extends OracleProfile with JdbcActionComponent.OneRowPerStatementOnly {
   /** Extra column options for OracleProfile */
   object ColumnOption {
     /** Name of the sequence which is generated for an AutoInc column. */
