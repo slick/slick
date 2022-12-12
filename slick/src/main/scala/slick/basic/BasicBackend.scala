@@ -251,17 +251,16 @@ trait BasicBackend { self =>
       if(!ctx.isPinned) ctx.currentSession = createSession()
 
     /** Within a synchronous execution, close the current Session unless it is pinned.
-      *
-      * @param discardErrors If set to true, swallow all non-fatal errors that arise while
-      *        closing the Session. */
-    protected[this] final def releaseSession(ctx: Context, discardErrors: Boolean): Unit =
-      if(!ctx.isPinned) {
+     *
+     * @param handleCloseError What to do with non-fatal errors that arise while closing the Session. */
+    protected[this] final def releaseSession(ctx: Context,
+                                             handleCloseError: PartialFunction[Throwable, Unit] = PartialFunction.empty
+                                            ): Unit =
+      if (!ctx.isPinned) {
         val session = ctx.currentSession
         ctx.currentSession = null
         if (session != null)
-          try session.close() catch {
-            case NonFatal(_) if discardErrors =>
-          }
+          try session.close() catch handleCloseError
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
@@ -278,10 +277,10 @@ trait BasicBackend { self =>
             val res = try {
               acquireSession(ctx)
               val res = try a.run(ctx) catch { case NonFatal(ex) =>
-                releaseSession(ctx, true)
+                releaseSession(ctx, { case NonFatal(ex) => actionLogger.warn("Exception while closing session", ex) })
                 throw ex
               }
-              releaseSession(ctx, false)
+              releaseSession(ctx)
               res
             } finally {
               if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) setConnectionReleased()
@@ -346,7 +345,12 @@ trait BasicBackend { self =>
                   }
 
                   if(state eq null) { // streaming finished and cleaned up
-                    releaseSession(ctx, true)
+                    releaseSession(
+                      ctx = ctx,
+                      handleCloseError = {
+                        case NonFatal(ex) => streamLogger.warn("Exception while closing session", ex)
+                      }
+                    )
                     if(!ctx.isPinned) setConnectionReleased()
                     ctx.sync = 0
                     ctx.streamingResultPromise.trySuccess(null)
@@ -354,7 +358,7 @@ trait BasicBackend { self =>
 
                 } catch { case NonFatal(ex) =>
                   if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
-                  releaseSession(ctx, true)
+                  releaseSession(ctx, { case NonFatal(ex) => streamLogger.warn("Exception while closing session", ex) })
                   if (!ctx.isPinned) setConnectionReleased()
                   ctx.sync = 0
                   throw ex
