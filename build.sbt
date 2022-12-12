@@ -276,6 +276,7 @@ lazy val site: Project =
     .in(file("doc"))
     .enablePlugins(Docs)
     .settings(
+      description := "Scala Slick documentation",
       scaladocDirs := Seq(
         "api" -> (slick / Compile / doc).value,
         "codegen-api" -> (codegen / Compile / doc).value,
