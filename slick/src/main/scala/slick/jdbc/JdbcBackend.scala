@@ -266,6 +266,7 @@ trait JdbcBackend extends RelationalBackend {
       *         connection leak. A value of 0 means leak detection is disabled. Lowest acceptable value
       *         for enabling leak detection is 10s.</li>
       *       <li>`schema` (String, optional): Default catalog for new connections.</li>
+      *       <li>`exceptionOverrideClassName` (String, optional): SQLExceptionOverride class name</li>
       *     </ul>
       *   </li>
       *   <li>Driver or DataSource configuration:
