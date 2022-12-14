@@ -68,28 +68,9 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
       Thread.sleep(100)
     }
 
-    assertEquals(0, inUseCount)
+    val asyncExecutor = database.executor.asInstanceOf[AsyncExecutor.DefaultAsyncExecutor]
+    val queue = asyncExecutor.queue.asInstanceOf[ManagedArrayBlockingQueue]
 
-  }
-
-  /**
-    * Use (mix of Java/scala) reflection to retrieve the inUseCount field of the ManagedArrayBlockingQueue
-    */
-  def inUseCount: Int = {
-    import scala.reflect.runtime.{universe => ru}
-    val mirror = ru.runtimeMirror(this.getClass.getClassLoader)
-
-    val asyncExecutorField = database.getClass.getDeclaredField("executor")
-    asyncExecutorField.setAccessible(true)
-    val asyncExecutor = asyncExecutorField.get(database)
-
-    val threadPoolExecutorField = asyncExecutor.getClass.getDeclaredField("slick$util$AsyncExecutor$$anon$$executor")
-    threadPoolExecutorField.setAccessible(true)
-    val threadPoolExecutor = threadPoolExecutorField.get(asyncExecutor)
-
-    val queue = threadPoolExecutor.getClass.getMethod("getQueue").invoke(threadPoolExecutor)
-
-    val inUseCountMember = ru.typeOf[ManagedArrayBlockingQueue].decl(ru.TermName("nonHighItemsInUseCount")).asTerm
-    mirror.reflect(queue).reflectField(inUseCountMember).get.asInstanceOf[Int]
+    assertEquals(0, queue.nonHighItemsInUseCount)
   }
 }

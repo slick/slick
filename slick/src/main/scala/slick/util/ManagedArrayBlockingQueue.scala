@@ -34,7 +34,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
   /**
    * The number of low/medium priority items in use
    */
-  private[this] var nonHighItemsInUseCount = 0
+  private[slick] var nonHighItemsInUseCount = 0
 
   private[this] var paused = false
 

@@ -99,43 +99,37 @@ object AsyncExecutor extends Logging {
   /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
     * I/O. New threads are created as daemon threads.
     *
-    * @param name A prefix to use for the names of the created threads.
-    * @param minThreads The number of core threads in the pool.
-    * @param maxThreads The maximum number of threads in the pool.
-    * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
+    * @param name           A prefix to use for the names of the created threads.
+    * @param minThreads     The number of core threads in the pool.
+    * @param maxThreads     The maximum number of threads in the pool.
+    * @param queueSize      The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
     * @param maxConnections The maximum number of configured connections for the connection pool.
     *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in
     *                       use. It will resume as soon as a connection is released again to the pool
-    * @param keepAliveTime when the number of threads is greater than
-    *        the core, this is the maximum time that excess idle threads
-    *        will wait for new tasks before terminating.
-    * @param registerMbeans If set to true, register an MXBean that provides insight into the current
-    *        queue and thread pool workload. */
+    * @param keepAliveTime  when the number of threads is greater than
+   *                        the core, this is the maximum time that excess idle threads
+   *                        will wait for new tasks before terminating.
+   * @param registerMbeans  If set to true, register an MXBean that provides insight into the current
+   *                        queue and thread pool workload. */
   def apply(name: String,
             minThreads: Int,
             maxThreads: Int,
             queueSize: Int,
             maxConnections: Int,
             keepAliveTime: Duration,
-            registerMbeans: Boolean): AsyncExecutor = new AsyncExecutor {
+            registerMbeans: Boolean): AsyncExecutor = {
+    class AsyncExecutorImpl(queue: BlockingQueue[Runnable]) extends DefaultAsyncExecutor(
+      name = name,
+      minThreads = minThreads,
+      maxThreads = maxThreads,
+      queue = queue,
+      queueSize = queueSize,
+      maxConnections = maxConnections,
+      keepAliveTime = keepAliveTime,
+      registerMbeans = registerMbeans
+    )
 
-    @volatile private[this] lazy val mBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name")
-
-    // Before init: 0, during init: 1, after init: 2, during/after shutdown: 3
-    private[this] val state = new AtomicInteger(0)
-
-    @volatile private[this] var executor: ThreadPoolExecutor = _
-
-    if (maxConnections > maxThreads) {
-      // NOTE: when using transactions or DB locks, it may happen that a task has a lock on the database but no thread
-      // to complete its action, while other tasks may have all the threads but are waiting for the first task to
-      // complete. This creates a deadlock.
-      logger.warn(
-        "Having maxConnection > maxThreads can result in deadlocks if transactions or database locks are used."
-      )
-    }
-
-    val queue: BlockingQueue[Runnable] = queueSize match {
+    queueSize match {
       case 0 =>
         // NOTE: SynchronousQueue does not schedule high-priority tasks before others and so it cannot be used when
         // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
@@ -145,7 +139,8 @@ object AsyncExecutor extends Logging {
           "When using queueSize == 0 (direct hand-off), maxConnections must be Int.MaxValue."
         )
 
-        new SynchronousQueue[Runnable]
+        new AsyncExecutorImpl(new SynchronousQueue[Runnable])
+
       case -1 =>
         // NOTE: LinkedBlockingQueue does not schedule high-priority tasks before others and so it cannot be used when
         // the number of connections is limited (lest high-priority tasks may be holding all connections and low/mid
@@ -155,7 +150,8 @@ object AsyncExecutor extends Logging {
           "When using queueSize == -1 (unlimited), maxConnections must be Int.MaxValue."
         )
 
-        new LinkedBlockingQueue[Runnable]
+        new AsyncExecutorImpl(new LinkedBlockingQueue[Runnable])
+
       case n =>
         // NOTE: The current implementation of ManagedArrayBlockingQueue is flawed. It makes the assumption that all
         // tasks go through the queue (which is responsible for scheduling high-priority tasks first). However, that
@@ -178,43 +174,73 @@ object AsyncExecutor extends Logging {
         //
         // We have maxThreads == minThreads == maxConnections as the only working configuration
 
-        new ManagedArrayBlockingQueue(maxConnections, n).asInstanceOf[BlockingQueue[Runnable]]
+        val managedArrayBlockingQueue = new ManagedArrayBlockingQueue(maxConnections, n)
+
+        new AsyncExecutorImpl(managedArrayBlockingQueue.asInstanceOf[BlockingQueue[Runnable]]) {
+          override def prioritizedRunnable(priority0: => Priority,
+                                           run0: PrioritizedRunnable.SetConnectionReleased => Unit
+                                          ): PrioritizedRunnable =
+            new PrioritizedRunnable {
+              override def priority() = priority0
+
+              private def runAndCleanUp() =
+                try run0(new PrioritizedRunnable.SetConnectionReleased(() => connectionReleased = true))
+                finally {
+                  // If the runnable/task has released the Jdbc connection we decrease the counter again
+                  if (!managedArrayBlockingQueue.attemptCleanUp(this))
+                    logger.warn("After executing a task, the in-use count was already 0. This should not happen.")
+                }
+
+              override def run() =
+                if (priority() == WithConnection)
+                  runAndCleanUp()
+                else if (managedArrayBlockingQueue.attemptPrepare(this))
+                  runAndCleanUp()
+                else {
+                  logger.warn("Could not increase in-use count. Will resubmit...")
+                  executor.execute(this)
+                }
+            }
+        }
     }
+  }
 
-    override def prioritizedRunnable(priority: => Priority,
-                                     run: PrioritizedRunnable.SetConnectionReleased => Unit): PrioritizedRunnable = {
-      def _priority = priority
-      def _run(setConnectionReleased: PrioritizedRunnable.SetConnectionReleased) =
-        run(setConnectionReleased)
-      new PrioritizedRunnable {
-        override def priority() = _priority
-        val setConnectionReleased = new PrioritizedRunnable.SetConnectionReleased(() => connectionReleased = true)
+  def default(name: String, maxConnections: Int): AsyncExecutor =
+    apply(
+      name,
+      minThreads = 20,
+      maxThreads = 20,
+      queueSize = 1000,
+      maxConnections = maxConnections
+    )
 
-        private def runAndCleanUp(q: ManagedArrayBlockingQueue) =
-          try _run(setConnectionReleased)
-          finally {
-            // If the runnable/task has released the Jdbc connection we decrease the counter again
-            if (!q.attemptCleanUp(this))
-              logger.warn("After executing a task, the in-use count was already 0. This should not happen.")
-          }
+  def default(name: String = "AsyncExecutor.default"): AsyncExecutor =
+    apply(name, 20, 1000)
 
-        override def run() =
-          (queue: Any) match {
-            // If the runnable/task is a low/medium priority item, we increase the items in use count,
-            // because first thing it will do is open a Jdbc connection from the pool.
-            case q: ManagedArrayBlockingQueue =>
-              if (priority() == WithConnection)
-                runAndCleanUp(q)
-              else if (q.attemptPrepare(this))
-                runAndCleanUp(q)
-              else {
-                logger.warn("Could not increase in-use count. Will resubmit...")
-                executor.execute(this)
-              }
-            case _                               =>
-              _run(setConnectionReleased)
-          }
-      }
+
+  private[slick] class DefaultAsyncExecutor(name: String,
+                                            minThreads: Int,
+                                            maxThreads: Int,
+                                            private[slick] val queue: BlockingQueue[Runnable],
+                                            queueSize: Int,
+                                            maxConnections: Int,
+                                            keepAliveTime: Duration,
+                                            registerMbeans: Boolean) extends AsyncExecutor {
+
+    @volatile private[this] lazy val mBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name")
+
+    // Before init: 0, during init: 1, after init: 2, during/after shutdown: 3
+    private[this] val state = new AtomicInteger(0)
+
+    @volatile protected var executor: ThreadPoolExecutor = _
+
+    if (maxConnections > maxThreads) {
+      // NOTE: when using transactions or DB locks, it may happen that a task has a lock on the database but no thread
+      // to complete its action, while other tasks may have all the threads but are waiting for the first task to
+      // complete. This creates a deadlock.
+      logger.warn(
+        "Having maxConnection > maxThreads can result in deadlocks if transactions or database locks are used."
+      )
     }
 
     lazy val executionContext = {
@@ -224,7 +250,7 @@ object AsyncExecutor extends Logging {
       executor =
         new ThreadPoolExecutor(minThreads, maxThreads, keepAliveTime.toMillis, TimeUnit.MILLISECONDS, queue, tf)
 
-      if(registerMbeans) {
+      if (registerMbeans) {
         try {
           val mBeanServer = ManagementFactory.getPlatformMBeanServer
           if (mBeanServer.isRegistered(mBeanName))
@@ -279,18 +305,6 @@ object AsyncExecutor extends Logging {
     }
   }
 
-  def default(name: String, maxConnections: Int): AsyncExecutor =
-    apply(
-      name,
-      minThreads = 20,
-      maxThreads = 20,
-      queueSize = 1000,
-      maxConnections = maxConnections
-    )
-
-  def default(name: String = "AsyncExecutor.default"): AsyncExecutor =
-    apply(name, 20, 1000)
-
   sealed trait Priority
   /** Fresh is used for database actions that are scheduled/queued for the first time. */
   case object Fresh extends Priority
@@ -343,7 +357,7 @@ object AsyncExecutor extends Logging {
     t.start()
   }
 
-  val loggingReporter: Throwable => Unit = (t: Throwable) => {
+  private val loggingReporter: Throwable => Unit = (t: Throwable) => {
     logger.warn("Execution of asynchronous I/O action failed", t)
   }
 }
