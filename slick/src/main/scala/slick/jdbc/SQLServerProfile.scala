@@ -55,7 +55,7 @@ import slick.util.ConfigExtensionMethods._
   * changed by overriding <code>slick.jdbc.SQLServerProfile.defaultStringType</code>
   * in application.conf.
   */
-trait SQLServerProfile extends JdbcProfile {
+trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected[this] def loadProfileConfig: Config = {
     if(!GlobalConfig.profileConfig("slick.driver.SQLServer").entrySet().isEmpty)

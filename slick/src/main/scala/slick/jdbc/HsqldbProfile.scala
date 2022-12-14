@@ -37,7 +37,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     natively on the server side.</li>
   * </ul>
   */
-trait HsqldbProfile extends JdbcProfile {
+trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlCapabilities.sequenceCurr

@@ -50,7 +50,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *   extension in PostgreSQL.</li>
   * </ul>
   */
-trait PostgresProfile extends JdbcProfile {
+trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcCapabilities.insertOrUpdate

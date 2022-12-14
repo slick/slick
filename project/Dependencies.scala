@@ -8,12 +8,12 @@ object Dependencies {
 
   val scalaVersions = Seq("2.12.17", "2.13.10") // When updating these also update ci.yml and appveyor.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.3"
+  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.6"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.8.1"
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.9.0"
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
@@ -21,7 +21,7 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.3"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.4.4"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.4.5"
   val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.1"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
@@ -37,12 +37,12 @@ object Dependencies {
     h2,
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
-    "org.xerial" % "sqlite-jdbc" % "3.39.3.0",
+    "org.xerial" % "sqlite-jdbc" % "3.40.0.0",
     "org.hsqldb" % "hsqldb" % "2.7.1",
-    "org.postgresql" % "postgresql" % "42.5.0",
+    "org.postgresql" % "postgresql" % "42.5.1",
     "mysql" % "mysql-connector-java" % "8.0.31",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.7.0.0",
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.8.0.0",
     "com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"
   )
 
