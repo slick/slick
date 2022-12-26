@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        java: [ 11, 17 ]
+        java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
     services:
@@ -104,7 +104,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: adopt
-          java-version: 11
+          java-version: 8
           cache: sbt
 
       - name: Create deploy key

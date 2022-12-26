@@ -21,8 +21,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.3"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.4.5"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "5.0.1"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.3.5"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
@@ -38,7 +38,7 @@ object Dependencies {
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
     "org.xerial" % "sqlite-jdbc" % "3.40.0.0",
-    "org.hsqldb" % "hsqldb" % "2.7.1",
+    "org.hsqldb" % "hsqldb" % "2.5.2",
     "org.postgresql" % "postgresql" % "42.5.1",
     "mysql" % "mysql-connector-java" % "8.0.31",
     "net.sourceforge.jtds" % "jtds" % "1.3.1",
