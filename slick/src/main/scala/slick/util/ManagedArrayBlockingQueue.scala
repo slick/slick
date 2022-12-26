@@ -137,6 +137,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
     if (highPriorityItemQueue.count != 0) highPriorityItemQueue.extract
     else if (!paused && itemQueue.count != 0) {
       val item = itemQueue.extract
+      if (remainingCapacity != 0) itemQueueNotFull.signalAll()
       require(attemptPrepare(item), "In-use count limit reached")
       item
     }
