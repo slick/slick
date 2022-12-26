@@ -36,6 +36,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
    */
   @volatile private[slick] var nonHighItemsInUseCount = 0
 
+  //TODO @volatile, and each method should only read once, then write once
   private[this] var paused = false
 
   /**
