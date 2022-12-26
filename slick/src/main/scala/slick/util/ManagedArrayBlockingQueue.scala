@@ -123,11 +123,12 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
     checkNotInUse(e)
     var nanos: Long = unit.toNanos(timeout)
     lockedInterruptibly {
-      while (e.priority() == Fresh && itemQueue.count >= capacity) {
-        if (nanos <= 0) return false
+      while (e.priority() == Fresh && itemQueue.count >= capacity && nanos > 0)
         nanos = itemQueueNotFull.awaitNanos(nanos)
-      }
-      insert(e)
+      if (nanos <= 0)
+        false
+      else
+        insert(e)
     }
   }
 
