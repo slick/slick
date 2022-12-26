@@ -34,7 +34,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
   /**
    * The number of low/medium priority items in use
    */
-  private[slick] var nonHighItemsInUseCount = 0
+  @volatile private[slick] var nonHighItemsInUseCount = 0
 
   private[this] var paused = false
 
@@ -47,14 +47,15 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
    *         false if [[maximumInUse]] would be exceeded.
    */
   private[util] def attemptPrepare(pr: PrioritizedRunnable): Boolean = locked {
+    val _nonHighItemsInUseCount = nonHighItemsInUseCount
     if (pr.inUseCounterSet)
       true
-    else if (nonHighItemsInUseCount >= maximumInUse)
+    else if (_nonHighItemsInUseCount >= maximumInUse)
       false
     else {
-      nonHighItemsInUseCount += 1
+      nonHighItemsInUseCount = _nonHighItemsInUseCount + 1
       pr.inUseCounterSet = true
-      if (nonHighItemsInUseCount == maximumInUse) {
+      if (_nonHighItemsInUseCount == maximumInUse) {
         logger.debug("pausing")
         paused = true
       }
@@ -75,11 +76,12 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
       true
     else
       locked {
-        if (nonHighItemsInUseCount <= 0)
+        val _nonHighItemsInUseCount = nonHighItemsInUseCount
+        if (_nonHighItemsInUseCount <= 0)
           false
         else {
-          nonHighItemsInUseCount -= 1
-          if (nonHighItemsInUseCount == maximumInUse - 1) {
+          nonHighItemsInUseCount = _nonHighItemsInUseCount - 1
+          if (_nonHighItemsInUseCount == maximumInUse - 1) {
             logger.debug("resuming")
             paused = false
             if (counts > 0) notEmpty.signalAll()
