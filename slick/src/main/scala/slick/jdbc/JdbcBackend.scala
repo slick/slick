@@ -43,6 +43,10 @@ trait JdbcBackend extends RelationalBackend {
     @volatile
     protected[JdbcBackend] var capabilities: DatabaseCapabilities = null
 
+    override protected def prioritizedRunnable(priority: => AsyncExecutor.Priority,
+                                               run: AsyncExecutor.PrioritizedRunnable.SetConnectionReleased => Unit) =
+      executor.prioritizedRunnable(priority, run)
+
     def createSession(): Session = new BaseSession(this)
 
     /** Like `stream(StreamingAction)` but you can disable pre-buffering of the next row by setting

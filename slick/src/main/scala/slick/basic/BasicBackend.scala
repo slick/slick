@@ -1,21 +1,17 @@
 package slick.basic
 
-import slick.util.AsyncExecutor.{Priority, Continuation, Fresh, WithConnection}
-
-
+import slick.util.AsyncExecutor.{Continuation, Fresh, PrioritizedRunnable, Priority, WithConnection}
 import java.io.Closeable
-import java.util.concurrent.atomic.{AtomicReferenceArray, AtomicLong}
+import java.util.concurrent.atomic.{AtomicLong, AtomicReferenceArray}
 
 import com.typesafe.config.Config
-
-import scala.concurrent.{Promise, ExecutionContext, Future}
-import scala.util.{Success, Failure}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 import scala.collection.compat._
 
 import org.slf4j.LoggerFactory
 import org.reactivestreams._
-
 import slick.SlickException
 import slick.dbio._
 import slick.util._
@@ -69,6 +65,11 @@ trait BasicBackend { self =>
       * the underlying shutdown procedure is asynchronous, you should implement `shutdown` instead
       * and wrap it with `Await.result` in this method. */
     def close: Unit
+
+    protected def prioritizedRunnable(priority: => Priority,
+                                      run: AsyncExecutor.PrioritizedRunnable.SetConnectionReleased => Unit
+                                     ): AsyncExecutor.PrioritizedRunnable =
+      AsyncExecutor.PrioritizedRunnable(priority, run)
 
     /** Run an Action asynchronously and return the result as a Future. */
     final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, false)
@@ -262,13 +263,12 @@ trait BasicBackend { self =>
     /** Run a `SynchronousDatabaseAction` on this database. */
     protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context, continuation: Boolean): Future[R] = {
       val promise = Promise[R]()
-      ctx.getEC(synchronousExecutionContext).execute(new AsyncExecutor.PrioritizedRunnable {
-        def priority = {
+      ctx.getEC(synchronousExecutionContext).execute(prioritizedRunnable(
+        priority = {
           ctx.readSync
           ctx.priority(continuation)
-        }
-
-        def run: Unit =
+        },
+        run = { setConnectionReleased =>
           try {
             ctx.readSync
             val res = try {
@@ -280,12 +280,13 @@ trait BasicBackend { self =>
               releaseSession(ctx, false)
               res
             } finally {
-              if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) connectionReleased = true
+              if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) setConnectionReleased()
               ctx.sync = 0
             }
             promise.success(res)
           } catch { case NonFatal(ex) => promise.tryFailure(ex) }
-      })
+        }
+      ))
       promise.future
     }
 
@@ -299,15 +300,13 @@ trait BasicBackend { self =>
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
     protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean)(initialState: a.StreamState): Unit =
       try {
-        ctx.getEC(synchronousExecutionContext).execute(new AsyncExecutor.PrioritizedRunnable {
-          private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
-
-          def priority = {
+        def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
+        ctx.getEC(synchronousExecutionContext).execute(prioritizedRunnable (
+          priority = {
             ctx.readSync
             ctx.priority(continuation)
-          }
-
-          def run(): Unit =
+          },
+          run = { setConnectionReleased =>
             try {
               val debug = streamLogger.isDebugEnabled
               var state = initialState
@@ -317,7 +316,7 @@ trait BasicBackend { self =>
                 try {
                   acquireSession(ctx)
                 } catch { case NonFatal(ex) =>
-                  if (!ctx.isPinned) connectionReleased = true
+                  if (!ctx.isPinned) setConnectionReleased()
                   throw ex
                 }
               }
@@ -344,7 +343,7 @@ trait BasicBackend { self =>
 
                   if(state eq null) { // streaming finished and cleaned up
                     releaseSession(ctx, true)
-                    if (!ctx.isPinned) connectionReleased = true
+                    if(!ctx.isPinned) setConnectionReleased()
                     ctx.sync = 0
                     ctx.streamingResultPromise.trySuccess(null)
                   }
@@ -352,7 +351,7 @@ trait BasicBackend { self =>
                 } catch { case NonFatal(ex) =>
                   if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
                   releaseSession(ctx, true)
-                  if (!ctx.isPinned) connectionReleased = true
+                  if (!ctx.isPinned) setConnectionReleased()
                   ctx.sync = 0
                   throw ex
 
@@ -379,7 +378,8 @@ trait BasicBackend { self =>
             } catch {
               case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex)
             }
-        })
+          }
+        ))
       } catch { case NonFatal(ex) =>
         streamLogger.warn("Error scheduling synchronous streaming", ex)
         throw ex
