@@ -99,7 +99,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         case Some("uniqueidentifier") => "java.util.UUID"
         case _ => super.tpe
       }
-      val UUIDPattern = "^'(.*)'".r
+      val UUIDPattern = """^\(?'(.*)'\)?""".r
       override def default = rawDefault.map((_,tpe)).collect{
         case ("0","Boolean")  => Some(false)
         case ("1","Boolean")  => Some(true)
