@@ -21,7 +21,7 @@ class GitHubActionsRunListener extends RunListener {
     error(failure.getTestHeader + " failed an assumption")(failure.getMessage)
 
   override def testRunStarted(description: Description) =
-    println(s"$this: ${description.getTestClass} started")
+    println(s"$this: ${description.getDisplayName} started")
 
   override def testRunFinished(result: Result) = {
     val (runs, failures, ignores) =
