@@ -70,6 +70,8 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     - JdbcCapabilities.insertOrUpdate
     - SqlCapabilities.sequence
     - JdbcCapabilities.supportsByte
+    - JdbcCapabilities.returnMultipleInsertKey
+    - JdbcCapabilities.insertMultipleRowsWithSingleStatement
   )
 
   override protected def computeQueryCompiler =
