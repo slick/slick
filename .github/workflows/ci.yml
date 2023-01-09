@@ -39,7 +39,6 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-general
 
     strategy:
-      max-parallel: 1
       matrix:
         java: [ 8, 17 ]
         scala: [ 2.13.x ]
@@ -80,7 +79,6 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-db2
 
     strategy:
-      max-parallel: 1
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).db2 }}
         java: [ 11, 17 ]
@@ -122,7 +120,6 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-oracle
 
     strategy:
-      max-parallel: 1
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).oracle }}
         java: [ 11, 17 ]
@@ -159,7 +156,6 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-postgres
 
     strategy:
-      max-parallel: 1
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).postgres }}
         java: [ 11, 17 ]
@@ -202,7 +198,6 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-mssql
 
     strategy:
-      max-parallel: 1
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).mssql }}
         java: [ 11, 17 ]
@@ -239,7 +234,6 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-mysql
 
     strategy:
-      max-parallel: 1
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).mysql }}
         java: [ 11, 17 ]
@@ -272,7 +266,6 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-other
 
     strategy:
-      max-parallel: 8
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).other }}
         java: [ 11, 17 ]
