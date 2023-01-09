@@ -35,9 +35,6 @@ jobs:
     name: General
     runs-on: ubuntu-latest
 
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-general
-
     strategy:
       matrix:
         java: [ 8, 17 ]
@@ -74,10 +71,6 @@ jobs:
     name: DB2
     runs-on: ubuntu-latest
     needs: [ listDbTests ]
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-db2
-
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).db2 }}
@@ -115,10 +108,6 @@ jobs:
     name: Oracle
     runs-on: ubuntu-latest
     needs: [ listDbTests ]
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-oracle
-
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).oracle }}
@@ -151,10 +140,6 @@ jobs:
     name: Postgres
     runs-on: ubuntu-latest
     needs: [ listDbTests ]
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-postgres
-
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).postgres }}
@@ -193,10 +178,6 @@ jobs:
     name: SQL Server
     runs-on: ubuntu-latest
     needs: [ listDbTests ]
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-mssql
-
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).mssql }}
@@ -229,10 +210,6 @@ jobs:
     name: MySQL
     runs-on: ubuntu-latest
     needs: [ listDbTests ]
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-mysql
-
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).mysql }}
@@ -261,10 +238,6 @@ jobs:
     name: Other DB
     runs-on: ubuntu-latest
     needs: [ listDbTests ]
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-other
-
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).other }}
