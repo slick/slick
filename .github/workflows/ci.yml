@@ -74,7 +74,7 @@ jobs:
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).db2 }}
-        java: [ 11, 17 ]
+        java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
     services:
@@ -111,7 +111,7 @@ jobs:
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).oracle }}
-        java: [ 11, 17 ]
+        java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
     services:
@@ -143,7 +143,7 @@ jobs:
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).postgres }}
-        java: [ 11, 17 ]
+        java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
     services:
@@ -181,7 +181,7 @@ jobs:
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).mssql }}
-        java: [ 11, 17 ]
+        java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
     services:
@@ -213,7 +213,7 @@ jobs:
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).mysql }}
-        java: [ 11, 17 ]
+        java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
     steps:
@@ -241,7 +241,7 @@ jobs:
     strategy:
       matrix:
         test: ${{ fromJson(needs.listDbTests.outputs.tests).other }}
-        java: [ 11, 17 ]
+        java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
     steps:
