@@ -1,3 +1,6 @@
+import java.nio.file.{Files, Paths}
+
+
 val filename = "slick-testkit/src/test/scala/slick/test/profile/ProfileTest.scala"
 val res =
   "(?<=class )\\S+".r
@@ -11,4 +14,9 @@ val res =
       case s"SQLServer${_}" => "mssql"
       case _                => "other"
     }
-println("::set-output name=tests::" + upickle.default.write(res))
+    .view.mapValues(_.map("slick.test.profile." + _).mkString(" ")).toMap
+
+Files.writeString(
+  Paths.get(sys.env.getOrElse("GITHUB_OUTPUT", "/dev/stdout")),
+  "tests=" + upickle.default.write(res)
+)

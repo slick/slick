@@ -73,7 +73,6 @@ jobs:
     needs: [ listDbTests ]
     strategy:
       matrix:
-        test: ${{ fromJson(needs.listDbTests.outputs.tests).db2 }}
         java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
@@ -102,7 +101,10 @@ jobs:
 
       - run: |
           sbt -Ddb2.enabled=true \
-            ++${{ matrix.scala }} coverage 'testOnly slick.test.profile.${{ matrix.test }}' coverageReport
+            ++${{ matrix.scala }} \
+            coverage \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).db2 }}' \
+            coverageReport
 
   database-tests-oracle:
     name: Oracle
@@ -110,7 +112,6 @@ jobs:
     needs: [ listDbTests ]
     strategy:
       matrix:
-        test: ${{ fromJson(needs.listDbTests.outputs.tests).oracle }}
         java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
@@ -134,7 +135,10 @@ jobs:
 
       - run: |
           sbt -Doracle.enabled=true \
-            ++${{ matrix.scala }} coverage 'testOnly slick.test.profile.${{ matrix.test }}' coverageReport
+            ++${{ matrix.scala }} \
+            coverage \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).oracle }}' \
+            coverageReport
 
   database-tests-postgres:
     name: Postgres
@@ -142,7 +146,6 @@ jobs:
     needs: [ listDbTests ]
     strategy:
       matrix:
-        test: ${{ fromJson(needs.listDbTests.outputs.tests).postgres }}
         java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
@@ -172,7 +175,10 @@ jobs:
 
       - run: |
           sbt -Dpostgres.enabled=true \
-            ++${{ matrix.scala }} coverage 'testOnly slick.test.profile.${{ matrix.test }}' coverageReport
+            ++${{ matrix.scala }} \
+            coverage \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).postgres }}' \
+            coverageReport
 
   database-tests-mssql:
     name: SQL Server
@@ -180,7 +186,6 @@ jobs:
     needs: [ listDbTests ]
     strategy:
       matrix:
-        test: ${{ fromJson(needs.listDbTests.outputs.tests).mssql }}
         java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
@@ -204,7 +209,12 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: sbt
 
-      - run: sbt ++${{ matrix.scala }} coverage 'testOnly slick.test.profile.${{ matrix.test }}' coverageReport
+      - run: |
+          sbt \
+            ++${{ matrix.scala }} \
+            coverage \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).mssql }}' \
+            coverageReport
 
   database-tests-mysql:
     name: MySQL
@@ -212,7 +222,6 @@ jobs:
     needs: [ listDbTests ]
     strategy:
       matrix:
-        test: ${{ fromJson(needs.listDbTests.outputs.tests).mysql }}
         java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
@@ -232,7 +241,10 @@ jobs:
 
       - run: |
           sbt -Dmysql.enabled=true \
-            ++${{ matrix.scala }} coverage 'testOnly slick.test.profile.${{ matrix.test }}' coverageReport
+            ++${{ matrix.scala }} \
+            coverage \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).mysql }}' \
+            coverageReport
 
   database-tests-other:
     name: Other DB
@@ -240,7 +252,6 @@ jobs:
     needs: [ listDbTests ]
     strategy:
       matrix:
-        test: ${{ fromJson(needs.listDbTests.outputs.tests).other }}
         java: [ 8, 17 ]
         scala: [ 2.12.x, 2.13.x ]
 
@@ -255,7 +266,12 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: sbt
 
-      - run: sbt ++${{ matrix.scala }} coverage 'testOnly slick.test.profile.${{ matrix.test }}' coverageReport
+      - run: |
+          sbt \
+            ++${{ matrix.scala }} \
+            coverage \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).other }}' \
+            coverageReport
 
       - name: Upload test results
         uses: actions/upload-artifact@v2
