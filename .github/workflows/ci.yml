@@ -9,7 +9,6 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 env:
   SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
