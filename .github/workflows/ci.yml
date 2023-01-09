@@ -100,10 +100,10 @@ jobs:
           cache: sbt
 
       - run: |
-          sbt -Ddb2.enabled=true \
+          sbt \
             ++${{ matrix.scala }} \
             coverage \
-            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).db2 }}' \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).db2 }} -- -Ddb2.enabled=true' \
             coverageReport
 
   database-tests-oracle:
@@ -134,10 +134,10 @@ jobs:
           cache: sbt
 
       - run: |
-          sbt -Doracle.enabled=true \
+          sbt \
             ++${{ matrix.scala }} \
             coverage \
-            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).oracle }}' \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).oracle }} -- -Doracle.enabled=true' \
             coverageReport
 
   database-tests-postgres:
@@ -174,10 +174,10 @@ jobs:
           cache: sbt
 
       - run: |
-          sbt -Dpostgres.enabled=true \
+          sbt \
             ++${{ matrix.scala }} \
             coverage \
-            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).postgres }}' \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).postgres }} -- -Dpostgres.enabled=true' \
             coverageReport
 
   database-tests-mssql:
@@ -240,10 +240,10 @@ jobs:
           cache: sbt
 
       - run: |
-          sbt -Dmysql.enabled=true \
+          sbt \
             ++${{ matrix.scala }} \
             coverage \
-            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).mysql }}' \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).mysql }} -- -Dmysql.enabled=true' \
             coverageReport
 
   database-tests-other:
