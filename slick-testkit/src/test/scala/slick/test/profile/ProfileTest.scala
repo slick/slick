@@ -46,7 +46,4 @@ class DB2Test extends ProfileTest(StandardTestDBs.DB2)
 class OracleTest extends ProfileTest(StandardTestDBs.Oracle)
 
 @RunWith(classOf[Testkit])
-class SQLServerJTDSTest extends ProfileTest(StandardTestDBs.SQLServerJTDS)
-
-@RunWith(classOf[Testkit])
 class SQLServerSQLJDBCTest extends ProfileTest(StandardTestDBs.SQLServerSQLJDBC)

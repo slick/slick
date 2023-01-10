@@ -210,9 +210,6 @@ object StandardTestDBs {
     }
   }
 
-  lazy val SQLServerJTDS = new SQLServerDB("sqlserver-jtds") {
-    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
-  }
   lazy val SQLServerSQLJDBC = new SQLServerDB("sqlserver-sqljdbc") {
     override def capabilities = profile.capabilities - JdbcCapabilities.createModel
   }

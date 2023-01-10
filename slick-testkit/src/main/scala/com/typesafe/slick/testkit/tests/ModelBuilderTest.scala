@@ -120,7 +120,6 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
       tdb.profile.createModel(tables.map(DBIO.successful), ignoreInvalidDefaults)
 
     // postgres uses lower case and things like int4
-    // seen in jtds: int identity
     // seen in oracle: VARCHAR2
     val DBTypePattern = "^[a-zA-Z][a-zA-Z0-9 ]*$".r
 
@@ -180,7 +179,6 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
           Seq(
             "CHAR","CHARACTER",
             "BPCHAR" // bpchar: postgres
-            //"char" // jtds
           ) contains tpe("title").toUpperCase,
           tpe("title")
         )

@@ -38,8 +38,7 @@ import slick.util.ConfigExtensionMethods._
   *     Inserting explicit values into AutoInc columns with ''forceInsert''
   *     operations is not supported.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.createModel]]:
-  *     Reading the database schema is currently only supported through JTDS,
-  *     not through Microsoft's official JDBC driver.</li>
+  *     Reading the database schema is not supported.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
   *     keys should be returned. Otherwise the operation is performmed
@@ -71,6 +70,8 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     - JdbcCapabilities.insertOrUpdate
     - SqlCapabilities.sequence
     - JdbcCapabilities.supportsByte
+    - JdbcCapabilities.returnMultipleInsertKey
+    - JdbcCapabilities.insertMultipleRowsWithSingleStatement
   )
 
   override protected def computeQueryCompiler =
@@ -98,11 +99,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         case Some("uniqueidentifier") => "java.util.UUID"
         case _ => super.tpe
       }
-      override def rawDefault = super.rawDefault.map(_.stripPrefix("(") // jtds
-                                                      .stripPrefix("(")
-                                                      .stripSuffix(")")
-                                                      .stripSuffix(")"))
-      val UUIDPattern = "^'(.*)'".r
+      val UUIDPattern = """^\(?'(.*)'\)?""".r
       override def default = rawDefault.map((_,tpe)).collect{
         case ("0","Boolean")  => Some(false)
         case ("1","Boolean")  => Some(true)

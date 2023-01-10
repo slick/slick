@@ -257,12 +257,12 @@ val  SimpleA = CustomTyping.SimpleA
         |  val p2 = PersonRow(2, u2, uuidFunc = Some(u4))
         |
         |  def assertAll(all: Seq[PersonRow]) = {
-        |    assertEquals( 2, all.size )
-        |    assertEquals( Set(1,2), all.map(_.id).toSet )
-        |    assertEquals( Set(u1, u2), all.map(_.uuid).toSet )
-        |    assertEquals( Set(Some(u3), Some(u4)), all.map(_.uuidFunc).toSet )
+        |    assertEquals( "2 == all.size", 2, all.size )
+        |    assertEquals( "Set(1,2) == all.map(_.id).toSet", Set(1,2), all.map(_.id).toSet )
+        |    assertEquals( "Set(u1, u2) == all.map(_.uuid).toSet", Set(u1, u2), all.map(_.uuid).toSet )
+        |    assertEquals( "Set(Some(u3), Some(u4)) == all.map(_.uuidFunc).toSet", Set(Some(u3), Some(u4)), all.map(_.uuidFunc).toSet )
         |    //it should contain sample UUID
-        |    assert(all.forall(_.uuidDef == Some(defaultUUID)))
+        |    assertTrue("all.forall(_.uuidDef == Some(defaultUUID))", all.forall(_.uuidDef == Some(defaultUUID)))
         |  }
         |
         |  DBIO.seq(
