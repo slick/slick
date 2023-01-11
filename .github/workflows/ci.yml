@@ -213,7 +213,7 @@ jobs:
           sbt \
             ++${{ matrix.scala }} \
             coverage \
-            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).mssql }}' \
+            'testOnly ${{ fromJson(needs.listDbTests.outputs.tests).mssql }} -- -Dsqlserver-sqljdbc.enabled=true' \
             coverageReport
 
   database-tests-mysql:
