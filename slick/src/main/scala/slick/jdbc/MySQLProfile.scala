@@ -59,7 +59,7 @@ import slick.util.ConfigExtensionMethods.configExtensionMethods
   * old path are *not* used anymore. This deprecation warning will be removed in a
   * future version.
   */
-trait MySQLProfile extends JdbcProfile { profile =>
+trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { profile =>
   import MySQLProfile.{RowNum, RowNumGen}
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
@@ -267,7 +267,12 @@ trait MySQLProfile extends JdbcProfile { profile =>
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
       val update = allNames.map(n => s"$n=VALUES($n)").mkString(", ")
-      new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
+      def makeValues(size: Int) =
+        (1 to size).map(_ => allVars).mkString(",")
+      def makeSql(size: Int) = s"$start values ${makeValues(size)} on duplicate key update $update"
+      new InsertBuilderResult(table, makeSql(1), syms) {
+        override def buildMultiRowInsert(size: Int) = makeSql(size)
+      }
     }
   }
 

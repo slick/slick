@@ -15,10 +15,14 @@ object JdbcCapabilities {
   val insertOrUpdate = Capability("jdbc.insertOrUpdate")
   /** Supports `insertOrUpdate` with only primary keys (equivalent to "insert if not exists") */
   val insertOrUpdateWithPrimaryKeyOnly = Capability("jdbc.insertOrUpdateWithPrimaryKeyOnly")
+  /** Supports `insertAll` with `SingleStatement` option.*/
+  val insertMultipleRowsWithSingleStatement = Capability("jdbc.insertMultipleRowsWithSingleStatement")
   /** Supports mutable result sets */
   val mutable = Capability("jdbc.mutable")
   /** Can return primary key of inserted rows */
   val returnInsertKey = Capability("jdbc.returnInsertKey")
+  /** Can return multiple primary key of inserted rows in a single statement */
+  val returnMultipleInsertKey = Capability("jdbc.returnMultipleInsertKey")
   /** Can also return non-primary-key columns of inserted rows */
   val returnInsertOther = Capability("jdbc.returnInsertOther")
   /** Returns column default values in meta data */
@@ -47,11 +51,13 @@ object JdbcCapabilities {
     forceInsert,
     insertOrUpdate,
     insertOrUpdateWithPrimaryKeyOnly,
+    insertMultipleRowsWithSingleStatement,
     mutable,
     nullableNoDefault,
     other,
     returnInsertKey,
     returnInsertOther,
+    returnMultipleInsertKey,
     supportsByte,
   )
 }

@@ -24,10 +24,10 @@ jobs:
 
     - name: Get base version
       id: getBaseVer
-      run: echo "::set-output name=baseVer::$(sbt -error 'print slick/version')"
+      run: sbt writeVersionToGitHubOutput
 
     - run: sbt publishLocal
-      name: Publish ${{ steps.getBaseVer.outputs.baseVer }} locally
+      name: Publish ${{ steps.getBaseVer.outputs.result }} locally
 
     - uses: actions/checkout@v3
       name: Check out PR
@@ -40,19 +40,17 @@ jobs:
     - name: Generate compatibility changes report
       id: createReport
       run: |
-        echo -n "::set-output name=reportFile::"
         sbt \
-          -error \
-          'set every CompatReportPlugin.previousRelease := Some("${{ steps.getBaseVer.outputs.baseVer }}")' \
-          'print site/buildCompatReport'
+          'set every CompatReportPlugin.previousRelease := Some("${{ steps.getBaseVer.outputs.result }}")' \
+          writeCompatReportToGitHubOutput
 
-    - name: Show report saved in ${{ steps.createReport.outputs.reportFile }}
-      run: cat ${{ steps.createReport.outputs.reportFile }}
+    - name: Show report saved in ${{ steps.createReport.outputs.result }}
+      run: cat ${{ steps.createReport.outputs.result }}
 
     - name: Prepare artifact contents
       run: |
         mkdir -p ./compat-report
-        cp ${{ steps.createReport.outputs.reportFile }} ./compat-report/compat-report.md
+        cp ${{ steps.createReport.outputs.result }} ./compat-report/compat-report.md
         echo ${{ github.event.number }} > ./compat-report/NR.txt
 
     - uses: actions/upload-artifact@v3

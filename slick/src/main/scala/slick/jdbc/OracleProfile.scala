@@ -4,7 +4,6 @@ import java.time.format.DateTimeFormatter
 import java.time._
 import java.util.UUID
 import java.sql.{Array => _, _}
-
 import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.ast._
@@ -15,6 +14,7 @@ import slick.lifted._
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.basic.Capability
+import slick.sql.FixedSqlAction
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -44,6 +44,11 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     which is always mapped back to BigDecimal in model and generated code.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     Oracle does not have a BYTE type.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
+  *      Oracle returns the last generated key only.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.insertMultipleRowsWithSingleStatement]]:
+  *      Oracle doesn't support this feature directly.
+  *      There are several alternative ways, but the library doesn't support them, so far.</li>
   * </ul>
   *
   * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns
@@ -56,13 +61,14 @@ import slick.util.MacroSupport.macroSupportInterpolation
   * Updating Blob values in updatable result sets is not supported.
   */
 trait OracleProfile extends JdbcProfile {
-
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - RelationalCapabilities.foreignKeyActions
     - JdbcCapabilities.insertOrUpdate
     - JdbcCapabilities.booleanMetaData
     - JdbcCapabilities.distinguishesIntTypes
     - JdbcCapabilities.supportsByte
+    - JdbcCapabilities.returnMultipleInsertKey
+    - JdbcCapabilities.insertMultipleRowsWithSingleStatement
   )
 
   override protected lazy val useServerSideUpsert = true
@@ -533,6 +539,12 @@ END;
       }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
     else super.createOptionResultConverter(ti, idx)
 
+  override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
+    new CountingInsertActionComposerImpl[T](compiled)
+
+  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
+    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
+
   // Does not work to get around the ORA-00904 issue when returning columns
   // with lower-case names
   /*trait OracleInsertInvoker[U, RU] { this: AbstractKeysInsertInvoker[U, RU] =>
@@ -567,7 +579,7 @@ END;
   }
 }
 
-object OracleProfile extends OracleProfile {
+object OracleProfile extends OracleProfile with JdbcActionComponent.OneRowPerStatementOnly {
   /** Extra column options for OracleProfile */
   object ColumnOption {
     /** Name of the sequence which is generated for an AutoInc column. */

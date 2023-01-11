@@ -1,14 +1,15 @@
 package slick.test.jdbc
 
 import org.junit.Test
-import slick.jdbc.JdbcProfile
+import slick.jdbc.{JdbcActionComponent, JdbcProfile}
+
 import org.junit.Assert._
 
 class SqlActionBuilderTest {
 
   @Test
   def testStripMargin: Unit = {
-    val driver = new JdbcProfile {}
+    val driver = new JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {}
     import driver.api.actionBasedSQLInterpolation
 
     val id = 0

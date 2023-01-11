@@ -44,6 +44,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     // Frequently used pool configuration
     c.getBooleanOpt("autoCommit").foreach(hconf.setAutoCommit)
+    c.getStringOpt("exceptionOverrideClassName").foreach(hconf.setExceptionOverrideClassName)
 
     val numThreads = c.getIntOr("numThreads", 20)
 
