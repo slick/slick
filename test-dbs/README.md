@@ -68,15 +68,8 @@ Sample script for setting up the DB2 test database on a different partition (e.g
 SQL Server
 ----------
 
-SQL Server via JTDS quick setup:
-- Install [SQL Server Express 2008 R2](http://www.microsoft.com/en-us/download/details.aspx?id=30438)
-- In the SQL Server Configuration Manager, under "SQL Server Network Configuration", enable
-  Named Pipes and change the path from `\\.\pipe\MSSQL$SQLEXPRESS\sql\query` to `\\.\pipe\sql\query`
-- If your machine is on a Windows domain, you may need to set the domain in `sqlserver-jtds.domain`
-- Set `sqlserver-jtds.enabled = true`
-
-SQL Server via sqljdbc quick setup:
-- Install [SQL Server Express 2008 R2](http://www.microsoft.com/express/Database/InstallOptions.aspx)
+SQL Server quick setup:
+- Install [SQL Server Developer](https://www.microsoft.com/en-us/sql-server/sql-server-downloads)
 - Enter the password for the `sa` user in `sqlserver-sqljdbc.password`
   (use SQL Server Management Studio to set a password if necessary)
 - Ensure that the TCP transport on port 1433 is enabled (-> SQL Server Configuration Manager)
@@ -107,10 +100,6 @@ Example configuration
     db2 {
       enabled = true
       password = secret
-    }
-
-    sqlserver-jtds {
-      enabled = true
     }
 
     sqlserver-sqljdbc {

@@ -205,32 +205,23 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   }
   lazy val now = generateTestLocalDateTime()
   /**
-    * Generates a [[LocalDateTime]] used for the [[java.time]] type tests.
-    * The generated test [[LocalDateTime]] will adapt to the database system being used.
-    * If the SQL server driver `jtds` is used, there would be a 3 millisecond rounding, so
-    * this method will generate a [[LocalDateTime]], using [[LocalDateTime#now]] whose milliseconds
-    * ends either 0. It will just return [[LocalDateTime#now]] if any other driver or database
-    * is being used.
-    *
-    * Older version of MySQL have no millisecond resolution, so set all the ms component
-    * of the LocalDateTime to 000.
-    *
-    * For more information about the MsSQL issue: https://sourceforge.net/p/jtds/feature-requests/73/
-    */
-  private[this] def generateTestLocalDateTime() : LocalDateTime = {
+   * Generates a [[LocalDateTime]] used for the [[java.time]] type tests.
+   * The generated test [[LocalDateTime]] will adapt to the database system being used.
+   * Older version of MySQL have no millisecond resolution, so set all the ms component
+   * of the LocalDateTime to 000.
+   */
+  private[this] def generateTestLocalDateTime(): LocalDateTime = {
     val now = Instant.now
-    val dbCompatibleInstant = if (tdb.confName.contains("jtds")) {
-      val offset = now.get(ChronoField.NANO_OF_SECOND) % 10000000
-      now.plusNanos(-offset)
-    } else if (tdb.confName.contains("mysql")) {
-      // mysql has no subsecond resolution
-      now.`with`(ChronoField.NANO_OF_SECOND, 0)
-    } else {
-      // after JDK8, Instant.now uses a Clock that has greater than millis resolution. Most
-      // database timestamp implementations only have millis resolutions, so only
-      // roundtrip values which have no micro and nano parts
-      now.`with`(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND))
-    }
+    val dbCompatibleInstant =
+      if (tdb.confName.contains("mysql")) {
+        // mysql has no subsecond resolution
+        now.`with`(ChronoField.NANO_OF_SECOND, 0)
+      } else {
+        // after JDK8, Instant.now uses a Clock that has greater than millis resolution. Most
+        // database timestamp implementations only have millis resolutions, so only
+        // roundtrip values which have no micro and nano parts
+        now.`with`(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND))
+      }
     LocalDateTime.ofInstant(dbCompatibleInstant, ZoneOffset.UTC)
   }  
   val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")

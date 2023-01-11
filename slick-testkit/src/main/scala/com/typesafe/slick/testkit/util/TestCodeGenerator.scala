@@ -123,7 +123,14 @@ class TestCodeRunner(tests: TestCodeRunner.AllTests) {
     } else println("- Test database is disabled")
   }
 
-  @Test def allTests = tests.clns.foreach(run)
+  @Test def allTests() = tests.clns.foreach { cln =>
+    try run(cln)
+    catch { case e: Throwable =>
+      Console.err.println(s"Test $cln failed: $e")
+      e.printStackTrace(System.err)
+      throw e
+    }
+  }
 }
 
 object TestCodeRunner {
