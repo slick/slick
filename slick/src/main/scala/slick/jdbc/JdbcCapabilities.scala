@@ -15,7 +15,7 @@ object JdbcCapabilities {
   val insertOrUpdate = Capability("jdbc.insertOrUpdate")
   /** Supports `insertOrUpdate` with only primary keys (equivalent to "insert if not exists") */
   val insertOrUpdateWithPrimaryKeyOnly = Capability("jdbc.insertOrUpdateWithPrimaryKeyOnly")
-  /** Supports `insertAll` with `SingleStatement` option.*/
+  /** Supports `insertAll` with `rowsPerStatement = RowsPerStatement.One` */
   val insertMultipleRowsWithSingleStatement = Capability("jdbc.insertMultipleRowsWithSingleStatement")
   /** Supports mutable result sets */
   val mutable = Capability("jdbc.mutable")

@@ -7,7 +7,9 @@ import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object CodeGeneratorRoundTripTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerJTDS, SQLServerSQLJDBC)
+
+object CodeGeneratorRoundTripTest
+  extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerSQLJDBC)
 
 class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.quoteIdentifier
