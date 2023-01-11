@@ -194,7 +194,7 @@ lazy val testkit =
       },
       (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
       Test / testGrouping := {
-        val re = """slick\.test\.profile\.(.+?)(?:\d\d+)?(?:Disk|Mem|Rownum|SQLJDBC|JTDS)?Test$""".r
+        val re = """slick\.test\.profile\.(.+?)(?:\d\d+)?(?:Disk|Mem|Rownum|SQLJDBC)?Test$""".r
         (Test / definedTests).value
           .groupBy(_.name match {
             case re(name) => name

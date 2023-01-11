@@ -114,8 +114,7 @@ by a large suite of automated tests to ensure compatibility:
 |-----------------|----------------------------------------------------------------|-----------------------|
 | PostgreSQL      | `"org.postgresql" % "postgresql" % "42.5.0"`                   | Latest                |
 | MySQL           | `"mysql" % "mysql-connector-java" % "8.0.30"`                  | Latest                |
-| SQLServer       | `"net.sourceforge.jtds" % "jtds" % "1.3.1"` and                | 2022                  |
-|                 | `"com.microsoft.sqlserver" % "mssql-jdbc" % "7.2.2.jre11"`     |                       |
+| SQLServer       | `"com.microsoft.sqlserver" % "mssql-jdbc" % "7.2.2.jre11"`     | 2022                  |
 | Oracle          | `"com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1"` | 11g                   |
 | DB2             | `"com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"`                     | 11.5.7.0              |
 | Derby/JavaDB    | `"org.apache.derby" % "derby" % "10.14.2.0"`                   |                       |
