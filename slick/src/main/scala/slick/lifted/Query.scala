@@ -26,7 +26,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
 
   /** Add a comment on top of the query */
   def withComment(comment: String): Query[E, U, C] = {
-    new WrappingQuery[E, U, C](new Comment(comment, toNode), shaped)
+    new WrappingQuery[E, U, C](Comment(comment, toNode), shaped)
   }
 
   /** Build a new query by applying a function to all elements of this query

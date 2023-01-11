@@ -2,6 +2,9 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, Statement}
 import slick.SlickException
+import scala.language.{existentials, higherKinds}
+import scala.collection.mutable.Builder
+import scala.util.control.NonFatal
 import slick.ast.ColumnOption.PrimaryKey
 import slick.dbio._
 import slick.ast._
