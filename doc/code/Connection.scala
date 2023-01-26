@@ -96,6 +96,31 @@ object Connection extends App {
       //#stream
       Await.result(f, Duration.Inf)
     };{
+      //#streamMutation
+      val q = for (c <- coffees if c.name === "") yield c
+      val f: Future[Unit] = db.stream(q.mutate).foreach { mutator =>
+        //get current row
+        var values = mutator.row
+        // modify data
+        values = values.copy(name = "<new name>")
+        if (predicate == true) {
+          values = values.copy(...)
+        }
+        // submit the update
+        mutator.row = values
+
+        // insert a new row
+        mutator += Coffee(name = "Some Tea", /*image = ...*/)
+        // delete current row
+        mutator.delete
+        // do something when all selected rows has been processed
+        if (mutator.end) {
+          //log, clean up resources, etc. ...
+        }
+      }
+      //#streamMutation
+      Await.result(f, Duration.Inf)
+    };{
       //#streamblob
       val q = for (c <- coffees) yield c.image
       val a = q.result

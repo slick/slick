@@ -165,6 +165,34 @@ object OrmToSlick extends App {
       personQuery.map(p => (p.name,p.age)).update("C. Vogt", 12345)
       //#slickUpdate
 
+      //#slickConditionallyFieldsUpdate
+      val personEdit = new {
+        var name: String = ""
+        var age: Int = 0
+      }
+
+      val personQuery = people.filter(_.id === 5)
+      db.run(personQuery.mutate.transactionally).foreach { mutator =>
+        val previous = mutator.row
+
+        // initialize the changes as `updated` to the original row
+        var updated = previous
+        // make a change if supplied model `person.name` is not blank
+        if (personEdit.name.nonEmpty) {
+          updated = updated.copy(name = personEdit.name)
+        }
+
+        // changes that should be made always, can be done as the fellows
+        val newAge = if (personEdit.age < 0 || personEdit.age > 200) previous.age else personEdit.age
+        updated = updated.copy(age = newAge)
+
+        // submit the changes if exists
+        if (updated != previous) {
+          mutator.row = updated
+        }
+      }
+      //#slickConditionallyFieldsUpdate
+
       //#slickDelete
       personQuery.delete // deletes person with id 5
       //#slickDelete

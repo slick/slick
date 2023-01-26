@@ -169,6 +169,10 @@ For inserts, we insert into the query, that resembles the whole table and can se
 
 @@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickInsert }
 
+For updates conditionally for some fields/columns, a.k. `dynamically`/`selective` updates, we can utilize stream mutation.
+
+@@snip [OrmToSlick.scala](../code/OrmToSlick.scala) { #slickConditionallyFieldsUpdate }
+
 Relationships
 -------------
 ORMs usually provide built-in, hard-coded support for 1-to-many and many-to-many relationships. They can be set up centrally in the configuration. In SQL on the other hand you would specify them using joins in every single query. You have a lot of flexibility what you join and how. With Slick you get the best of both worlds. Slick queries are as flexible as SQL, but also compositional. You can store fragments like join conditions in central places and use language-level abstraction. Relationships of any sort are just one thing you can naturally abstract over like in any Scala code. There is no need for Slick to hard-code support for certain use cases. You can easily implement arbitrary use cases yourself, e.g. the common 1-n or n-n relationships or even relationships spanning over multiple tables, relationships with additional discriminators, polymorphic relationships, etc.

@@ -76,6 +76,12 @@ caching all data at once in memory on the client side. For example, @extref[Post
 (with the desired page size `n`) and `.transactionally` for proper streaming.
 @@@
 
+### Streaming Mutation
+Streaming can be used with `ResultSetMutator` when the database system is capable to `slick.jdbc.JdbcCapability.mutable`,
+thus provides the ability to fully control of data mutation.
+
+@@snip [Connection.scala](../code/Connection.scala) { #streamMutation }
+
 Composing Database I/O Actions
 ------------------------------
 
