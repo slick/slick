@@ -1,12 +1,14 @@
 package slick.jdbc
 
+import java.sql.PreparedStatement
+
+import scala.collection.immutable.ListMap
+
 import slick.SlickException
 import slick.ast._
-import slick.jdbc.JdbcMergeBuilder._
 import slick.lifted.Rep
 
-import java.sql.PreparedStatement
-import scala.collection.immutable.ListMap
+import slick.jdbc.JdbcMergeBuilder._
 
 /**
   * A builder for table fields merging.
@@ -28,6 +30,10 @@ class JdbcMergeBuilder[+E](shape: E, factory: FieldSetterFactory) { update =>
     */
   def isDirty(field: FieldSymbol) = {
     fields.contains(field)
+  }
+
+  def isEmpty() = {
+    fields.isEmpty
   }
 
   /**

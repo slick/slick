@@ -347,7 +347,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
   type MergeActionExtensionMethods[T] = MergeActionExtensionMethodsImpl[T]
   type MergeFunction[T] = MergeFunctionImpl[T]
-  type MergePreparer[T] = MergeFunctionImpl[T] => (Node, Map[FieldSymbol, Int], JdbcMergeBuilder[T])
+  type MergePreparer[T] = MergeFunctionImpl[T] => Option[(Node, Map[FieldSymbol, Int], JdbcMergeBuilder[T])]
   type MergeBuilder[T] = JdbcMergeBuilder[T]
 
   def createMergeActionExtensionMethods[T](transformer: MergePreparer[T]): MergeActionExtensionMethods[T] =
@@ -361,18 +361,25 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     /** An Action that merges the data selected by this query. */
     def merge(function: MergeFunction[T]): ProfileAction[Int, NoStream, Effect.Write] = {
-      val (node, ordering, builder) = preparer(function)
-      val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = node
-
-      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
-        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
-          st.clearParameters
-
-          builder.fieldSetters.foreach {
-            case (field, setter) => setter(st, ordering(field))
+      val prepared = preparer(function)
+      prepared match {
+        case None =>
+          new SimpleJdbcProfileAction[Int]("update", Vector.empty) {
+            override def run(ctx: Backend#Context, sql: Vector[String]): Int = 0
           }
-          st.executeUpdate
-        }
+        case Some((tree, ordering, builder)) =>
+          val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
+
+          new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
+            def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+              st.clearParameters
+
+              builder.fieldSetters.foreach {
+                case (field, setter) => setter(st, ordering(field))
+              }
+              st.executeUpdate
+            }
+          }
       }
     }
 
