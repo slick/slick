@@ -57,25 +57,31 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
       val preparer: MergePreparer[E] = { f =>
         val generator = new AnonSymbol
         val aliased = q.shaped.encodeRef(Ref(generator)).value
-        val updater = new MergeAction[E](aliased)
+        val updater = new MergeBuilder[E](aliased, new SimpleJdbcTypeFieldSetterFactory())
 
         f(updater)
 
+        var ordering: Seq[FieldSymbol] = Seq.empty
+        val filterAndTrace = (field: FieldSymbol) => {
+          val dirty = updater.isDirty(field)
+          if (dirty) ordering :+= field
+          dirty
+        }
         val filteredNodes = q.toNode.withChildren {
           q.toNode.children.map {
             case TableExpansion(generator, table, columns) =>
               val newColumns = columns.withChildren {
                 columns.children.filter {
-                  case Select(_, field: FieldSymbol) => updater.isDirty(field)
-                  case OptionApply(Select(_, field: FieldSymbol)) => updater.isDirty(field)
+                  case Select(_, field: FieldSymbol) => filterAndTrace(field)
+                  case OptionApply(Select(_, field: FieldSymbol)) => filterAndTrace(field)
                   case _ => false
                 }
               }
               TableExpansion(generator, table, newColumns)
             case ProductNode(children) =>
               val newColumns = children.filter {
-                case Select(_, field: FieldSymbol) => updater.isDirty(field)
-                case OptionApply(Select(_, field: FieldSymbol)) => updater.isDirty(field)
+                case Select(_, field: FieldSymbol) => filterAndTrace(field)
+                case OptionApply(Select(_, field: FieldSymbol)) => filterAndTrace(field)
                 case _ => false
               }
               ProductNode(newColumns)
@@ -84,7 +90,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
         }
 
         val complied = updateCompiler.run(filteredNodes)
-        (complied.tree, updater)
+        (complied.tree, ordering.zipWithIndex.reverse.toMap, updater)
       }
       createMergeActionExtensionMethods(preparer)
     }
