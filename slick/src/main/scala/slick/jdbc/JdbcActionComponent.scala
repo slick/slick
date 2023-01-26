@@ -12,7 +12,7 @@ import slick.dbio._
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil.:@
-import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
+import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape, MergeAction}
 import slick.relational.{ResultConverter, CompiledMapping}
 import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
 import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
@@ -339,6 +339,44 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
     /** Get the statement used by `update` */
     def updateStatement: String = sres.sql
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////// Merge Actions
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+
+  type MergeActionExtensionMethods[T] = MergeActionExtensionMethodsImpl[T]
+  type MergeFunction[-T] = MergeFunctionImpl[T]
+  type MergePreparer[T] = MergeFunctionImpl[T] => (Node, MergeAction[T])
+
+  def createMergeActionExtensionMethods[T](transformer: MergePreparer[T]): MergeActionExtensionMethods[T] =
+    new MergeActionExtensionMethodsImpl(transformer)
+
+  trait MergeFunctionImpl[-T] extends (MergeAction[T] => Unit) {
+    override def apply(update: MergeAction[T]): Unit
+  }
+
+  class MergeActionExtensionMethodsImpl[T](preparer: MergePreparer[T]) {
+
+    /** An Action that merges the data selected by this query. */
+    def merge(function: MergeFunction[T]): ProfileAction[Int, NoStream, Effect.Write] = {
+      val (node, updater) = preparer(function)
+      val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), CompiledMapping(_, _)) = node
+
+      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+          st.clearParameters
+          updater.prepare(st)
+          st.executeUpdate
+        }
+      }
+    }
+
+    // XXX: merge fields in `model` by name to name convention, and combine the actions supplied by `function`
+    //def mergeRemaining[M](model: M)(function: MergeFunction[T]): ProfileAction[Int, NoStream, Effect.Write] = macro mergeImpl
+
+    /** Get the statement used by `merge`. Not supported!*/
+    def updateStatement: String = ???
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////

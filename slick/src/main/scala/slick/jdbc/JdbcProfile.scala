@@ -52,6 +52,43 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
     implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: RelationalProfile#Table[_], _, C]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
+
+    implicit def mergeActionExtensionMethods[E, U, C[_]](q: Query[E, U, C]): MergeActionExtensionMethods[E] = {
+      val preparer: MergePreparer[E] = { f =>
+        val generator = new AnonSymbol
+        val aliased = q.shaped.encodeRef(Ref(generator)).value
+        val updater = new MergeAction[E](aliased)
+
+        f(updater)
+
+        val filteredNodes = q.toNode.withChildren {
+          q.toNode.children.map {
+            case TableExpansion(generator, table, columns) =>
+              val newColumns = columns.withChildren {
+                columns.children.filter {
+                  case Select(_, field: FieldSymbol) => updater.isDirty(field)
+                  case OptionApply(Select(_, field: FieldSymbol)) => updater.isDirty(field)
+                  case _ => false
+                }
+              }
+              TableExpansion(generator, table, newColumns)
+            case ProductNode(children) =>
+              val newColumns = children.filter {
+                case Select(_, field: FieldSymbol) => updater.isDirty(field)
+                case OptionApply(Select(_, field: FieldSymbol)) => updater.isDirty(field)
+                case _ => false
+              }
+              ProductNode(newColumns)
+            case others => others
+          }
+        }
+
+        val complied = updateCompiler.run(filteredNodes)
+        (complied.tree, updater)
+      }
+      createMergeActionExtensionMethods(preparer)
+    }
+
     implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(c.compiledDelete, c.param)
 
