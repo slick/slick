@@ -209,14 +209,29 @@ object SqlToSlick extends App {
         assert(sqlRes == slickRes)
         assert(sqlRes.size > 0)
       };{
-        val sql =
+        val sql = {
           //#sqlQueryAggregate
           sql"select max(AGE) from PERSON".as[Option[Int]].head
+          //multi agrregations on single table
+          sql"select count(*), min(AGE), max(AGE) from PERSON".as[Option[Int]].head
           //#sqlQueryAggregate
-        val slick =
+        }
+        val slick = {
           //#slickQueryAggregate
           people.map(_.age).max.result
+          //multi agrregations on single table
+          people
+            // this line starts multiple aggregations
+            .groupBy(_ => LiteralColumn(0))
+            .map {
+              // `table` is just the `people`
+              case (_, table) =>
+                //aggregated fields as tuple
+                (table.lenght, table.map(_.age).min, table.map(_.age).max)
+            }
+            .result
           //#slickQueryAggregate
+        }
         val (sqlRes, slickRes) = Await.result(db.run(sql zip slick), Duration.Inf)
         assert(sqlRes == slickRes)
       };{

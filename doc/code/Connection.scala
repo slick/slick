@@ -103,10 +103,11 @@ object Connection extends App {
         var values = mutator.row
         // modify data
         values = values.copy(name = "<new name>")
+        // modify data conditionally
         if (predicate == true) {
-          values = values.copy(...)
+          values = values.copy(/*field1 = xx, field2 = yy, ...*/)
         }
-        // submit the update
+        // submit all changes for current row to DBMS
         mutator.row = values
 
         // insert a new row

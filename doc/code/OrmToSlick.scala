@@ -182,7 +182,7 @@ object OrmToSlick extends App {
           updated = updated.copy(name = personEdit.name)
         }
 
-        // changes that should be made always, can be done as the fellows
+        // for changes that should be made always, you can make it as the fellows
         val newAge = if (personEdit.age < 0 || personEdit.age > 200) previous.age else personEdit.age
         updated = updated.copy(age = newAge)
 
