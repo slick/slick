@@ -213,7 +213,7 @@ object SqlToSlick extends App {
           //#sqlQueryAggregate
           sql"select max(AGE) from PERSON".as[Option[Int]].head
           //multi agrregations on single table
-          sql"select count(*), min(AGE), max(AGE) from PERSON".as[Option[Int]].head
+          sql"select count(*), min(AGE), max(AGE) from PERSON".as[(Int, Option[Int], Option[Int])].head
           //#sqlQueryAggregate
         }
         val slick = {
