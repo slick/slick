@@ -345,6 +345,58 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       Future.successful(())
   }
 
+  def testPostgresLocalDateTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[LocalDateTime](
+        List(
+          LocalDateTime.MIN,
+          LocalDateTime.MAX),
+        () => randomLocalDateTime(),
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
+
+  def testPostgresLocalDateWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[LocalDate](
+        List(
+          LocalDate.MIN,
+          LocalDate.MAX),
+        () => randomLocalDateTime().toLocalDate,
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
+
+  def testPostgresLocalTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[LocalTime](
+        List(
+          LocalTime.MIN,
+          LocalTime.MAX),
+        () => randomLocalDateTime().toLocalTime,
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
+
+  def testPostgresOffsetTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[OffsetTime](
+        List(
+          OffsetTime.MIN,
+          OffsetTime.MAX),
+        () => randomLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime,
+
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
 
   private def randomZoneOffset = {
     // offset could be +-18 in java.time context, but postgres and oracle are stricter
