@@ -392,9 +392,14 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
           OffsetTime.MAX),
         () => randomLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime,
 
-        tableNameSuffix = "_with_infinite_values"
-      )
-    case _                  =>
+        dataCompareFn = (id, original, result) => original match {
+        case Some(original) if original == OffsetTime.MAX => OffsetTime.MAX.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(15, 59))
+        case Some(original) if original == OffsetTime.MIN => OffsetTime.MIN.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(-15, -59))
+        case value => value == result
+      },
+      tableNameSuffix = "_with_infinite_values"
+    )
+  case _                  =>
       Future.successful(())
   }
 
