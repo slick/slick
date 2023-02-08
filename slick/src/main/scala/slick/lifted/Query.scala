@@ -211,7 +211,6 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def size = length
 
   /** The number of distinct elements of the query. */
-  @deprecated("Use `length` on `distinct` or `distinctOn` instead of `countDistinct`", "3.2")
   def countDistinct: Rep[Int] = Library.CountDistinct.column(toNode)
 
   /** Test whether this query is non-empty. */
