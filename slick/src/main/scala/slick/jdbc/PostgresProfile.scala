@@ -288,19 +288,36 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BYTEA"
     }
 
-    trait PostgreTimeJdbcType [T] {
+    trait PostgresTimeJdbcType [T] {
 
       val min : T
       val max : T
       val serializeFiniteTime : (T => String)
       val parseFiniteTime : (String => T)
 
+      protected def serializeTime(time : T): String = {
+        time match {
+          case null => null
+          case _ => serializeFiniteTime(time)
+        }
+      }
+
+      protected def parseTime(time : String): T = {
+        time match {
+          case null => null.asInstanceOf[T]
+          case _ => parseFiniteTime(time)
+        }
+      }
+    }
+
+    trait PostgresInfinityTimeJdbcType [T] extends PostgresTimeJdbcType[T] {
+
       @inline
       private[this] val negativeInfinite = "-infinity"
       @inline
       private[this] val positiveInfinite = "infinity"
 
-      protected def serializeTime(time : T): String = {
+      override protected def serializeTime(time : T): String = {
         time match {
           case null => null
           case `min` => negativeInfinite
@@ -308,7 +325,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
           case _ => serializeFiniteTime(time)
         }
       }
-      protected def parseTime(time : String): T = {
+
+      override protected def parseTime(time : String): T = {
         time match {
           case null => null.asInstanceOf[T]
           case `negativeInfinite` => min
@@ -319,7 +337,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     }
 
     import PGUtils.createPGObject
-    class PostgresLocalDateJdbcType extends LocalDateJdbcType with PostgreTimeJdbcType[LocalDate] {
+    class PostgresLocalDateJdbcType extends LocalDateJdbcType with PostgresInfinityTimeJdbcType[LocalDate] {
 
       private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE
 
@@ -340,14 +358,17 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresLocalTimeJdbcType extends LocalTimeJdbcType with PostgreTimeJdbcType[LocalTime] {
+    class PostgresLocalTimeJdbcType extends LocalTimeJdbcType with PostgresTimeJdbcType[LocalTime] {
 
       private[this] val formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
 
       val min : LocalTime = LocalTime.MIN
       val max : LocalTime = LocalTime.MAX
       val serializeFiniteTime : (LocalTime => String) =  _.format(formatter)
-      val parseFiniteTime : (String => LocalTime) = LocalTime.parse(_, formatter)
+      val parseFiniteTime : (String => LocalTime) = _ match {
+        case "24:00:00" => LocalTime.MAX
+        case value => LocalTime.parse(value, formatter)
+      }
 
       override val sqlType = java.sql.Types.OTHER
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME"
@@ -361,7 +382,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresOffsetTimeJdbcType extends OffsetTimeJdbcType with PostgreTimeJdbcType[OffsetTime] {
+    class PostgresOffsetTimeJdbcType extends OffsetTimeJdbcType with PostgresTimeJdbcType[OffsetTime] {
 
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
@@ -373,9 +394,25 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
           .toFormatter()
       }
 
+      // Postgres max time zone +1559
+      private[this] val maxPostgresTimeZone : ZoneOffset = ZoneOffset.ofHoursMinutes(15, 59)
+
+      // Postgres min time zone -1559
+      private[this] val minPostgresTimeZone : ZoneOffset = ZoneOffset.ofHoursMinutes(-15, -59)
+
       val min : OffsetTime = OffsetTime.MIN
       val max : OffsetTime = OffsetTime.MAX
-      val serializeFiniteTime : (OffsetTime => String) =  _.format(formatter)
+      val serializeFiniteTime : (OffsetTime => String) = (offsetTime) => {
+        val adjusted = offsetTime.getOffset().getTotalSeconds() match {
+          case offset if offset > maxPostgresTimeZone.getTotalSeconds() =>
+            offsetTime.withOffsetSameLocal(maxPostgresTimeZone)
+          case offset if offset < minPostgresTimeZone.getTotalSeconds() =>
+            offsetTime.withOffsetSameLocal(minPostgresTimeZone)
+          case _ => offsetTime
+        }
+
+        adjusted.format(formatter)
+      }
       val parseFiniteTime : (String => OffsetTime) = OffsetTime.parse(_, formatter)
 
       override val sqlType = java.sql.Types.OTHER
@@ -390,7 +427,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresInstantJdbcType extends InstantJdbcType with PostgreTimeJdbcType[Instant] {
+    class PostgresInstantJdbcType extends InstantJdbcType with PostgresInfinityTimeJdbcType[Instant] {
 
       private[this] val formatter = {
         new DateTimeFormatterBuilder()
@@ -438,7 +475,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val hasLiteralForm : Boolean = false
     }
 
-    class PostgresLocalDateTimeJdbcType extends LocalDateTimeJdbcType with PostgreTimeJdbcType[LocalDateTime] {
+    class PostgresLocalDateTimeJdbcType extends LocalDateTimeJdbcType with PostgresInfinityTimeJdbcType[LocalDateTime] {
 
       private[this] val formatter = {
         new DateTimeFormatterBuilder()
