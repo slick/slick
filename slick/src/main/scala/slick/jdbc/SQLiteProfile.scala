@@ -97,12 +97,15 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     - JdbcCapabilities.returnMultipleInsertKey
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
-    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
+      new SQLiteColumnBuilder(tableBuilder, meta)
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder =
+      new SQLitePrimaryKeyBuilder(tableBuilder, meta)
 
-    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
+    class SQLiteColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
 
       // Regex matcher to extract name and length out of a db type name with length ascription
       final val TypePattern = "^([A-Z\\s]+)(?:\\(\\s*([0-9]+)\\s*,?\\s*(?:[0-9]+)?\\s*\\))?$".r
@@ -151,7 +154,8 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       }
     }
 
-    class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]) extends super.PrimaryKeyBuilder(tableBuilder, meta) {
+    class SQLitePrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey])
+      extends PrimaryKeyBuilder(tableBuilder, meta) {
       // in 3.7.15-M1:
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
@@ -170,12 +174,13 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
       .map(_.filter(_.name.name.toLowerCase != "sqlite_sequence"))
 
-  override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createUpsertBuilder(node: Insert): super.InsertBuilder = new UpsertBuilder(node)
-  override def createInsertBuilder(node: Insert): super.InsertBuilder = new InsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override val columnTypes = new SQLiteJdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new SQLiteQueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): super.InsertBuilder = new SQLiteUpsertBuilder(node)
+  override def createInsertBuilder(node: Insert): super.InsertBuilder = new SQLiteInsertBuilder(node)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new SQLiteTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
+    new SQLiteColumnDDLBuilder(column)
 
   private trait SQLiteInsertAll[U] extends InsertActionComposerImpl[U] {
     override def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement = RowsPerStatement.All) =
@@ -189,9 +194,8 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
             rowsPerStatement
       )
   }
-
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new CountingInsertActionComposerImpl[T](compiled) with SQLiteInsertAll[T]
+    new SQLiteCountingInsertActionComposerImpl[T](compiled) with SQLiteInsertAll[T]
 
   override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert,
                                                               keys: Node,
@@ -199,7 +203,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
                                                              ): ReturningInsertActionComposer[U, RU] =
     new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux) with SQLiteInsertAll[U]
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class SQLiteQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
     override protected val parenthesizeNestedRHSJoin = true
@@ -254,15 +258,15 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   }
 
   /* Extending super.InsertBuilder here instead of super.UpsertBuilder. INSERT OR REPLACE is almost identical to INSERT. */
-  class UpsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+  class SQLiteUpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
     override protected def buildInsertStart = allNames.mkString(s"insert or replace into $tableName (", ",", ") ")
   }
 
-  class InsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+  class SQLiteInsertBuilder(ins: Insert) extends InsertBuilder(ins) {
     override protected def emptyInsert: String = s"insert into $tableName default values"
   }
 
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+  class SQLiteTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override protected val foreignKeys = Nil // handled directly in addTableOptions
     override protected val primaryKeys = Nil // handled directly in addTableOptions
 
@@ -280,7 +284,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override def truncateTable = "delete from " + quoteTableName(tableNode)
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class SQLiteColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
@@ -290,10 +294,12 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  class CountingInsertActionComposerImpl[U](compiled: CompiledInsert) extends super.CountingInsertActionComposerImpl[U](compiled) {
+  class SQLiteCountingInsertActionComposerImpl[U](compiled: CompiledInsert)
+    extends CountingInsertActionComposerImpl[U](compiled) {
     // SQLite cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
     // the same in ReturningInsertInvoker because SQLite does not allow returning non-AutoInc keys anyway.
-    override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
+    override protected val useServerSideUpsert =
+      compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 
@@ -302,52 +308,52 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  class JdbcTypes extends super.JdbcTypes {
-    override val booleanJdbcType = new BooleanJdbcType
-    override val dateJdbcType = new DateJdbcType
-    override val localDateType = new LocalDateJdbcType
-    override val localDateTimeType = new LocalDateTimeJdbcType
-    override val instantType = new InstantJdbcType
-    override val timeJdbcType = new TimeJdbcType
-    override val timestampJdbcType = new TimestampJdbcType
-    override val uuidJdbcType = new UUIDJdbcType
+  class SQLiteJdbcTypes extends JdbcTypes {
+    override val booleanJdbcType   = new SQLiteBooleanJdbcType
+    override val dateJdbcType      = new SQLiteDateJdbcType
+    override val localDateType     = new SQLiteLocalDateJdbcType
+    override val localDateTimeType = new SQLiteLocalDateTimeJdbcType
+    override val instantType       = new SQLiteInstantJdbcType
+    override val timeJdbcType      = new SQLiteTimeJdbcType
+    override val timestampJdbcType = new SQLiteTimestampJdbcType
+    override val uuidJdbcType      = new SQLiteUUIDJdbcType
 
     /* SQLite does not have a proper BOOLEAN type. The suggested workaround is
      * INTEGER with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanJdbcType extends super.BooleanJdbcType {
+    class SQLiteBooleanJdbcType extends BooleanJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "INTEGER"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* The SQLite JDBC driver does not support the JDBC escape syntax for
      * date/time/timestamp literals. SQLite expects these values as milliseconds
      * since epoch. */
-    class DateJdbcType extends super.DateJdbcType {
+    class SQLiteDateJdbcType extends DateJdbcType {
       override def valueToSQLLiteral(value: Date) = {
         value.getTime.toString
       }
     }
-    class LocalDateJdbcType extends super.LocalDateJdbcType {
+    class SQLiteLocalDateJdbcType extends LocalDateJdbcType {
       override def valueToSQLLiteral(value: LocalDate) = {
         Date.valueOf(value).getTime.toString
       }
     }
-    class InstantJdbcType extends super.InstantJdbcType {
+    class SQLiteInstantJdbcType extends InstantJdbcType {
       override def valueToSQLLiteral(value: Instant) = {
         value.toEpochMilli.toString
       }
     }
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+    class SQLiteLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
       override def valueToSQLLiteral(value: LocalDateTime) = {
         Timestamp.valueOf(value).getTime.toString
       }
     }
-    class TimeJdbcType extends super.TimeJdbcType {
+    class SQLiteTimeJdbcType extends TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = value.getTime.toString
     }
-    class TimestampJdbcType extends super.TimestampJdbcType {
+    class SQLiteTimestampJdbcType extends TimestampJdbcType {
       override def valueToSQLLiteral(value: Timestamp) = value.getTime.toString
     }
-    class UUIDJdbcType extends super.UUIDJdbcType {
+    class SQLiteUUIDJdbcType extends UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB
       override def valueToSQLLiteral(value: UUID): String =
         "x'" + value.toString.replace("-", "") + "'"

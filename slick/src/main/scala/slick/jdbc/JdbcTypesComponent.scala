@@ -481,7 +481,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     }
   }
 
-  trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
+  trait JdbcImplicitColumnTypes extends RelationalImplicitColumnTypes {
     implicit def booleanColumnType: columnTypes.BooleanJdbcType = columnTypes.booleanJdbcType
     implicit def blobColumnType: columnTypes.BlobJdbcType = columnTypes.blobJdbcType
     implicit def byteColumnType: columnTypes.ByteJdbcType = columnTypes.byteJdbcType

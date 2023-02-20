@@ -1,15 +1,17 @@
 package slick.lifted
 
 
-import scala.language.{existentials, implicitConversions}
-import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
-import scala.reflect.macros.blackbox.Context
-import slick.SlickException
-import slick.util.{ConstArray, ProductWrapper, TupleSupport}
-import slick.ast._
+import scala.collection.compat._
+import scala.language.experimental.macros
+import scala.language.{existentials, implicitConversions}
 import scala.reflect.ClassTag
+import scala.reflect.macros.blackbox.Context
+
+import slick.SlickException
+import slick.ast._
+import slick.util.{ConstArray, ProductWrapper, TupleSupport}
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
  * `Query[Mixed]` to its result element type `Unpacked` and the packing to a
@@ -162,7 +164,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
   }
   def toNode(value: Mixed): Node = ProductNode(ConstArray.from(shapes.iterator.zip(getIterator(value)).map {
     case (p, f) => p.toNode(f.asInstanceOf[p.Mixed])
-  }.toIterable))
+  }.to(Vector)))
 }
 
 /** Base class for ProductNodeShapes with a type mapping */

@@ -113,7 +113,7 @@ class Tables(val profile: JdbcProfile){
   class Categories(tag: Tag) extends Table[Category](tag, "categories") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def name = column[String]("name", O.Length(254))
-    def * = (id, name) <> (Category.tupled,Category.unapply)
+    def * = (id, name).<>(Category.tupled,Category.unapply)
     def idx = index("IDX_NAME",name)
   }
   val categories = TableQuery[Categories]
@@ -233,7 +233,7 @@ class Tables(val profile: JdbcProfile){
       (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6),
       (p5i1, p5i2, p5i3, p5i4, p5i5, p5i6),
       (p6i1, p6i2, p6i3, p6i4, p6i5, p6i6)
-      ).shaped <> ({ case (id, p1, p2, p3, p4, p5, p6) =>
+      ).shaped.<>({ case (id, p1, p2, p3, p4, p5, p6) =>
       // We could do this without .shaped but then we'd have to write a type annotation for the parameters
       Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4), Part.tupled.apply(p5), Part.tupled.apply(p6))
     }, { (w: Whole) =>

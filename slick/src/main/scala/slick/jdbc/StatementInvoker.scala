@@ -74,7 +74,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
         Right(pri)
       } else {
         val count = st.getUpdateCount
-        if(doLogResult) StatementInvoker.resultLogger.debug(s"${count} rows affected")
+        if(doLogResult) StatementInvoker.resultLogger.debug(s"$count rows affected")
         Left(count)
       }
     } finally if(doClose) st.close()
