@@ -2,20 +2,22 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, Statement}
 
-import scala.language.{existentials, higherKinds}
+import scala.collection.compat._
 import scala.collection.mutable.Builder
+import scala.language.{existentials, higherKinds}
 import scala.util.control.NonFatal
 
 import slick.SlickException
 import slick.ast.ColumnOption.PrimaryKey
-import slick.dbio._
-import slick.ast._
-import slick.ast.Util._
 import slick.ast.TypeUtil.:@
-import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
-import slick.relational.{ResultConverter, CompiledMapping}
-import slick.sql.{FixedSqlStreamingAction, FixedSqlAction, SqlActionComponent}
+import slick.ast.Util._
+import slick.ast._
+import slick.dbio._
+import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
+import slick.relational.{CompiledMapping, ResultConverter}
+import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
 import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
+
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
@@ -125,8 +127,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   //////////////////////////////////////////////////////////// Query Actions
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
-  type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
-  type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
+  type QueryActionExtensionMethods[R, S <: NoStream] = JdbcQueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] = JdbcStreamingQueryActionExtensionMethodsImpl[R, T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
     new QueryActionExtensionMethods[R, S](tree, param)
@@ -192,7 +194,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       val mu = if(state ne null) state else {
         val inv = createQueryInvoker[T](rsm, param, sql)
         new Mutator(
-          inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).right.get,
+          inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).getOrElse(throw new NoSuchElementException),
           ctx.bufferNext,
           inv)
       }
@@ -204,7 +206,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       new MutatingResultAction[T](rsm, elemType, collectionType, _statements.head, param, sendEndMarker)
   }
 
-  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
+  class JdbcQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any)
+    extends BasicQueryActionExtensionMethodsImpl[R, S] {
+
     def result: ProfileAction[R, S, Effect.Read] = {
       def findSql(n: Node): String = n match {
         case c: CompiledStatement => c.extra.asInstanceOf[SQLBuilder.Result].sql
@@ -230,8 +234,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
   }
 
-  class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
+  class JdbcStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any)
+    extends JdbcQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param)
+      with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
+
+    override def result: StreamingProfileAction[R, T, Effect.Read] =
+      super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
 
     /** Same as `mutate(sendEndMarker = false)`. */
     def mutate: ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = mutate(false)
@@ -279,12 +287,14 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   //////////////////////////////////////////////////////////// Schema Actions
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
-  type SchemaActionExtensionMethods = SchemaActionExtensionMethodsImpl
+  type SchemaActionExtensionMethods = JdbcSchemaActionExtensionMethodsImpl
 
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
-    new SchemaActionExtensionMethodsImpl(schema)
+    new JdbcSchemaActionExtensionMethodsImpl(schema)
 
-  class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
+  class JdbcSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
+    extends RelationalSchemaActionExtensionMethodsImpl {
+
     def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
@@ -756,7 +766,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): Seq[RU] =
-      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
+      values.lazyZip(buildKeysResult(st).buildColl[Vector](null, implicitly)).map(mux).toSeq
 
     protected def retQuery(st: Statement, updateCount: Int) =
       buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"

@@ -76,17 +76,21 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     super.loadProfileConfig
   }
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta)
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
-    override def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta)
+  class MySQLModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder =
+      new MySQLPrimaryKeyBuilder(tableBuilder, meta)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
+      new MySQLColumnBuilder(tableBuilder, meta)
+    override def createTableNamer(meta: MTable): TableNamer = new MySQLTableNamer(meta)
 
-    class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]) extends super.PrimaryKeyBuilder(tableBuilder, meta) {
+    class MySQLPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey])
+      extends PrimaryKeyBuilder(tableBuilder, meta) {
       // TODO: this needs a test
       override def name = super.name.filter(_ != "PRIMARY")
     }
 
-    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
+    class MySQLColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       override def default = meta.columnDef.map((_,tpe)).collect{
         case (v,"String")    => Some(Some(v))
         case ("1"|"b'1'", "Boolean") => Some(Some(true))
@@ -106,7 +110,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
 
     //Reference: https://github.com/slick/slick/issues/1419
-    class TableNamer(meta: MTable) extends super.TableNamer(meta){
+    class MySQLTableNamer(meta: MTable) extends TableNamer(meta){
       override def schema = meta.name.catalog
       override def catalog = meta.name.schema 
     }
@@ -128,8 +132,9 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
+                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+    new MySQLModelBuilder(tables, ignoreInvalidDefaults)
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] ={
     for {
       catalog <- SimpleJdbcAction(_.session.conn.getCatalog)
@@ -137,15 +142,17 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     } yield mtables
   }
 
-  override val columnTypes = new JdbcTypes
-  override protected def computeQueryCompiler = super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
+  override val columnTypes = new MySQLJdbcTypes
+  override protected def computeQueryCompiler =
+    super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new MySQLQueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new MySQLUpsertBuilder(node)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new MySQLTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
+    new MySQLColumnDDLBuilder(column)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new MySQLSequenceDDLBuilder(seq)
 
-  override def quoteIdentifier(id: String) = s"`${id}`"
+  override def quoteIdentifier(id: String) = s"`$id`"
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
@@ -193,7 +200,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class MySQLQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsCast = false
     override protected val parenthesizeNestedRHSJoin = true
     override protected val quotedJdbcFns = Some(Nil)
@@ -263,7 +270,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+  class MySQLUpsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
       val update = allNames.map(n => s"$n=VALUES($n)").mkString(", ")
@@ -276,7 +283,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+  class MySQLTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override protected def dropForeignKey(fk: ForeignKey) = {
       "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
     }
@@ -285,7 +292,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class MySQLColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
@@ -296,7 +303,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
+  class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       import seq.integral._
       val sqlType = profile.jdbcTypeFor(seq.tpe).sqlTypeName(None)
@@ -331,7 +338,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class JdbcTypes extends super.JdbcTypes {
+  class MySQLJdbcTypes extends JdbcTypes {
 
     @inline
     private[this] def stringToMySqlString(value : String) : String = {

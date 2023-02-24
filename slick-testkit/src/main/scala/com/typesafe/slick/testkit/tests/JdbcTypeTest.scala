@@ -1,23 +1,28 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import java.io.{ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
-import java.util.UUID
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ChronoField, ChronoUnit}
-import javax.sql.rowset.serial.SerialBlob
-import slick.ast.FieldSymbol
-import slick.jdbc.PostgresProfile
+import java.util.UUID
 
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.util.Random
 
+import slick.ast.FieldSymbol
+import slick.jdbc.PostgresProfile
+
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import javax.sql.rowset.serial.SerialBlob
+
+
 /** Data type related tests which are specific to JdbcProfile */
 class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
+
   import tdb.profile.api._
+
 
   def testByteArray = {
     class T(tag: Tag) extends Table[(Int, Array[Byte])](tag, "test_ba") {
@@ -85,7 +90,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       val b = new ByteArrayOutputStream
       val out = new ObjectOutputStream(b)
       out.writeObject(s.value)
-      out.flush
+      out.flush()
       new SerialBlob(b.toByteArray)
     }, { b =>
       val in = new ObjectInputStream(b.getBinaryStream)
@@ -307,36 +312,100 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
     )
 
-  def testPostgresInstantWithTimeZone: Future[Unit] = if (tdb.confName == "postgres") {
-    // Slick uses the TIMESTAMP mapping by default for instants, however it should also
-    // be possible to read/write Instants as TIMESTAMPTZ (with time zone)
-    // This test ensures that the profile logic also works correctly for the TIMESTAMPTZ type
-    val withTimeZone = new PostgresProfile.columnTypes.InstantJdbcType {
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMPTZ"
-    }
-    roundTrip[Instant](
-      List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
-        Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
-        generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
-        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
-      () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
-      tableNameSuffix = "_with_time_zone"
-    )(withTimeZone)
-  } else Future.successful(())
+  def testPostgresInstantWithTimeZone: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      // Slick uses the TIMESTAMP mapping by default for instants, however it should also
+      // be possible to read/write Instants as TIMESTAMPTZ (with time zone)
+      // This test ensures that the profile logic also works correctly for the TIMESTAMPTZ type
+      val withTimeZone = new PostgresProfile.columnTypes.InstantJdbcType {
+        override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMPTZ"
+      }
+      roundTrip[Instant](
+        List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
+          Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
+          generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
+          generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
+        () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+        tableNameSuffix = "_with_time_zone"
+      )(withTimeZone)
+    case _                  =>
+      Future.successful(())
+  }
 
-  def testPostgresInstantWithInfiniteValues: Future[Unit] = if (tdb.confName == "postgres") {
-    roundTrip[Instant](
-      List(
-        Instant.MIN,
-        Instant.MAX),
-      () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+  def testPostgresInstantWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[Instant](
+        List(
+          Instant.MIN,
+          Instant.MAX),
+        () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
+
+  def testPostgresLocalDateTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[LocalDateTime](
+        List(
+          LocalDateTime.MIN,
+          LocalDateTime.MAX),
+        () => randomLocalDateTime(),
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
+
+  def testPostgresLocalDateWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[LocalDate](
+        List(
+          LocalDate.MIN,
+          LocalDate.MAX),
+        () => randomLocalDateTime().toLocalDate,
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
+
+  def testPostgresLocalTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[LocalTime](
+        List(
+          LocalTime.MIN,
+          LocalTime.MAX),
+        () => randomLocalDateTime().toLocalTime,
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _                  =>
+      Future.successful(())
+  }
+
+  def testPostgresOffsetTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      roundTrip[OffsetTime](
+        List(
+          OffsetTime.MIN,
+          OffsetTime.MAX),
+        () => randomLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime,
+
+        dataCompareFn = (id, original, result) => original match {
+        case Some(original) if original == OffsetTime.MAX => OffsetTime.MAX.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(15, 59))
+        case Some(original) if original == OffsetTime.MIN => OffsetTime.MIN.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(-15, -59))
+        case value => value == result
+      },
       tableNameSuffix = "_with_infinite_values"
     )
-  } else Future.successful(())
+  case _                  =>
+      Future.successful(())
+  }
 
   private def randomZoneOffset = {
     // offset could be +-18 in java.time context, but postgres and oracle are stricter
-    val hours = random.nextInt(25)-12
+    val hours = random.nextInt(25) - 12
     val mins = math.signum(hours) * random.nextInt(2) * 30
     ZoneOffset.ofHoursMinutes(hours, mins)
   }

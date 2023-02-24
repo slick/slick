@@ -1,7 +1,9 @@
 package slick.util
 
+import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
-import LogUtil._
+
+import slick.util.LogUtil._
 
 /** Utility methods for creating result set debug output. */
 class TableDump(maxColumnWidth: Int = 20) {
@@ -32,11 +34,11 @@ class TableDump(maxColumnWidth: Int = 20) {
     for((line, lno) <- texts.zipWithIndex) {
       if(lno < headers.length) {
         val color = if(lno % 2 == 0) cYellow else cGreen
-        buf += (line, widths).zipped.map((s, len) => color+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
+        buf += line.lazyZip(widths).map((s, len) => color+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
         if(lno == headers.length - 1)
           buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(4), box(5), box(6)) + cNormal
       } else {
-        buf += (line, widths).zipped.map((s, len) => cNormal+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
+        buf += line.lazyZip(widths).map((s, len) => cNormal+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
       }
     }
     buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(7), box(8), box(9)) + cNormal

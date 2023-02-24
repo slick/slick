@@ -34,17 +34,17 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
   def entityName = (dbName: String) => dbName.toCamelCase+"Row"
 
   /** Table generator virtual class */
-  type Table <: TableDef
+  type Table <: AbstractTableDef
   /** Table generator factory. Override for customization.
       @group Basic customization overrides */
   def Table: m.Table => Table
   /**
    * Code generator for table related code
+   *
    * @group Basic customization overrides
    * @param model corresponding Slick meta model component
    */
-  abstract case class TableDef(val model: m.Table){
-    table =>
+  abstract case class AbstractTableDef(model: m.Table) { table =>
     /** Column code generators in the order they appear in the model. */
     final lazy val columnsPositional: IndexedSeq[Column] = model.columns.map(Column).toIndexedSeq
     /** Database column positions in the desired user-facing order. Currently just moves the positions of AutoInc columns to the end if autoIncLastAsOption is enabled. */
@@ -72,7 +72,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
 */
     /** Definitions to be generated for this table
         @group Basic customization overrides */
-    def definitions = Seq[Def]( EntityType, PlainSqlMapper, TableClass, TableValue )
+    def definitions = Seq[AbstractDef]( EntityType, PlainSqlMapper, TableClass, TableValue )
     /** Generates the complete code for this table and its subordinate generators.
         @group Basic customization overrides */
     def code: Seq[Code] = definitions.flatMap(_.getEnabled).map(_.docWithCode)
@@ -87,21 +87,16 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def compoundValue(values: Seq[Code]): Code
     /** If HList should be used as a compound type instead of tuples. Only if hugeClassEnabled is false.
         @group Basic customization now overrides */
-    def hlistEnabled = !hugeClassEnabled && columns.size > 22;
+    def hlistEnabled = !hugeClassEnabled && columns.size > 22
     /**
        Default is true, i.e. a case class will be generated even if column.size > 22.
        Override to false to get the code as before Slick 3.3, i.e. a HList based type will be generated instead.
        @group Basic customization now overrides */
     def hugeClassEnabled = true
-    /** Indicates whether auto increment columns should be put last and made an Option with a None default.
-        Please set to !hlistEnabled for switching this on.
-        @group Basic customization overrides */
-    @deprecated("Use autoIncLast = true and ColumnDef.asOption = autoInc instead.", "3.2.0")
-    def autoIncLastAsOption = false
     /** Indicates whether auto increment columns should be put last.
         Please set to !hlistEnabled for switching this on.
         @group Basic customization overrides */
-    def autoIncLast = autoIncLastAsOption
+    def autoIncLast = false
     /** Indicates if this table should be mapped using factory and extractor or not, in which case tuples are used. (Consider overriding EntityType.enabled instead, which affects this, too.) Disabled by default when using hlists.
         @group Basic customization overrides */
     def mappingEnabled = !hlistEnabled
@@ -116,13 +111,13 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     def extractor: Code
 
     /** Entity case class or type alias generator virtual class */
-    type EntityType <: EntityTypeDef
+    type EntityType <: AbstractEntityTypeDef
     /** Entity case class or type alias generator factory. Override for customization.
         @group Basic customization overrides */
     def EntityType: EntityType
     /** Entity case class or type alias generator definition (Mapped case class holding a complete row of data of this table).
         @group Basic customization overrides */
-    trait EntityTypeDef extends TypeDef{
+    trait AbstractEntityTypeDef extends AbstractTypeDef {
       /** Column types */
       def types: Code = compoundType(columns.map(_.exposedType))
       /** Indicates whether a case class should be generated. Otherwise a type alias. */
@@ -140,25 +135,25 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     }
 
     /** Plain SQL GetResult mapper generator virtual class */
-    type PlainSqlMapper <: PlainSqlMapperDef
+    type PlainSqlMapper <: AbstractPlainSqlMapperDef
     /** Plain SQL GetResult mapper generator factory. Override for customization.
         @group Basic customization overrides */
     def PlainSqlMapper: PlainSqlMapper
     /** Plain SQL GetResult mapper generator definition
         @group Basic customization overrides */
-    trait PlainSqlMapperDef extends TermDef{
+    trait AbstractPlainSqlMapperDef extends AbstractTermDef {
       def doc = s"GetResult implicit for fetching ${EntityType.name} objects using plain SQL queries"
       def rawName: String = "GetResult"+EntityType.rawName
     }
 
     /** Table class generator virtual class */
-    type TableClass <: TableClassDef
+    type TableClass <: AbstractTableClassDef
     /** Table class generator factory. Override for customization.
         @group Basic customization overrides */
     def TableClass: TableClass
     /** Table class generator definition
         @group Basic customization overrides */
-    trait TableClassDef extends TypeDef{
+    trait AbstractTableClassDef extends AbstractTypeDef {
       /** The type of the elements this table yields. */
       def elementType: TypeName = EntityType.name
       /** The * projection that accumulates all columns and map them if mappingEnabled is true*/
@@ -179,19 +174,19 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
 
       /** All definitions in this table class including disabled ones grouped into logical groups. */
       def definitions = {
-        def OptionDef = new Def{
+        def OptionDef = new AbstractDef {
           def doc  = "Maps whole row to an option. Useful for outer joins."
           override def enabled = optionEnabled
           def code = option
           def rawName = ???
         }
-        def StarDef = new Def{
+        def StarDef = new AbstractDef {
           def doc  = ""
           def code = star
           def rawName = ???
         }
 
-        Seq[Seq[Def]](
+        Seq[Seq[AbstractDef]](
           Seq(StarDef,OptionDef), columns, primaryKey.toSeq, foreignKeys, indices
         )
       }
@@ -200,20 +195,20 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     }
 
     /** Table value generator virtual class */
-    type TableValue <: TableValueDef
+    type TableValue <: AbstractTableValueDef
     /** Table value generator factory. Override for customization.
         @group Basic customization overrides */
     def TableValue: TableValue
     /** Table value generator definition (generates a collection-like value representing this database table).
         @group Basic customization overrides */
-    trait TableValueDef extends TermDef{
+    trait AbstractTableValueDef extends AbstractTermDef {
       def doc = s"Collection-like TableQuery object for table ${TableValue.name}"
       def rawName: String = tableName(model.name.table)
       def code: Code
     }
 
     /** Column generator virtual class */
-    type Column     <: ColumnDef
+    type Column  <: AbstractColumnDef
     /** Column generator factory. Override for customization.
         @group Basic customization overrides */
     def Column    : m.Column     => Column
@@ -222,7 +217,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
      * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
-    abstract case class ColumnDef(val model: m.Column) extends TermDef{
+    abstract case class AbstractColumnDef(model: m.Column) extends AbstractTermDef {
       /**
        * Underlying Scala type of this column.
        * Override this to just affect the data type but preserve potential Option-wrapping.
@@ -230,18 +225,16 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
        */
       def rawType: Code = parseType(model.tpe)
       /**
-       * Indicates whether the exposed type of this column should be wrapped in an Option. Useful for autoInc and automatically created columns.
+       * Indicates whether the exposed type of this column should be wrapped in an Option.
+       * Useful for autoInc and automatically created columns.
        * Set to autoInc to expose autoInc columns as Option.
        * @group Basic customization overrides
        */
-      def asOption = fakeNullable
+      def asOption = autoIncLast && autoInc
       /** Possibly Option-wrapped Scala type of this column. @see rawType and @see exposedType */
       final def actualType: Code      = if(model.nullable) optionType(rawType) else rawType
       /** Option of actualType if fakeNullable else actualType. */
       final def exposedType: Code  = if(asOption) optionType(actualType) else actualType
-      /** Indicates whether this column should be user facing as a nullable column with default None even though it is not. Useful for autoInc columns. */
-      @deprecated("Use asOption instead.", "3.2.0")
-      final def fakeNullable = autoIncLastAsOption && autoInc
 
       assert(!(model.nullable && asOption),s"Cannot enable 'fakeNullable' for a 'nullable' column. $model")
 
@@ -251,14 +244,14 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def columnOptionCode: ColumnOption[_] => Option[Code]
       /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
       def options: Iterable[Code] = model.options.filter{
-        case t: SqlProfile.ColumnOption.SqlType => dbType
-        case _ => true
+        case _: SqlProfile.ColumnOption.SqlType => dbType
+        case _                                  => true
       }.flatMap(columnOptionCode(_).toSeq)
       /** Indicates if a (non-portable) DBType ColumnOption should be generated */
       def dbType: Boolean = false
       /** Returns a function, that maps a value to its literal representation as code */
       def defaultCode: Any => Code
-      /** Generates a literal represenation of the default value or None in case of an Option-typed autoinc column */
+      /** Generates a literal representation of the default value or None in case of an Option-typed autoInc column */
       def default: Option[Code] = model.options.collect{
         case RelationalProfile.ColumnOption.Default(value) => value
         case _ if asOption => None
@@ -269,7 +262,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     }
 
     /** Primary key generator virtual class */
-    type PrimaryKey <: PrimaryKeyDef
+    type PrimaryKey <: AbstractPrimaryKeyDef
     /** PrimaryKey generator factory. Override for customization.
         @group Basic customization overrides */
     def PrimaryKey: m.PrimaryKey => PrimaryKey
@@ -279,13 +272,13 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
      * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
-    abstract case class PrimaryKeyDef(val model: m.PrimaryKey) extends TermDef{
+    abstract case class AbstractPrimaryKeyDef(model: m.PrimaryKey) extends AbstractTermDef {
       /** Columns code generators in correct order */
       final lazy val columns: Seq[Column] = model.columns.map(_.name).map(columnsByName)
       /** Name used in the db or a default name */
       def dbName = model.name.getOrElse(table.model.name.table+"_PK")
       def rawName = disambiguateTerm("pk")
-      def doc = "Primary key of "+TableValue.name+s" (database name ${dbName})"
+      def doc = "Primary key of "+TableValue.name+s" (database name $dbName)"
     }
 
     private var _freshFkId = 0
@@ -294,7 +287,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       _freshFkId
     }
     /** Foreign key generator virtual class */
-    type ForeignKey <: ForeignKeyDef
+    type ForeignKey <: AbstractForeignKeyDef
     /** ForeignKey generator factory. Override for customization.
         @group Basic customization overrides */
     def ForeignKey: m.ForeignKey => ForeignKey
@@ -303,7 +296,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
      * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
-    abstract case class ForeignKeyDef(val model: m.ForeignKey) extends TermDef{
+    abstract case class AbstractForeignKeyDef(model: m.ForeignKey) extends AbstractTermDef {
       private val id = freshFkId
       /** Referencing Table code generator */
       final lazy val referencingTable = table
@@ -312,7 +305,8 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Referenced Table code generator */
       final lazy val referencedTable: Table = tablesByName(model.referencedTable)
       /** Referenced Columns code generators */
-      final lazy val referencedColumns: Seq[TableDef#Column] = model.referencedColumns.map(_.name).map(referencedTable.columnsByName)
+      final lazy val referencedColumns: Seq[Table#Column] =
+        model.referencedColumns.map(_.name).map(referencedTable.columnsByName)
       /** Name used in the db or a default name */
       def dbName = model.name.getOrElse( referencedTable.model.name.table + "_FK_" + id )
       def actionCode(action: ForeignKeyAction): Code
@@ -321,13 +315,14 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def rawName: String = disambiguateTerm({
         val fksToSameTable = foreignKeys.filter(_.referencedTable == referencedTable)
         require(
-          fksToSameTable.filter(_.model.name.isEmpty).size <= 1,
-          s"Found multiple unnamed foreign keys to same table, please manually provide names using overrides. ${referencingTable.model.name.table} -> ${referencedTable.model.name.table}"
+          fksToSameTable.count(_.model.name.isEmpty) <= 1,
+          s"Found multiple unnamed foreign keys to same table, please manually provide names using overrides." +
+            s" ${referencingTable.model.name.table} -> ${referencedTable.model.name.table}"
         )
         val baseName = referencedTable.TableClass.rawName.uncapitalize + "Fk"
         disambiguateTerm(if(fksToSameTable.size > 1) baseName + id else baseName)
       })
-      def doc = s"Foreign key referencing ${referencedTable.TableValue.name} (database name ${dbName})"
+      def doc = s"Foreign key referencing ${referencedTable.TableValue.name} (database name $dbName)"
     }
 
     private var _freshIdxId = 0
@@ -336,7 +331,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       _freshIdxId
     }
     /** Index generator virtual class */
-    type Index      <: IndexDef
+    type Index   <: AbstractIndexDef
     /** Index generator factory. Override for customization.
         @group Basic customization overrides */
     def Index     : m.Index      => Index
@@ -345,7 +340,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
      * @group Basic customization overrides
      * @param model corresponding Slick meta model component
      */
-    abstract case class IndexDef(val model: m.Index) extends TermDef{
+    abstract case class AbstractIndexDef(model: m.Index) extends AbstractTermDef {
       private val id = freshIdxId
       /** Columns code generators */
       final lazy val columns: Seq[Column] = model.columns.map(_.name).map(columnsByName)
@@ -354,11 +349,11 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def rawName = disambiguateTerm("index"+id)
       def doc: String =
         (if(model.unique)"Uniqueness " else "")+
-          "Index over "+columns.map(_.name).mkString("(",",",")")+s" (database name ${dbName})"
+          "Index over "+columns.map(_.name).mkString("(",",",")")+s" (database name $dbName)"
     }
 
     /** Common interface for any kind of definition within the generated code */
-    trait Def{
+    trait AbstractDef {
       /** Indicates whether this will be included in the generated code
         @group Basic customization overrides */
       def enabled = true
@@ -377,7 +372,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def rawName: String
     }
     /** Common interface for definitions that define a term (val, def, ...) within the generated code */
-    trait TermDef extends Def{
+    trait AbstractTermDef extends AbstractDef {
       override def docWithCode: Code = {
         val newdoc = doc +
           (if(scalaKeywords.contains(rawName)) s"\nNOTE: The name was escaped because it collided with a Scala keyword." else "")+
@@ -396,7 +391,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
         else name
     }
     /** Common interface for definitions that define a type (class, case class, ...) within the generated code */
-    trait TypeDef extends Def{
+    trait AbstractTypeDef extends AbstractDef {
       /** Name (escaped if colliding with Scala keyword). */
       final def name: TypeName = typeName( rawName )
       /** Inherited traits.
@@ -407,7 +402,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
 }
 
 /** Helper methods for code generation */
-trait GeneratorHelpers[Code,TermName,TypeName]{
+trait GeneratorHelpers[Code, TermName, TypeName] {
   def indent(code: String): String = {
     val lines = code.split("\n")
     lines.tail.foldLeft(lines.head) { (out, line) =>
