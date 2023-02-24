@@ -23,8 +23,8 @@ import com.typesafe.config.{ConfigFactory, Config}
 /** A JDBC-based database back-end that is used by [[slick.jdbc.JdbcProfile]]. */
 trait JdbcBackend extends RelationalBackend {
   type This = JdbcBackend
-  type Database = DatabaseDef
-  type Session = SessionDef
+  type Database = JdbcDatabaseDef
+  type Session = JdbcSessionDef
   type DatabaseFactory = DatabaseFactoryDef
   type Context = JdbcActionContext
   type StreamingContext = JdbcStreamingActionContext
@@ -34,7 +34,7 @@ trait JdbcBackend extends RelationalBackend {
 
   def createDatabase(config: Config, path: String): Database = Database.forConfig(path, config)
 
-  class DatabaseDef(val source: JdbcDataSource, val executor: AsyncExecutor) extends super.DatabaseDef {
+  class JdbcDatabaseDef(val source: JdbcDataSource, val executor: AsyncExecutor) extends BasicDatabaseDef {
     /** The DatabaseCapabilities, accessed through a Session and created by the
       * first Session that needs them. Access does not need to be synchronized
       * because, in the worst case, capabilities will be determined multiple
@@ -55,13 +55,13 @@ trait JdbcBackend extends RelationalBackend {
       * one single element at a time after processing the current one, so that the proper
       * sequencing is preserved even though processing may happen on a different thread. */
     final def stream[T](a: StreamingDBIO[_, T], bufferNext: Boolean): DatabasePublisher[T] =
-      createPublisher(a, s => new JdbcStreamingActionContext(s, false, DatabaseDef.this, bufferNext))
+      createPublisher(a, s => new JdbcStreamingActionContext(s, false, this, bufferNext))
 
     override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new JdbcActionContext { val useSameThread = _useSameThread }
 
     override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
-      new JdbcStreamingActionContext(s, useSameThread, DatabaseDef.this, true)
+      new JdbcStreamingActionContext(s, useSameThread, this, true)
 
     protected[this] def synchronousExecutionContext = executor.executionContext
 
@@ -84,7 +84,7 @@ trait JdbcBackend extends RelationalBackend {
   trait DatabaseFactoryDef {
     /** Create a Database based on a [[JdbcDataSource]]. */
     def forSource(source: JdbcDataSource, executor: AsyncExecutor = AsyncExecutor.default()) =
-      new DatabaseDef(source, executor)
+      new JdbcDatabaseDef(source, executor)
 
     /** Create a Database based on a DataSource.
       *
@@ -96,7 +96,10 @@ trait JdbcBackend extends RelationalBackend {
       *                            is accessed for the first time, and kept open until `close()` is called. This is
       *                            useful for named in-memory databases in test environments.
       */
-    def forDataSource(ds: DataSource, maxConnections: Option[Int], executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false): DatabaseDef =
+    def forDataSource(ds: DataSource,
+                      maxConnections: Option[Int],
+                      executor: AsyncExecutor = AsyncExecutor.default(),
+                      keepAliveConnection: Boolean = false): JdbcDatabaseDef =
       forSource(new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections), executor)
 
     /** Create a Database based on the JNDI name of a DataSource.
@@ -114,7 +117,7 @@ trait JdbcBackend extends RelationalBackend {
       *                      prevent deadlocks when scheduling database actions. Use `None` if there is no hard limit.
       * @param executor The AsyncExecutor for scheduling database actions.
       */
-    def forName(name: String, maxConnections: Option[Int], executor: AsyncExecutor = null): DatabaseDef =
+    def forName(name: String, maxConnections: Option[Int], executor: AsyncExecutor = null): JdbcDatabaseDef =
       new InitialContext().lookup(name) match {
 
         case ds: DataSource =>
@@ -130,10 +133,20 @@ trait JdbcBackend extends RelationalBackend {
       }
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url: String, user: String = null, password: String = null, prop: Properties = null, driver: String = null,
-               executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false,
-               classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): DatabaseDef =
-      forDataSource(new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader), None, executor, keepAliveConnection)
+    def forURL(url: String,
+               user: String = null,
+               password: String = null,
+               prop: Properties = null,
+               driver: String = null,
+               executor: AsyncExecutor = AsyncExecutor.default(),
+               keepAliveConnection: Boolean = false,
+               classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): JdbcDatabaseDef =
+      forDataSource(
+        new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader),
+        None,
+        executor,
+        keepAliveConnection
+      )
 
     /** Create a Database that uses the DriverManager to open new connections. */
     def forURL(url: String, prop: Map[String, String]): Database = {
@@ -145,8 +158,12 @@ trait JdbcBackend extends RelationalBackend {
 
     /** Create a Database that directly uses a Driver to open new connections.
       * This is needed to open a JDBC URL with a driver that was not loaded by the system ClassLoader. */
-    def forDriver(driver: Driver, url: String, user: String = null, password: String = null, prop: Properties = null,
-                  executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
+    def forDriver(driver: Driver,
+                  url: String,
+                  user: String = null,
+                  password: String = null,
+                  prop: Properties = null,
+                  executor: AsyncExecutor = AsyncExecutor.default()): JdbcDatabaseDef =
       forDataSource(new DriverDataSource(url, user, password, prop, driverObject = driver), None, executor)
 
     /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
@@ -354,7 +371,7 @@ trait JdbcBackend extends RelationalBackend {
     }
   }
 
-  trait SessionDef extends super.SessionDef { self =>
+  trait JdbcSessionDef extends BasicSessionDef { self =>
 
     def database: Database
     def conn: Connection
@@ -493,7 +510,7 @@ trait JdbcBackend extends RelationalBackend {
     private[slick] def endInTransaction(f: => Unit): Unit
   }
 
-  class BaseSession(val database: Database) extends SessionDef {
+  class BaseSession(val database: Database) extends JdbcSessionDef {
     protected var inTransactionally = 0
 
     def isInTransaction = inTransactionally > 0

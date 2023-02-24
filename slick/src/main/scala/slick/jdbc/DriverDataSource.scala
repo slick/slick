@@ -121,8 +121,7 @@ class DriverDataSource(
 
   def getParentLogger: Logger = {
     init
-    try driver.asInstanceOf[ {def getParentLogger(): Logger}].getParentLogger()
-    catch { case _: NoSuchMethodException => throw new SQLFeatureNotSupportedException() }
+    driver.getParentLogger
   }
 
   def isWrapperFor(iface: Class[_]): Boolean = iface.isInstance(this)

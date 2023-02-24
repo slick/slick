@@ -1,13 +1,18 @@
 package slick.memory
 
 import java.util.regex.Pattern
-import org.slf4j.LoggerFactory
+
+import scala.collection.compat._
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap}
-import slick.ast._
+
 import slick.SlickException
-import slick.util.{ConstArray, SlickLogger, Logging}
-import TypeUtil.typeToTypeUtil
+import slick.ast.TypeUtil.typeToTypeUtil
+import slick.ast._
+import slick.util.{ConstArray, Logging, SlickLogger}
+
+import org.slf4j.LoggerFactory
+
 
 /** A query interpreter for MemoryProfile and for client-side operations
   * that need to be run as part of distributed queries against multiple
@@ -69,7 +74,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Join(_, _, left, right, JoinType.Zip, LiteralNode(true)) =>
         val leftV = run(left).asInstanceOf[Coll]
         val rightV = run(right).asInstanceOf[Coll]
-        (leftV, rightV).zipped.map { (l, r) => new ProductValue(Vector(l, r)) }
+        leftV.lazyZip(rightV).map { (l, r) => new ProductValue(Vector(l, r)) }
       case Join(leftGen, rightGen, left, right, JoinType.Inner, by) =>
         val res = run(left).asInstanceOf[Coll].flatMap { l =>
           scope(leftGen) = l

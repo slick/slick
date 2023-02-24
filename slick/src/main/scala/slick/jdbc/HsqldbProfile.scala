@@ -44,26 +44,31 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     - JdbcCapabilities.insertOrUpdate
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable)
-    class TableNamer(mTable: MTable) extends super.TableNamer(mTable) {
+  class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+
+    override def createTableNamer(mTable: MTable): TableNamer = new HsqldbTableNamer(mTable)
+    class HsqldbTableNamer(mTable: MTable) extends TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
       override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
+                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+    new HsqldbModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override protected def computeQueryCompiler =
-    super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) + Phase.specializeParameters - Phase.fixRowNumberOrdering
-  override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
+    super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) +
+      Phase.specializeParameters -
+      Phase.fixRowNumberOrdering
+  override val columnTypes = new HsqldbJdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new HsqldbQueryBuilder(n, state)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new HsqldbTableDDLBuilder(table)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new HsqldbSequenceDDLBuilder(seq)
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
@@ -77,7 +82,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class HsqldbQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
     override protected val alwaysAliasSubqueries = false
     override protected val supportsLiteralGroupBy = true
@@ -124,7 +129,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  class JdbcTypes extends super.JdbcTypes {
+  class HsqldbJdbcTypes extends JdbcTypes {
     override val byteArrayJdbcType = new ByteArrayJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "LONGVARBINARY"
     }
@@ -150,9 +155,9 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       }
     }
 
-    override val offsetTimeType = new OffsetTimeJdbcType
-    override val offsetDateTimeType = new OffsetDateTimeJdbcType
-    override val instantType = new InstantJdbcType
+    override val offsetTimeType = new HsqldbOffsetTimeJdbcType
+    override val offsetDateTimeType = new HsqldbOffsetDateTimeJdbcType
+    override val instantType = new HsqldbInstantJdbcType
 
 
     /**
@@ -197,7 +202,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       }
     }
 
-    class OffsetTimeJdbcType extends super.OffsetTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
+    class HsqldbOffsetTimeJdbcType extends OffsetTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
 
       override def sqlType = java.sql.Types.TIME_WITH_TIMEZONE
 
@@ -235,7 +240,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
         s"'${offsetConvertISOToHsqldb(v.format(timeFormatter))}'"
     }
 
-    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
+    class HsqldbOffsetDateTimeJdbcType extends OffsetDateTimeJdbcType with HsqldbTimeJdbcTypeWithOffset {
 
       override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
 
@@ -265,7 +270,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       override def valueToSQLLiteral(v: OffsetDateTime): String =
         s"'${offsetConvertISOToHsqldb(v.format(datetimeFormatter))}'"
     }
-    class InstantJdbcType extends super.InstantJdbcType with HsqldbTimeJdbcTypeWithOffset {
+    class HsqldbInstantJdbcType extends InstantJdbcType with HsqldbTimeJdbcTypeWithOffset {
       override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
       override val hasLiteralForm: Boolean = false
@@ -292,7 +297,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+  class HsqldbTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override protected def createIndex(idx: Index) = {
       if(idx.unique) {
         /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
@@ -308,7 +313,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
+  class HsqldbSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       import seq.integral._
       val increment = seq._increment.getOrElse(one)

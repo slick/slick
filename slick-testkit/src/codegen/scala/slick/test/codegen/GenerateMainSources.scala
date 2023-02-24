@@ -72,7 +72,7 @@ val  SimpleA = CustomTyping.SimpleA
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
-          override def autoIncLastAsOption = true
+          override def autoIncLast = true
           override def Column = new Column(_){
             override def asOption = autoInc
           }
