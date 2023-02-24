@@ -20,7 +20,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   type InsertInvoker[T] = InsertInvokerDef[T]
   type Backend = HeapBackend
   val backend: Backend = HeapBackend
-  val api: API = new API {}
+  val api: MemoryAPI = new MemoryAPI {}
 
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
@@ -33,23 +33,23 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ??
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new DDL(Vector(table))
 
-  type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
-  type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
-  type SchemaActionExtensionMethods = SchemaActionExtensionMethodsImpl
-  type InsertActionExtensionMethods[T] = InsertActionExtensionMethodsImpl[T]
+  type QueryActionExtensionMethods[R, S <: NoStream] = MemoryQueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] = MemoryStreamingQueryActionExtensionMethodsImpl[R, T]
+  type SchemaActionExtensionMethods = MemorySchemaActionExtensionMethodsImpl
+  type InsertActionExtensionMethods[T] = MemoryInsertActionExtensionMethodsImpl[T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
     new QueryActionExtensionMethods[R, S](tree, param)
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
-    new SchemaActionExtensionMethodsImpl(schema)
+    new MemorySchemaActionExtensionMethodsImpl(schema)
   def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new InsertActionExtensionMethodsImpl[T](compiled)
+    new MemoryInsertActionExtensionMethodsImpl[T](compiled)
 
-  lazy val MappedColumnType = new MappedColumnTypeFactory
+  lazy val MappedColumnType = new MemoryMappedColumnTypeFactory
 
-  class MappedColumnTypeFactory extends super.MappedColumnTypeFactory {
+  class MemoryMappedColumnTypeFactory extends MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
       assertNonNullType(implicitly[BaseColumnType[U]])
       new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
@@ -65,7 +65,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     }
   }
 
-  trait API extends super[RelationalProfile].API with super[MemoryQueryingProfile].API {
+  trait MemoryAPI extends RelationalAPI with MemoryQueryingAPI {
     type SimpleDBIO[+R] = SimpleMemoryAction[R]
     val SimpleDBIO = SimpleMemoryAction
   }
@@ -147,16 +147,21 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction")
   }
 
-  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
+  class MemoryQueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any)
+    extends BasicQueryActionExtensionMethodsImpl[R, S] {
+
     def result: ProfileAction[R, S, Effect.Read] =
       new StreamingQueryAction[R, Nothing](tree, param).asInstanceOf[ProfileAction[R, S, Effect.Read]]
   }
 
-  class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
+  class MemoryStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any)
+    extends MemoryQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param)
+      with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
     override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
-  class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
+  class MemorySchemaActionExtensionMethodsImpl(schema: SchemaDescription)
+    extends RelationalSchemaActionExtensionMethodsImpl {
     protected[this] val tables = schema.asInstanceOf[DDL].tables
     import slick.SlickException
     def create = dbAction { session =>
@@ -188,7 +193,9 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     }
   }
 
-  class InsertActionExtensionMethodsImpl[T](compiled: CompiledInsert) extends super.InsertActionExtensionMethodsImpl[T] {
+  class MemoryInsertActionExtensionMethodsImpl[T](compiled: CompiledInsert)
+    extends InsertActionExtensionMethodsImpl[T] {
+
     protected[this] val inv = createInsertInvoker[T](compiled)
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit

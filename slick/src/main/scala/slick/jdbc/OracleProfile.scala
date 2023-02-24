@@ -74,16 +74,18 @@ trait OracleProfile extends JdbcProfile {
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
-  trait ColumnOptions extends super.ColumnOptions {
+  trait OracleColumnOptions extends SqlColumnOptions {
     def AutoIncSequenceName(name: String) = OracleProfile.ColumnOption.AutoIncSequenceName(name)
     def AutoIncTriggerName(name: String) = OracleProfile.ColumnOption.AutoIncTriggerName(name)
   }
 
-  override val columnOptions: ColumnOptions = new ColumnOptions {}
+  override val columnOptions: OracleColumnOptions = new OracleColumnOptions {}
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
-    class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends super.ColumnBuilder(tableBuilder, meta) {
+  class OracleModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
+      new OracleColumnBuilder(tableBuilder, meta)
+    class OracleColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       override def tpe = meta.sqlType match {
         case 101 => "Double"
         case _ => super.tpe
@@ -95,8 +97,9 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
+                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+    new OracleModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     for {
@@ -111,11 +114,12 @@ trait OracleProfile extends JdbcProfile {
       - Phase.fixRowNumberOrdering
       + Phase.rewriteBooleans + new RemoveSubqueryOrdering)
 
-  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
-  override val columnTypes = new JdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new OracleQueryBuilder(n, state)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new OracleTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): OracleColumnDDLBuilder =
+    new OracleColumnDDLBuilder(column)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
+  override val columnTypes = new OracleJdbcTypes
 
   val blobBufferSize = 4096
 
@@ -134,7 +138,7 @@ trait OracleProfile extends JdbcProfile {
 
   override val scalarFrom = Some("sys.dual")
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+  class OracleQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
     override protected val hasPiFunction = false
@@ -166,7 +170,7 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+  class OracleTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override val createPhase1 = super.createPhase1 ++ createAutoIncSequences
     override val dropPhase2 = dropAutoIncSequences ++ super.dropPhase2
 
@@ -209,11 +213,11 @@ END;
 """)
     }
 
-    def createAutoIncSequences = columns.flatMap { case cb: ColumnDDLBuilder =>
+    def createAutoIncSequences = columns.flatMap { case cb: OracleColumnDDLBuilder =>
       cb.createSequenceAndTrigger(table)
     }
 
-    def dropAutoIncSequences = columns.flatMap { case cb: ColumnDDLBuilder =>
+    def dropAutoIncSequences = columns.flatMap { case cb: OracleColumnDDLBuilder =>
       cb.dropTriggerAndSequence(table)
     }
 
@@ -246,7 +250,7 @@ END;
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class OracleColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     var sequenceName: String = _
     var triggerName: String = _
 
@@ -295,7 +299,7 @@ END;
     }
   }
 
-  class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
+  class OracleSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       val b = new StringBuilder append "create sequence " append quoteIdentifier(seq.name)
       seq._increment.foreach { b append " increment by " append _ }
@@ -307,29 +311,29 @@ END;
     }
   }
 
-  class JdbcTypes extends super.JdbcTypes {
-    override val booleanJdbcType = new BooleanJdbcType
-    override val blobJdbcType = new BlobJdbcType
-    override val byteArrayJdbcType = new ByteArrayJdbcType
-    override val stringJdbcType = new StringJdbcType
-    override val timeJdbcType = new TimeJdbcType
-    override val uuidJdbcType = new UUIDJdbcType
-    override val localDateType = new LocalDateJdbcType
-    override val localDateTimeType = new LocalDateTimeJdbcType
-    override val instantType = new InstantJdbcType
-    override val offsetTimeType = new OffsetTimeJdbcType
-    override val offsetDateTimeType = new OffsetDateTimeJdbcType
-    override val zonedDateType = new ZonedDateTimeJdbcType
+  class OracleJdbcTypes extends JdbcTypes {
+    override val booleanJdbcType    = new OracleBooleanJdbcType
+    override val blobJdbcType       = new OracleBlobJdbcType
+    override val byteArrayJdbcType  = new OracleByteArrayJdbcType
+    override val stringJdbcType     = new OracleStringJdbcType
+    override val timeJdbcType       = new OracleTimeJdbcType
+    override val uuidJdbcType       = new OracleUUIDJdbcType
+    override val localDateType      = new OracleLocalDateJdbcType
+    override val localDateTimeType  = new OracleLocalDateTimeJdbcType
+    override val instantType        = new OracleInstantJdbcType
+    override val offsetTimeType     = new OracleOffsetTimeJdbcType
+    override val offsetDateTimeType = new OracleOffsetDateTimeJdbcType
+    override val zonedDateType      = new OracleZonedDateTimeJdbcType
 
     /* Oracle does not have a proper BOOLEAN type. The suggested workaround is
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanJdbcType extends super.BooleanJdbcType {
+    class OracleBooleanJdbcType extends BooleanJdbcType {
       override def sqlType = java.sql.Types.CHAR
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
 
-    class BlobJdbcType extends super.BlobJdbcType {
+    class OracleBlobJdbcType extends BlobJdbcType {
       override def setValue(v: Blob, p: PreparedStatement, idx: Int) = {
         val ob = p.getConnection.createBlob()
         var added = false
@@ -355,12 +359,12 @@ END;
         throw new SlickException("OracleProfile does not support updating Blob values")
     }
 
-    class ByteArrayJdbcType extends super.ByteArrayJdbcType {
+    class OracleByteArrayJdbcType extends ByteArrayJdbcType {
       override def updateValue(v: Array[Byte], r: ResultSet, idx: Int) =
         throw new SlickException("OracleProfile does not support updating Blob values")
     }
 
-    class StringJdbcType extends super.StringJdbcType {
+    class OracleStringJdbcType extends StringJdbcType {
       /* Oracle treats an empty String as NULL, so we need to convert it back
        * when reading a null String value from a ResultSet. There is no way
        * to distinguish that from a proper NULL. */
@@ -370,7 +374,7 @@ END;
       }
     }
 
-    class TimeJdbcType extends super.TimeJdbcType {
+    class OracleTimeJdbcType extends TimeJdbcType {
       override def sqlType = java.sql.Types.TIMESTAMP
       override def setValue(v: Time, p: PreparedStatement, idx: Int) = p.setTimestamp(idx, new Timestamp(v.getTime))
       override def getValue(r: ResultSet, idx: Int) = {
@@ -381,7 +385,7 @@ END;
       override def valueToSQLLiteral(value: Time) = "{ts '"+(new Timestamp(value.getTime).toString)+"'}"
     }
 
-    class UUIDJdbcType extends super.UUIDJdbcType {
+    class OracleUUIDJdbcType extends UUIDJdbcType {
       override def sqlType = java.sql.Types.VARBINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "RAW(32)"
       override def valueToSQLLiteral(value: UUID) = {
@@ -391,7 +395,7 @@ END;
       override def hasLiteralForm = true
     }
 
-    class LocalDateJdbcType extends super.LocalDateJdbcType {
+    class OracleLocalDateJdbcType extends LocalDateJdbcType {
       override def hasLiteralForm: Boolean = true
       override def valueToSQLLiteral(value: LocalDate) : String = {
         s"TO_DATE('${value.toString}', 'SYYYY-MM-DD')"
@@ -404,7 +408,7 @@ END;
       }
     }
 
-    class LocalTimeJdbcType extends super.LocalTimeJdbcType {
+    class OracleLocalTimeJdbcType extends LocalTimeJdbcType {
       @inline private[this] def timestampFromLocalTime(localTime : LocalTime) : Timestamp = {
         Timestamp.valueOf(LocalDateTime.of(LocalDate.MIN, localTime))
       }
@@ -422,13 +426,13 @@ END;
     // LocalDateTime and Instant are the 2 types which have no TZ component
     // So, store them at UTC timestamps, otherwise the JDBC layer might attempt to map them
     // and with DST changes, there are some times which will be unrepresentable during the switchover
-    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+    class OracleLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
       override def valueToSQLLiteral(value: LocalDateTime) = {
         s"TO_TIMESTAMP(${super.valueToSQLLiteral(value)}, 'YYYY-MM-DD HH24:MI:SS.FF3')"
       }
     }
 
-    class InstantJdbcType extends super.InstantJdbcType {
+    class OracleInstantJdbcType extends InstantJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
       private[this] def serializeTime(v: Instant) : String = formatter.format(instantToUTC(v))
       private[this] def instantToUTC(v: Instant): OffsetDateTime = v.atOffset(ZoneOffset.UTC)
@@ -454,7 +458,7 @@ END;
     }
 
     // No Oracle time type without date component. Add LocalDate.ofEpochDay(0), but ignore it.
-    class OffsetTimeJdbcType extends super.OffsetTimeJdbcType {
+    class OracleOffsetTimeJdbcType extends OffsetTimeJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
       private[this] def serializeTime(v : OffsetTime) : String = formatter.format(v.atDate(LocalDate.ofEpochDay(0)))
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
@@ -473,7 +477,7 @@ END;
       }
     }
 
-    class OffsetDateTimeJdbcType extends super.OffsetDateTimeJdbcType {
+    class OracleOffsetDateTimeJdbcType extends OffsetDateTimeJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
       private[this] def serializeTime(v : OffsetDateTime) : String = formatter.format(v)
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
@@ -492,7 +496,7 @@ END;
       }
     }
 
-    class ZonedDateTimeJdbcType extends super.ZonedDateTimeJdbcType {
+    class OracleZonedDateTimeJdbcType extends ZonedDateTimeJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV")
       private[this] def serializeTime(v : ZonedDateTime) : String = formatter.format(v)
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
@@ -517,8 +521,10 @@ END;
    * these statements for the AutoInc emulation, we execute all DDL
    * statements with a non-prepared Statement. */
   override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
-    new SchemaActionExtensionMethodsImpl(schema)
-  class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl(schema) {
+    new OracleSchemaActionExtensionMethodsImpl(schema)
+  class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
+    extends JdbcSchemaActionExtensionMethodsImpl(schema) {
+
     override def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
       def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withStatement()(_.execute(s))

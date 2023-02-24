@@ -15,7 +15,7 @@ class MySQLDMLTest {
     class T2(tag: Tag) extends Table[V](tag, "mytable2") {
       def id = column[String]("id", O.PrimaryKey)
       def value = column[String]("value")
-      def * = (id, value) <> ((V.apply _).tupled, V.unapply)
+      def * = (id, value).<>((V.apply _).tupled, V.unapply)
     }
     assertTrue("generates query with update action if insert primary key only",
       TableQuery[T].insertOrUpdate(1).statements.mkString.endsWith("on duplicate key update `id`=VALUES(`id`)"))

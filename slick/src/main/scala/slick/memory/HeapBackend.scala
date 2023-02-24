@@ -19,26 +19,27 @@ import slick.util.Logging
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends RelationalBackend with Logging {
   type This = HeapBackend
-  type Database = DatabaseDef
-  type Session = SessionDef
-  type DatabaseFactory = DatabaseFactoryDef
+  type Database = HeapDatabaseDef
+  type Session = HeapSessionDef
+  type DatabaseFactory = HeapDatabaseFactoryDef
   type Context = BasicActionContext
   type StreamingContext = BasicStreamingActionContext
 
-  val Database = new DatabaseFactoryDef
+  val Database = new HeapDatabaseFactoryDef
   val backend: HeapBackend = this
 
   def createDatabase(config: Config, path: String): Database = Database.apply(ExecutionContext.global)
 
-  class DatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends super.DatabaseDef {
+  class HeapDatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends BasicDatabaseDef {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new BasicActionContext { val useSameThread = _useSameThread }
 
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
-      new BasicStreamingActionContext(s, useSameThread, DatabaseDef.this)
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T],
+                                                                useSameThread: Boolean): StreamingContext =
+      new BasicStreamingActionContext(s, useSameThread, this)
 
     protected val tables = new HashMap[String, HeapTable]
-    def createSession(): Session = new SessionDef(this)
+    def createSession(): Session = new HeapSessionDef(this)
     override def shutdown: Future[Unit] = Future.successful(())
     def close: Unit = ()
     def getTable(name: String): HeapTable = synchronized {
@@ -75,7 +76,7 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   def createEmptyDatabase: Database = {
     def err = throw new SlickException("Unsupported operation for empty heap database")
-    new DatabaseDef(new ExecutionContext {
+    new HeapDatabaseDef(new ExecutionContext {
       def reportFailure(t: Throwable) = err
       def execute(runnable: Runnable) = err
     }) {
@@ -84,13 +85,13 @@ trait HeapBackend extends RelationalBackend with Logging {
     }
   }
 
-  class DatabaseFactoryDef {
+  class HeapDatabaseFactoryDef {
     /** Create a new heap database instance that uses the supplied ExecutionContext for
       * asynchronous execution of database actions. */
-    def apply(executionContext: ExecutionContext): Database = new DatabaseDef(executionContext)
+    def apply(executionContext: ExecutionContext): Database = new HeapDatabaseDef(executionContext)
   }
 
-  class SessionDef(val database: Database) extends super.SessionDef {
+  class HeapSessionDef(val database: Database) extends BasicSessionDef {
     def close(): Unit = {}
 
     def rollback() =

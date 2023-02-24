@@ -39,7 +39,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
     def ++(other: SchemaDescription): SchemaDescription
   }
 
-  trait API extends Aliases with ExtensionMethodConversions {
+  trait BasicAPI extends Aliases with ExtensionMethodConversions {
     type Database = Backend#Database
     val Database = backend.Database
     type Session = Backend#Session
@@ -68,7 +68,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
   /** The API for using the query language with a single import
     * statement. This provides the profile's implicits, the Database API
     * and commonly used query language types and objects. */
-  val api: API
+  val api: BasicAPI
 
   /** The compiler used for queries */
   def queryCompiler: QueryCompiler
@@ -133,18 +133,19 @@ trait BasicActionComponent { self: BasicProfile =>
 
   //////////////////////////////////////////////////////////// Query Actions
 
-  type QueryActionExtensionMethods[R, S <: NoStream] <: QueryActionExtensionMethodsImpl[R, S]
-  type StreamingQueryActionExtensionMethods[R, T] <: StreamingQueryActionExtensionMethodsImpl[R, T]
+  type QueryActionExtensionMethods[R, S <: NoStream] <: BasicQueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] <: BasicStreamingQueryActionExtensionMethodsImpl[R, T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S]
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T]
 
-  trait QueryActionExtensionMethodsImpl[R, S <: NoStream] {
+  trait BasicQueryActionExtensionMethodsImpl[R, S <: NoStream] {
     /** An Action that runs this query. */
     def result: ProfileAction[R, S, Effect.Read]
   }
 
-  trait StreamingQueryActionExtensionMethodsImpl[R, T] extends QueryActionExtensionMethodsImpl[R, Streaming[T]] {
+  trait BasicStreamingQueryActionExtensionMethodsImpl[R, T]
+    extends BasicQueryActionExtensionMethodsImpl[R, Streaming[T]] {
     def result: StreamingProfileAction[R, T, Effect.Read]
   }
 }

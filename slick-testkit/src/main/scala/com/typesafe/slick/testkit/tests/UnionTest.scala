@@ -139,7 +139,7 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       val messageId = column[Long]("message_id")
       val sentAt = column[Long]("sent_at")
 
-      def * = (id, dname, messageId, sentAt) <> (Delivery.tupled, Delivery.unapply)
+      def * = (id, dname, messageId, sentAt).<>(Delivery.tupled, Delivery.unapply)
     }
 
     class Messages(tag: Tag) extends Table[Message](tag, "m2") {
@@ -147,7 +147,7 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       val mname = column[String]("mname")
       val mbody = column[String]("mbody")
 
-      def * = (id, mname, mbody) <> (Message.tupled, Message.unapply)
+      def * = (id, mname, mbody).<>(Message.tupled, Message.unapply)
     }
 
 
@@ -185,7 +185,7 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       val dname = column[String]("dname")
       val sentAt = column[Long]("sent_at")
 
-      def * = (id, dname, sentAt) <> (Delivery.tupled, Delivery.unapply)
+      def * = (id, dname, sentAt).<>(Delivery.tupled, Delivery.unapply)
     }
 
     def leftSide = {
