@@ -174,7 +174,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
 
     /**
       * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] or [[LocalTimeJdbcType]]
-      * or [[OffsetTime]] or [[LocalDateTime]] or [[LocalDate]] or [[Instant]] instead.
+      * or [[java.time.OffsetTime]] or [[java.time.LocalDateTime]] or [[java.time.LocalDate]]
+     * or [[java.time.Instant]] instead.
       */
     class DateJdbcType extends DriverJdbcType[Date] {
       def sqlType = java.sql.Types.DATE
