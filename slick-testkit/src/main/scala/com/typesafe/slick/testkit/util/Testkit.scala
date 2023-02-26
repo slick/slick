@@ -1,12 +1,12 @@
 package com.typesafe.slick.testkit.util
 
-import scala.language.existentials
 import java.lang.reflect.Method
 import java.util.concurrent.{ExecutionException, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.{Promise, ExecutionContext, Await, Future}
+import scala.concurrent._
 import scala.concurrent.duration.Duration
+import scala.language.existentials
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
@@ -16,20 +16,21 @@ import slick.basic.Capability
 import slick.dbio._
 import slick.jdbc.{JdbcBackend, JdbcCapabilities}
 import slick.lifted.Rep
-import slick.util.DumpInfo
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
+import slick.util.DumpInfo
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert
-import org.slf4j.MDC
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
-import scala.concurrent.ExecutionContextExecutor
+import org.slf4j.MDC
+
 
 /** JUnit runner for the Slick driver test kit. */
-class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
+class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
+  extends SimpleParentRunner[TestMethod](clazz) {
 
   val profileTest = clazz.getConstructor().newInstance()
   var tdb: TestDB = profileTest.tdb
@@ -56,7 +57,7 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) exte
         val is = children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance()))
           .filter { case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
         val last = is.length - 1
-        var previousTestObject: GenericTest[_ >: Null <: TestDB] = null
+        var previousTestObject: AsyncTest[_ >: Null <: TestDB] = null
         for (((ch, preparedTestObject), idx) <- is) {
           val desc = describeChild(ch)
           notifier.fireTestStarted(desc)
@@ -85,23 +86,23 @@ abstract class ProfileTest(val tdb: TestDB) {
   def tests = tdb.testClasses
 }
 
-case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: GenericTest[_ >: Null <: TestDB]]) {
+case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: AsyncTest[_ >: Null <: TestDB]]) {
   private[this] def await[T](f: Future[T]): T =
     try Await.result(f, TestkitConfig.asyncTimeout)
-    catch { case ex: ExecutionException => throw ex.getCause }
-
-  def run(testObject: GenericTest[_]): Unit = {
-    val r = method.getReturnType
-    testObject match {
-      case testObject: TestkitTest[_] =>
-        if(r == Void.TYPE) method.invoke(testObject)
-        else throw new RuntimeException(s"Illegal return type: '${r.getName}' in test method '$name' -- TestkitTest methods must return Unit")
-
-      case testObject: AsyncTest[_] =>
-        if(r == classOf[Future[_]]) await(method.invoke(testObject).asInstanceOf[Future[Any]])
-        else if(r == classOf[DBIOAction[_, _, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[DBIO[Any]]))
-        else throw new RuntimeException(s"Illegal return type: '${r.getName}' in test method '$name' -- AsyncTest methods must return Future or Action")
+    catch {
+      case ex: ExecutionException => throw ex.getCause
     }
+
+  def run(testObject: AsyncTest[_]): Unit = {
+    val r = method.getReturnType
+    if (r == classOf[Future[_]])
+      await(method.invoke(testObject).asInstanceOf[Future[Any]])
+    else if (r == classOf[DBIOAction[_, _, _]])
+      await(testObject.db.run(method.invoke(testObject).asInstanceOf[DBIO[Any]]))
+    else
+      throw new RuntimeException(
+        s"Illegal return type: '${r.getName}' in test method '$name' -- AsyncTest methods must return Future or Action"
+      )
   }
 }
 
@@ -165,15 +166,15 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     mark[DBIOAction[R, S, E]](id, f.named(id))
 
   def assertNesting(q: Rep[_], exp: Int): Unit = {
-    import slick.compiler.QueryCompiler
     import slick.ast._
     import slick.ast.Util._
+    import slick.compiler.QueryCompiler
     val qc = new QueryCompiler(tdb.profile.queryCompiler.phases.takeWhile(_.name != "codeGen"))
     val cs = qc.run(q.toNode)
     val found = cs.tree.collect { case c: Comprehension => c }.length
     if(found != exp)
       throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
-        cs.tree, mark = (_.isInstanceOf[Comprehension]), removeUnmarked = false))
+        cs.tree, mark = _.isInstanceOf[Comprehension], removeUnmarked = false))
   }
 
   def rcap = RelationalCapabilities
@@ -182,41 +183,14 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
   def tcap = TestDB.capabilities
 }
 
-@deprecated("Use AsyncTest instead of TestkitTest", "3.1")
-abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
-  protected implicit def implicitSession: tdb.profile.Backend#Session = {
-    db
-    keepAliveSession
-  }
-
-  def ifCap[T](caps: Capability*)(f: => T): Unit =
-    if(caps.forall(c => tdb.capabilities.contains(c))) f
-  def ifNotCap[T](caps: Capability*)(f: => T): Unit =
-    if(!caps.forall(c => tdb.capabilities.contains(c))) f
-
-  def assertFail(f: =>Unit) = {
-    var succeeded = false
-    try {
-      f
-      succeeded = true
-    } catch {
-      case e: Exception if !scala.util.control.Exception.shouldRethrow(e) =>
-    }
-    if(succeeded) Assert.fail("Exception expected")
-  }
-
-  def assertAllMatch[T](t: IterableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
-    if(!f.isDefinedAt(x)) Assert.fail("Expected shape not matched by: "+x)
-  }
-}
-
 abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
   final override val reuseInstance = true
 
   protected implicit def asyncTestExecutionContext: ExecutionContextExecutor = ExecutionContext.global
 
   /** Test Action: Get the current database session */
-  object GetSession extends SynchronousDatabaseAction[TDB#Profile#Backend#Session, NoStream, TDB#Profile#Backend, Effect] {
+  object GetSession
+    extends SynchronousDatabaseAction[TDB#Profile#Backend#Session, NoStream, TDB#Profile#Backend, Effect] {
     def run(context: TDB#Profile#Backend#Context) = context.session
     def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
@@ -235,10 +209,17 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   }
 
   /** Test Action: Get the current statement parameters, except for `statementInit` which is always set to null */
-  object GetStatementParameters extends SynchronousDatabaseAction[JdbcBackend.StatementParameters, NoStream, JdbcBackend, Effect] {
+  object GetStatementParameters
+    extends SynchronousDatabaseAction[JdbcBackend.StatementParameters, NoStream, JdbcBackend, Effect] {
     def run(context: JdbcBackend#Context) = {
       val s = context.session
-      JdbcBackend.StatementParameters(s.resultSetType, s.resultSetConcurrency, s.resultSetHoldability, null, s.fetchSize)
+      JdbcBackend.StatementParameters(
+        s.resultSetType,
+        s.resultSetConcurrency,
+        s.resultSetHoldability,
+        null,
+        s.fetchSize
+      )
     }
     def getDumpInfo = DumpInfo(name = "<GetStatementParameters>")
   }
@@ -290,13 +271,15 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     * elements one by one and transforming them after the specified delay. This ensures that the
     * transformation does not run in the synchronous database context but still preserves
     * proper sequencing. */
-  def materializeAsync[T, R](p: Publisher[T], tr: T => Future[R], delay: Duration = Duration(100L, TimeUnit.MILLISECONDS)): Future[Vector[R]] = {
+  def materializeAsync[T, R](p: Publisher[T],
+                             tr: T => Future[R],
+                             delay: Duration = Duration(100L, TimeUnit.MILLISECONDS)): Future[Vector[R]] = {
     val exe = new ThreadPoolExecutor(1, 1, 1L, TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable]())
     val ec = ExecutionContext.fromExecutor(exe)
     val builder = Vector.newBuilder[R]
     val pr = Promise[Vector[R]]()
     var sub: Subscription = null
-    def async[T](thunk: => T): Future[T] = {
+    def async[A](thunk: => A): Future[A] = {
       val f = Future {
         Thread.sleep(delay.toMillis)
         thunk
@@ -347,11 +330,11 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
     def shouldFail(f: T => Unit): Unit = {
       var ok = false
-      try { f(v); ok = true } catch { case t: Throwable => }
+      try { f(v); ok = true } catch { case _: Throwable => }
       if(ok) fixStack(Assert.fail("Expected failure"))
     }
 
-    def shouldBeA[T](implicit ct: ClassTag[T]): Unit = {
+    def shouldBeA(implicit ct: ClassTag[T]): Unit = {
       if(!ct.runtimeClass.isInstance(v))
         fixStack(Assert.fail("Expected value of type " + ct.runtimeClass.getName + ", got " + v.getClass.getName))
     }
@@ -374,9 +357,10 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     @inline def shouldYield(t: T) = action.map(_.shouldBe(t))
   }
 
-  implicit class CollectionDBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[Vector[T], S, E]) {
+  implicit class CollectionDBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action:
+                                                                                       DBIOAction[Vector[T], S, E]) {
     @inline def shouldYield(t: Set[T]) = action.map(_.toSet.shouldBe(t))
-    @inline def shouldYield(t: Seq[T]) = action.map(_.toSeq.shouldBe(t))
+    @inline def shouldYield(t: Seq[T]) = action.map(_.shouldBe(t))
     @inline def shouldYield(t: List[T]) = action.map(_.toList.shouldBe(t))
   }
 }
