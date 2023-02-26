@@ -10,7 +10,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.language.higherKinds
 import scala.util.{Failure, Success}
 import slick.basic.DatabasePublisher
 import slick.jdbc.H2Profile.api._

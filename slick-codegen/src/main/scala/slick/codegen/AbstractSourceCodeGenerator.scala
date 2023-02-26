@@ -1,7 +1,5 @@
 package slick.codegen
 
-import scala.collection.compat._
-
 import slick.ast.ColumnOption
 import slick.model.ForeignKeyAction
 import slick.relational.RelationalProfile
