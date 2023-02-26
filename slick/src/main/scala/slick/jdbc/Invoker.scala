@@ -1,8 +1,9 @@
 package slick.jdbc
 
-import scala.collection.compat._
 import scala.language.higherKinds
 import scala.annotation.unchecked.{uncheckedVariance => uV}
+import scala.collection.Factory
+
 import slick.util.CloseableIterator
 
 /** Base trait for all statement invokers of result element type R. */

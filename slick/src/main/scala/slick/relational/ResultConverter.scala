@@ -2,7 +2,6 @@ package slick.relational
 
 import slick.SlickException
 import slick.util.{Dumpable, DumpInfo, TupleSupport}
-import scala.collection.compat._
 
 /** A `ResultConverter` is used to read data from a result, update a result,
   * and set parameters of a query. */
