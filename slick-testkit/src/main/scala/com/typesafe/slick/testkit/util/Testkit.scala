@@ -1,12 +1,12 @@
 package com.typesafe.slick.testkit.util
 
-import scala.language.existentials
 import java.lang.reflect.Method
 import java.util.concurrent.{ExecutionException, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.{Promise, ExecutionContext, Await, Future}
+import scala.concurrent._
 import scala.concurrent.duration.Duration
+import scala.language.existentials
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
@@ -16,17 +16,16 @@ import slick.basic.Capability
 import slick.dbio._
 import slick.jdbc.{JdbcBackend, JdbcCapabilities}
 import slick.lifted.Rep
-import slick.util.DumpInfo
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
+import slick.util.DumpInfo
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert
-import org.slf4j.MDC
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
-import scala.concurrent.ExecutionContextExecutor
+import org.slf4j.MDC
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
@@ -165,9 +164,9 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     mark[DBIOAction[R, S, E]](id, f.named(id))
 
   def assertNesting(q: Rep[_], exp: Int): Unit = {
-    import slick.compiler.QueryCompiler
     import slick.ast._
     import slick.ast.Util._
+    import slick.compiler.QueryCompiler
     val qc = new QueryCompiler(tdb.profile.queryCompiler.phases.takeWhile(_.name != "codeGen"))
     val cs = qc.run(q.toNode)
     val found = cs.tree.collect { case c: Comprehension => c }.length
