@@ -1,21 +1,21 @@
 package slick.jdbc
 
 import java.sql.{Date, Time, Timestamp}
-import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneOffset}
+import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-import slick.relational.RelationalCapabilities
-import slick.sql.{FixedSqlAction, SqlCapabilities}
-
 import scala.concurrent.ExecutionContext
+
+import slick.relational.RelationalCapabilities
+import slick.sql.SqlCapabilities
 import slick.SlickException
-import slick.basic.Capability
-import slick.dbio._
 import slick.ast._
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.basic.Capability
 import slick.compiler.CompilerState
+import slick.dbio._
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
+import slick.util.MacroSupport.macroSupportInterpolation
 
 /** Slick profile for SQLite.
   *
@@ -51,7 +51,7 @@ import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if the
   *     data to insert contains an `AutoInc` field. Otherwise the operation
-  *     is performmed natively on the server side.</li>
+  *     is performed natively on the server side.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.defaultValueMetaData]]:
   *     The stable xerial sqlite-jdbc driver 3.7.2 does not return default values
   *     for columns in the DatabaseMetaData. Consequently they also do not appear
@@ -61,9 +61,9 @@ import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
   *     Also see https://code.google.com/p/sqlite-jdbc/issues/detail?id=27
   *     </li>
   *   <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]:
-  *     SQlite doesn't have booleans, so Slick maps to INTEGER instead.
+  *     SQLite doesn't have booleans, so Slick maps to INTEGER instead.
   *     Other jdbc drivers like MySQL map TINYINT(1) back to a Scala
-  *     Boolean. SQlite maps INTEGER to an Integer and that's how it shows
+  *     Boolean. SQLite maps INTEGER to an Integer and that's how it shows
   *     up in the jdbc meta data, thus the original type is lost.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.distinguishesIntTypes]]:
   *     SQLite does not distinguish integer types and maps them all to Int
@@ -120,30 +120,40 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
       override def dbType = Some(extractedType)
       override def length = extractedLength
-      override def varying = dbType == Some("VARCHAR")
-      override def default: Option[Option[Any]] = meta.columnDef.map((_,tpe)).collect{
-        case ("null",_)  => Some(None) // 3.7.15-M1
-        case (v , "java.sql.Timestamp") => {
-          import scala.util.{Try, Success}
-          val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
-            (s: String) => java.sql.Timestamp.valueOf(s),
-            (s: String) => java.sql.Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s))),
-            (s: String) => java.sql.Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s.replace(' ', 'T')))),
-            (s: String) => java.sql.Timestamp.from(LocalDate.from(DateTimeFormatter.ISO_LOCAL_DATE.parse(s)).atStartOfDay().toInstant(ZoneOffset.UTC)),
-            (s: String) => java.sql.Timestamp.from(LocalTime.from(DateTimeFormatter.ISO_LOCAL_TIME.parse(s)).atDate(LocalDate.ofEpochDay(0)).toInstant(ZoneOffset.UTC)),
-            (s: String) => {
-              if(s == "now")
-                "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
-              else
-                throw new Exception(s"Failed to parse timestamp - $s")
-            }
-          )
-          val v2 = v.replace("\"", "")
-          convertors.collectFirst(fn => Try(fn(v2)) match{
-            case Success(v) => Some(v)
-          })
-        }
-      }.getOrElse{super.default}
+      override def varying = dbType.contains("VARCHAR")
+      override def default: Option[Option[Any]] =
+        meta.columnDef
+          .map((_, tpe))
+          .collect {
+            case ("null", _)               => Some(None) // 3.7.15-M1
+            case (v, "java.sql.Timestamp") =>
+              import scala.util.{Success, Try}
+              val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
+                (s: String) => Timestamp.valueOf(s),
+                (s: String) => Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s))),
+                (s: String) => Timestamp.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(s.replace(' ', 'T')))),
+                (s: String) =>
+                  Timestamp.from(
+                    LocalDate.from(DateTimeFormatter.ISO_LOCAL_DATE.parse(s)).atStartOfDay().toInstant(ZoneOffset.UTC)
+                  ),
+                (s: String) =>
+                  Timestamp.from(
+                    LocalTime.from(DateTimeFormatter.ISO_LOCAL_TIME.parse(s))
+                      .atDate(LocalDate.ofEpochDay(0)).toInstant(ZoneOffset.UTC)
+                  ),
+                (s: String) => {
+                  if (s == "now")
+                    "new java.sql.Timestamp(java.util.Calendar.getInstance().getTime().getTime())"
+                  else
+                    throw new Exception(s"Failed to parse timestamp - $s")
+                }
+              )
+              val v2 = v.replace("\"", "")
+              convertors.collectFirst(fn => Try(fn(v2)) match {
+                case Success(v) => Some(v)
+              })
+          }
+          .getOrElse(super.default)
       override def tpe = dbType match {
         case Some("DOUBLE") => "Double"
         case Some("DATE") => "java.sql.Date"
@@ -167,7 +177,8 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     )
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
+                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
@@ -227,37 +238,41 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case Library.UCase(ch) => b"upper(!$ch)"
-      case Library.LCase(ch) => b"lower(!$ch)"
+      case Library.UCase(ch)                => b"upper(!$ch)"
+      case Library.LCase(ch)                => b"lower(!$ch)"
       case Library.Substring(n, start, end) =>
-        b"substr($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})"
-      case Library.Substring(n, start) =>
+        val startNode = QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())
+        val lengthNode = QueryParameter.constOp[Int]("-")(_ - _)(end, start)
+        b"substr($n, $startNode, $lengthNode)"
+      case Library.Substring(n, start)      =>
         b"substr($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())})\)"
-      case Library.IndexOf(n, str) => b"\(charindex($str, $n) - 1\)"
-      case Library.%(l, r) => b"\($l%$r\)"
-      case Library.Ceiling(ch) => b"round($ch+0.5)"
-      case Library.Floor(ch) => b"round($ch-0.5)"
-      case Library.User() => b"''"
-      case Library.Database() => b"''"
-      case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
+      case Library.IndexOf(n, str)          => b"\(charindex($str, $n) - 1\)"
+      case Library.%(l, r)                  => b"\($l%$r\)"
+      case Library.Ceiling(ch)              => b"round($ch+0.5)"
+      case Library.Floor(ch)                => b"round($ch-0.5)"
+      case Library.User()                   => b"''"
+      case Library.Database()               => b"''"
+      case RowNumber(_)                     => throw new SlickException("SQLite does not support row numbers")
       // https://github.com/jOOQ/jOOQ/issues/1595
-      case Library.Repeat(n, times) => b"replace(substr(quote(zeroblob(($times + 1) / 2)), 3, $times), '0', $n)"
-      case Union(left, right, all) =>
+      case Library.Repeat(n, times) =>
+        b"replace(substr(quote(zeroblob(($times + 1) / 2)), 3, $times), '0', $n)"
+      case Union(left, right, all)  =>
         b"\{ select * from "
         b"\["
-        buildFrom(left, None, true)
+        buildFrom(left, None, skipParens = true)
         b"\]"
-        if(all) b"\nunion all " else b"\nunion "
+        if (all) b"\nunion all " else b"\nunion "
         b"select * from "
         b"\["
-        buildFrom(right, None, true)
+        buildFrom(right, None, skipParens = true)
         b"\]"
         b"\}"
-      case _ => super.expr(c, skipParens)
+      case _                        => super.expr(c, skipParens)
     }
   }
 
-  /* Extending super.InsertBuilder here instead of super.UpsertBuilder. INSERT OR REPLACE is almost identical to INSERT. */
+  /* Extending super.InsertBuilder here instead of super.UpsertBuilder.
+   INSERT OR REPLACE is almost identical to INSERT. */
   class SQLiteUpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
     override protected def buildInsertStart = allNames.mkString(s"insert or replace into $tableName (", ",", ") ")
   }

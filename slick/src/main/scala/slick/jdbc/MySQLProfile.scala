@@ -1,26 +1,26 @@
 package slick.jdbc
 
-import java.sql.{ResultSet, PreparedStatement}
-import java.time.{Instant, LocalDateTime, LocalTime}
-
-import com.typesafe.config.Config
+import java.sql.{PreparedStatement, ResultSet}
+import java.time.{Instant, LocalDateTime}
 
 import scala.concurrent.ExecutionContext
 
 import slick.SlickException
 import slick.ast._
-import slick.ast.Util._
 import slick.ast.TypeUtil._
+import slick.ast.Util._
 import slick.basic.Capability
-import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
-import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
+import slick.compiler.{CompilerState, Phase, ResolveZipJoins}
 import slick.dbio.DBIO
+import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 import slick.lifted._
-import slick.relational.{RelationalProfile, RelationalCapabilities}
+import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
-import slick.util.{SlickLogger, GlobalConfig, ConstArray}
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.{ConstArray, GlobalConfig, SlickLogger}
 import slick.util.ConfigExtensionMethods.configExtensionMethods
+import slick.util.MacroSupport.macroSupportInterpolation
+
+import com.typesafe.config.Config
 
 /** Slick profile for MySQL.
   *
@@ -72,7 +72,9 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   override protected[this] def loadProfileConfig: Config = {
     if(!GlobalConfig.profileConfig("slick.driver.MySQL").entrySet().isEmpty)
-      SlickLogger[MySQLProfile].warn("The config key 'slick.driver.MySQL' is deprecated and not used anymore. Use 'slick.jdbc.MySQLProfile' instead.")
+      SlickLogger[MySQLProfile].warn(
+        "The config key 'slick.driver.MySQL' is deprecated and not used anymore. Use 'slick.jdbc.MySQLProfile' instead."
+      )
     super.loadProfileConfig
   }
 
@@ -98,13 +100,13 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         case ( v , "scala.math.BigDecimal") => Some( Some( scala.math.BigDecimal(v) ) )
       }.getOrElse{
         val d = super.default
-        if(meta.nullable == Some(true) && d == None){
+        if(meta.nullable.contains(true) && d.isEmpty){
           Some(None)
         } else d
       }
       override def length: Option[Int] = {
         val l = super.length
-        if(tpe == "String" && varying && l == Some(65535)) None
+        if(tpe == "String" && varying && l.contains(65535)) None
         else l
       }
     }
@@ -116,16 +118,17 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
 
     //https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
-    import scala.reflect.{ClassTag, classTag}
+    import scala.reflect.{classTag, ClassTag}
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
       import java.sql.Types._
       jdbcType match{
         case TINYINT if typeName.contains("UNSIGNED")  =>  classTag[Short]
         case SMALLINT                                  =>  classTag[Int]
         case INTEGER if typeName.contains("UNSIGNED")  =>  classTag[Long]
-          /**
-            * Currently java.math.BigInteger/scala.math.BigInt isn't supported as a default datatype, so this is currently out of scope.
-           */
+        /*
+         * Currently java.math.BigInteger/scala.math.BigInt isn't supported as a default datatype,
+         * so this is currently out of scope.
+         */
 //        case BIGINT  if typeName.contains("UNSIGNED")  =>  classTag[BigInt]
         case _ => super.jdbcTypeToScala(jdbcType, typeName)
       }
@@ -138,8 +141,8 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] ={
     for {
       catalog <- SimpleJdbcAction(_.session.conn.getCatalog)
-      mtables <- MTable.getTables(Some(catalog), None, Some("%"), Some(Seq("TABLE")))
-    } yield mtables
+      mTables <- MTable.getTables(Some(catalog), None, Some("%"), Some(Seq("TABLE")))
+    } yield mTables
   }
 
   override val columnTypes = new MySQLJdbcTypes
@@ -207,8 +210,14 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
-        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else if(ti == columnTypes.bigDecimalJdbcType) "DECIMAL" else ti.sqlTypeName(None)
-        b"\({fn convert(!${ch},$tn)}\)"
+        val tn =
+          if (ti == columnTypes.stringJdbcType)
+            "VARCHAR"
+          else if (ti == columnTypes.bigDecimalJdbcType)
+            "DECIMAL"
+          else
+            ti.sqlTypeName(None)
+        b"\({fn convert(!$ch,$tn)}\)"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
@@ -315,7 +324,9 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       val start = seq._start.getOrElse(if(desc) maxValue else minValue)
       val beforeStart = start - increment
       if(!seq._cycle && (seq._minValue.isDefined && desc || seq._maxValue.isDefined && !desc))
-        throw new SlickException("Sequences with limited size and without CYCLE are not supported by MySQLProfile's sequence emulation")
+        throw new SlickException(
+          "Sequences with limited size and without CYCLE are not supported by MySQLProfile's sequence emulation"
+        )
       val incExpr = if(seq._cycle) {
         if(desc) "if(id-"+(-increment)+"<"+minValue+","+maxValue+",id-"+(-increment)+")"
         else "if(id+"+increment+">"+maxValue+","+minValue+",id+"+increment+")"
@@ -327,7 +338,8 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
           "create table " + quoteIdentifier(seq.name + "_seq") + " (id " + t + ")",
           "insert into " + quoteIdentifier(seq.name + "_seq") + " values (" + beforeStart + ")",
           "create function " + quoteIdentifier(seq.name + "_nextval") + "() returns " + sqlType + " begin update " +
-            quoteIdentifier(seq.name + "_seq") + " set id=last_insert_id(" + incExpr + "); return last_insert_id(); end",
+            quoteIdentifier(seq.name + "_seq") +
+            " set id=last_insert_id(" + incExpr + "); return last_insert_id(); end",
           "create function " + quoteIdentifier(seq.name + "_currval") + "() returns " + sqlType + " begin " +
             "select max(id) into @v from " + quoteIdentifier(seq.name + "_seq") + "; return @v; end"),
         Iterable(

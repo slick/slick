@@ -1,28 +1,43 @@
 package slick.ast
 
-import TypeUtil.typeToTypeUtil
-import Util._
+import slick.ast.TypeUtil.typeToTypeUtil
+import slick.ast.Util._
 import slick.util.ConstArray
 
 /** A SQL comprehension */
-final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where: Option[Node] = None,
-                               groupBy: Option[Node] = None, orderBy: ConstArray[(Node, Ordering)] = ConstArray.empty,
-                               having: Option[Node] = None,
-                               distinct: Option[Node] = None,
-                               fetch: Option[Node] = None,
-                               offset: Option[Node] = None,
-                               forUpdate: Boolean = false) extends DefNode {
-  type Self = Comprehension
-  lazy val children = (ConstArray.newBuilder() + from + select ++ where ++ groupBy ++ orderBy.map(_._1) ++ having ++ distinct ++ fetch ++ offset).result
+final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
+                                                       from: Node,
+                                                       select: Node,
+                                                       where: Option[Node] = None,
+                                                       groupBy: Option[Node] = None,
+                                                       orderBy: ConstArray[(Node, Ordering)] = ConstArray.empty,
+                                                       having: Option[Node] = None,
+                                                       distinct: Option[Node] = None,
+                                                       fetch: Fetch = None,
+                                                       offset: Option[Node] = None,
+                                                       forUpdate: Boolean = false) extends DefNode {
+  type Self = Comprehension[Option[Node]]
+  lazy val children =
+    (ConstArray.newBuilder() +
+      from +
+      select ++
+      where ++
+      groupBy ++
+      orderBy.map(_._1) ++
+      having ++
+      distinct ++
+      fetch ++
+      offset)
+      .result
   override def childNames =
-    Seq("from "+sym, "select") ++
-    where.map(_ => "where") ++
-    groupBy.map(_ => "groupBy") ++
-    orderBy.map("orderBy " + _._2).toSeq ++
-    having.map(_ => "having") ++
-    distinct.map(_ => "distinct") ++
-    fetch.map(_ => "fetch") ++
-    offset.map(_ => "offset")
+    Seq("from " + sym, "select") ++
+      where.map(_ => "where") ++
+      groupBy.map(_ => "groupBy") ++
+      orderBy.map("orderBy " + _._2).toSeq ++
+      having.map(_ => "having") ++
+      distinct.map(_ => "distinct") ++
+      fetch.map(_ => "fetch") ++
+      offset.map(_ => "offset")
   protected[this] def rebuild(ch: ConstArray[Node]) = {
     val newFrom = ch(0)
     val newSelect = ch(1)
@@ -88,6 +103,9 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
       ) :@ newType
     }
   }
+}
+object Comprehension {
+  type Base = Comprehension[Option[Node]]
 }
 
 /** The row_number window function */

@@ -1,13 +1,12 @@
 package slick.ast
 
+import scala.annotation.{implicitNotFound, tailrec}
+import scala.collection.{mutable, Factory}
 import scala.language.implicitConversions
-import slick.SlickException
-import scala.collection.mutable.{ArrayBuilder, Builder}
 import scala.reflect.{ClassTag, classTag => mkClassTag}
-import scala.annotation.implicitNotFound
-import scala.collection.Factory
 
-import slick.util.{ConstArray, DumpInfo, Dumpable, TupleSupport}
+import slick.SlickException
+import slick.util.{ConstArray, Dumpable, DumpInfo, TupleSupport}
 
 /** Super-trait for all types */
 trait Type extends Dumpable {
@@ -32,7 +31,7 @@ trait Type extends Dumpable {
 }
 
 object Type {
-  /** An extractor for strucural expansions of types */
+  /** An extractor for structural expansions of types */
   object Structural {
     def unapply(t: Type): Some[Type] = Some(t.structural)
   }
@@ -65,7 +64,7 @@ final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Ty
       if(i >= 0) elements(i)._2 else super.select(sym)
   }
   def classTag = TupleSupport.classTagForArity(elements.length)
-  override final def childrenForeach[R](f: Type => R): Unit = elements.foreach(t => f(t._2))
+  override def childrenForeach[R](f: Type => R): Unit = elements.foreach(t => f(t._2))
 }
 
 trait OptionType extends Type {
@@ -135,7 +134,7 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
     if(e2 eq elementType) this
     else CollectionType(cons, e2)
   }
-  override final def childrenForeach[R](f: Type => R): Unit = f(elementType)
+  override def childrenForeach[R](f: Type => R): Unit = f(elementType)
   def children: ConstArray[Type] = ConstArray(elementType)
   def classTag = cons.classTag
 }
@@ -152,7 +151,7 @@ trait CollectionTypeConstructor {
   /** Determines if only distinct elements are allowed */
   def isUnique: Boolean
   /** Create a `Builder` for the collection type, given a ClassTag for the element type */
-  def createBuilder[E : ClassTag]: Builder[E, Any]
+  def createBuilder[E : ClassTag]: mutable.Builder[E, Any]
   /** Return a CollectionTypeConstructor which builds a subtype of Iterable
     * but has the same properties otherwise. */
   def iterableSubstitute: CollectionTypeConstructor =
@@ -161,13 +160,16 @@ trait CollectionTypeConstructor {
   //TODO We should have a better substitute for (isUnique && isSequential)
 }
 
-@implicitNotFound("Cannot use collection in a query\n            collection type: ${C}[_]\n  requires implicit of type: slick.ast.TypedCollectionTypeConstructor[${C}]")
+@implicitNotFound(
+  """Cannot use collection in a query
+            collection type: ${C}[_]
+  requires implicit of type: slick.ast.TypedCollectionTypeConstructor[${C}]""")
 abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]) extends CollectionTypeConstructor {
   override def toString = classTag.runtimeClass.getName
     .replaceFirst("^scala.collection.immutable.", "")
     .replaceFirst("^scala.collection.mutable.", "m.")
     .replaceFirst("^scala.collection.generic.", "g.")
-  def createBuilder[E : ClassTag]: Builder[E, C[E]]
+  def createBuilder[E : ClassTag]: mutable.Builder[E, C[E]]
   override def hashCode = classTag.hashCode() * 10
   override def equals(o: Any) = o match {
     case o: TypedCollectionTypeConstructor[_] => classTag == o.classTag
@@ -175,10 +177,12 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]
   }
 }
 
-class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
+class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[_]])
+  extends TypedCollectionTypeConstructor[C](classTag) {
+
   val isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(classTag.runtimeClass)
   val isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(classTag.runtimeClass)
-  def createBuilder[E : ClassTag] = factory.newBuilder.asInstanceOf[Builder[E, C[E]]]
+  def createBuilder[E: ClassTag] = factory.newBuilder.asInstanceOf[mutable.Builder[E, C[E]]]
 }
 
 object TypedCollectionTypeConstructor {
@@ -188,30 +192,34 @@ object TypedCollectionTypeConstructor {
   /** The standard TypedCollectionTypeConstructor for Set */
   def set = forColl[Set]
   /** Get a TypedCollectionTypeConstructor for an Iterable type */
-  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
+  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]],
+                                            tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
     new ErasedCollectionTypeConstructor[C](cbf, tag)
   /** Get a TypedCollectionTypeConstructor for an Array type */
-  implicit val forArray: TypedCollectionTypeConstructor[Array] = new TypedCollectionTypeConstructor[Array](arrayClassTag) {
-    def isSequential = true
-    def isUnique = false
-    def createBuilder[E : ClassTag]: Builder[E, Array[E]] = ArrayBuilder.make[E]
-  }
+  implicit val forArray: TypedCollectionTypeConstructor[Array] =
+    new TypedCollectionTypeConstructor[Array](arrayClassTag) {
+      def isSequential = true
+      def isUnique = false
+      def createBuilder[E: ClassTag]: mutable.Builder[E, Array[E]] = mutable.ArrayBuilder.make[E]
+    }
 }
 
-final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapper, val classTag: ClassTag[_]) extends Type {
+final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapper, val classTag: ClassTag[_])
+  extends Type {
+
   override def toString = s"Mapped[$baseType]"
   def mapChildren(f: Type => Type): MappedScalaType = {
     val e2 = f(baseType)
-    if(e2 eq baseType) this
+    if (e2 eq baseType) this
     else new MappedScalaType(e2, mapper, classTag)
   }
-  override final def childrenForeach[R](f: Type => R): Unit = f(baseType)
+  override def childrenForeach[R](f: Type => R): Unit = f(baseType)
   def children: ConstArray[Type] = ConstArray(baseType)
   override def select(sym: TermSymbol) = baseType.select(sym)
   override def hashCode = baseType.hashCode() + mapper.hashCode() + classTag.hashCode()
   override def equals(o: Any) = o match {
     case o: MappedScalaType => baseType == o.baseType && mapper == o.mapper && classTag == o.classTag
-    case _ => false
+    case _                  => false
   }
 }
 
@@ -239,10 +247,11 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
   def mapChildren(f: Type => Type): NominalType = {
     val struct2 = f(structuralView)
     if(struct2 eq structuralView) this
-    else new NominalType(sym, struct2)
+    else NominalType(sym, struct2)
   }
-  override final def childrenForeach[R](f: Type => R): Unit = f(structuralView)
+  override def childrenForeach[R](f: Type => R): Unit = f(structuralView)
   def children: ConstArray[Type] = ConstArray(structuralView)
+  @tailrec
   def sourceNominalType: NominalType = structuralView match {
     case n: NominalType => n.sourceNominalType
     case _ => this
@@ -293,7 +302,7 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
 
   def collect[T](pf: PartialFunction[Type, T]): ConstArray[T] = {
-    val retNull: (Type => T) = (_ => null.asInstanceOf[T])
+    val retNull: Type => T = _ => null.asInstanceOf[T]
     val b = ConstArray.newBuilder[T]()
     def f(n: Type): Unit = {
       val r = pf.applyOrElse(n, retNull)
@@ -306,15 +315,15 @@ class TypeUtil(val tpe: Type) extends AnyVal {
 
   def existsType(f: Type => Boolean): Boolean =
     if(f(tpe)) true else tpe match {
-      case t: AtomicType => false
-      case t => t.children.exists(_.existsType(f))
+      case _: AtomicType => false
+      case t             => t.children.exists(_.existsType(f))
     }
 
   def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean =
     if(tss.isEmpty) false else tpe match {
       case NominalType(ts, exp) => tss.contains(ts) || exp.containsSymbol(tss)
-      case t: AtomicType => false
-      case t => t.children.exists(_.containsSymbol(tss))
+      case _: AtomicType        => false
+      case t                    => t.children.exists(_.containsSymbol(tss))
     }
 }
 
@@ -344,7 +353,9 @@ trait ScalaType[T] extends TypedType[T] {
   final def isPrimitive = classTag.runtimeClass.isPrimitive
 }
 
-class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
+class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.math.Ordering[T])
+  extends ScalaType[T]
+    with BaseTypedType[T] {
   override def toString = classTag.toString.replaceFirst("^java.lang.", "")
   def nullable = false
   def ordered = ordering ne null
@@ -352,13 +363,11 @@ class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.m
     if(ordering eq null) throw new SlickException("No ordering defined for "+this)
     val base = if(ord.direction == Ordering.Desc) ordering.reverse else ordering
     val nullsFirst = if(ord.nulls == Ordering.NullsFirst) -1 else 1
-    new scala.math.Ordering[T] {
-      def compare(x: T, y: T): Int = {
-        if((x.asInstanceOf[AnyRef] eq null) && (y.asInstanceOf[AnyRef] eq null)) 0
-        else if(x.asInstanceOf[AnyRef] eq null) nullsFirst
-        else if(y.asInstanceOf[AnyRef] eq null) -nullsFirst
-        else base.compare(x, y)
-      }
+    (x, y) => {
+      if ((x.asInstanceOf[AnyRef] eq null) && (y.asInstanceOf[AnyRef] eq null)) 0
+      else if (x.asInstanceOf[AnyRef] eq null) nullsFirst
+      else if (y.asInstanceOf[AnyRef] eq null) -nullsFirst
+      else base.compare(x, y)
     }
   }
   override def hashCode = classTag.hashCode
@@ -368,13 +377,15 @@ class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.m
   }
 }
 
-class ErasedScalaBaseType[T, E](implicit val erasure: ScalaBaseType[E], val ct: ClassTag[T]) extends ScalaBaseType[T]()(ct, null) {
+class ErasedScalaBaseType[T, E](implicit val erasure: ScalaBaseType[E], val ct: ClassTag[T])
+  extends ScalaBaseType[T]()(ct, null) {
+
   override def toString = classTag.toString.replaceFirst("^slick.ast.", "") + "/" + erasure
 }
 
 object ScalaBaseType {
   implicit val booleanType: ScalaBaseType[Boolean] = new ScalaBaseType[Boolean]
-  implicit val bigDecimalType: ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
+  implicit val bigDecimalType: ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal](BigDecimal.apply)
   implicit val byteType: ScalaNumericType[Byte] = new ScalaNumericType[Byte](_.toByte)
   implicit val charType: ScalaBaseType[Char] = new ScalaBaseType[Char]
   implicit val doubleType: ScalaNumericType[Double] = new ScalaNumericType[Double](identity)
@@ -412,13 +423,11 @@ class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option
   def scalaOrderingFor(ord: Ordering) = {
     val nullsFirst = if(ord.nulls == Ordering.NullsFirst) -1 else 1
     val base = elementType.scalaOrderingFor(ord)
-    new scala.math.Ordering[Option[T]] {
-      def compare(x: Option[T], y: Option[T]): Int = {
-        if(x == None && y == None) 0
-        else if(x == None) nullsFirst
-        else if(y == None) -nullsFirst
-        else base.compare(x.get, y.get)
-      }
+    (x: Option[T], y: Option[T]) => {
+      if (x.isEmpty && y.isEmpty) 0
+      else if (x.isEmpty) nullsFirst
+      else if (y.isEmpty) -nullsFirst
+      else base.compare(x.get, y.get)
     }
   }
   def mapChildren(f: Type => Type): ScalaOptionType[T] = {

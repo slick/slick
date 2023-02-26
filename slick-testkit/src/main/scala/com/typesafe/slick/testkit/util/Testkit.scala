@@ -43,8 +43,8 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
         m.getName.startsWith("test") && m.getParameterTypes.length == 0
       }
       ms.map { m =>
-        val tname = m.getName + '[' + tdb.confName + ']'
-        new TestMethod(tname, Description.createTestDescription(t, tname), m, t)
+        val typeName = m.getName + '[' + tdb.confName + ']'
+        TestMethod(typeName, Description.createTestDescription(t, typeName), m, t)
       }
     }
 
@@ -171,10 +171,10 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     import slick.compiler.QueryCompiler
     val qc = new QueryCompiler(tdb.profile.queryCompiler.phases.takeWhile(_.name != "codeGen"))
     val cs = qc.run(q.toNode)
-    val found = cs.tree.collect { case c: Comprehension => c }.length
+    val found = cs.tree.collect { case c: Comprehension.Base => c }.length
     if(found != exp)
       throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
-        cs.tree, mark = _.isInstanceOf[Comprehension], removeUnmarked = false))
+        cs.tree, mark = _.isInstanceOf[Comprehension.Base], removeUnmarked = false))
   }
 
   def rcap = RelationalCapabilities

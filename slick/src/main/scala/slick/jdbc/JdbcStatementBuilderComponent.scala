@@ -1,14 +1,15 @@
 package slick.jdbc
 
-import scala.language.existentials
 import scala.collection.mutable.HashMap
+import scala.language.existentials
+
 import slick.SlickException
 import slick.ast._
-import slick.ast.Util.nodeToNodeOps
 import slick.ast.TypeUtil._
-import slick.compiler.{RewriteBooleans, CodeGen, CompilerState, QueryCompiler}
+import slick.ast.Util.nodeToNodeOps
+import slick.compiler.{CodeGen, CompilerState, QueryCompiler, RewriteBooleans}
 import slick.lifted._
-import slick.relational.{RelationalProfile, RelationalCapabilities, ResultConverter, CompiledMapping}
+import slick.relational.{CompiledMapping, RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.sql.SqlProfile
 import slick.util._
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -124,7 +125,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       currentPart = oldPart
     }
 
-    protected def buildComprehension(c: Comprehension): Unit = {
+    protected def buildComprehension(c: Comprehension.Base): Unit = {
       val limit0 = c.fetch match {
         case Some(LiteralNode(0L)) => true
         case _ => false
@@ -133,7 +134,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       val (from, on) = flattenJoins(c.sym, c.from)
       val oldUniqueFrom = currentUniqueFrom
       def containsSymbolInSubquery(s: TermSymbol) =
-        c.children.iterator.drop(1).flatMap(_.collect { case c: Comprehension => c }.toSeq.flatMap(_.findNode(_ == Ref(s)))).nonEmpty
+        c.children.iterator.drop(1).flatMap(_.collect { case c: Comprehension.Base => c }.toSeq.flatMap(_.findNode(_ == Ref(s)))).nonEmpty
       currentUniqueFrom = from match {
         case Seq((s, _: TableNode)) if !containsSymbolInSubquery(s) => Some(s)
         case Seq((s, _)) if !alwaysAliasSubqueries && !containsSymbolInSubquery(s) => Some(s)
@@ -170,7 +171,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       f(s, n).getOrElse((Seq((s, n)), Nil))
     }
 
-    protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
+    protected def buildSelectClause(c: Comprehension.Base) = building(SelectPart) {
       b"select "
       buildSelectModifiers(c)
       c.select match {
@@ -187,7 +188,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       }
     }
 
-    protected def buildSelectModifiers(c: Comprehension): Unit = {
+    protected def buildSelectModifiers(c: Comprehension.Base): Unit = {
       c.distinct.foreach {
         case ProductNode(ch) if ch.isEmpty => b"distinct "
         case n => b"distinct on (!$n) "
@@ -255,7 +256,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
-      case c: Comprehension =>
+      case c: Comprehension.Base =>
         b"\["
         buildComprehension(c)
         b"\]"
@@ -334,7 +335,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           expr(RewriteBooleans.rewriteFakeBoolean(ch), skipParens)
         case RewriteBooleans.ToRealBoolean(ch) =>
           expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
-        case Library.Exists(c: Comprehension) =>
+        case Library.Exists(c: Comprehension.Base) =>
           /* If tuples are not supported, selecting multiple individial columns
            * in exists(select ...) is probably not supported, either, so we rewrite
            * such sub-queries to "select 1". */
@@ -418,7 +419,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         if(by.isEmpty) b"(select 1)"
         else b.sep(by, ", "){ case (n, o) => buildOrdering(n, o) }
         b")"
-      case c: Comprehension =>
+      case c: Comprehension.Base =>
         b"\{"
         buildComprehension(c)
         b"\}"
