@@ -55,7 +55,7 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder) exte
         val is = children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance()))
           .filter { case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
         val last = is.length - 1
-        var previousTestObject: GenericTest[_ >: Null <: TestDB] = null
+        var previousTestObject: AsyncTest[_ >: Null <: TestDB] = null
         for (((ch, preparedTestObject), idx) <- is) {
           val desc = describeChild(ch)
           notifier.fireTestStarted(desc)
@@ -84,23 +84,21 @@ abstract class ProfileTest(val tdb: TestDB) {
   def tests = tdb.testClasses
 }
 
-case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: GenericTest[_ >: Null <: TestDB]]) {
+case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: AsyncTest[_ >: Null <: TestDB]]) {
   private[this] def await[T](f: Future[T]): T =
     try Await.result(f, TestkitConfig.asyncTimeout)
     catch { case ex: ExecutionException => throw ex.getCause }
 
-  def run(testObject: GenericTest[_]): Unit = {
+  def run(testObject: AsyncTest[_]): Unit = {
     val r = method.getReturnType
-    testObject match {
-      case testObject: TestkitTest[_] =>
-        if(r == Void.TYPE) method.invoke(testObject)
-        else throw new RuntimeException(s"Illegal return type: '${r.getName}' in test method '$name' -- TestkitTest methods must return Unit")
-
-      case testObject: AsyncTest[_] =>
-        if(r == classOf[Future[_]]) await(method.invoke(testObject).asInstanceOf[Future[Any]])
-        else if(r == classOf[DBIOAction[_, _, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[DBIO[Any]]))
-        else throw new RuntimeException(s"Illegal return type: '${r.getName}' in test method '$name' -- AsyncTest methods must return Future or Action")
-    }
+    if (r == classOf[Future[_]])
+      await(method.invoke(testObject).asInstanceOf[Future[Any]])
+    else if (r == classOf[DBIOAction[_, _, _]])
+      await(testObject.db.run(method.invoke(testObject).asInstanceOf[DBIO[Any]]))
+    else
+      throw new RuntimeException(
+        s"Illegal return type: '${r.getName}' in test method '$name' -- AsyncTest methods must return Future or Action"
+      )
   }
 }
 
@@ -179,34 +177,6 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
   def scap = SqlCapabilities
   def jcap = JdbcCapabilities
   def tcap = TestDB.capabilities
-}
-
-@deprecated("Use AsyncTest instead of TestkitTest", "3.1")
-abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
-  protected implicit def implicitSession: tdb.profile.Backend#Session = {
-    db
-    keepAliveSession
-  }
-
-  def ifCap[T](caps: Capability*)(f: => T): Unit =
-    if(caps.forall(c => tdb.capabilities.contains(c))) f
-  def ifNotCap[T](caps: Capability*)(f: => T): Unit =
-    if(!caps.forall(c => tdb.capabilities.contains(c))) f
-
-  def assertFail(f: =>Unit) = {
-    var succeeded = false
-    try {
-      f
-      succeeded = true
-    } catch {
-      case e: Exception if !scala.util.control.Exception.shouldRethrow(e) =>
-    }
-    if(succeeded) Assert.fail("Exception expected")
-  }
-
-  def assertAllMatch[T](t: IterableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
-    if(!f.isDefinedAt(x)) Assert.fail("Expected shape not matched by: "+x)
-  }
 }
 
 abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
