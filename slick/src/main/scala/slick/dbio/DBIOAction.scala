@@ -1,14 +1,11 @@
 package slick.dbio
 
 import org.reactivestreams.Subscription
-
-import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable
+import scala.collection.{Factory, mutable}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
-import scala.language.higherKinds
 
 import slick.SlickException
 import slick.basic.BasicBackend

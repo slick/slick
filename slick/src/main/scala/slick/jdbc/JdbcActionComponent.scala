@@ -2,7 +2,6 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, Statement}
 
-import scala.collection.compat._
 import scala.collection.mutable.Builder
 import scala.language.{existentials, higherKinds}
 import scala.util.control.NonFatal
@@ -760,7 +759,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int): Seq[RU] = {
       if (capabilities.contains(JdbcCapabilities.returnMultipleInsertKey))
-        (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux).toSeq
+        values.lazyZip(buildKeysResult(st).buildColl[Vector](null, implicitly)).map(mux).toSeq
       else
         Nil
     }

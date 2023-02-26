@@ -3,7 +3,6 @@ package slick.util
 import java.util.Arrays
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.compat._
 import scala.collection.immutable
 import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3

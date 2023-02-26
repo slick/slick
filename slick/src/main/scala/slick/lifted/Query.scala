@@ -2,7 +2,6 @@ package slick.lifted
 
 import slick.util.ConstArray
 
-import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
 import scala.reflect.macros.blackbox.Context
