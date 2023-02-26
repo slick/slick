@@ -3,7 +3,6 @@ package slick.memory
 import com.typesafe.config.Config
 import org.reactivestreams.Subscriber
 
-import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.{Failure, Try}

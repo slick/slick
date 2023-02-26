@@ -1,6 +1,5 @@
 package slick.util
 
-import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 
 import slick.util.LogUtil._

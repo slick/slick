@@ -1,12 +1,15 @@
 package com.typesafe.slick.testkit.util
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 
-import com.typesafe.config.{ConfigValueFactory, Config, ConfigFactory}
-import java.io.File
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
+
 import slick.SlickException
+
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+
 
 /** Manages the configuration for TestKit tests.
   *
@@ -45,7 +48,7 @@ object TestkitConfig {
   /** A normalized version of `testDir` for use in URLs */
   lazy val testDBPath = {
     val f = new File(testDir)
-    val s = f.getPath().replace('\\', '/')
+    val s = f.getPath.replace('\\', '/')
     if(f.isAbsolute) s else "./" + s
   }
 
@@ -53,12 +56,13 @@ object TestkitConfig {
   lazy val testDBs = getStrings(testkitConfig, "testDBs")
 
   /** The `testkit.testClasses` setting */
-  lazy val testClasses: Seq[Class[_ <: GenericTest[_ >: Null <: TestDB]]] =
+  lazy val testClasses: Seq[Class[_ <: AsyncTest[_ >: Null <: TestDB]]] =
     getStrings(testkitConfig, "testClasses").getOrElse(Nil).
-      map(n => Class.forName(n).asInstanceOf[Class[_ <: GenericTest[_ >: Null <: TestDB]]])
+      map(n => Class.forName(n).asInstanceOf[Class[_ <: AsyncTest[_ >: Null <: TestDB]]])
 
   /** The duration after which asynchronous tests should be aborted and failed */
-  lazy val asyncTimeout = Duration(testkitConfig.getDuration("asyncTimeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+  lazy val asyncTimeout =
+    Duration(testkitConfig.getDuration("asyncTimeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
 
   def getStrings(config: Config, path: String): Option[Seq[String]] = {
     if(config.hasPath(path)) {

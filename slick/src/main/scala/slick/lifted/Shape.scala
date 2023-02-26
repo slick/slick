@@ -3,7 +3,6 @@ package slick.lifted
 
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.compat._
 import scala.language.experimental.macros
 import scala.language.{existentials, implicitConversions}
 import scala.reflect.ClassTag
