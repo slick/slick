@@ -48,7 +48,7 @@ object TestkitConfig {
   /** A normalized version of `testDir` for use in URLs */
   lazy val testDBPath = {
     val f = new File(testDir)
-    val s = f.getPath().replace('\\', '/')
+    val s = f.getPath.replace('\\', '/')
     if(f.isAbsolute) s else "./" + s
   }
 
@@ -61,7 +61,8 @@ object TestkitConfig {
       map(n => Class.forName(n).asInstanceOf[Class[_ <: AsyncTest[_ >: Null <: TestDB]]])
 
   /** The duration after which asynchronous tests should be aborted and failed */
-  lazy val asyncTimeout = Duration(testkitConfig.getDuration("asyncTimeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+  lazy val asyncTimeout =
+    Duration(testkitConfig.getDuration("asyncTimeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
 
   def getStrings(config: Config, path: String): Option[Seq[String]] = {
     if(config.hasPath(path)) {
