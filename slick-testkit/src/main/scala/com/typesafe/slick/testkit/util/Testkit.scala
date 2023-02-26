@@ -1,9 +1,8 @@
 package com.typesafe.slick.testkit.util
 
 import scala.language.existentials
-
 import java.lang.reflect.Method
-import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
+import java.util.concurrent.{ExecutionException, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.{Promise, ExecutionContext, Await, Future}
@@ -15,7 +14,7 @@ import scala.util.control.NonFatal
 import slick.SlickTreeException
 import slick.basic.Capability
 import slick.dbio._
-import slick.jdbc.{JdbcCapabilities, JdbcBackend}
+import slick.jdbc.{JdbcBackend, JdbcCapabilities}
 import slick.lifted.Rep
 import slick.util.DumpInfo
 import slick.relational.RelationalCapabilities
@@ -25,11 +24,8 @@ import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert
-
 import org.slf4j.MDC
-
-import org.reactivestreams.{Subscription, Subscriber, Publisher}
-import scala.collection.compat._
+import org.reactivestreams.{Publisher, Subscriber, Subscription}
 import scala.concurrent.ExecutionContextExecutor
 
 /** JUnit runner for the Slick driver test kit. */

@@ -2,7 +2,6 @@ package slick.jdbc
 
 import slick.util.TableDump
 
-import scala.collection.compat._
 import scala.collection.mutable.ArrayBuffer
 import scala.language.reflectiveCalls
 
