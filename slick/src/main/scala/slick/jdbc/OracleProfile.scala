@@ -1,20 +1,21 @@
 package slick.jdbc
 
-import java.time.format.DateTimeFormatter
-import java.time._
-import java.util.UUID
 import java.sql.{Array => _, _}
+import java.time._
+import java.time.format.DateTimeFormatter
+import java.util.UUID
+
 import scala.concurrent.ExecutionContext
+
 import slick.SlickException
 import slick.ast._
+import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio._
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted._
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
-import slick.basic.Capability
-import slick.sql.FixedSqlAction
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -574,7 +575,7 @@ END;
       state.map { n => ClientSideOp.mapServerSide(n)(n => rewrite(n, false)) }
 
     def rewrite(n: Node, inScalar: Boolean): Node = n match {
-      case n: Comprehension if inScalar && n.orderBy.nonEmpty =>
+      case n: Comprehension.Base if inScalar && n.orderBy.nonEmpty =>
         val n2 = n.copy(orderBy = ConstArray.empty) :@ n.nodeType
         n2.mapChildren(ch => rewrite(ch, false), keepType = true)
       case Apply(_, _) if !n.nodeType.structural.isInstanceOf[CollectionType] =>

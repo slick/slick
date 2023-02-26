@@ -1,18 +1,18 @@
 package slick.jdbc
 
-import java.time.format.{DateTimeFormatterBuilder, DateTimeFormatter}
-import java.time.temporal.ChronoField
-import java.time._
-import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
+import java.time._
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.temporal.ChronoField
+import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 
 import slick.ast._
 import slick.basic.Capability
-import slick.compiler.{Phase, CompilerState}
+import slick.compiler.{CompilerState, Phase}
 import slick.dbio._
-import slick.jdbc.meta.{MIndexInfo, MColumn, MTable}
+import slick.jdbc.meta.{MColumn, MIndexInfo, MTable}
 import slick.relational.RelationalProfile
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -177,7 +177,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override protected val concatOperator = Some("||")
     override protected val quotedJdbcFns = Some(Vector(Library.Database, Library.User))
 
-    override protected def buildSelectModifiers(c: Comprehension): Unit = (c.distinct, c.select) match {
+    override protected def buildSelectModifiers(c: Comprehension.Base): Unit = (c.distinct, c.select) match {
       case (Some(ProductNode(onNodes)), Pure(ProductNode(selNodes), _)) if onNodes.nonEmpty =>
         def eligible(a: ConstArray[Node]) = a.forall {
           case _: PathElement => true

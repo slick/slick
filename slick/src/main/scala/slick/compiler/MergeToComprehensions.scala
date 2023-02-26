@@ -4,8 +4,8 @@ import slick.ast.Library.AggregateFunctionSymbol
 import slick.SlickTreeException
 import slick.ast._
 import slick.ast.QueryParameter.constOp
-import slick.ast.Util._
 import slick.ast.TypeUtil._
+import slick.ast.Util._
 import slick.util.{ConstArray, Ellipsis}
 
 /** This phase merges nested nodes of types Bind, Filter, GroupBy, SortBy, Take, Drop,
@@ -37,7 +37,7 @@ class MergeToComprehensions extends Phase {
     logger.debug("Table fields: " + tableFields)
 
     /** Merge Take, Drop, Bind and CollectionCast into an existing Comprehension */
-    def mergeTakeDrop(n: Node, buildBase: Boolean): (Comprehension, Replacements) = n match {
+    def mergeTakeDrop(n: Node, buildBase: Boolean): (Comprehension[Option[Node]], Replacements) = n match {
       case Take(f1, count1) =>
         val (c1, replacements1) = mergeTakeDrop(f1, true)
         logger.debug("Merging Take into Comprehension:", Ellipsis(n, List(0)))
@@ -72,7 +72,7 @@ class MergeToComprehensions extends Phase {
       * SortBy and Distinct into an existing Comprehension. If Distinct is present, no other
       * Distinct or Filter (as HAVING) is allowed. A subquery is created if necessary to avoid
       * this situation. */
-    def mergeSortBy(n: Node, buildBase: Boolean): (Comprehension, Replacements) = n match {
+    def mergeSortBy(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) = n match {
       case SortBy(s1, f1, b1) =>
         val (c1, replacements1) = mergeSortBy(f1, true)
         logger.debug("Merging SortBy into Comprehension:", Ellipsis(n, List(0)))
@@ -104,7 +104,7 @@ class MergeToComprehensions extends Phase {
     }
 
     /** Merge GroupBy into an existing Comprehension or create new Comprehension from non-grouping Aggregation */
-    def mergeGroupBy(n: Node, buildBase: Boolean): (Comprehension, Replacements) = n match {
+    def mergeGroupBy(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) = n match {
       case Bind(s1, GroupBy(s2, f1, b1, ts1), Pure(str1, ts2)) =>
         val (c1, replacements1) = mergeFilterWhere(f1, true)
         logger.debug("Merging GroupBy into Comprehension:", Ellipsis(n, List(0, 0)))
@@ -169,11 +169,11 @@ class MergeToComprehensions extends Phase {
     }
 
     /** Merge Bind, Filter (as WHERE), CollectionCast into an existing Comprehension */
-    def mergeFilterWhere(n: Node, buildBase: Boolean): (Comprehension, Replacements) =
+    def mergeFilterWhere(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) =
       mergeCommon(mergeFilterWhere _, convertBase _, n, buildBase)
 
     /** Build a base Comprehension from a non-Comprehension base (e.g. Join) or a sub-Comprehension */
-    def convertBase(n: Node, buildBase: Boolean): (Comprehension, Replacements) = {
+    def convertBase(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) = {
       val (n2, mappings) = {
         if(buildBase) createSourceOrTopLevel(n)
         else createSource(n).getOrElse(throw new SlickTreeException("Cannot convert node to SQL Comprehension", n))
@@ -305,7 +305,7 @@ class MergeToComprehensions extends Phase {
   }
 
   /** Lift a valid top-level or source Node into a subquery */
-  def buildSubquery(n: Node, mappings: Mappings): (Comprehension, Replacements) = {
+  def buildSubquery(n: Node, mappings: Mappings): (Comprehension.Base, Replacements) = {
     logger.debug("Building new Comprehension from:", n)
     val newSyms = mappings.map(x => (x, new AnonSymbol))
     val s = new AnonSymbol
@@ -318,15 +318,16 @@ class MergeToComprehensions extends Phase {
     (res, replacements)
   }
 
-  def toSubquery(n: Comprehension, r: Replacements): (Comprehension, Replacements) =
+  def toSubquery(n: Comprehension.Base, r: Replacements): (Comprehension.Base, Replacements) =
     buildSubquery(n, ConstArray.from(r.transform((_, v) => v :: Nil)))
 
   /** Merge the common operations Bind, Filter and CollectionCast into an existing Comprehension.
     * This method is used at different stages of the pipeline. If the Comprehension already contains
     * a Distinct clause, it is pushed into a subquery. */
-  def mergeCommon(rec: (Node, Boolean) => (Comprehension, Replacements), parent: (Node, Boolean) => (Comprehension, Replacements),
+  def mergeCommon(rec: (Node, Boolean) => (Comprehension.Base, Replacements),
+                  parent: (Node, Boolean) => (Comprehension.Base, Replacements),
                   n: Node, buildBase: Boolean,
-                  allowFilter: Boolean = true): (Comprehension, Replacements) = n match {
+                  allowFilter: Boolean = true): (Comprehension.Base, Replacements) = n match {
     case Bind(s1, f1, Pure(StructNode(defs1), ts1)) if !f1.isInstanceOf[GroupBy] =>
       val (c1, replacements1) = rec(f1, true)
       logger.debug("Merging Bind into Comprehension as 'select':", Ellipsis(n, List(0)))
@@ -393,7 +394,7 @@ class MergeToComprehensions extends Phase {
 
   /** Apply the replacements and current selection of a Comprehension to a new Node that
     * will be merged into the Comprehension. */
-  def applyReplacements(n1: Node, r: Replacements, c: Comprehension): Node = {
+  def applyReplacements(n1: Node, r: Replacements, c: Comprehension[Option[Node]]): Node = {
     val Pure(StructNode(base), _) = c.select
     val baseM = base.iterator.toMap
     n1.replace({ case n @ Select(_ :@ NominalType(ts, _), s) =>

@@ -1,7 +1,7 @@
 package slick.compiler
 
-import slick.ast.Util._
 import slick.ast._
+import slick.ast.Util._
 import slick.util.ConstArray
 
 /** Optimize scalar expressions */
@@ -41,7 +41,7 @@ class OptimizeScalar extends Phase {
       logger.debug("Optimizing: Some(v).getOrElse(_)", n)
       cast(n.nodeType, ch)
 
-    case n: Comprehension if n.where == Some(LiteralNode(true)) =>
+    case n: Comprehension.Base if n.where == Some(LiteralNode(true)) =>
       logger.debug("Optimizing: WHERE TRUE", n)
       n.copy(where = None) :@ n.nodeType
 

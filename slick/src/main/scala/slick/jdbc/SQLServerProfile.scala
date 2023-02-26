@@ -1,14 +1,14 @@
 package slick.jdbc
 
-import scala.concurrent.ExecutionContext
+import java.sql.{Array => _, Ref => _, _}
 import java.time._
-import java.sql.{Date, PreparedStatement, ResultSet, Time, Timestamp}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
 
-import scala.reflect.{ClassTag, classTag}
-import com.typesafe.config.Config
+import scala.concurrent.ExecutionContext
+import scala.reflect.{classTag, ClassTag}
+
 import slick.ast._
 import slick.ast.Util._
 import slick.basic.Capability
@@ -19,8 +19,10 @@ import slick.lifted._
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.{ConstArray, GlobalConfig, SlickLogger}
-import slick.util.MacroSupport.macroSupportInterpolation
 import slick.util.ConfigExtensionMethods._
+import slick.util.MacroSupport.macroSupportInterpolation
+
+import com.typesafe.config.Config
 
 /** Slick profile for Microsoft SQL Server.
   *
@@ -150,7 +152,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
 
-    override protected def buildSelectModifiers(c: Comprehension): Unit = {
+    override protected def buildSelectModifiers(c: Comprehension.Base): Unit = {
       super.buildSelectModifiers(c)
       (c.fetch, c.offset) match {
         case (Some(t), Some(d)) => b"top (${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}) "
@@ -174,7 +176,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       super.buildFromClause(from)
       tree match {
         // SQL Server "select for update" syntax
-        case c: Comprehension => if(c.forUpdate) b" with (updlock,rowlock) "
+        case c: Comprehension.Base => if(c.forUpdate) b" with (updlock,rowlock) "
         case _ =>
       }
     }
