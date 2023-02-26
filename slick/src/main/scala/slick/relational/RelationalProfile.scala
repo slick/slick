@@ -7,7 +7,7 @@ import slick.dbio._
 import slick.lifted.FunctionSymbolExtensionMethods._
 import slick.lifted._
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 /** A profile for relational databases that does not assume the existence

@@ -1,8 +1,6 @@
 package slick
 package lifted
 
-import scala.language.higherKinds
-
 /** Aliases for lifted embedding features. This trait can be mixed into aliasing
   * objects which simplify the use of the lifted embedding. */
 trait Aliases {

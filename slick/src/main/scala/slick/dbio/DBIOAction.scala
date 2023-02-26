@@ -6,7 +6,6 @@ import scala.collection.{Factory, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
-import scala.language.higherKinds
 
 import slick.SlickException
 import slick.basic.BasicBackend

@@ -1,8 +1,7 @@
 package slick.jdbc
 
-import scala.language.higherKinds
-import java.sql.{Blob, Clob, Date, ResultSet, Time, Timestamp}
 import java.io.Closeable
+import java.sql.{Array => _, _}
 
 import scala.collection.Factory
 
