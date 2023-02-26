@@ -43,7 +43,7 @@ import com.typesafe.config.Config
   *     Reading the database schema is not supported.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
-  *     keys should be returned. Otherwise the operation is performmed
+  *     keys should be returned. Otherwise the operation is performed
   *     natively on the server side.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     SQL Server's TINYINT is unsigned. It doesn't have a signed Byte-like
@@ -60,7 +60,10 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
 
   override protected[this] def loadProfileConfig: Config = {
     if(!GlobalConfig.profileConfig("slick.driver.SQLServer").entrySet().isEmpty)
-      SlickLogger[SQLServerProfile].warn("The config key 'slick.driver.SQLServer' is deprecated and not used anymore. Use 'slick.jdbc.SQLServerProfile' instead.")
+      SlickLogger[SQLServerProfile].warn(
+        "The config key 'slick.driver.SQLServer' is deprecated and not used anymore." +
+          " Use 'slick.jdbc.SQLServerProfile' instead."
+      )
     super.loadProfileConfig
   }
 
@@ -99,19 +102,25 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       new SQLServerColumnBuilder(tableBuilder, meta)
     class SQLServerColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       override def tpe = dbType match {
-        case Some("date") => "java.sql.Date"
-        case Some("time") => "java.sql.Time"
-        case Some("datetime2") => "java.sql.Timestamp"
+        case Some("date")             => "java.sql.Date"
+        case Some("time")             => "java.sql.Time"
+        case Some("datetime2")        => "java.sql.Timestamp"
         case Some("uniqueidentifier") => "java.util.UUID"
-        case _ => super.tpe
+        case _                        => super.tpe
       }
       val UUIDPattern = """^\(?'(.*)'\)?""".r
-      override def default = rawDefault.map((_,tpe)).collect{
-        case ("0","Boolean")  => Some(false)
-        case ("1","Boolean")  => Some(true)
-        case (UUIDPattern(v),"java.util.UUID") => Some(java.util.UUID.fromString(v))
-        case (_,"java.util.UUID") => None // The UUID is generated through a function - treat it as if there was no default.
-      }.map(d => Some(d)).getOrElse{super.default}
+      override def default =
+        rawDefault
+          .map((_, tpe))
+          .collect {
+            case ("0", "Boolean")                   => Some(false)
+            case ("1", "Boolean")                   => Some(true)
+            case (UUIDPattern(v), "java.util.UUID") => Some(java.util.UUID.fromString(v))
+            // The UUID is generated through a function - treat it as if there was no default.
+            case (_, "java.util.UUID") => None
+          }
+          .map(d => Some(d))
+          .getOrElse(super.default)
     }
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
       //SQL Server's TINYINT type is unsigned while Scala's Byte is signed
@@ -122,7 +131,8 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
+                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
@@ -196,7 +206,8 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         super.expr(n, skipParens)
         b" as ${columnTypes.timeJdbcType.sqlTypeName(None)})"
       case Library.Substring(n, start) =>
-        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${Int.MaxValue})}\)"
+        val startNode = QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())
+        b"\({fn substring($n, $startNode, ${Int.MaxValue})}\)"
       case Library.Repeat(str, count) =>
         b"replicate($str, $count)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
@@ -227,7 +238,8 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, tableNode.tableName)
       sb append ") references " append quoteTableName(fk.targetTable) append "("
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
-      // SQLServer has no RESTRICT. Equivalent is NO ACTION. http://technet.microsoft.com/en-us/library/aa902684%28v=sql.80%29.aspx
+      // SQLServer has no RESTRICT. Equivalent is NO ACTION.
+      // http://technet.microsoft.com/en-us/library/aa902684%28v=sql.80%29.aspx
       sb append ") on update " append (if(updateAction == "RESTRICT") "NO ACTION" else updateAction)
       sb append " on delete " append (if(deleteAction == "RESTRICT") "NO ACTION" else deleteAction)
     }
@@ -248,18 +260,19 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     }
 
     override def createIfNotExistsPhase = {
-      //http://stackoverflow.com/questions/5952006/how-to-check-if-table-exist-and-if-it-doesnt-exist-create-table-in-sql-server-2
+      // https://stackoverflow.com/q/5952006/333643
       Iterable(
-      "IF  NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'"
-      + (tableNode.schemaName match{
-        case Some(s)=>s+"."
-        case None=>""
-      })
-      + tableNode.tableName
-      + "') AND type in (N'U'))\n"
-      + "begin\n"
-      + createPhase1.mkString("\n") + createPhase2.mkString("\n")
-      + "\nend")
+        "IF  NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'" +
+          (tableNode.schemaName match {
+            case Some(s) => s + "."
+            case None    => ""
+          }) +
+          tableNode.tableName +
+          "') AND type in (N'U'))\n" +
+          "begin\n" +
+          createPhase1.mkString("\n") +
+          createPhase2.mkString("\n") +
+          "\nend")
     }
   }
 
@@ -291,8 +304,10 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UNIQUEIDENTIFIER"
       override def hasLiteralForm: Boolean = true
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
-      override def fromBytes(data: Array[Byte]): UUID = if (data eq null) null else SQLServerProfile.Util.bytesToUUID(data)
-      override def toBytes(uuid: UUID): Array[Byte] = if (uuid eq null) null else SQLServerProfile.Util.uuidToBytes(uuid)
+      override def fromBytes(data: Array[Byte]): UUID =
+        if (data eq null) null else SQLServerProfile.Util.bytesToUUID(data)
+      override def toBytes(uuid: UUID): Array[Byte] =
+        if (uuid eq null) null else SQLServerProfile.Util.uuidToBytes(uuid)
     }
 
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
@@ -359,14 +374,6 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       override def valueToSQLLiteral(value: Timestamp) = s"'$value'"
     }
     class SQLiteLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
-      private[this] val formatter : DateTimeFormatter = {
-        new DateTimeFormatterBuilder()
-          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-          .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-          .optionalEnd()
-          .toFormatter()
-      }
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
         r.getTimestamp(idx) match {
@@ -404,7 +411,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
           case null =>
             null
           case dateStr =>
-            OffsetDateTime.parse(dateStr, formatter).toInstant()
+            OffsetDateTime.parse(dateStr, formatter).toInstant
         }
       }
       override def valueToSQLLiteral(value: Instant) = {
@@ -448,7 +455,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       override def getValue(r: ResultSet, idx: Int) = r.getShort(idx).toByte
     }
     /* SQL Server supports a literal notation for byte arrays */
-    private[this] val hexChars = "0123456789ABCDEF".toCharArray()
+    private[this] val hexChars = "0123456789ABCDEF".toCharArray
     class SQLiteByteArrayJdbcType extends ByteArrayJdbcType {
       override def hasLiteralForm = true
       override def valueToSQLLiteral(value: Array[Byte]) = "0x" +  bytesToHex(value)
@@ -551,16 +558,16 @@ class ProtectGroupBy extends Phase {
   val name = "protectGroupBy"
 
   def apply(state: CompilerState) = state.map(_.replace({
-    case n @ Bind(s1, g1 @ GroupBy(s2, f1, b1, ts1), Pure(str1, ts2)) =>
+    case n @ Bind(_, g1 @ GroupBy(s2, f1, b1, _), Pure(_, _)) =>
       logger.debug("Examining GroupBy", g1)
       val (b2, b2s) = source(s2, b1, f1)
       logger.debug(s"Narrowed 'by' clause down to: (over $b2s)", b2)
       val refsOK = ProductNode(ConstArray(b2)).flatten.children.forall(_.findNode {
         case Ref(s) if s == b2s => true
-        case _ => false
+        case _                  => false
       }.isDefined)
-      logger.debug("All columns reference the source: "+refsOK)
-      if(refsOK) n
+      logger.debug("All columns reference the source: " + refsOK)
+      if (refsOK) n
       else n.copy(from = g1.copy(from = Subquery(f1, Subquery.Default))).infer()
 
   }, bottomUp = true, keepType = true))

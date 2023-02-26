@@ -41,7 +41,7 @@ class OptimizeScalar extends Phase {
       logger.debug("Optimizing: Some(v).getOrElse(_)", n)
       cast(n.nodeType, ch)
 
-    case n: Comprehension.Base if n.where == Some(LiteralNode(true)) =>
+    case n: Comprehension.Base if n.where.contains(LiteralNode(true)) =>
       logger.debug("Optimizing: WHERE TRUE", n)
       n.copy(where = None) :@ n.nodeType
 
@@ -53,7 +53,7 @@ class OptimizeScalar extends Phase {
       case LiteralNode(v) =>
         Some(if(n.nodeType.structural.isInstanceOf[OptionType]) v.asInstanceOf[Option[Any]] else Some(v))
       case Apply(Library.SilentCast, ConstArray(ch)) => unapply(ch)
-      case OptionApply(ch) => unapply(ch).map(_.map(Option.apply _))
+      case OptionApply(ch) => unapply(ch).map(_.map(Option.apply))
       case _ => None
     }
   }

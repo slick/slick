@@ -35,7 +35,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     Other ''onUpdate'' actions are ignored.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
-  *     keys should be returned. Otherwise the operation is performmed
+  *     keys should be returned. Otherwise the operation is performed
   *     natively on the server side.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]:
   *     Oracle doesn't have booleans, so Slick maps to CHAR instead and
@@ -105,8 +105,8 @@ trait OracleProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     for {
       user <- SimpleJdbcAction(_.session.metaData.getUserName)
-      mtables <- MTable.getTables(None, Some(user), Some("%"), Some(Seq("TABLE")))
-    } yield mtables
+      mTables <- MTable.getTables(None, Some(user), Some("%"), Some(Seq("TABLE")))
+    } yield mTables
   }
 
   override protected def computeQueryCompiler =
@@ -175,24 +175,25 @@ trait OracleProfile extends JdbcProfile {
     override val createPhase1 = super.createPhase1 ++ createAutoIncSequences
     override val dropPhase2 = dropAutoIncSequences ++ super.dropPhase2
 
-    override def createIfNotExistsPhase = {
-      //
+    override def createIfNotExistsPhase =
       Iterable(
-"""
-BEGIN
-
-"""+ ((createPhase1 ++ createPhase2).map{s =>
-      "execute immediate '"+ s.replaceAll("'", "''") + " ';"
-  }.mkString("\n")) +"""
-EXCEPTION
-    WHEN OTHERS THEN
-      IF SQLCODE = -955 THEN
-        NULL; -- suppresses ORA-00955 exception
-      ELSE
-         RAISE;
-      END IF;
-END; """)
-    }
+        s"""
+           |BEGIN
+           |
+           |${
+          (createPhase1 ++ createPhase2)
+            .map(s => "execute immediate '" + s.replaceAll("'", "''") + " ';")
+            .mkString("\n")
+        }
+           |EXCEPTION
+           |    WHEN OTHERS THEN
+           |      IF SQLCODE = -955 THEN
+           |        NULL; -- suppresses ORA-00955 exception
+           |      ELSE
+           |         RAISE;
+           |      END IF;
+           |END; """.stripMargin
+      )
 
     override def dropIfExistsPhase = {
       //http://stackoverflow.com/questions/1799128/oracle-if-table-exists
@@ -383,7 +384,7 @@ END;
         if(v eq null) null else new Time(v.getTime)
       }
       override def updateValue(v: Time, r: ResultSet, idx: Int) = r.updateTimestamp(idx, new Timestamp(v.getTime))
-      override def valueToSQLLiteral(value: Time) = "{ts '"+(new Timestamp(value.getTime).toString)+"'}"
+      override def valueToSQLLiteral(value: Time) = "{ts '"+ new Timestamp(value.getTime).toString +"'}"
     }
 
     class OracleUUIDJdbcType extends UUIDJdbcType {
@@ -410,9 +411,6 @@ END;
     }
 
     class OracleLocalTimeJdbcType extends LocalTimeJdbcType {
-      @inline private[this] def timestampFromLocalTime(localTime : LocalTime) : Timestamp = {
-        Timestamp.valueOf(LocalDateTime.of(LocalDate.MIN, localTime))
-      }
       override def sqlType = java.sql.Types.TIMESTAMP
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
 
@@ -526,30 +524,39 @@ END;
   class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
     extends JdbcSchemaActionExtensionMethodsImpl(schema) {
 
-    override def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withStatement()(_.execute(s))
-    }
-    override def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withStatement()(_.execute(s))
-    }
+    override def create: ProfileAction[Unit, NoStream, Effect.Schema] =
+      new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+          for (s <- sql) ctx.session.withStatement()(_.execute(s))
+      }
+    override def drop: ProfileAction[Unit, NoStream, Effect.Schema] =
+      new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+          for (s <- sql) ctx.session.withStatement()(_.execute(s))
+      }
   }
 
-  override def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
-    if(ti.scalaType == ScalaBaseType.stringType)
-      (new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
-        override def read(pr: ResultSet) = {
-          val v = ti.getValue(pr, idx)
-          if((v eq null) || v.length == 0) None else Some(v)
-        }
-      }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
-    else super.createOptionResultConverter(ti, idx)
+  override def createOptionResultConverter[T](ti: JdbcType[T],
+                                              idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
+    ti.scalaType match {
+      case ScalaBaseType.stringType =>
+        new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
+          override def read(pr: ResultSet) = {
+            val v = ti.getValue(pr, idx)
+            if ((v eq null) || v.isEmpty) None else Some(v)
+          }
+        }.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
+      case _                        =>
+        super.createOptionResultConverter(ti, idx)
+    }
 
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new CountingInsertActionComposerImpl[T](compiled)
 
-  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
+  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert,
+                                                              keys: Node,
+                                                              mux: (U, QR) => RU
+                                                             ): ReturningInsertActionComposer[U, RU] =
     new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
 
   // Does not work to get around the ORA-00904 issue when returning columns
@@ -572,16 +579,16 @@ END;
     val name = "removeSubqueryOrdering"
 
     def apply(state: CompilerState) =
-      state.map { n => ClientSideOp.mapServerSide(n)(n => rewrite(n, false)) }
+      state.map { n => ClientSideOp.mapServerSide(n)(n => rewrite(n, inScalar = false)) }
 
     def rewrite(n: Node, inScalar: Boolean): Node = n match {
       case n: Comprehension.Base if inScalar && n.orderBy.nonEmpty =>
         val n2 = n.copy(orderBy = ConstArray.empty) :@ n.nodeType
-        n2.mapChildren(ch => rewrite(ch, false), keepType = true)
+        n2.mapChildren(ch => rewrite(ch, inScalar = false), keepType = true)
       case Apply(_, _) if !n.nodeType.structural.isInstanceOf[CollectionType] =>
-        n.mapChildren(ch => rewrite(ch, true), keepType = true)
+        n.mapChildren(ch => rewrite(ch, inScalar = true), keepType = true)
       case n =>
-        n.mapChildren(ch => rewrite(ch, false), keepType = true)
+        n.mapChildren(ch => rewrite(ch, inScalar = false), keepType = true)
     }
   }
 }
@@ -599,19 +606,19 @@ object OracleProfile extends OracleProfile with JdbcActionComponent.OneRowPerSta
 
 
 /**
-  * Converts between {@link TIMESTAMPTZ} and java.time times and back.
+  * Converts between `TIMESTAMPTZ` and java.time times and back.
   * Oracle jar not on path at compile time (but must be a run time)
-  * Use reflection to get access to TIMESTAMPTZ class
+  * Use reflection to get access to `TIMESTAMPTZ` class
   */
 object TimestamptzConverter {
   val timestampTZClass = Class.forName("oracle.sql.TIMESTAMPTZ")
   val timestampTZCtor = timestampTZClass.getConstructor(classOf[Array[Byte]])
   val timestampTZToBytes = timestampTZClass.getMethod("toBytes")
   val zoneIdClass = Class.forName("oracle.sql.ZONEIDMAP")
-  val zoneIdgetId = zoneIdClass.getMethod("getID", classOf[String])
-  val zoneIdgetRegion = zoneIdClass.getMethod("getRegion", classOf[Int])
+  val zoneIdGetId = zoneIdClass.getMethod("getID", classOf[String])
+  val zoneIdGetRegion = zoneIdClass.getMethod("getRegion", classOf[Int])
 
-  val REGIONIDBIT = Integer.parseInt("10000000",2)
+  val RegionIdBit = Integer.parseInt("10000000",2)
 
   // Byte 0: Century, offset is 100 (value - 100 is century)
   // Byte 1: Decade, offset is 100 (value - 100 is decade)
@@ -684,8 +691,8 @@ object TimestamptzConverter {
     val utc = attribute.withZoneSameInstant(java.time.ZoneOffset.UTC)
     writeDateTime(bytes, utc)
 
-    val zoneId = attribute.getZone().getId
-    val regionCode = zoneIdgetId.invoke(null, zoneId).asInstanceOf[Integer]
+    val zoneId = attribute.getZone.getId
+    val regionCode = zoneIdGetId.invoke(null, zoneId).asInstanceOf[Integer]
 
     if (regionCode != -1) {
       // -1 is invalid
@@ -726,7 +733,7 @@ object TimestamptzConverter {
     OffsetDateTime.of(year, month, dayOfMonth, hour, minute, second, nanoOfSecond, java.time.ZoneOffset.UTC)
   }
 
-  def isFixedOffset(bytes: Array[Byte]) = (bytes(11) & REGIONIDBIT) == 0
+  def isFixedOffset(bytes: Array[Byte]) = (bytes(11) & RegionIdBit) == 0
 
   def newTIMESTAMPTZBuffer() = new Array[Byte](13)
 
@@ -760,13 +767,13 @@ object TimestamptzConverter {
   def extractZoneId(bytes: Array[Byte]) = {
     // high order bits
     val regionCode: Integer = ((bytes(11) & highBits) << 6) + ((bytes(12) & lowBits) >> 2)
-    val regionName = zoneIdgetRegion.invoke(null, regionCode).asInstanceOf[String]
+    val regionName = zoneIdGetRegion.invoke(null, regionCode).asInstanceOf[String]
     ZoneId.of(regionName)
   }
   val msb = Integer.parseInt("1111111000000", 2)
   val lsb = Integer.parseInt("111111", 2)
   def writeZoneId(bytes: Array[Byte], regionCode: Int): Unit = {
-    bytes(11) = (REGIONIDBIT | ((regionCode & msb) >>> 6)).toByte
+    bytes(11) = (RegionIdBit | ((regionCode & msb) >>> 6)).toByte
     bytes(12) = ((regionCode & lsb) << 2).toByte
   }
 }

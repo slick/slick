@@ -43,8 +43,8 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
         m.getName.startsWith("test") && m.getParameterTypes.length == 0
       }
       ms.map { m =>
-        val tname = m.getName + '[' + tdb.confName + ']'
-        new TestMethod(tname, Description.createTestDescription(t, tname), m, t)
+        val typeName = m.getName + '[' + tdb.confName + ']'
+        TestMethod(typeName, Description.createTestDescription(t, typeName), m, t)
       }
     }
 

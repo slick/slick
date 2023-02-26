@@ -39,33 +39,37 @@ class MergeToComprehensions extends Phase {
     /** Merge Take, Drop, Bind and CollectionCast into an existing Comprehension */
     def mergeTakeDrop(n: Node, buildBase: Boolean): (Comprehension[Option[Node]], Replacements) = n match {
       case Take(f1, count1) =>
-        val (c1, replacements1) = mergeTakeDrop(f1, true)
+        val (c1, replacements1) = mergeTakeDrop(f1, buildBase = true)
         logger.debug("Merging Take into Comprehension:", Ellipsis(n, List(0)))
         val count2 = applyReplacements(count1, replacements1, c1)
         val fetch2 = c1.fetch match {
           case Some(t) => Some(constOp[Long]("min")(math.min)(t, count2))
-          case None => Some(count2)
+          case None    => Some(count2)
         }
         val c2 = c1.copy(fetch = fetch2) :@ c1.nodeType
         logger.debug("Merged Take into Comprehension:", c2)
         (c2, replacements1)
 
       case Drop(f1, count1) =>
-        val (c1, replacements1) = mergeTakeDrop(f1, true)
+        val (c1, replacements1) = mergeTakeDrop(f1, buildBase = true)
         logger.debug("Merging Drop into Comprehension:", Ellipsis(n, List(0)))
         val count2 = applyReplacements(count1, replacements1, c1)
         val (fetch2, offset2) = (c1.fetch, c1.offset) match {
-          case (None,    None   ) => (None, Some(count2))
-          case (Some(t), None   ) => (Some(constOp[Long]("max")(math.max)(LiteralNode(0L).infer(), constOp[Long]("-")(_ - _)(t, count2))), Some(count2))
-          case (None,    Some(d)) => (None, Some(constOp[Long]("+")(_ + _)(d, count2)))
-          case (Some(t), Some(d)) => (Some(constOp[Long]("max")(math.max)(LiteralNode(0L).infer(), constOp[Long]("-")(_ - _)(t, count2))), Some(constOp[Long]("+")(_ + _)(d, count2)))
+          case (None, None)       => (None, Some(count2))
+          case (Some(t), None)    =>
+            (Some(constOp[Long]("max")(math.max)(LiteralNode(0L).infer(), constOp[Long]("-")(_ - _)(t, count2))),
+              Some(count2))
+          case (None, Some(d))    => (None, Some(constOp[Long]("+")(_ + _)(d, count2)))
+          case (Some(t), Some(d)) =>
+            (Some(constOp[Long]("max")(math.max)(LiteralNode(0L).infer(), constOp[Long]("-")(_ - _)(t, count2))),
+              Some(constOp[Long]("+")(_ + _)(d, count2)))
         }
         val c2 = c1.copy(fetch = fetch2, offset = offset2) :@ c1.nodeType
         logger.debug("Merged Drop into Comprehension:", c2)
         (c2, replacements1)
 
       case n =>
-        mergeCommon(mergeTakeDrop _, mergeSortBy _, n, buildBase, allowFilter = false)
+        mergeCommon(mergeTakeDrop, mergeSortBy, n, buildBase, allowFilter = false)
     }
 
     /** Merge Bind, Filter (as WHERE or HAVING depending on presence of GROUP BY), CollectionCast,
@@ -73,23 +77,23 @@ class MergeToComprehensions extends Phase {
       * Distinct or Filter (as HAVING) is allowed. A subquery is created if necessary to avoid
       * this situation. */
     def mergeSortBy(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) = n match {
-      case SortBy(s1, f1, b1) =>
-        val (c1, replacements1) = mergeSortBy(f1, true)
+      case SortBy(_, f1, b1) =>
+        val (c1, replacements1) = mergeSortBy(f1, buildBase = true)
         logger.debug("Merging SortBy into Comprehension:", Ellipsis(n, List(0)))
         val b2 = b1.map { case (n, o) => (applyReplacements(n, replacements1, c1), o) }
         val c2 = c1.copy(orderBy = b2 ++ c1.orderBy) :@ c1.nodeType
         logger.debug("Merged SortBy into Comprehension:", c2)
         (c2, replacements1)
 
-      case ForUpdate(s1, f1) =>
-        val (c1, replacements1) = mergeSortBy(f1, true)
+      case ForUpdate(_, f1) =>
+        val (c1, replacements1) = mergeSortBy(f1, buildBase = true)
         logger.debug("Merging ForUpdate into Comprehension:", Ellipsis(n, List(0)))
         val c2 = c1.copy(forUpdate = true) :@ c1.nodeType
         logger.debug("Merged ForUpdate into Comprehension:", c2)
         (c2, replacements1)
 
-      case Distinct(s1, f1, o1) =>
-        val (c1, replacements1) = mergeSortBy(f1, true)
+      case Distinct(_, f1, o1) =>
+        val (c1, replacements1) = mergeSortBy(f1, buildBase = true)
         val (c1a, replacements1a) =
           if(c1.distinct.isDefined || c1.having.isDefined) toSubquery(c1, replacements1)
           else (c1, replacements1)
@@ -100,13 +104,13 @@ class MergeToComprehensions extends Phase {
         (c2, replacements1a)
 
       case n =>
-        mergeCommon(mergeSortBy _, mergeGroupBy _, n, buildBase)
+        mergeCommon(mergeSortBy, mergeGroupBy, n, buildBase)
     }
 
     /** Merge GroupBy into an existing Comprehension or create new Comprehension from non-grouping Aggregation */
     def mergeGroupBy(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) = n match {
-      case Bind(s1, GroupBy(s2, f1, b1, ts1), Pure(str1, ts2)) =>
-        val (c1, replacements1) = mergeFilterWhere(f1, true)
+      case Bind(s1, GroupBy(_, f1, b1, _), Pure(str1, ts2)) =>
+        val (c1, replacements1) = mergeFilterWhere(f1, buildBase = true)
         logger.debug("Merging GroupBy into Comprehension:", Ellipsis(n, List(0, 0)))
         val (c1a, replacements1a, b2a) = {
           val b2 = applyReplacements(b1, replacements1, c1)
@@ -114,15 +118,17 @@ class MergeToComprehensions extends Phase {
           // and push the current Comprehension into a subquery if this is the case.
           val leakedPaths =
             str1.collect({ case FwdPath(s :: ElementSymbol(1) :: rest) if s == s1 => rest }, stopOnMatch = true)
-          val isParam = leakedPaths.nonEmpty && ({
-            logger.debug("Leaked paths to GroupBy keys: " + leakedPaths.map(l => ("_" :: l).mkString(".")).mkString(", "))
+          val isParam = leakedPaths.nonEmpty && {
+            logger.debug(
+              "Leaked paths to GroupBy keys: " + leakedPaths.map(l => ("_" :: l).mkString(".")).mkString(", ")
+            )
             val targets = leakedPaths.map(_.foldLeft(b2)(_ select _))
             targets.indexWhere(_.findNode {
               case _: QueryParameter => true
               case n: LiteralNode => n.volatileHint
               case _ => false
             }.isDefined) >= 0
-          })
+          }
           if(isParam) {
             logger.debug("Pushing GroupBy source into subquery to avoid repeated parameter")
             val (c1a, replacements1a) = toSubquery(c1, replacements1)
@@ -149,10 +155,10 @@ class MergeToComprehensions extends Phase {
         logger.debug("Replacements are: "+replacements)
         (c2, replacements)
 
-      case n @ Pure(Aggregate(s1, f1, str1), ts) =>
+      case n @ Pure(Aggregate(_, f1, str1), ts) =>
         logger.debug("Merging Aggregate source into Comprehension:", Ellipsis(n, List(0, 0)))
         val (c1, replacements1) = {
-          val (c, r) = mergeFilterWhere(f1, true)
+          val (c, r) = mergeFilterWhere(f1, buildBase = true)
           if(c.groupBy.isDefined || c.distinct.isDefined || c.fetch.isDefined || c.offset.isDefined) toSubquery(c, r)
           else (c, r)
         }
@@ -170,7 +176,7 @@ class MergeToComprehensions extends Phase {
 
     /** Merge Bind, Filter (as WHERE), CollectionCast into an existing Comprehension */
     def mergeFilterWhere(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) =
-      mergeCommon(mergeFilterWhere _, convertBase _, n, buildBase)
+      mergeCommon(mergeFilterWhere, convertBase, n, buildBase)
 
     /** Build a base Comprehension from a non-Comprehension base (e.g. Join) or a sub-Comprehension */
     def convertBase(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) = {
@@ -182,63 +188,66 @@ class MergeToComprehensions extends Phase {
     }
 
     /** Convert a Node for use as a source in a Join. Joins and TableNodes are not converted to
-      * Comprehensions. Instead of returning regular replacements, the method returns identity
-      * mappings for all fields in the source. */
+     * Comprehensions. Instead of returning regular replacements, the method returns identity
+     * mappings for all fields in the source. */
     def createSource(n: Node): Option[(Node, Mappings)] = n match {
-      case t: TableNode =>
+      case t: TableNode                     =>
         logger.debug("Creating source from TableNode:", t)
-        val mappings = ConstArray.from(tableFields.getOrElse(t.identity, Seq.empty).map(f => ((t.identity: TypeSymbol, f), f :: Nil)))
-        logger.debug("Mappings are: "+mappings)
+        val mappings =
+          ConstArray.from(
+            tableFields.getOrElse(t.identity, Seq.empty).map(f => ((t.identity: TypeSymbol, f), f :: Nil))
+          )
+        logger.debug("Mappings are: " + mappings)
         Some((t, mappings))
-      case p @ Pure(StructNode(defs), ts) =>
+      case p @ Pure(StructNode(defs), ts)   =>
         logger.debug("Creating source from Pure:", p)
         val mappings = defs.map { case (f, _) => ((ts, f), f :: Nil) }
-        logger.debug("Mappings are: "+mappings)
+        logger.debug("Mappings are: " + mappings)
         Some((p, mappings))
-      case j @ Join(ls, rs, l1, r1, jt, on1) =>
+      case j @ Join(ls, rs, l1, r1, _, on1) =>
         logger.debug(s"Creating source from Join $ls/$rs:", j)
-        val (l2 @ (_ :@ CollectionType(_, ltpe)), lmap) = dealias(l1)(createSourceOrTopLevel)
-        val (r2 @ (_ :@ CollectionType(_, rtpe)), rmap) = dealias(r1)(createSourceOrTopLevel)
+        val (l2 @ _ :@ CollectionType(_, _), leftMappings) = dealias(l1)(createSourceOrTopLevel)
+        val (r2 @ _ :@ CollectionType(_, _), rightMappings) = dealias(r1)(createSourceOrTopLevel)
         logger.debug(s"Converted left side of Join $ls/$rs:", l2)
         logger.debug(s"Converted right side of Join $ls/$rs:", r2)
         // Detect and remove empty join sides
         val noCondition = on1 == LiteralNode(true).infer()
         val noLeft = l2 match {
           case Pure(StructNode(ConstArray()), _) => true
-          case _ => false
+          case _                                 => false
         }
         val noRight = r2 match {
           case Pure(StructNode(ConstArray()), _) => true
-          case _ => false
+          case _                                 => false
         }
-        if(noLeft && noCondition) {
-          Some((r2, rmap))
-        } else if(noRight && noCondition) {
-          Some((l2, lmap))
+        if (noLeft && noCondition) {
+          Some((r2, rightMappings))
+        } else if (noRight && noCondition) {
+          Some((l2, leftMappings))
         } else {
           val mappings =
-            lmap.map { case (key, ss) => (key, ElementSymbol(1) :: ss )} ++
-            rmap.map { case (key, ss) => (key, ElementSymbol(2) :: ss )}
+            leftMappings.map { case (key, ss) => (key, ElementSymbol(1) :: ss) } ++
+              rightMappings.map { case (key, ss) => (key, ElementSymbol(2) :: ss) }
           val mappingsM = mappings.iterator.toMap
-          logger.debug(s"Mappings for `on` clause in Join $ls/$rs: "+mappingsM)
+          logger.debug(s"Mappings for `on` clause in Join $ls/$rs: " + mappingsM)
           val on2 = on1.replace({
             case p @ FwdPathOnTypeSymbol(ts, _ :: s :: Nil) =>
               //logger.debug(s"Finding ($ts, $s)")
               mappingsM.get((ts, s)) match {
                 case Some(ElementSymbol(idx) :: ss) =>
                   //logger.debug(s"Found $idx :: $ss")
-                  FwdPath((if(idx == 1) ls else rs) :: ss)
-                case _ => p
+                  FwdPath((if (idx == 1) ls else rs) :: ss)
+                case _                              => p
               }
           }, bottomUp = true).infer(
-              scope = Type.Scope(j.leftGen -> l2.nodeType.asCollectionType.elementType) +
-                (j.rightGen -> r2.nodeType.asCollectionType.elementType))
+            scope = Type.Scope(j.leftGen -> l2.nodeType.asCollectionType.elementType) +
+              (j.rightGen -> r2.nodeType.asCollectionType.elementType))
           logger.debug(s"Transformed `on` clause in Join $ls/$rs:", on2)
           val j2 = j.copy(left = l2, right = r2, on = on2).infer()
           logger.debug(s"Created source from Join $ls/$rs:", j2)
           Some((j2, mappings))
         }
-      case n => None
+      case _                                => None
     }
 
     /** Create a source node, or alternatively a top-level node (possibly lifting the node into a
@@ -250,10 +259,10 @@ class MergeToComprehensions extends Phase {
 
     /** Create a Union or Comprehension (suitable for the top level of a query). */
     def createTopLevel(n: Node): (Node, Mappings) = n match {
-      case u @ Union(l1, r1, all) =>
+      case u @ Union(l1, r1, _) =>
         logger.debug("Converting Union:", Ellipsis(u, List(0), List(1)))
         val (l2, rep1) = createTopLevel(l1)
-        val (r2, rep2) = createTopLevel(r1)
+        val (r2, _) = createTopLevel(r1)
         val u2 = u.copy(left = l2, right = r2).infer()
         logger.debug("Converted Union:", u2)
         (u2, rep1)
@@ -262,7 +271,7 @@ class MergeToComprehensions extends Phase {
         createTopLevel(n)
 
       case n =>
-        val (c, rep) = mergeTakeDrop(n, false)
+        val (c, rep) = mergeTakeDrop(n, buildBase = false)
         val mappings = ConstArray.from(rep.transform((_, v) => v :: Nil))
         logger.debug("Mappings are: "+mappings)
         val c2 = c.select match {
@@ -275,13 +284,13 @@ class MergeToComprehensions extends Phase {
     }
 
     def convert1(n: Node): Node = n match {
-      case CollectionCast(_, _) =>
+      case CollectionCast(_, _)                       =>
         n.mapChildren(convert1, keepType = true)
-      case n :@ Type.Structural(CollectionType(cons, el)) =>
+      case n :@ Type.Structural(CollectionType(_, _)) =>
         convertOnlyInScalar(createTopLevel(n)._1)
-      case a: Aggregate =>
+      case a: Aggregate                               =>
         logger.debug("Merging Aggregate into Comprehension:", Ellipsis(a, List(0)))
-        val (c1, rep) = mergeFilterWhere(a.from, true)
+        val (c1, rep) = mergeFilterWhere(a.from, buildBase = true)
         val sel2 = applyReplacements(a.select, rep, c1)
         val c2 = c1.copy(select = Pure(sel2)).infer()
         val c3 = convertOnlyInScalar(c2)
@@ -307,13 +316,13 @@ class MergeToComprehensions extends Phase {
   /** Lift a valid top-level or source Node into a subquery */
   def buildSubquery(n: Node, mappings: Mappings): (Comprehension.Base, Replacements) = {
     logger.debug("Building new Comprehension from:", n)
-    val newSyms = mappings.map(x => (x, new AnonSymbol))
+    val newSymbols = mappings.map(x => (x, new AnonSymbol))
     val s = new AnonSymbol
-    val struct = StructNode(newSyms.map { case ((_, ss), as) => (as, FwdPath(s :: ss)) })
+    val struct = StructNode(newSymbols.map { case ((_, ss), as) => (as, FwdPath(s :: ss)) })
     val pid = new AnonTypeSymbol
     val res = Comprehension(s, n, select = Pure(struct, pid)).infer()
     logger.debug("Built new Comprehension:", res)
-    val replacements = newSyms.iterator.map { case (((ts, f), _), as) => ((ts, f), as) }.toMap
+    val replacements = newSymbols.iterator.map { case (((ts, f), _), as) => ((ts, f), as) }.toMap
     logger.debug("Replacements are: "+replacements)
     (res, replacements)
   }
@@ -328,7 +337,7 @@ class MergeToComprehensions extends Phase {
                   parent: (Node, Boolean) => (Comprehension.Base, Replacements),
                   n: Node, buildBase: Boolean,
                   allowFilter: Boolean = true): (Comprehension.Base, Replacements) = n match {
-    case Bind(s1, f1, Pure(StructNode(defs1), ts1)) if !f1.isInstanceOf[GroupBy] =>
+    case Bind(_, f1, Pure(StructNode(defs1), ts1)) if !f1.isInstanceOf[GroupBy] =>
       val (c1, replacements1) = rec(f1, true)
       logger.debug("Merging Bind into Comprehension as 'select':", Ellipsis(n, List(0)))
       val defs2 = defs1.map { case (s, d) => (s, applyReplacements(d, replacements1, c1)) }
@@ -338,7 +347,7 @@ class MergeToComprehensions extends Phase {
       logger.debug("Replacements are: "+replacements)
       (c2, replacements)
 
-    case Filter(s1, f1, p1) if allowFilter =>
+    case Filter(_, f1, p1) if allowFilter =>
       val (c1, replacements1) = rec(f1, true)
       val (c1a, replacements1a) =
         if(c1.distinct.isDefined) toSubquery(c1, replacements1)
