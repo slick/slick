@@ -1,7 +1,6 @@
 package slick.ast
 
 import scala.collection.mutable.ListBuffer
-import scala.language.existentials
 import scala.reflect.ClassTag
 
 import slick.SlickException

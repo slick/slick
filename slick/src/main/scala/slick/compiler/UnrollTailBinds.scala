@@ -1,12 +1,7 @@
 package slick.compiler
 
-import slick.ast.Library.AggregateFunctionSymbol
-
-import scala.collection.mutable.{HashSet, HashMap}
-import slick.SlickException
-import slick.ast._
-import TypeUtil._
-import Util._
+import slick.ast.*
+import slick.ast.Util.*
 
 class UnrollTailBinds extends Phase {
   val name = "unrollTailBinds"
