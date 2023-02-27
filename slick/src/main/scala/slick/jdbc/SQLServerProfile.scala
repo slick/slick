@@ -287,19 +287,19 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
   }
 
   class SQLServerJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType    = new SQLiteBooleanJdbcType
-    override val byteJdbcType       = new SQLiteByteJdbcType
-    override val byteArrayJdbcType  = new SQLiteByteArrayJdbcType
-    override val dateJdbcType       = new SQLiteDateJdbcType
-    override val timeJdbcType       = new SQLiteTimeJdbcType
-    override val localTimeType      = new SQLiteLocalTimeJdbcType
-    override val timestampJdbcType  = new SQLiteTimestampJdbcType
-    override val localDateTimeType  = new SQLiteLocalDateTimeJdbcType
-    override val instantType        = new SQLiteInstantJdbcType
-    override val offsetDateTimeType = new SQLiteOffsetDateTimeJdbcType
-    override val uuidJdbcType       = new SQLiteUUIDJdbcType
+    override val booleanJdbcType    = new SQLServerBooleanJdbcType
+    override val byteJdbcType       = new SQLServerByteJdbcType
+    override val byteArrayJdbcType  = new SQLServerByteArrayJdbcType
+    override val dateJdbcType       = new SQLServerDateJdbcType
+    override val timeJdbcType       = new SQLServerTimeJdbcType
+    override val localTimeType      = new SQLServerLocalTimeJdbcType
+    override val timestampJdbcType  = new SQLServerTimestampJdbcType
+    override val localDateTimeType  = new SQLServerLocalDateTimeJdbcType
+    override val instantType        = new SQLServerInstantJdbcType
+    override val offsetDateTimeType = new SQLServerOffsetDateTimeJdbcType
+    override val uuidJdbcType       = new SQLServerUUIDJdbcType
 
-    class SQLiteUUIDJdbcType extends UUIDJdbcType {
+    class SQLServerUUIDJdbcType extends UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UNIQUEIDENTIFIER"
       override def hasLiteralForm: Boolean = true
@@ -312,7 +312,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
 
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
-    class SQLiteBooleanJdbcType extends BooleanJdbcType {
+    class SQLServerBooleanJdbcType extends BooleanJdbcType {
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* Selecting a straight Date or Timestamp literal fails with a NPE (probably
@@ -321,10 +321,10 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
      * be required for Time values. */
     /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
      * want is DATETIME2. */
-    class SQLiteDateJdbcType extends DateJdbcType {
+    class SQLServerDateJdbcType extends DateJdbcType {
       override def valueToSQLLiteral(value: Date) = "(convert(date, {d '" + value + "'}))"
     }
-    class SQLiteTimeJdbcType extends TimeJdbcType {
+    class SQLServerTimeJdbcType extends TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = "(convert(time, {t '" + value + "'}))"
       override def getValue(r: ResultSet, idx: Int) = {
         r.getString(idx) match {
@@ -342,7 +342,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       }
     }
 
-    class SQLiteLocalTimeJdbcType extends LocalTimeJdbcType {
+    class SQLServerLocalTimeJdbcType extends LocalTimeJdbcType {
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("HH:mm:ss"))
@@ -369,11 +369,11 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         s"(convert(time(6), '$value'))"
       }
     }
-    class SQLiteTimestampJdbcType extends TimestampJdbcType {
+    class SQLServerTimestampJdbcType extends TimestampJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def valueToSQLLiteral(value: Timestamp) = s"'$value'"
     }
-    class SQLiteLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
+    class SQLServerLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
       override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
         r.getTimestamp(idx) match {
@@ -384,7 +384,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         }
       }
     }
-    class SQLiteInstantJdbcType extends InstantJdbcType {
+    class SQLServerInstantJdbcType extends InstantJdbcType {
       private[this] val formatter : DateTimeFormatter = {
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
@@ -418,7 +418,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         s"(convert(datetimeoffset(6), '${serializeInstantValue(value)}'))"
       }
     }
-    class SQLiteOffsetDateTimeJdbcType extends OffsetDateTimeJdbcType {
+    class SQLServerOffsetDateTimeJdbcType extends OffsetDateTimeJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIMEOFFSET(6)"
 
       private[this] val formatter: DateTimeFormatter = {
@@ -450,13 +450,13 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result
      * sets, so we read as Short and then convert to Byte. */
-    class SQLiteByteJdbcType extends ByteJdbcType {
+    class SQLServerByteJdbcType extends ByteJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "SMALLINT"
       override def getValue(r: ResultSet, idx: Int) = r.getShort(idx).toByte
     }
     /* SQL Server supports a literal notation for byte arrays */
     private[this] val hexChars = "0123456789ABCDEF".toCharArray
-    class SQLiteByteArrayJdbcType extends ByteArrayJdbcType {
+    class SQLServerByteArrayJdbcType extends ByteArrayJdbcType {
       override def hasLiteralForm = true
       override def valueToSQLLiteral(value: Array[Byte]) = "0x" +  bytesToHex(value)
       private[this] def bytesToHex(bytes: Array[Byte]) = {
