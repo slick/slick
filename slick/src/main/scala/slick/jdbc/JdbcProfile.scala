@@ -3,11 +3,11 @@ package slick.jdbc
 import scala.collection.mutable.Builder
 import scala.language.implicitConversions
 
-import slick.ast._
+import slick.ast.*
 import slick.ast.TypeUtil.:@
-import slick.compiler.{Phase, QueryCompiler, InsertCompiler}
-import slick.lifted._
-import slick.relational.{RelationalProfile, CompiledMapping}
+import slick.compiler.{InsertCompiler, Phase, QueryCompiler}
+import slick.lifted.*
+import slick.relational.{CompiledMapping, RelationalProfile}
 import slick.sql.SqlProfile
 
 /** Abstract profile for accessing SQL databases via JDBC. */
@@ -23,7 +23,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
   val columnTypes = new JdbcTypes
-  lazy val MappedColumnType = MappedJdbcType
+  override lazy val MappedColumnType: MappedJdbcType.type = MappedJdbcType
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcCapabilities.all
 

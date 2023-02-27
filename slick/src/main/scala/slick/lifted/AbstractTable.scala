@@ -1,6 +1,6 @@
 package slick.lifted
 
-import slick.ast._
+import slick.ast.*
 import slick.ast.Util.nodeToNodeOps
 import slick.model.ForeignKeyAction
 
@@ -26,7 +26,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   lazy val tableNode = TableNode(schemaName, tableName, tableIdentitySymbol, tableIdentitySymbol)(this)
 
-  def encodeRef(path: Node) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
+  override def encodeRef(path: Node): AbstractTable[T] = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
   /** The * projection of the table used as default for queries and inserts.
     * Should include all columns as a tuple, HList or custom shape and optionally

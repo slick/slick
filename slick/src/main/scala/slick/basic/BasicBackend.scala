@@ -4,16 +4,16 @@ import java.io.Closeable
 import java.util.concurrent.atomic.{AtomicLong, AtomicReferenceArray}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
 
 import slick.SlickException
-import slick.dbio._
+import slick.dbio.*
+import slick.util.*
 import slick.util.AsyncExecutor.{Continuation, Fresh, Priority, WithConnection}
-import slick.util._
 
 import com.typesafe.config.Config
-import org.reactivestreams._
+import org.reactivestreams.*
 import org.slf4j.LoggerFactory
 
 
@@ -611,7 +611,7 @@ trait BasicBackend { self =>
       }
     }
 
-    def subscription = this
+    override def subscription: BasicStreamingActionContext = this
 
     ////////////////////////////////////////////////////////////////////////// Subscription methods
 

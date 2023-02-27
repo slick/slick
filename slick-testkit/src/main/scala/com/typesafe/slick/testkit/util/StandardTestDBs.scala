@@ -1,20 +1,21 @@
 package com.typesafe.slick.testkit.util
 
-import java.util.logging.{Level, Logger}
 import java.sql.{DriverManager, SQLException}
+import java.util.logging.{Level, Logger}
 
-import slick.compiler.Phase
-import slick.dbio._
-import slick.memory.MemoryProfile
-import slick.jdbc._
-import slick.jdbc.GetResult._
-import slick.jdbc.meta.MTable
-import org.junit.Assert
-import slick.basic.Capability
-import slick.util.ConfigExtensionMethods._
-
-import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.duration.Duration
+
+import slick.basic.Capability
+import slick.compiler.Phase
+import slick.dbio.*
+import slick.jdbc.*
+import slick.jdbc.GetResult.*
+import slick.jdbc.meta.MTable
+import slick.memory.MemoryProfile
+import slick.util.ConfigExtensionMethods.*
+
+import org.junit.Assert
 
 object StandardTestDBs {
   lazy val H2Mem = new H2TestDB("h2mem", false) {
@@ -188,7 +189,7 @@ object StandardTestDBs {
   }
 
   class SQLServerDB(confName: String) extends ExternalJdbcTestDB(confName) {
-    val profile = SQLServerProfile
+    val profile: SQLServerProfile = SQLServerProfile
     import profile.api.actionBasedSQLInterpolation
 
     // sqlserver has valid "select for update" syntax, but in testing on Appveyor, the test hangs due to lock escalation
@@ -254,7 +255,7 @@ abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJd
 
 class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(confName) {
   import profile.api.actionBasedSQLInterpolation
-  val profile = SQLiteProfile
+  val profile: SQLiteProfile = SQLiteProfile
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
@@ -273,7 +274,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
   // sbt enables a security manager which prevents Derby from loading, we must disable it
   System.setSecurityManager(null)
   import profile.api.actionBasedSQLInterpolation
-  val profile = DerbyProfile
+  val profile: DerbyProfile = DerbyProfile
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
   override def cleanUpBefore() = {
@@ -314,7 +315,7 @@ object DerbyDB {
 }
 
 abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
-  val profile = HsqldbProfile
+  val profile: HsqldbProfile = HsqldbProfile
   val jdbcDriver = "org.hsqldb.jdbcDriver"
   // Hsqldb has valid "select for update" syntax, but in testing, it either takes a whole table lock or no exclusive
   // lock at all, so exclude from ForUpdate testing

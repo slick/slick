@@ -2,21 +2,22 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet, Types}
-import java.time._
+import java.time.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
+
 import slick.SlickException
-import slick.ast._
+import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.meta.MTable
-import slick.lifted._
-import slick.sql.SqlCapabilities
+import slick.lifted.*
 import slick.relational.RelationalProfile
+import slick.sql.SqlCapabilities
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -65,7 +66,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) +
       Phase.specializeParameters -
       Phase.fixRowNumberOrdering
-  override val columnTypes = new HsqldbJdbcTypes
+  override val columnTypes: HsqldbJdbcTypes = new HsqldbJdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new HsqldbQueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new HsqldbTableDDLBuilder(table)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new HsqldbSequenceDDLBuilder(seq)
@@ -73,7 +74,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
-  override val scalarFrom = Some("(VALUES (0))")
+  override val scalarFrom: Some[String] = Some("(VALUES (0))")
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
@@ -83,10 +84,10 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   }
 
   class HsqldbQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val alwaysAliasSubqueries = false
     override protected val supportsLiteralGroupBy = true
-    override protected val quotedJdbcFns = Some(Nil)
+    override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.nodeType).sqlType != Types.CHAR =>
@@ -155,9 +156,9 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       }
     }
 
-    override val offsetTimeType = new HsqldbOffsetTimeJdbcType
-    override val offsetDateTimeType = new HsqldbOffsetDateTimeJdbcType
-    override val instantType = new HsqldbInstantJdbcType
+    override val offsetTimeType: HsqldbOffsetTimeJdbcType = new HsqldbOffsetTimeJdbcType
+    override val offsetDateTimeType: HsqldbOffsetDateTimeJdbcType = new HsqldbOffsetDateTimeJdbcType
+    override val instantType: HsqldbInstantJdbcType = new HsqldbInstantJdbcType
 
 
     /**
@@ -315,7 +316,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
   class HsqldbSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
-      import seq.integral._
+      import seq.integral.*
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero
       val start = seq._start.getOrElse(if(desc) -1 else 1)

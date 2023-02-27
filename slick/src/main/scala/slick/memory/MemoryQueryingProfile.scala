@@ -1,13 +1,14 @@
 package slick.memory
 
 import scala.collection.mutable.ArrayBuffer
+
 import slick.SlickException
-import slick.ast._
+import slick.ast.*
+import slick.ast.TypeUtil.*
 import slick.basic.BasicProfile
-import slick.compiler._
-import slick.relational._
+import slick.compiler.*
+import slick.relational.*
 import slick.util.{??, ConstArray}
-import TypeUtil._
 
 /** The querying (read-only) part that can be shared between MemoryProfile and DistributedProfile. */
 trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =>
@@ -47,7 +48,10 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
   class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
     override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state))).withWellTyped(false)
 
-    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = (serverSide, mapping.map(compileMapping))
+    override def compileServerSideAndMapping(serverSide: Node,
+                                             mapping: Option[Node],
+                                             state: CompilerState): (Node, Option[CompiledMapping]) =
+      (serverSide, mapping.map(compileMapping))
 
     def retype(n: Node): Node = {
       val n2 = transformSimpleGrouping(n)
@@ -94,8 +98,8 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
         if(!nullable && v.isInstanceOf[Option[_]]) v.asInstanceOf[Option[_]].get
         else v
       }
-      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ??
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer, offset: Int) = ??
+      override def update(value: Any, pr: MemoryResultConverterDomain#Updater): Nothing = ??
+      override def set(value: Any, pp: MemoryResultConverterDomain#Writer, offset: Int): Nothing = ??
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"ridx=$ridx, nullable=$nullable")
       def width = 1
     }

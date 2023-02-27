@@ -1,7 +1,8 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import slick.relational._
+
+import slick.relational.*
 import slick.SlickException
 
 /** Specialized JDBC ResultConverter for non-`Option` values. */
@@ -67,9 +68,9 @@ class IsDefinedResultConverter[@specialized(Byte, Short, Int, Long, Char, Float,
     ti.getValue(pr, idx)
     !ti.wasNull(pr, idx)
   }
-  def update(value: Boolean, pr: ResultSet) =
+  override def update(value: Boolean, pr: ResultSet): Nothing =
     throw new SlickException("Cannot insert/update IsDefined check")
-  def set(value: Boolean, pp: PreparedStatement, offset: Int) =
+  override def set(value: Boolean, pp: PreparedStatement, offset: Int): Nothing =
     throw new SlickException("Cannot insert/update IsDefined check")
   def width = 1
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)

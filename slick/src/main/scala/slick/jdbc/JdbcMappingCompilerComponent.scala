@@ -2,9 +2,9 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
 
-import slick.ast._
-import slick.compiler.{CompilerState, CodeGen}
-import slick.relational._
+import slick.ast.*
+import slick.compiler.{CodeGen, CompilerState}
+import slick.relational.*
 import slick.util.SQLBuilder
 
 /** JDBC profile component which contains the mapping compiler and insert compiler */
@@ -52,7 +52,9 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
 
   /** Code generator phase for queries on JdbcProfile. */
   class JdbcCodeGen(f: QueryBuilder => SQLBuilder.Result) extends CodeGen {
-    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
+    override def compileServerSideAndMapping(serverSide: Node,
+                                             mapping: Option[Node],
+                                             state: CompilerState): (CompiledStatement, Option[CompiledMapping]) = {
       val (tree, tpe) = treeAndType(serverSide)
       val sbr = f(self.createQueryBuilder(tree, state))
       (CompiledStatement(sbr.sql, sbr, tpe).infer(), mapping.map(mappingCompiler.compileMapping))
@@ -61,7 +63,9 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
 
   /** Code generator phase for inserts on JdbcProfile. */
   class JdbcInsertCodeGen(f: Insert => InsertBuilder) extends CodeGen {
-    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
+    override def compileServerSideAndMapping(serverSide: Node,
+                                             mapping: Option[Node],
+                                             state: CompilerState): (CompiledStatement, Option[CompiledMapping]) = {
       val ib = f(serverSide.asInstanceOf[Insert])
       val ibr = ib.buildInsert
       (CompiledStatement(ibr.sql, ibr, serverSide.nodeType).infer(), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))

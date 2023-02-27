@@ -131,9 +131,9 @@ final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: Resul
 
 final class IsDefinedResultConverter[M <: ResultConverterDomain](child: ResultConverter[M, Option[_]]) extends ResultConverter[M, Boolean] {
   def read(pr: Reader) = child.read(pr).isDefined
-  def update(value: Boolean, pr: Updater) =
+  override def update(value: Boolean, pr: Updater): Nothing =
     throw new SlickException("Cannot insert/update IsDefined check")
-  def set(value: Boolean, pp: Writer, offset: Int) =
+  override def set(value: Boolean, pp: Writer, offset: Int): Nothing =
     throw new SlickException("Cannot insert/update IsDefined check")
   def width = child.width
   override def getDumpInfo =
@@ -151,9 +151,9 @@ final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](ch
 final case class OptionRebuildingResultConverter[M <: ResultConverterDomain, T](discriminator: ResultConverter[M, Boolean], data: ResultConverter[M, T]) extends ResultConverter[M, Option[T]] {
   def read(pr: Reader): Option[T] =
     if(discriminator.read(pr)) Some(data.read(pr)) else None
-  def update(value: Option[T], pr: Updater) =
+  def update(value: Option[T], pr: Updater): Nothing =
     throw new SlickException("Cannot insert/update non-primitive Option value")
-  def set(value: Option[T], pp: Writer, offset: Int) =
+  def set(value: Option[T], pp: Writer, offset: Int): Nothing =
     throw new SlickException("Cannot insert/update non-primitive Option value")
   def width = discriminator.width + data.width
   override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("discriminator", discriminator), ("data", data)))

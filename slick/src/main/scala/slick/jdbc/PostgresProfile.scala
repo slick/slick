@@ -1,17 +1,17 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import java.time._
+import java.time.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 
-import slick.ast._
+import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MIndexInfo, MTable}
 import slick.relational.RelationalProfile
 import slick.util.ConstArray
@@ -178,8 +178,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   }
 
   class PostgresQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
-    override protected val concatOperator = Some("||")
-    override protected val quotedJdbcFns = Some(Vector(Library.Database, Library.User))
+    override protected val concatOperator: Some[String] = Some("||")
+    override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] = Some(Vector(Library.Database, Library.User))
 
     override protected def buildSelectModifiers(c: Comprehension.Base): Unit = (c.distinct, c.select) match {
       case (Some(ProductNode(onNodes)), Pure(ProductNode(selNodes), _)) if onNodes.nonEmpty =>
@@ -286,14 +286,14 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   }
 
   class PostgresJdbcTypes extends JdbcTypes {
-    override val byteArrayJdbcType = new PostgresByteArrayJdbcType
-    override val uuidJdbcType      = new PostgresUUIDJdbcType
-    override val localDateType     = new PostgresLocalDateJdbcType
-    override val localTimeType     = new PostgresLocalTimeJdbcType
-    override val offsetTimeType    = new PostgresOffsetTimeJdbcType
+    override val byteArrayJdbcType: PostgresByteArrayJdbcType = new PostgresByteArrayJdbcType
+    override val uuidJdbcType: PostgresUUIDJdbcType = new PostgresUUIDJdbcType
+    override val localDateType: PostgresLocalDateJdbcType = new PostgresLocalDateJdbcType
+    override val localTimeType: PostgresLocalTimeJdbcType = new PostgresLocalTimeJdbcType
+    override val offsetTimeType: PostgresOffsetTimeJdbcType = new PostgresOffsetTimeJdbcType
     //OffsetDateTime and ZonedDateTime not currently supportable natively by the backend
-    override val instantType       = new PostgresInstantJdbcType
-    override val localDateTimeType = new PostgresLocalDateTimeJdbcType
+    override val instantType: PostgresInstantJdbcType = new PostgresInstantJdbcType
+    override val localDateTimeType: PostgresLocalDateTimeJdbcType = new PostgresLocalDateTimeJdbcType
 
     class PostgresByteArrayJdbcType extends ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY

@@ -1,7 +1,7 @@
 package slick.jdbc
 
 import java.sql.{Date, Time, Timestamp}
-import java.time._
+import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -10,10 +10,10 @@ import scala.concurrent.ExecutionContext
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.SlickException
-import slick.ast._
+import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.CompilerState
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -118,7 +118,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
       private val (extractedType, extractedLength) = extractTypeProps(meta.typeName)
 
-      override def dbType = Some(extractedType)
+      override def dbType: Some[String] = Some(extractedType)
       override def length = extractedLength
       override def varying = dbType.contains("VARCHAR")
       override def default: Option[Option[Any]] =
@@ -185,7 +185,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
       .map(_.filter(_.name.name.toLowerCase != "sqlite_sequence"))
 
-  override val columnTypes = new SQLiteJdbcTypes
+  override val columnTypes: SQLiteJdbcTypes = new SQLiteJdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new SQLiteQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): super.InsertBuilder = new SQLiteUpsertBuilder(node)
   override def createInsertBuilder(node: Insert): super.InsertBuilder = new SQLiteInsertBuilder(node)
@@ -216,10 +216,10 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
   class SQLiteQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsTuples = false
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val parenthesizeNestedRHSJoin = true
     override protected val alwaysAliasSubqueries = false
-    override protected val quotedJdbcFns = Some(Nil)
+    override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
     override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       if(o.nulls.last && !o.direction.desc)
@@ -282,8 +282,8 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   }
 
   class SQLiteTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
-    override protected val foreignKeys = Nil // handled directly in addTableOptions
-    override protected val primaryKeys = Nil // handled directly in addTableOptions
+    override protected val foreignKeys: Nil.type = Nil // handled directly in addTableOptions
+    override protected val primaryKeys: Nil.type = Nil // handled directly in addTableOptions
 
     override protected def addTableOptions(b: StringBuilder): Unit = {
       for(pk <- table.primaryKeys) {
@@ -324,14 +324,14 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   }
 
   class SQLiteJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType   = new SQLiteBooleanJdbcType
-    override val dateJdbcType      = new SQLiteDateJdbcType
-    override val localDateType     = new SQLiteLocalDateJdbcType
-    override val localDateTimeType = new SQLiteLocalDateTimeJdbcType
-    override val instantType       = new SQLiteInstantJdbcType
-    override val timeJdbcType      = new SQLiteTimeJdbcType
-    override val timestampJdbcType = new SQLiteTimestampJdbcType
-    override val uuidJdbcType      = new SQLiteUUIDJdbcType
+    override val booleanJdbcType: SQLiteBooleanJdbcType = new SQLiteBooleanJdbcType
+    override val dateJdbcType: SQLiteDateJdbcType = new SQLiteDateJdbcType
+    override val localDateType: SQLiteLocalDateJdbcType = new SQLiteLocalDateJdbcType
+    override val localDateTimeType: SQLiteLocalDateTimeJdbcType = new SQLiteLocalDateTimeJdbcType
+    override val instantType: SQLiteInstantJdbcType = new SQLiteInstantJdbcType
+    override val timeJdbcType: SQLiteTimeJdbcType = new SQLiteTimeJdbcType
+    override val timestampJdbcType: SQLiteTimestampJdbcType = new SQLiteTimestampJdbcType
+    override val uuidJdbcType: SQLiteUUIDJdbcType = new SQLiteUUIDJdbcType
 
     /* SQLite does not have a proper BOOLEAN type. The suggested workaround is
      * INTEGER with constants 1 and 0 for TRUE and FALSE. */

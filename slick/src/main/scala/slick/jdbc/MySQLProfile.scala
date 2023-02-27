@@ -6,14 +6,14 @@ import java.time.{Instant, LocalDateTime}
 import scala.concurrent.ExecutionContext
 
 import slick.SlickException
-import slick.ast._
-import slick.ast.TypeUtil._
-import slick.ast.Util._
+import slick.ast.*
+import slick.ast.TypeUtil.*
+import slick.ast.Util.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, ResolveZipJoins}
 import slick.dbio.DBIO
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
-import slick.lifted._
+import slick.lifted.*
 import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
 import slick.util.{ConstArray, GlobalConfig, SlickLogger}
@@ -120,7 +120,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     //https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
     import scala.reflect.{classTag, ClassTag}
     override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
-      import java.sql.Types._
+      import java.sql.Types.*
       jdbcType match{
         case TINYINT if typeName.contains("UNSIGNED")  =>  classTag[Short]
         case SMALLINT                                  =>  classTag[Int]
@@ -145,7 +145,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     } yield mTables
   }
 
-  override val columnTypes = new MySQLJdbcTypes
+  override val columnTypes: MySQLJdbcTypes = new MySQLJdbcTypes
   override protected def computeQueryCompiler =
     super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new MySQLQueryBuilder(n, state)
@@ -206,7 +206,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   class MySQLQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsCast = false
     override protected val parenthesizeNestedRHSJoin = true
-    override protected val quotedJdbcFns = Some(Nil)
+    override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
@@ -314,7 +314,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
-      import seq.integral._
+      import seq.integral.*
       val sqlType = profile.jdbcTypeFor(seq.tpe).sqlTypeName(None)
       val t = sqlType + " not null"
       val increment = seq._increment.getOrElse(one)
@@ -449,13 +449,13 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 object MySQLProfile extends MySQLProfile {
   final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with SimplyTypedNode {
     type Self = RowNum
-    def buildType = ScalaBaseType.longType
+    override def buildType: ScalaNumericType[Long] = ScalaBaseType.longType
     def rebuild = copy()
   }
 
   final case class RowNumGen(sym: AnonSymbol, init: Long) extends NullaryNode with SimplyTypedNode {
     type Self = RowNumGen
-    def buildType = ScalaBaseType.longType
+    override def buildType: ScalaNumericType[Long] = ScalaBaseType.longType
     def rebuild = copy()
   }
 }

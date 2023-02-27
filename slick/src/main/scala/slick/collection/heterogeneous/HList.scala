@@ -127,9 +127,15 @@ sealed abstract class HList extends Product {
 object HList {
   import syntax._
 
-  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
-    def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
-    def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new HListShape(shapes)
+  final class HListShape[
+    Level <: ShapeLevel,
+    M <: HList,
+    U <: HList : ClassTag,
+    P <: HList
+  ](val shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
+    override def buildValue(elems: IndexedSeq[Any]): HList = elems.foldRight(HNil: HList)(_ :: _)
+    override def copy(shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]): HListShape[Level, Nothing, U, Nothing] =
+      new HListShape(shapes)
   }
   implicit def hnilShape[Level <: ShapeLevel]: HListShape[Level, HNil.type, HNil.type, HNil.type] =
     new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
@@ -190,6 +196,6 @@ object HNil extends HList {
   def head = throw new NoSuchElementException("HNil.head")
   def tail = throw new NoSuchElementException("HNil.tail")
   def fold[U, F[_ <: HList, _ <: U] <: U, Z <: U](f: TypedFunction2[HList, U, U, F], z: Z) = z
-  def toList = Nil
+  override def toList: Nil.type = Nil
   def nonEmpty = false
 }

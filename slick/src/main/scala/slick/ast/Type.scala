@@ -3,7 +3,7 @@ package slick.ast
 import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.{mutable, Factory}
 import scala.language.implicitConversions
-import scala.reflect.{ClassTag, classTag => mkClassTag}
+import scala.reflect.{ClassTag, classTag as mkClassTag}
 
 import slick.SlickException
 import slick.util.{ConstArray, Dumpable, DumpInfo, TupleSupport}
@@ -43,7 +43,7 @@ object Type {
 /** An atomic type (i.e. a type which does not contain other types) */
 trait AtomicType extends Type {
   final def mapChildren(f: Type => Type): this.type = this
-  def children = ConstArray.empty
+  override def children: ConstArray[Nothing] = ConstArray.empty
   override final def childrenForeach[R](f: Type => R): Unit = ()
 }
 
@@ -71,7 +71,7 @@ trait OptionType extends Type {
   override def toString = s"Option[$elementType]"
   def elementType: Type
   def children: ConstArray[Type] = ConstArray(elementType)
-  def classTag = OptionType.classTag
+  def classTag: ClassTag[Option[?]] = OptionType.classTag
   override def hashCode = elementType.hashCode() + 100
   override def equals(o: Any) = o match {
     case OptionType(elem) if elementType == elem => true
@@ -229,7 +229,7 @@ object MappedScalaType {
 
 /** The standard type for freshly constructed nodes without an explicit type. */
 case object UnassignedType extends AtomicType {
-  def classTag = throw new SlickException("UnassignedType does not have a ClassTag")
+  override def classTag: Nothing = throw new SlickException("UnassignedType does not have a ClassTag")
 }
 
 /** A type with a name, as used by tables.

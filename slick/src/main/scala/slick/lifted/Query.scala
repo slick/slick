@@ -1,13 +1,13 @@
 package slick.lifted
 
-import slick.util.ConstArray
-
-import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
+import scala.language.experimental.macros
 import scala.reflect.macros.blackbox.Context
-import slick.ast.{Join => AJoin, _}
-import FunctionSymbolExtensionMethods._
-import ScalaBaseType._
+
+import slick.ast.{Join as AJoin, *}
+import slick.ast.ScalaBaseType.*
+import slick.lifted.FunctionSymbolExtensionMethods.*
+import slick.util.ConstArray
 
 sealed trait QueryBase[T] extends Rep[T]
 
@@ -297,8 +297,8 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: TermSymbol,
 /** Represents a database table. Profiles add extension methods to TableQuery
   * for operations that can be performed on tables but not on arbitrary
   * queries, e.g. getting the table DDL. */
-class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
-  lazy val shaped = {
+class TableQuery[E <: AbstractTable[?]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
+  override lazy val shaped: ShapedValue[E, E#TableElementType] = {
     val baseTable = cons(new BaseTag { base =>
       def taggedAs(path: Node): AbstractTable[_] = cons(new RefTag(path) {
         def taggedAs(path: Node) = base.taggedAs(path)
@@ -328,7 +328,7 @@ object TableQuery {
 object TableQueryMacroImpl {
 
   def apply[E <: AbstractTable[_]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
-    import c.universe._
+    import c.universe.*
     val cons = c.Expr[Tag => E](Function(
       List(ValDef(Modifiers(Flag.PARAM), TermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),
       Apply(

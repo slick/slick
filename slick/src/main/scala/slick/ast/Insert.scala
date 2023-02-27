@@ -7,10 +7,10 @@ final case class Insert(tableSym: TermSymbol, table: Node, linear: Node, allFiel
   type Self = Insert
   def left = table
   def right = linear
-  override def childNames = Vector("table "+tableSym, "linear")
+  override def childNames: Vector[String] = Vector("table "+tableSym, "linear")
   def generators = ConstArray((tableSym, table))
   def rebuild(l: Node, r: Node) = copy(table = l, linear = r)
-  def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(tableSym = gen(0))
+  override def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Insert = copy(tableSym = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val table2 = table.infer(scope, typeChildren)
     val lin2 = linear.infer(scope + (tableSym -> table2.nodeType), typeChildren)

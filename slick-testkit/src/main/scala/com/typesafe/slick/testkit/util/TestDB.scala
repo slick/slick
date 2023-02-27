@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.util
 
-import java.io._
+import java.io.*
 import java.sql.Connection
 import java.util.Properties
 import java.util.concurrent.ExecutionException
@@ -9,9 +9,9 @@ import java.util.zip.GZIPInputStream
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 import slick.basic.{BasicProfile, Capability}
-import slick.dbio.{DBIO, DBIOAction, NoStream}
+import slick.dbio.{DBIO, DBIOAction, Effect, NoStream}
 import slick.jdbc.{JdbcDataSource, JdbcProfile, ResultSetAction}
-import slick.jdbc.GetResult._
+import slick.jdbc.GetResult.*
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
 import slick.util.AsyncExecutor
@@ -172,9 +172,9 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
         sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)} cascade"""): _*)
     } yield ()
   }
-  def assertTablesExist(tables: String*) =
+  override def assertTablesExist(tables: String*): DBIOAction[Unit, NoStream, Effect] =
     DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int]): _*)
-  def assertNotTablesExist(tables: String*) =
+  override def assertNotTablesExist(tables: String*): DBIOAction[Unit, NoStream, Effect] =
     DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int].failed): _*)
   def createSingleSessionDatabase(implicit session: profile.Backend#Session,
                                   executor: AsyncExecutor = AsyncExecutor.default()): profile.Backend#Database = {

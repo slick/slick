@@ -1,6 +1,7 @@
 package slick.lifted
 
 import scala.annotation.implicitNotFound
+
 import slick.ast.Node
 import slick.basic.BasicProfile
 
@@ -82,8 +83,10 @@ class AppliedCompiledFunction[PU, R <: Rep[_], RU](val param: PU, function: Comp
   def compiledInsert = function.compiledInsert
 }
 
-abstract class CompiledExecutable[R, RU](val extract: R, val profile: BasicProfile) extends RunnableCompiled[R, RU] with CompilersMixin {
-  def param = ()
+abstract class CompiledExecutable[R, RU](val extract: R, val profile: BasicProfile)
+  extends RunnableCompiled[R, RU]
+    with CompilersMixin {
+  override def param: Unit = ()
   def toNode: Node
 }
 

@@ -1,7 +1,7 @@
 package slick.ast
 
 import slick.ast.TypeUtil.typeToTypeUtil
-import slick.ast.Util._
+import slick.ast.Util.*
 import slick.util.ConstArray
 
 /** A SQL comprehension */
@@ -29,7 +29,7 @@ final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
       fetch ++
       offset)
       .result
-  override def childNames =
+  override def childNames: Seq[String] =
     Seq("from " + sym, "select") ++
       where.map(_ => "where") ++
       groupBy.map(_ => "groupBy") ++
@@ -68,7 +68,7 @@ final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
     )
   }
   def generators = ConstArray((sym, from))
-  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(sym = gen.head)
+  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Comprehension[Fetch] = copy(sym = gen.head)
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     // Assign type to "from" Node and compute the resulting scope
     val f2 = from.infer(scope, typeChildren)
@@ -111,10 +111,10 @@ object Comprehension {
 /** The row_number window function */
 final case class RowNumber(by: ConstArray[(Node, Ordering)] = ConstArray.empty) extends SimplyTypedNode {
   type Self = RowNumber
-  def buildType = ScalaBaseType.longType
+  override def buildType: ScalaNumericType[Long] = ScalaBaseType.longType
   lazy val children = by.map(_._1)
   protected[this] def rebuild(ch: ConstArray[Node]) =
     copy(by = by.zip(ch).map{ case ((_, o), n) => (n, o) })
-  override def childNames = by.zipWithIndex.map("by" + _._2).toSeq
+  override def childNames: IndexedSeq[String] = by.zipWithIndex.map("by" + _._2).toSeq
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }

@@ -4,13 +4,13 @@ package slick.memory
 import scala.collection.mutable.{Builder, HashMap}
 
 import slick.SlickException
-import slick.ast._
-import slick.ast.TypeUtil._
+import slick.ast.*
+import slick.ast.TypeUtil.*
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
-import slick.compiler._
-import slick.dbio._
-import slick.relational.{RelationalProfile, ResultConverter, CompiledMapping}
-import slick.util.{DumpInfo, RefId, ??}
+import slick.compiler.*
+import slick.dbio.*
+import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter}
+import slick.util.{??, DumpInfo, RefId}
 
 /** A profile for distributed queries. */
 class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryingProfile { self: DistributedProfile =>
@@ -25,9 +25,9 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
 
   lazy val queryCompiler =
     QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) ++ QueryCompiler.interpreterPhases + new MemoryCodeGen
-  lazy val updateCompiler = ??
-  lazy val deleteCompiler = ??
-  lazy val insertCompiler = ??
+  override lazy val updateCompiler: Nothing = ??
+  override lazy val deleteCompiler: Nothing = ??
+  override lazy val insertCompiler: Nothing = ??
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
@@ -70,7 +70,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {
-    import QueryInterpreter._
+    import QueryInterpreter.*
 
     override def run(n: Node) = n match {
       case ProfileComputation(compiled, profile, _) =>

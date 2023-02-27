@@ -1,14 +1,14 @@
 package com.typesafe.slick.testkit.util
 
+import java.util.concurrent.ExecutionException
+
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.{Codec, Source}
 
-import java.util.concurrent.ExecutionException
-
 import slick.codegen.{OutputHelpers, SourceCodeGenerator}
-import slick.dbio._
+import slick.dbio.*
 import slick.model.Model
 
 import org.junit.Test
@@ -53,7 +53,7 @@ trait TestCodeGenerator {
         var init: DBIO[Any] = DBIO.successful(())
         var current: String = null
         initScripts.foreach { initScript =>
-          import tdb.profile.api._
+          import tdb.profile.api.*
           Source.fromURL(self.getClass.getResource(initScript))(Codec.UTF8).getLines().foreach { s =>
             if(current eq null) current = s else current = current + "\n" + s
             if(s.trim.endsWith(";")) {
@@ -91,7 +91,7 @@ trait TestCodeGenerator {
         if(baseName.dropRight(3).last == 's') baseName.dropRight(4)
         else baseName
       }
-      override def parentType = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
+      override def parentType: Some[String] = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
       override def code = {
         s"""
            |lazy val tdb = $fullTdbName

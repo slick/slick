@@ -1,19 +1,19 @@
 package slick.jdbc
 
-import java.sql.{Array => _, _}
-import java.time._
+import java.sql.{Array as _, *}
+import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 
 import slick.SlickException
-import slick.ast._
+import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MTable}
-import slick.lifted._
+import slick.lifted.*
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.util.ConstArray
@@ -120,7 +120,7 @@ trait OracleProfile extends JdbcProfile {
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): OracleColumnDDLBuilder =
     new OracleColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
-  override val columnTypes = new OracleJdbcTypes
+  override val columnTypes: OracleJdbcTypes = new OracleJdbcTypes
 
   val blobBufferSize = 4096
 
@@ -137,11 +137,11 @@ trait OracleProfile extends JdbcProfile {
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  override val scalarFrom = Some("sys.dual")
+  override val scalarFrom: Some[String] = Some("sys.dual")
 
   class OracleQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsTuples = false
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val hasPiFunction = false
     /* Oracle officially supports {fn degrees} and {fn radians} but
      * Statement.execute throws a NullPointerException when you try to use
@@ -314,18 +314,18 @@ END;
   }
 
   class OracleJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType    = new OracleBooleanJdbcType
-    override val blobJdbcType       = new OracleBlobJdbcType
-    override val byteArrayJdbcType  = new OracleByteArrayJdbcType
-    override val stringJdbcType     = new OracleStringJdbcType
-    override val timeJdbcType       = new OracleTimeJdbcType
-    override val uuidJdbcType       = new OracleUUIDJdbcType
-    override val localDateType      = new OracleLocalDateJdbcType
-    override val localDateTimeType  = new OracleLocalDateTimeJdbcType
-    override val instantType        = new OracleInstantJdbcType
-    override val offsetTimeType     = new OracleOffsetTimeJdbcType
-    override val offsetDateTimeType = new OracleOffsetDateTimeJdbcType
-    override val zonedDateType      = new OracleZonedDateTimeJdbcType
+    override val booleanJdbcType: OracleBooleanJdbcType = new OracleBooleanJdbcType
+    override val blobJdbcType: OracleBlobJdbcType = new OracleBlobJdbcType
+    override val byteArrayJdbcType: OracleByteArrayJdbcType = new OracleByteArrayJdbcType
+    override val stringJdbcType: OracleStringJdbcType = new OracleStringJdbcType
+    override val timeJdbcType: OracleTimeJdbcType = new OracleTimeJdbcType
+    override val uuidJdbcType: OracleUUIDJdbcType = new OracleUUIDJdbcType
+    override val localDateType: OracleLocalDateJdbcType = new OracleLocalDateJdbcType
+    override val localDateTimeType: OracleLocalDateTimeJdbcType = new OracleLocalDateTimeJdbcType
+    override val instantType: OracleInstantJdbcType = new OracleInstantJdbcType
+    override val offsetTimeType: OracleOffsetTimeJdbcType = new OracleOffsetTimeJdbcType
+    override val offsetDateTimeType: OracleOffsetDateTimeJdbcType = new OracleOffsetDateTimeJdbcType
+    override val zonedDateType: OracleZonedDateTimeJdbcType = new OracleZonedDateTimeJdbcType
 
     /* Oracle does not have a proper BOOLEAN type. The suggested workaround is
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
@@ -357,12 +357,12 @@ END;
           } finally out.close()
         } finally if(!added) ob.free()
       }
-      override def updateValue(v: Blob, r: ResultSet, idx: Int) =
+      override def updateValue(v: Blob, r: ResultSet, idx: Int): Nothing =
         throw new SlickException("OracleProfile does not support updating Blob values")
     }
 
     class OracleByteArrayJdbcType extends ByteArrayJdbcType {
-      override def updateValue(v: Array[Byte], r: ResultSet, idx: Int) =
+      override def updateValue(v: Array[Byte], r: ResultSet, idx: Int): Nothing =
         throw new SlickException("OracleProfile does not support updating Blob values")
     }
 

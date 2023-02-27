@@ -1,13 +1,13 @@
 package slick.jdbc
 
-import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
+import java.sql.{Array as _, *}
+import java.time.*
 import java.util.UUID
-import java.time.{OffsetDateTime, ZonedDateTime, Instant, LocalTime, LocalDate, LocalDateTime, OffsetTime}
 
 import scala.reflect.ClassTag
 
 import slick.SlickException
-import slick.ast._
+import slick.ast.*
 import slick.relational.{RelationalProfile, RelationalTypesComponent}
 
 trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
@@ -34,7 +34,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     def updateValue(v: T, r: ResultSet, idx: Int) = tmd.updateValue(map(v), r, idx)
     def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
     def hasLiteralForm = newHasLiteralForm.getOrElse(tmd.hasLiteralForm)
-    def scalaType = ScalaBaseType[T]
+    override def scalaType: ScalaBaseType[T] = ScalaBaseType[T]
     override def toString = s"MappedJdbcType[${classTag.runtimeClass.getName} -> $tmd]"
     override def hashCode = tmd.hashCode() + classTag.hashCode()
     override def equals(o: Any) = o match {
@@ -85,7 +85,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   abstract class DriverJdbcType[@specialized T](implicit val classTag: ClassTag[T]) extends JdbcType[T] {
-    def scalaType = ScalaBaseType[T]
+    override def scalaType: ScalaBaseType[T] = ScalaBaseType[T]
     def sqlTypeName(sym: Option[FieldSymbol]): String = self.defaultSqlTypeName(this, sym)
     def valueToSQLLiteral(value: T) =
       if(hasLiteralForm) value.toString
