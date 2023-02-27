@@ -36,12 +36,7 @@ inThisBuild(
         Developer("hvesalai", "Heikki Vesalainen", "", url("https://github.com/hvesalai/"))
       ),
     scmInfo := Some(ScmInfo(url("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git")),
-    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
-    scalacOptions ++=
-      (CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, v)) if v <= 12 => Seq("-Xfuture")
-        case _                       => Nil
-      }),
+    scalacOptions ++= List("-deprecation", "-feature", "-unchecked", "-Xsource:3")
   )
 )
 

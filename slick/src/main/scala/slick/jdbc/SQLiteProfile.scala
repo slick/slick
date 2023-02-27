@@ -1,7 +1,7 @@
 package slick.jdbc
 
 import java.sql.{Date, Time, Timestamp}
-import java.time._
+import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -10,10 +10,10 @@ import scala.concurrent.ExecutionContext
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.SlickException
-import slick.ast._
+import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.CompilerState
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -76,26 +76,25 @@ import slick.util.MacroSupport.macroSupportInterpolation
   * </ul>
   */
 trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
-
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalCapabilities.functionDatabase
-    - RelationalCapabilities.functionUser
-    - RelationalCapabilities.joinFull
-    - RelationalCapabilities.joinRight
-    - JdbcCapabilities.mutable
-    - SqlCapabilities.sequence
-    - JdbcCapabilities.returnInsertOther
-    - RelationalCapabilities.typeBigDecimal
-    - RelationalCapabilities.typeBlob
-    - RelationalCapabilities.zip
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.defaultValueMetaData
-    - JdbcCapabilities.booleanMetaData
-    - JdbcCapabilities.supportsByte
-    - JdbcCapabilities.distinguishesIntTypes
-    - JdbcCapabilities.forUpdate
-    - JdbcCapabilities.returnMultipleInsertKey
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      RelationalCapabilities.functionDatabase -
+      RelationalCapabilities.functionUser -
+      RelationalCapabilities.joinFull -
+      RelationalCapabilities.joinRight -
+      JdbcCapabilities.mutable -
+      SqlCapabilities.sequence -
+      JdbcCapabilities.returnInsertOther -
+      RelationalCapabilities.typeBigDecimal -
+      RelationalCapabilities.typeBlob -
+      RelationalCapabilities.zip -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.defaultValueMetaData -
+      JdbcCapabilities.booleanMetaData -
+      JdbcCapabilities.supportsByte -
+      JdbcCapabilities.distinguishesIntTypes -
+      JdbcCapabilities.forUpdate -
+      JdbcCapabilities.returnMultipleInsertKey
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -118,7 +117,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
       private val (extractedType, extractedLength) = extractTypeProps(meta.typeName)
 
-      override def dbType = Some(extractedType)
+      override def dbType: Some[String] = Some(extractedType)
       override def length = extractedLength
       override def varying = dbType.contains("VARCHAR")
       override def default: Option[Option[Any]] =
@@ -185,12 +184,12 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
       .map(_.filter(_.name.name.toLowerCase != "sqlite_sequence"))
 
-  override val columnTypes = new SQLiteJdbcTypes
+  override val columnTypes: SQLiteJdbcTypes = new SQLiteJdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new SQLiteQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): super.InsertBuilder = new SQLiteUpsertBuilder(node)
   override def createInsertBuilder(node: Insert): super.InsertBuilder = new SQLiteInsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new SQLiteTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new SQLiteTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder =
     new SQLiteColumnDDLBuilder(column)
 
   private trait SQLiteInsertAll[U] extends InsertActionComposerImpl[U] {
@@ -216,10 +215,10 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
   class SQLiteQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsTuples = false
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val parenthesizeNestedRHSJoin = true
     override protected val alwaysAliasSubqueries = false
-    override protected val quotedJdbcFns = Some(Nil)
+    override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
     override protected def buildOrdering(n: Node, o: Ordering): Unit = {
       if(o.nulls.last && !o.direction.desc)
@@ -281,9 +280,9 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected def emptyInsert: String = s"insert into $tableName default values"
   }
 
-  class SQLiteTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
-    override protected val foreignKeys = Nil // handled directly in addTableOptions
-    override protected val primaryKeys = Nil // handled directly in addTableOptions
+  class SQLiteTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
+    override protected val foreignKeys: Nil.type = Nil // handled directly in addTableOptions
+    override protected val primaryKeys: Nil.type = Nil // handled directly in addTableOptions
 
     override protected def addTableOptions(b: StringBuilder): Unit = {
       for(pk <- table.primaryKeys) {
@@ -318,20 +317,20 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.TINYINT | java.sql.Types.SMALLINT | java.sql.Types.BIGINT => "INTEGER"
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
   class SQLiteJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType   = new SQLiteBooleanJdbcType
-    override val dateJdbcType      = new SQLiteDateJdbcType
-    override val localDateType     = new SQLiteLocalDateJdbcType
-    override val localDateTimeType = new SQLiteLocalDateTimeJdbcType
-    override val instantType       = new SQLiteInstantJdbcType
-    override val timeJdbcType      = new SQLiteTimeJdbcType
-    override val timestampJdbcType = new SQLiteTimestampJdbcType
-    override val uuidJdbcType      = new SQLiteUUIDJdbcType
+    override val booleanJdbcType: SQLiteBooleanJdbcType = new SQLiteBooleanJdbcType
+    override val dateJdbcType: SQLiteDateJdbcType = new SQLiteDateJdbcType
+    override val localDateType: SQLiteLocalDateJdbcType = new SQLiteLocalDateJdbcType
+    override val localDateTimeType: SQLiteLocalDateTimeJdbcType = new SQLiteLocalDateTimeJdbcType
+    override val instantType: SQLiteInstantJdbcType = new SQLiteInstantJdbcType
+    override val timeJdbcType: SQLiteTimeJdbcType = new SQLiteTimeJdbcType
+    override val timestampJdbcType: SQLiteTimestampJdbcType = new SQLiteTimestampJdbcType
+    override val uuidJdbcType: SQLiteUUIDJdbcType = new SQLiteUUIDJdbcType
 
     /* SQLite does not have a proper BOOLEAN type. The suggested workaround is
      * INTEGER with constants 1 and 0 for TRUE and FALSE. */

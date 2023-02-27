@@ -7,13 +7,13 @@ import java.util.UUID
 import scala.concurrent.ExecutionContext
 
 import slick.SlickException
-import slick.ast._
-import slick.ast.TypeUtil._
+import slick.ast.*
+import slick.ast.TypeUtil.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.meta.MTable
-import slick.lifted._
+import slick.lifted.*
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -148,7 +148,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   override protected def computeQueryCompiler =
     super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
-  override val columnTypes = new DerbyJdbcTypes
+  override val columnTypes: DerbyJdbcTypes = new DerbyJdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DerbyQueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DerbyTableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
@@ -162,13 +162,13 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  override val scalarFrom = Some("sysibm.sysdummy1")
+  override val scalarFrom: Some[String] = Some("sysibm.sysdummy1")
 
   class DerbyQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val supportsTuples = false
     override protected val supportsLiteralGroupBy = true
-    override protected val quotedJdbcFns = Some(Vector(Library.User))
+    override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] = Some(Vector(Library.User))
 
     override protected def buildForUpdateClause(forUpdate: Boolean) = {
       super.buildForUpdateClause(forUpdate)
@@ -266,7 +266,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   class DerbySequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
-      import seq.integral._
+      import seq.integral.*
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero
       val b = new StringBuilder append "CREATE SEQUENCE " append quoteIdentifier(seq.name)
@@ -285,9 +285,9 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   }
 
   class DerbyJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType = new DerbyBooleanJdbcType
-    override val uuidJdbcType = new DerbyUUIDJdbcType
-    override val instantType = new DerbyInstantJdbcType
+    override val booleanJdbcType: DerbyBooleanJdbcType = new DerbyBooleanJdbcType
+    override val uuidJdbcType: DerbyUUIDJdbcType = new DerbyUUIDJdbcType
+    override val instantType: DerbyInstantJdbcType = new DerbyInstantJdbcType
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */

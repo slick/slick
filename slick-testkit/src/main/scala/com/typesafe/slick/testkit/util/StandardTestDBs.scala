@@ -1,20 +1,21 @@
 package com.typesafe.slick.testkit.util
 
-import java.util.logging.{Level, Logger}
 import java.sql.{DriverManager, SQLException}
+import java.util.logging.{Level, Logger}
 
-import slick.compiler.Phase
-import slick.dbio._
-import slick.memory.MemoryProfile
-import slick.jdbc._
-import slick.jdbc.GetResult._
-import slick.jdbc.meta.MTable
-import org.junit.Assert
-import slick.basic.Capability
-import slick.util.ConfigExtensionMethods._
-
-import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.duration.Duration
+
+import slick.basic.Capability
+import slick.compiler.Phase
+import slick.dbio.*
+import slick.jdbc.*
+import slick.jdbc.GetResult.*
+import slick.jdbc.meta.MTable
+import slick.memory.MemoryProfile
+import slick.util.ConfigExtensionMethods.*
+
+import org.junit.Assert
 
 object StandardTestDBs {
   lazy val H2Mem = new H2TestDB("h2mem", false) {
@@ -67,7 +68,10 @@ object StandardTestDBs {
 
   lazy val SQLiteMem = new SQLiteTestDB("jdbc:sqlite:file:slick_test?mode=memory&cache=shared", "sqlitemem") {
     override def isPersistent = false
-    override def capabilities: Set[Capability] = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
+    override def capabilities: Set[Capability] =
+      super.capabilities -
+        TestDB.capabilities.jdbcMetaGetFunctions -
+        TestDB.capabilities.jdbcMetaGetClientInfoProperties
   }
 
   lazy val SQLiteDisk = {
@@ -75,7 +79,10 @@ object StandardTestDBs {
     val prefix = "sqlite-"+confName
     new SQLiteTestDB("jdbc:sqlite:"+TestkitConfig.testDBPath+"/"+prefix+".db", confName) {
       override def cleanUpBefore() = TestDB.deleteDBFiles(prefix)
-      override def capabilities: Set[Capability] = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
+      override def capabilities: Set[Capability] =
+        super.capabilities -
+          TestDB.capabilities.jdbcMetaGetFunctions -
+          TestDB.capabilities.jdbcMetaGetClientInfoProperties
     }
   }
 
@@ -86,7 +93,7 @@ object StandardTestDBs {
       super.cleanUpBefore()
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
       try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
-      catch { case e: SQLException => }
+      catch { case _: SQLException => }
     }
   }
 
@@ -97,7 +104,7 @@ object StandardTestDBs {
       super.cleanUpBefore()
       val dropUrl = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";shutdown=true"
       try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
-      catch { case e: SQLException => }
+      catch { case _: SQLException => }
       TestDB.deleteDBFiles(dbName)
     }
   }
@@ -105,13 +112,11 @@ object StandardTestDBs {
   lazy val Postgres = new ExternalJdbcTestDB("postgres") {
     val profile = PostgresProfile
     override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-      ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
-        ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
-      }
+      ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "public", null, null))
+        .map(_.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted)
     override def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-      ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
-        ts.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
-      }
+      ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "public", null, null))
+        .map(_.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted)
     override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
   }
 
@@ -188,7 +193,7 @@ object StandardTestDBs {
   }
 
   class SQLServerDB(confName: String) extends ExternalJdbcTestDB(confName) {
-    val profile = SQLServerProfile
+    val profile: SQLServerProfile = SQLServerProfile
     import profile.api.actionBasedSQLInterpolation
 
     // sqlserver has valid "select for update" syntax, but in testing on Appveyor, the test hangs due to lock escalation
@@ -237,8 +242,8 @@ object StandardTestDBs {
         for {
           tables <- localTables
           sequences <- localSequences
-          _ <- DBIO.seq(tables.map(t => sqlu"drop table #${profile.quoteIdentifier(t)} cascade constraints") ++
-                        sequences.map(s => sqlu"drop sequence #${profile.quoteIdentifier(s)}"): _*)
+          _ <- DBIO.seq((tables.map(t => sqlu"drop table #${profile.quoteIdentifier(t)} cascade constraints") ++
+            sequences.map(s => sqlu"drop sequence #${profile.quoteIdentifier(s)}")) *)
         } yield ()
       }
 
@@ -248,13 +253,15 @@ object StandardTestDBs {
 abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJdbcTestDB(confName) {
   val profile: Profile = H2Profile
   val jdbcDriver = "org.h2.Driver"
-  override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
-  override def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver, keepAliveConnection = keepAlive)
+  override def capabilities =
+    super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
+  override def createDB(): profile.Backend#Database =
+    database.forURL(url, driver = jdbcDriver, keepAliveConnection = keepAlive)
 }
 
 class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(confName) {
   import profile.api.actionBasedSQLInterpolation
-  val profile = SQLiteProfile
+  val profile: SQLiteProfile = SQLiteProfile
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
@@ -264,7 +271,7 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
       tables <- localTables
       sequences <- localSequences
       _ <- DBIO.seq((tables.map(t => sqlu"""drop table if exists #${profile.quoteIdentifier(t)}""") ++
-                     sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)}""")): _*)
+        sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)}""")) *)
     } yield ()
   }
 }
@@ -273,7 +280,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
   // sbt enables a security manager which prevents Derby from loading, we must disable it
   System.setSecurityManager(null)
   import profile.api.actionBasedSQLInterpolation
-  val profile = DerbyProfile
+  val profile: DerbyProfile = DerbyProfile
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
   override def cleanUpBefore() = {
@@ -282,7 +289,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
     DriverManager.setLoginTimeout(30)
   }
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-    ResultSetAction[(String, String, String, String)](_.conn.getMetaData().getTables(null, "APP", null, null)).map { ts =>
+    ResultSetAction[(String, String, String, String)](_.conn.getMetaData.getTables(null, "APP", null, null)).map { ts =>
       ts.map(_._3).sorted
     }
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = try {
@@ -293,12 +300,14 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
                              from sys.sysconstraints c, sys.sysschemas s, sys.systables t
                              where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
                           """.as[(String, String)]
-        _ <- DBIO.seq((for((c, t) <- constraints if !c.startsWith("SQL"))
-                yield sqlu"""alter table ${profile.quoteIdentifier(t)} drop constraint ${profile.quoteIdentifier(c)}"""): _*)
+        _ <- DBIO.seq((for ((c, t) <- constraints if !c.startsWith("SQL"))
+          yield sqlu"""alter table ${profile.quoteIdentifier(t)} drop constraint ${profile.quoteIdentifier(c)}""") *)
         tables <- localTables
         sequences <- localSequences
-        _ <- DBIO.seq((tables.map(t => sqlu"""drop table #${profile.quoteIdentifier(t)}""") ++
-                       sequences.map(t => sqlu"""drop sequence #${profile.quoteIdentifier(t)}""")): _*)
+        _ <- DBIO.seq(
+          (tables.map(t => sqlu"""drop table #${profile.quoteIdentifier(t)}""") ++
+            sequences.map(t => sqlu"""drop sequence #${profile.quoteIdentifier(t)}""")) *
+        )
       } yield ()
     }
   } catch {
@@ -310,19 +319,18 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
 }
 
 object DerbyDB {
-  val DEV_NULL = new java.io.OutputStream { def write(b: Int): Unit = {} };
+  val DEV_NULL = new java.io.OutputStream { def write(b: Int): Unit = {} }
 }
 
 abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
-  val profile = HsqldbProfile
+  val profile: HsqldbProfile = HsqldbProfile
   val jdbcDriver = "org.hsqldb.jdbcDriver"
   // Hsqldb has valid "select for update" syntax, but in testing, it either takes a whole table lock or no exclusive
   // lock at all, so exclude from ForUpdate testing
   override def capabilities = super.capabilities - TestDB.capabilities.selectForUpdateRowLocking
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-    ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null)).map { ts =>
-      ts.map(_._3).sorted
-    }
+    ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables(null, "PUBLIC", null, null))
+      .map(ts => ts.map(_._3).sorted)
   override def createDB(): profile.Backend#Database = {
     val db = super.createDB()
     Await.result(db.run(SimpleJdbcAction(_ => ())), Duration.Inf)

@@ -4,16 +4,16 @@ import java.io.Closeable
 import java.util.concurrent.atomic.{AtomicLong, AtomicReferenceArray}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
 
 import slick.SlickException
-import slick.dbio._
+import slick.dbio.*
+import slick.util.*
 import slick.util.AsyncExecutor.{Continuation, Fresh, Priority, WithConnection}
-import slick.util._
 
 import com.typesafe.config.Config
-import org.reactivestreams._
+import org.reactivestreams.*
 import org.slf4j.LoggerFactory
 
 
@@ -34,7 +34,7 @@ trait BasicBackend { self =>
   /** The type of the context used for running SynchronousDatabaseActions */
   type Context >: Null <: BasicActionContext
   /** The type of the context used for streaming SynchronousDatabaseActions */
-  type StreamingContext >: Null <: Context with BasicStreamingActionContext
+  type StreamingContext >: Null <: Context & BasicStreamingActionContext
 
   /** The database factory */
   val Database: DatabaseFactory
@@ -99,17 +99,17 @@ trait BasicBackend { self =>
       * from within `onNext`. If streaming is interrupted due to back-pressure signaling, the next
       * row will be prefetched (in order to buffer the next result page from the server when a page
       * boundary has been reached). */
-    final def stream[T](a: DBIOAction[_, Streaming[T], Nothing]): DatabasePublisher[T] =
+    final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): DatabasePublisher[T] =
       streamInternal(a, useSameThread = false)
 
-    private[slick] final def streamInternal[T](a: DBIOAction[_, Streaming[T], Nothing],
+    private[slick] final def streamInternal[T](a: DBIOAction[?, Streaming[T], Nothing],
                                                useSameThread: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => createStreamingDatabaseActionContext(s, useSameThread))
 
     /** Create a Reactive Streams `Publisher` using the given context factory. */
-    protected[this] def createPublisher[T](a: DBIOAction[_, Streaming[T], Nothing],
-                                           createCtx: Subscriber[_ >: T] => StreamingContext): DatabasePublisher[T] =
-    { (s: Subscriber[_ >: T]) =>
+    protected[this] def createPublisher[T](a: DBIOAction[?, Streaming[T], Nothing],
+                                           createCtx: Subscriber[? >: T] => StreamingContext): DatabasePublisher[T] =
+    { (s: Subscriber[? >: T]) =>
       if (s eq null) throw new NullPointerException("Subscriber is null")
       val ctx = createCtx(s)
       if (streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
@@ -137,7 +137,7 @@ trait BasicBackend { self =>
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context
 
     /** Create the default StreamingDatabaseActionContext for this backend. */
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T],
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T],
                                                                 useSameThread: Boolean): StreamingContext
 
     /** Run an Action in an existing DatabaseActionContext. This method can be overridden in
@@ -258,11 +258,11 @@ trait BasicBackend { self =>
           p.future
         case NamedAction(a, _) =>
           runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
-        case a: SynchronousDatabaseAction[_, _, _, _] =>
+        case a: SynchronousDatabaseAction[?, ?, ?, ?] =>
           if (streaming) {
             if (a.supportsStreaming)
               streamSynchronousDatabaseAction(
-                a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]],
+                a.asInstanceOf[SynchronousDatabaseAction[?, ? <: NoStream, This, ? <: Effect]],
                 ctx.asInstanceOf[StreamingContext],
                 !topLevel
               ).asInstanceOf[Future[R]]
@@ -280,11 +280,11 @@ trait BasicBackend { self =>
           }
           else
             runSynchronousDatabaseAction(
-              a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, _]],
+              a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, ?]],
               ctx,
               !topLevel
             )
-        case a: DatabaseAction[_, _, _] =>
+        case a: DatabaseAction[?, ?, ?]               =>
           throw new SlickException(s"Unsupported database action $a for $this")
       }
     }
@@ -307,7 +307,7 @@ trait BasicBackend { self =>
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
-    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _],
+    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, ?],
                                                         ctx: Context,
                                                         continuation: Boolean): Future[R] = {
       val promise = Promise[R]()
@@ -340,7 +340,7 @@ trait BasicBackend { self =>
 
     /** Stream a `SynchronousDatabaseAction` on this database. */
     protected[this]
-    def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect],
+    def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[?, ? <: NoStream, This, ? <: Effect],
                                         ctx: StreamingContext,
                                         continuation: Boolean): Future[Null] = {
       ctx.streamingAction = a
@@ -350,7 +350,7 @@ trait BasicBackend { self =>
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
     protected[BasicBackend]
-    def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect],
+    def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[?, ? <: NoStream, This, ? <: Effect],
                                      ctx: StreamingContext,
                                      continuation: Boolean)
                                     (initialState: a.StreamState): Unit =
@@ -464,14 +464,14 @@ trait BasicBackend { self =>
       * SynchronousDatabaseActions for asynchronous execution. */
     protected[this] def synchronousExecutionContext: ExecutionContext
 
-    protected[this] def logAction(a: DBIOAction[_, NoStream, Nothing], ctx: Context): Unit = {
+    protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing], ctx: Context): Unit = {
       if(actionLogger.isDebugEnabled && a.isLogged) {
         ctx.sequenceCounter += 1
         val logA = a.nonFusedEquivalentAction
         val aPrefix = if(a eq logA) "" else "[fused] "
         val dump = new TreePrinter(prefix = "    ", firstPrefix = aPrefix, narrow = {
-          case a: DBIOAction[_, _, _] => a.nonFusedEquivalentAction
-          case o => o
+          case a: DBIOAction[?, ?, ?] => a.nonFusedEquivalentAction
+          case o                      => o
         }).get(logA)
         val msg = DumpInfo.highlight("#" + ctx.sequenceCounter) + ": " + dump.substring(0, dump.length-1)
         actionLogger.debug(msg)
@@ -526,7 +526,7 @@ trait BasicBackend { self =>
   }
 
   /** A special DatabaseActionContext for streaming execution. */
-  protected[this] class BasicStreamingActionContext(subscriber: Subscriber[_],
+  protected[this] class BasicStreamingActionContext(subscriber: Subscriber[?],
                                                     override protected[BasicBackend] val useSameThread: Boolean,
                                                     database: Database)
     extends BasicActionContext with StreamingActionContext with Subscription {
@@ -550,7 +550,7 @@ trait BasicBackend { self =>
     private[BasicBackend] var streamState: AnyRef = null
 
     /** The streaming action which may need to be continued with the suspended state */
-    private[BasicBackend] var streamingAction: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect] = null
+    private[BasicBackend] var streamingAction: SynchronousDatabaseAction[?, ? <: NoStream, This, ? <: Effect] = null
 
     @volatile private[this] var cancelRequested = false
 
@@ -611,7 +611,7 @@ trait BasicBackend { self =>
       }
     }
 
-    def subscription = this
+    override def subscription: BasicStreamingActionContext = this
 
     ////////////////////////////////////////////////////////////////////////// Subscription methods
 

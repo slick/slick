@@ -7,15 +7,15 @@ import scala.language.{existentials, higherKinds}
 import scala.util.control.NonFatal
 
 import slick.SlickException
+import slick.ast.*
 import slick.ast.ColumnOption.PrimaryKey
 import slick.ast.TypeUtil.:@
-import slick.ast.Util._
-import slick.ast._
-import slick.dbio._
+import slick.ast.Util.*
+import slick.dbio.*
 import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
-import slick.util.{DumpInfo, SQLBuilder, ignoreFollowOnError}
+import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder}
 
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
@@ -186,7 +186,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       override def toString = s"Mutator(state = $state, current = $current)"
     }
     type StreamState = Mutator
-    def statements = List(sql)
+    override def statements: List[String] = List(sql)
     def run(ctx: Backend#Context) =
       throw new SlickException("The result of .mutate can only be used in a streaming way")
     override def emitStream(ctx: Backend#StreamingContext, limit: Long, state: StreamState): StreamState = {
@@ -717,8 +717,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected def retOneInsertOrUpdateFromInsert(st: Statement, value: U, updateCount: Int) = 1
     protected def retOneInsertOrUpdateFromUpdate = 1
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
-    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = Some(individual.sum)
-    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int) = Some(updateCount)
+    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): Some[Int] = Some(individual.sum)
+    protected def retManyMultiRowStatement(st: Statement, values: Iterable[U], updateCount: Int): Some[Int] =
+      Some(updateCount)
 
     protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) = {
       var unknown = false
@@ -782,7 +783,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 object JdbcActionComponent {
   trait MultipleRowsPerStatementSupport extends JdbcActionComponent { self: JdbcProfile =>
     override type RowsPerStatement = slick.jdbc.RowsPerStatement
-    override def defaultRowsPerStatement = RowsPerStatement.All
+    override def defaultRowsPerStatement: RowsPerStatement.All.type = RowsPerStatement.All
   }
   trait OneRowPerStatementOnly extends JdbcActionComponent { self: JdbcProfile =>
     override type RowsPerStatement = slick.jdbc.RowsPerStatement.One.type
