@@ -3,7 +3,7 @@ package slick.jdbc
 import java.sql.{PreparedStatement, Statement}
 
 import scala.collection.mutable.Builder
-import scala.language.{existentials, higherKinds}
+import scala.language.existentials
 import scala.util.control.NonFatal
 
 import slick.SlickException

@@ -1,16 +1,15 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.{DerbyProfile, JdbcCapabilities, RowsPerStatement}
+import scala.util.{Failure, Success}
 
-import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import slick.jdbc.{DerbyProfile, JdbcCapabilities}
 
-import scala.util.{Failure, Success}
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
 
-  import tdb.profile.api._
+  import tdb.profile.api.*
 
 
   def testSimple = {

@@ -36,7 +36,15 @@ inThisBuild(
         Developer("hvesalai", "Heikki Vesalainen", "", url("https://github.com/hvesalai/"))
       ),
     scmInfo := Some(ScmInfo(url("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git")),
-    scalacOptions ++= List("-deprecation", "-feature", "-unchecked", "-Xsource:3")
+    scalacOptions ++=
+      List(
+        "-deprecation",
+        "-feature",
+        "-unchecked",
+        "-Xsource:3",
+        "-Wunused:imports",
+        "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
+      )
   )
 )
 
