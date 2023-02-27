@@ -50,7 +50,10 @@ trait ResultConverterDomain {
 }
 
 /** An efficient (albeit boxed) ResultConverter for Product/Tuple values. */
-final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product](elementConverters: ResultConverter[M, _]*) extends ResultConverter[M, T] {
+final case class ProductResultConverter[
+  M <: ResultConverterDomain,
+  T <: Product
+](elementConverters: ResultConverter[M, ?]*) extends ResultConverter[M, T] {
   private[this] val cha = elementConverters.toArray
   private[this] val len = cha.length
 
@@ -81,35 +84,39 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
     }
   }
 
-  override def getDumpInfo = super.getDumpInfo.copy(children = elementConverters.zipWithIndex.map { case (ch, i) => ((i+1).toString, ch) })
+  override def getDumpInfo =
+    super.getDumpInfo.copy(children = elementConverters.zipWithIndex.map { case (ch, i) => ((i+1).toString, ch) })
 }
 
 /** Result converter that can write to multiple sub-converters and read from the first one */
-final case class CompoundResultConverter[M <: ResultConverterDomain, @specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
+final case class CompoundResultConverter[
+  M <: ResultConverterDomain,
+  @specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T
+](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
   private[this] val cha = childConverters.toArray
   private[this] val len = cha.length
 
   def read(pr: Reader) = {
-    if(len == 0) throw new SlickException("Cannot read from empty CompoundResultConverter")
+    if (len == 0) throw new SlickException("Cannot read from empty CompoundResultConverter")
     else cha(0).read(pr)
   }
   def update(value: T, pr: Updater) = {
     var i = 0
-    while(i < len) {
+    while (i < len) {
       cha(i).update(value, pr)
       i += 1
     }
   }
   def set(value: T, pp: Writer, offset: Int) = {
     var i = 0
-    while(i < len) {
+    while (i < len) {
       cha(i).set(value, pp, offset)
       i += 1
     }
   }
 
   override def getDumpInfo = super.getDumpInfo.copy(children = childConverters.zipWithIndex.map {
-    case (ch, i) => (if(i == 0) "*" else "-", ch)
+    case (ch, i) => (if (i == 0) "*" else "-", ch)
   })
 }
 
@@ -120,16 +127,26 @@ final class UnitResultConverter[M <: ResultConverterDomain] extends ResultConver
   def set(value: Unit, pp: Writer, offset: Int) = ()
 }
 
-final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]], default: () => T) extends ResultConverter[M, T] {
+final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]],
+                                                                    default: () => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = child.read(pr).getOrElse(default())
   def update(value: T, pr: Updater) = child.update(Some(value), pr)
   def set(value: T, pp: Writer, offset: Int) = child.set(Some(value), pp, offset)
   def width = child.width
   override def getDumpInfo =
-    super.getDumpInfo.copy(mainInfo = (try default().toString catch { case e: Throwable => "["+e.getClass.getName+"]" }), children = Vector(("child", child)))
+    super.getDumpInfo.copy(
+      mainInfo =
+        try default().toString
+        catch {
+          case e: Throwable => "[" + e.getClass.getName + "]"
+        },
+      children = Vector(("child", child))
+    )
 }
 
-final class IsDefinedResultConverter[M <: ResultConverterDomain](child: ResultConverter[M, Option[_]]) extends ResultConverter[M, Boolean] {
+final class IsDefinedResultConverter[M <: ResultConverterDomain](child: ResultConverter[M, Option[?]])
+  extends ResultConverter[M, Boolean] {
+
   def read(pr: Reader) = child.read(pr).isDefined
   override def update(value: Boolean, pr: Updater): Nothing =
     throw new SlickException("Cannot insert/update IsDefined check")
@@ -140,7 +157,10 @@ final class IsDefinedResultConverter[M <: ResultConverterDomain](child: ResultCo
     super.getDumpInfo.copy(children = Vector(("child", child)))
 }
 
-final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C], toBase: T => C, toMapped: C => T) extends ResultConverter[M, T] {
+final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C],
+                                                                              toBase: T => C,
+                                                                              toMapped: C => T)
+  extends ResultConverter[M, T] {
   def read(pr: Reader) = toMapped(child.read(pr))
   def update(value: T, pr: Updater) = child.update(toBase(value), pr)
   def set(value: T, pp: Writer, offset: Int) = child.set(toBase(value), pp, offset)
@@ -148,9 +168,12 @@ final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](ch
   override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("child", child)))
 }
 
-final case class OptionRebuildingResultConverter[M <: ResultConverterDomain, T](discriminator: ResultConverter[M, Boolean], data: ResultConverter[M, T]) extends ResultConverter[M, Option[T]] {
+final case class OptionRebuildingResultConverter[
+  M <: ResultConverterDomain,
+  T
+](discriminator: ResultConverter[M, Boolean], data: ResultConverter[M, T]) extends ResultConverter[M, Option[T]] {
   def read(pr: Reader): Option[T] =
-    if(discriminator.read(pr)) Some(data.read(pr)) else None
+    if (discriminator.read(pr)) Some(data.read(pr)) else None
   def update(value: Option[T], pr: Updater): Nothing =
     throw new SlickException("Cannot insert/update non-primitive Option value")
   def set(value: Option[T], pp: Writer, offset: Int): Nothing =
@@ -160,11 +183,14 @@ final case class OptionRebuildingResultConverter[M <: ResultConverterDomain, T](
 }
 
 /** A `ResultConverter` that simplifies the implementation of fast path
-  * converters. It always wraps a `TypeMappingResultConverter`
-  * on top of a `ProductResultConverter`, allowing direct access to the product
-  * elements. */
-abstract class SimpleFastPathResultConverter[M <: ResultConverterDomain, T](protected[this] val rc: TypeMappingResultConverter[M, T, _]) extends ResultConverter[M, T] {
-  private[this] val ch = rc.child.asInstanceOf[ProductResultConverter[M, _]].elementConverters
+ * converters. It always wraps a `TypeMappingResultConverter`
+ * on top of a `ProductResultConverter`, allowing direct access to the product
+ * elements. */
+abstract class SimpleFastPathResultConverter[
+  M <: ResultConverterDomain,
+  T
+](protected[this] val rc: TypeMappingResultConverter[M, T, ?]) extends ResultConverter[M, T] {
+  private[this] val ch = rc.child.asInstanceOf[ProductResultConverter[M, ?]].elementConverters
   private[this] var idx = -1
 
   /** Return the next specialized child `ResultConverter` for the specified type. */
@@ -177,6 +203,7 @@ abstract class SimpleFastPathResultConverter[M <: ResultConverterDomain, T](prot
   def update(value: T, pr: Updater) = rc.update(value, pr)
   def set(value: T, pp: Writer, offset: Int) = rc.set(value, pp, offset)
 
-  override def getDumpInfo = super.getDumpInfo.copy(name = "SimpleFastPathResultConverter", mainInfo = "", children = Vector(("rc", rc)))
+  override def getDumpInfo =
+    super.getDumpInfo.copy(name = "SimpleFastPathResultConverter", mainInfo = "", children = Vector(("rc", rc)))
   def width = rc.width
 }

@@ -25,7 +25,7 @@ trait Type extends Dumpable {
   /** Remove all NominalTypes recursively from this Type */
   def structuralRec: Type = structural.mapChildren(_.structuralRec)
   /** A ClassTag for the erased type of this type's Scala values */
-  def classTag: ClassTag[_]
+  def classTag: ClassTag[?]
   def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), toString, "",
     children.zipWithIndex.map { case (ch, i) => (i.toString, ch) }.toSeq)
 }
@@ -37,7 +37,7 @@ object Type {
   }
 
   type Scope = Map[TermSymbol, Type]
-  def Scope(elems: (TermSymbol, Type)*): Scope = Map(elems: _*)
+  def Scope(elems: (TermSymbol, Type)*): Scope = Map(elems *)
 }
 
 /** An atomic type (i.e. a type which does not contain other types) */
@@ -82,8 +82,8 @@ trait OptionType extends Type {
 
 object OptionType {
   def apply(tpe: Type): OptionType = tpe match {
-    case t: TypedType[_] => t.optionType
-    case _ =>
+    case t: TypedType[?] => t.optionType
+    case _               =>
       new OptionType {
         def elementType = tpe
         def mapChildren(f: Type => Type): OptionType = {
@@ -94,7 +94,7 @@ object OptionType {
       }
   }
   def unapply(tpe: OptionType) = Some(tpe.elementType)
-  private val classTag = mkClassTag[Option[_]]
+  private val classTag = mkClassTag[Option[?]]
 
   /** An extractor for a non-nested Option type of a single column */
   object Primitive {
@@ -145,7 +145,7 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
   * are allowed (isUnique). */
 trait CollectionTypeConstructor {
   /** The ClassTag for the type constructor */
-  def classTag: ClassTag[_]
+  def classTag: ClassTag[?]
   /** Determines if order is relevant */
   def isSequential: Boolean
   /** Determines if only distinct elements are allowed */
@@ -164,7 +164,7 @@ trait CollectionTypeConstructor {
   """Cannot use collection in a query
             collection type: ${C}[_]
   requires implicit of type: slick.ast.TypedCollectionTypeConstructor[${C}]""")
-abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]) extends CollectionTypeConstructor {
+abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[?]]) extends CollectionTypeConstructor {
   override def toString = classTag.runtimeClass.getName
     .replaceFirst("^scala.collection.immutable.", "")
     .replaceFirst("^scala.collection.mutable.", "m.")
@@ -172,28 +172,28 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]
   def createBuilder[E : ClassTag]: mutable.Builder[E, C[E]]
   override def hashCode = classTag.hashCode() * 10
   override def equals(o: Any) = o match {
-    case o: TypedCollectionTypeConstructor[_] => classTag == o.classTag
-    case _ => false
+    case o: TypedCollectionTypeConstructor[?] => classTag == o.classTag
+    case _                                    => false
   }
 }
 
-class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[_]])
+class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[?]])
   extends TypedCollectionTypeConstructor[C](classTag) {
 
-  val isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(classTag.runtimeClass)
-  val isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(classTag.runtimeClass)
+  val isSequential = classOf[scala.collection.Seq[?]].isAssignableFrom(classTag.runtimeClass)
+  val isUnique = classOf[scala.collection.Set[?]].isAssignableFrom(classTag.runtimeClass)
   def createBuilder[E: ClassTag] = factory.newBuilder.asInstanceOf[mutable.Builder[E, C[E]]]
 }
 
 object TypedCollectionTypeConstructor {
-  private[this] val arrayClassTag = mkClassTag[Array[_]]
+  private[this] val arrayClassTag = mkClassTag[Array[?]]
   /** The standard TypedCollectionTypeConstructor for Seq */
   def seq = forColl[Vector]
   /** The standard TypedCollectionTypeConstructor for Set */
   def set = forColl[Set]
   /** Get a TypedCollectionTypeConstructor for an Iterable type */
   implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]],
-                                            tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
+                                            tag: ClassTag[C[?]]): TypedCollectionTypeConstructor[C] =
     new ErasedCollectionTypeConstructor[C](cbf, tag)
   /** Get a TypedCollectionTypeConstructor for an Array type */
   implicit val forArray: TypedCollectionTypeConstructor[Array] =
@@ -204,7 +204,7 @@ object TypedCollectionTypeConstructor {
     }
 }
 
-final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapper, val classTag: ClassTag[_])
+final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapper, val classTag: ClassTag[?])
   extends Type {
 
   override def toString = s"Mapped[$baseType]"
@@ -372,8 +372,8 @@ class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.m
   }
   override def hashCode = classTag.hashCode
   override def equals(o: Any) = o match {
-    case t: ScalaBaseType[_] => classTag == t.classTag
-    case _ => false
+    case t: ScalaBaseType[?] => classTag == t.classTag
+    case _                   => false
   }
 }
 
@@ -397,7 +397,7 @@ object ScalaBaseType {
   implicit val stringType: ScalaBaseType[String] = new ScalaBaseType[String]
   implicit val optionDiscType: ErasedScalaBaseType[OptionDisc, Int] = new ErasedScalaBaseType[OptionDisc, Int]
 
-  private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
+  private[this] val all: Map[ClassTag[?], ScalaBaseType[?]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
       floatType, intType, longType, nullType, shortType, stringType,
       optionDiscType).map(s => (s.classTag, s)).toMap

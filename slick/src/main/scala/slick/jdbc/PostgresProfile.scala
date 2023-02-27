@@ -52,12 +52,11 @@ import slick.util.MacroSupport.macroSupportInterpolation
   */
 trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+  override protected def computeCapabilities: Set[Capability] = super.computeCapabilities
     - JdbcCapabilities.insertOrUpdate
     - JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly
     - JdbcCapabilities.nullableNoDefault
     - JdbcCapabilities.supportsByte
-  )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -159,14 +158,14 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   override def createQueryBuilder(n: Node, state: CompilerState): PostgresQueryBuilder =
     new PostgresQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): PostgresUpsertBuilder = new PostgresUpsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): PostgresTableDDLBuilder = new PostgresTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): PostgresColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): PostgresTableDDLBuilder = new PostgresTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): PostgresColumnDDLBuilder =
     new PostgresColumnDDLBuilder(column)
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useTransactionForUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
@@ -179,7 +178,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
 
   class PostgresQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val concatOperator: Some[String] = Some("||")
-    override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] = Some(Vector(Library.Database, Library.User))
+    override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] =
+      Some(Vector(Library.Database, Library.User))
 
     override protected def buildSelectModifiers(c: Comprehension.Base): Unit = (c.distinct, c.select) match {
       case (Some(ProductNode(onNodes)), Pure(ProductNode(selNodes), _)) if onNodes.nonEmpty =>
@@ -242,7 +242,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
   }
 
-  class PostgresTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class PostgresTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override def createPhase1 = super.createPhase1 ++ columns.flatMap {
       case cb: PostgresColumnDDLBuilder => cb.createLobTrigger(table.tableName)
     }

@@ -16,13 +16,13 @@ object ClientSideOp {
     * wrapped in client-side operations. Types are preserved unless
     * ``keepType`` is set to false. */
   def mapServerSide(n: Node, keepType: Boolean = true)(f: Node => Node): Node = n match {
-    case n: ClientSideOp => n.nodeMapServerSide(keepType, (ch => mapServerSide(ch, keepType)(f)))
+    case n: ClientSideOp => n.nodeMapServerSide(keepType, ch => mapServerSide(ch, keepType)(f))
     case n => f(n)
   }
   def mapResultSetMapping(n: Node, keepType: Boolean = true)(f: ResultSetMapping => Node): Node = n match {
     case r: ResultSetMapping => f(r)
-    case n: ClientSideOp => n.nodeMapServerSide(keepType, (ch => mapResultSetMapping(ch, keepType)(f)))
-    case n => throw new SlickException("No ResultSetMapping found in tree")
+    case n: ClientSideOp     => n.nodeMapServerSide(keepType, ch => mapResultSetMapping(ch, keepType)(f))
+    case _                   => throw new SlickException("No ResultSetMapping found in tree")
   }
 }
 
@@ -40,7 +40,10 @@ final case class First(child: Node) extends UnaryNode with SimplyTypedNode with 
   * Identity functor as its collection type constructor ``c``, thus giving it
   * a type of ``(t, u) => u`` where ``t`` and ``u`` are primitive or Option
   * types. */
-final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) extends BinaryNode with DefNode with ClientSideOp {
+final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node)
+  extends BinaryNode
+    with DefNode
+    with ClientSideOp {
   type Self = ResultSetMapping
   def left = from
   def right = map

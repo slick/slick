@@ -69,30 +69,30 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
 
   protected lazy val defaultStringType = profileConfig.getStringOpt("defaultStringType")
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - JdbcCapabilities.forceInsert
-    - JdbcCapabilities.returnInsertOther
-    - JdbcCapabilities.insertOrUpdate
-    - SqlCapabilities.sequence
-    - JdbcCapabilities.supportsByte
-    - JdbcCapabilities.returnMultipleInsertKey
-    - JdbcCapabilities.insertMultipleRowsWithSingleStatement
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities
+      - JdbcCapabilities.forceInsert
+      - JdbcCapabilities.returnInsertOther
+      - JdbcCapabilities.insertOrUpdate
+      - SqlCapabilities.sequence
+      - JdbcCapabilities.supportsByte
+      - JdbcCapabilities.returnMultipleInsertKey
+      - JdbcCapabilities.insertMultipleRowsWithSingleStatement
 
   override protected def computeQueryCompiler =
-    (super.computeQueryCompiler
+    super.computeQueryCompiler
       .addAfter(new RemoveTakeDrop(translateTake = false), Phase.expandSums)
       .addBefore(new ProtectGroupBy, Phase.mergeToComprehensions)
-      .replace(new RemoveFieldNames(alwaysKeepSubqueryNames = true))
-      + Phase.rewriteBooleans)
+      .replace(new RemoveFieldNames(alwaysKeepSubqueryNames = true)) +
+      Phase.rewriteBooleans
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
   override val columnTypes: SQLServerJdbcTypes = new SQLServerJdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new SQLServerQueryBuilder(n, state)
   override def createInsertBuilder(node: Insert): InsertBuilder = new SQLServerInsertBuilder(node)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new SQLServerUpsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new SQLServerTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new SQLServerTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder =
     new SQLServerColumnDDLBuilder(column)
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
@@ -122,7 +122,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
           .map(d => Some(d))
           .getOrElse(super.default)
     }
-    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
+    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[?] = {
       //SQL Server's TINYINT type is unsigned while Scala's Byte is signed
       if( jdbcType == java.sql.Types.TINYINT )
         classTag[Short]
@@ -139,7 +139,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     MTable.getTables(None, None, Some("%"), Some(Seq("TABLE"))).map(_.filter(!_.name.schema.contains("sys")))
   }
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length]) match {
         case Some(l) => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})"
@@ -230,7 +230,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override protected def buildMergeEnd: String = super.buildMergeEnd + ";"
   }
 
-  class SQLServerTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class SQLServerTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override protected def addForeignKey(fk: ForeignKey, sb: StringBuilder): Unit = {
       val updateAction = fk.onUpdate.action
       val deleteAction = fk.onDelete.action

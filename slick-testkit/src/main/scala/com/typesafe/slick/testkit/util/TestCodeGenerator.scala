@@ -20,7 +20,7 @@ trait TestCodeGenerator {
   def computeFullTdbName(tdbName: String) = StandardTestDBs.getClass.getName.replaceAll("\\$", "") + "." + tdbName
 
   def main(args: Array[String]): Unit = try {
-    val clns = configurations.flatMap(_.generate(args(0)).toSeq)
+    val classNames = configurations.flatMap(_.generate(args(0)).toSeq)
     new OutputHelpers {
       def indent(code: String): String = code
       def code: String = ""
@@ -31,7 +31,7 @@ trait TestCodeGenerator {
       s"""
          |package $packageName
          |object AllTests extends com.typesafe.slick.testkit.util.TestCodeRunner.AllTests {
-         |  val clns = Seq(${clns.map("\"" + _ + "\"").mkString(", ")})
+         |  val classNames = Seq(${classNames.map("\"" + _ + "\"").mkString(", ")})
          |}
        """.stripMargin, args(0), packageName, "AllTests.scala"
     )
@@ -54,19 +54,21 @@ trait TestCodeGenerator {
         var current: String = null
         initScripts.foreach { initScript =>
           import tdb.profile.api.*
-          Source.fromURL(self.getClass.getResource(initScript))(Codec.UTF8).getLines().foreach { s =>
-            if(current eq null) current = s else current = current + "\n" + s
-            if(s.trim.endsWith(";")) {
-              if(useSingleLineStatements) {
-                current = current.substring(0, current.length-1)
+          val source = Source.fromURL(self.getClass.getResource(initScript))(Codec.UTF8)
+          try source.getLines().foreach { s =>
+            if (current eq null) current = s else current = current + "\n" + s
+            if (s.trim.endsWith(";")) {
+              if (useSingleLineStatements) {
+                current = current.substring(0, current.length - 1)
                 current = current.replace("\r", "").replace('\n', ' ')
               }
               init = init >> sqlu"#$current"
               current = null
             }
           }
-          if(current ne null) {
-            if(useSingleLineStatements) current = current.replace("\r", "").replace('\n', ' ')
+          finally source.close()
+          if (current ne null) {
+            if (useSingleLineStatements) current = current.replace("\r", "").replace('\n', ' ')
             init = init >> sqlu"#$current"
           }
         }
@@ -86,9 +88,9 @@ trait TestCodeGenerator {
     def testCode: String = defaultTestCode(this)
 
     class MyGen(model:Model) extends SourceCodeGenerator(model) {
-      override def entityName = sqlName => {
+      override def entityName = { (sqlName: String) =>
         val baseName = super.entityName(sqlName)
-        if(baseName.dropRight(3).last == 's') baseName.dropRight(4)
+        if (baseName.dropRight(3).last == 's') baseName.dropRight(4)
         else baseName
       }
       override def parentType: Some[String] = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
@@ -123,7 +125,7 @@ class TestCodeRunner(tests: TestCodeRunner.AllTests) {
     } else println("- Test database is disabled")
   }
 
-  @Test def allTests() = tests.clns.foreach { cln =>
+  @Test def allTests() = tests.classNames.foreach { cln =>
     try run(cln)
     catch { case e: Throwable =>
       Console.err.println(s"Test $cln failed: $e")
@@ -135,7 +137,7 @@ class TestCodeRunner(tests: TestCodeRunner.AllTests) {
 
 object TestCodeRunner {
   trait AllTests {
-    def clns: Seq[String]
+    def classNames: Seq[String]
   }
   trait TestCase {
     def test: slick.dbio.DBIO[Any]

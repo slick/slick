@@ -34,16 +34,15 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     feature throws a SlickException.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
-  *     keys should be returned. Otherwise the operation is performmed
+  *     keys should be returned. Otherwise the operation is performed
   *     natively on the server side.</li>
   * </ul>
   */
 trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+  override protected def computeCapabilities: Set[Capability] = super.computeCapabilities
     - SqlCapabilities.sequenceCurr
     - JdbcCapabilities.insertOrUpdate
-  )
 
   class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -68,15 +67,15 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       Phase.fixRowNumberOrdering
   override val columnTypes: HsqldbJdbcTypes = new HsqldbJdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new HsqldbQueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new HsqldbTableDDLBuilder(table)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new HsqldbSequenceDDLBuilder(seq)
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new HsqldbTableDDLBuilder(table)
+  override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new HsqldbSequenceDDLBuilder(seq)
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
   override val scalarFrom: Some[String] = Some("(VALUES (0))")
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("LONGVARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
@@ -162,10 +161,13 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
 
     /**
-      * HSQLDB uses a non-standard string representation of timestamps. It doesn't pad the hour and offset-hour with zeros.
-      * Although the hour can be handled by DateTimeFormatterBuilder, the offset hour can't. See it's method appendOffset()
-      * So we handle this in two steps: first pad (trim) zeros in the offset, and then use a custom DateTimeFormatterBuilder.
-      */
+     * HSQLDB uses a non-standard string representation of timestamps.
+     * It doesn't pad the hour and offset-hour with zeros.
+     * Although the hour can be handled by DateTimeFormatterBuilder, the offset hour can't.
+     * See it's method appendOffset()
+     * So we handle this in two steps: first pad (trim) zeros in the offset, and then use a custom
+     * DateTimeFormatterBuilder.
+     */
     trait HsqldbTimeJdbcTypeWithOffset {
       protected val timeFormatter: DateTimeFormatter = {
         new DateTimeFormatterBuilder()
@@ -298,7 +300,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  class HsqldbTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class HsqldbTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override protected def createIndex(idx: Index) = {
       if(idx.unique) {
         /* Create a UNIQUE CONSTRAINT (with an automatically generated backing

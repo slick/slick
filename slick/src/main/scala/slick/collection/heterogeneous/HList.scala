@@ -1,11 +1,11 @@
 package slick.collection.heterogeneous
 
-import scala.language.higherKinds
+import scala.annotation.unchecked.uncheckedVariance as uv
 import scala.language.experimental.macros
-import scala.annotation.unchecked.{uncheckedVariance => uv}
-import scala.reflect.macros.whitebox.Context
-import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 import scala.reflect.ClassTag
+import scala.reflect.macros.whitebox
+
+import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 
 /** A heterogenous list where each element has its own type. */
 sealed abstract class HList extends Product {
@@ -107,9 +107,9 @@ sealed abstract class HList extends Product {
     val b = new StringBuffer
     foreach { v =>
       v match {
-        case h: HList =>
+        case _: HList =>
           b.append("(").append(v).append(")")
-        case _ =>
+        case _        =>
           b.append(v)
       }
       b.append(" :: ") }
@@ -125,7 +125,7 @@ sealed abstract class HList extends Product {
 }
 
 object HList {
-  import syntax._
+  import syntax.*
 
   final class HListShape[
     Level <: ShapeLevel,
@@ -139,14 +139,24 @@ object HList {
   }
   implicit def hnilShape[Level <: ShapeLevel]: HListShape[Level, HNil.type, HNil.type, HNil.type] =
     new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
-  implicit def hconsShape[Level <: ShapeLevel, M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: HListShape[_ <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
+  implicit def hconsShape[
+    Level <: ShapeLevel,
+    M1,
+    M2 <: HList,
+    U1,
+    U2 <: HList,
+    P1,
+    P2 <: HList
+  ](implicit s1: Shape[? <: Level, M1, U1, P1],
+    s2: HListShape[? <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
     new HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2](s1 +: s2.shapes)
 }
-// Separate object for macro impl to avoid dependency of companion class on scala.reflect, see https://github.com/xeno-by/sbt-example-paradise210/issues/1#issuecomment-21021396
+// Separate object for macro impl to avoid dependency of companion class on scala.reflect,
+// see https://github.com/xeno-by/sbt-example-paradise210/issues/1#issuecomment-21021396
 object HListMacros{
-  def applyImpl(ctx: Context { type PrefixType = HList })(n: ctx.Expr[Int]): ctx.Expr[Any] = {
-    import ctx.universe._
-    val _Succ = typeOf[Succ[_]].typeSymbol
+  def applyImpl(ctx: whitebox.Context { type PrefixType = HList })(n: ctx.Expr[Int]): ctx.Expr[Any] = {
+    import ctx.universe.*
+    val _Succ = typeOf[Succ[?]].typeSymbol
     val _Zero = reify(Zero).tree
     n.tree match {
       case t @ Literal(Constant(v: Int)) =>

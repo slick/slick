@@ -62,7 +62,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   * Updating Blob values in updatable result sets is not supported.
   */
 trait OracleProfile extends JdbcProfile {
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+  override protected def computeCapabilities: Set[Capability] = super.computeCapabilities
     - RelationalCapabilities.foreignKeyActions
     - JdbcCapabilities.insertOrUpdate
     - JdbcCapabilities.booleanMetaData
@@ -70,7 +70,6 @@ trait OracleProfile extends JdbcProfile {
     - JdbcCapabilities.supportsByte
     - JdbcCapabilities.returnMultipleInsertKey
     - JdbcCapabilities.insertMultipleRowsWithSingleStatement
-  )
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
@@ -110,21 +109,21 @@ trait OracleProfile extends JdbcProfile {
   }
 
   override protected def computeQueryCompiler =
-    (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
+    super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
       .replace(Phase.resolveZipJoinsRownumStyle)
       - Phase.fixRowNumberOrdering
-      + Phase.rewriteBooleans + new RemoveSubqueryOrdering)
+      + Phase.rewriteBooleans + new RemoveSubqueryOrdering
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new OracleQueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new OracleTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): OracleColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new OracleTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): OracleColumnDDLBuilder =
     new OracleColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
+  override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
   override val columnTypes: OracleJdbcTypes = new OracleJdbcTypes
 
   val blobBufferSize = 4096
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR2(254)")(l => if(l.varying) s"VARCHAR2(${l.length})" else s"CHAR(${l.length})")
@@ -171,7 +170,7 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  class OracleTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class OracleTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override val createPhase1 = super.createPhase1 ++ createAutoIncSequences
     override val dropPhase2 = dropAutoIncSequences ++ super.dropPhase2
 
@@ -273,13 +272,13 @@ END;
       if( unique ) sb append " UNIQUE"
     }
 
-    override protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
+    override protected def handleColumnOption(o: ColumnOption[?]): Unit = o match {
       case OracleProfile.ColumnOption.AutoIncSequenceName(s) => sequenceName = s
       case OracleProfile.ColumnOption.AutoIncTriggerName(s) => triggerName = s
       case _ => super.handleColumnOption(o)
     }
 
-    def createSequenceAndTrigger(t: Table[_]): Iterable[String] = if(!autoIncrement) Nil else {
+    def createSequenceAndTrigger(t: Table[?]): Iterable[String] = if(!autoIncrement) Nil else {
       val tab = quoteIdentifier(t.tableName)
       val seq = quoteIdentifier(if(sequenceName eq null) t.tableName+"__"+column.name+"_seq" else sequenceName)
       val trg = quoteIdentifier(if(triggerName eq null) t.tableName+"__"+column.name+"_trg" else triggerName)
@@ -291,7 +290,7 @@ END;
       )
     }
 
-    def dropTriggerAndSequence(t: Table[_]): Iterable[String] = if(!autoIncrement) Nil else {
+    def dropTriggerAndSequence(t: Table[?]): Iterable[String] = if(!autoIncrement) Nil else {
       val seq = quoteIdentifier(if(sequenceName eq null) t.tableName+"__"+column.name+"_seq" else sequenceName)
       val trg = quoteIdentifier(if(triggerName eq null) t.tableName+"__"+column.name+"_trg" else triggerName)
       Seq(

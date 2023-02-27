@@ -76,26 +76,25 @@ import slick.util.MacroSupport.macroSupportInterpolation
   * </ul>
   */
 trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
-
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalCapabilities.functionDatabase
-    - RelationalCapabilities.functionUser
-    - RelationalCapabilities.joinFull
-    - RelationalCapabilities.joinRight
-    - JdbcCapabilities.mutable
-    - SqlCapabilities.sequence
-    - JdbcCapabilities.returnInsertOther
-    - RelationalCapabilities.typeBigDecimal
-    - RelationalCapabilities.typeBlob
-    - RelationalCapabilities.zip
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.defaultValueMetaData
-    - JdbcCapabilities.booleanMetaData
-    - JdbcCapabilities.supportsByte
-    - JdbcCapabilities.distinguishesIntTypes
-    - JdbcCapabilities.forUpdate
-    - JdbcCapabilities.returnMultipleInsertKey
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      RelationalCapabilities.functionDatabase -
+      RelationalCapabilities.functionUser -
+      RelationalCapabilities.joinFull -
+      RelationalCapabilities.joinRight -
+      JdbcCapabilities.mutable -
+      SqlCapabilities.sequence -
+      JdbcCapabilities.returnInsertOther -
+      RelationalCapabilities.typeBigDecimal -
+      RelationalCapabilities.typeBlob -
+      RelationalCapabilities.zip -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.defaultValueMetaData -
+      JdbcCapabilities.booleanMetaData -
+      JdbcCapabilities.supportsByte -
+      JdbcCapabilities.distinguishesIntTypes -
+      JdbcCapabilities.forUpdate -
+      JdbcCapabilities.returnMultipleInsertKey
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -189,8 +188,8 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new SQLiteQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): super.InsertBuilder = new SQLiteUpsertBuilder(node)
   override def createInsertBuilder(node: Insert): super.InsertBuilder = new SQLiteInsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new SQLiteTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new SQLiteTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder =
     new SQLiteColumnDDLBuilder(column)
 
   private trait SQLiteInsertAll[U] extends InsertActionComposerImpl[U] {
@@ -281,7 +280,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected def emptyInsert: String = s"insert into $tableName default values"
   }
 
-  class SQLiteTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class SQLiteTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override protected val foreignKeys: Nil.type = Nil // handled directly in addTableOptions
     override protected val primaryKeys: Nil.type = Nil // handled directly in addTableOptions
 
@@ -318,7 +317,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.TINYINT | java.sql.Types.SMALLINT | java.sql.Types.BIGINT => "INTEGER"
     case _ => super.defaultSqlTypeName(tmd, sym)
   }

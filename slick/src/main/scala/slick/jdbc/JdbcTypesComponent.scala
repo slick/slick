@@ -38,8 +38,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     override def toString = s"MappedJdbcType[${classTag.runtimeClass.getName} -> $tmd]"
     override def hashCode = tmd.hashCode() + classTag.hashCode()
     override def equals(o: Any) = o match {
-      case o: MappedJdbcType[_, _] => tmd == o.tmd && classTag == o.classTag
-      case _ => false
+      case o: MappedJdbcType[?, ?] => tmd == o.tmd && classTag == o.classTag
+      case _                       => false
     }
   }
 
@@ -58,24 +58,24 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
   }
 
   def jdbcTypeFor(t: Type): JdbcType[Any] = ((t.structural match {
-    case tmd: JdbcType[_] => tmd
+    case tmd: JdbcType[?]          => tmd
     case ScalaBaseType.booleanType => columnTypes.booleanJdbcType
     case ScalaBaseType.bigDecimalType => columnTypes.bigDecimalJdbcType
     case ScalaBaseType.byteType => columnTypes.byteJdbcType
     case ScalaBaseType.charType => columnTypes.charJdbcType
-    case ScalaBaseType.doubleType => columnTypes.doubleJdbcType
-    case ScalaBaseType.floatType => columnTypes.floatJdbcType
-    case ScalaBaseType.intType => columnTypes.intJdbcType
-    case ScalaBaseType.longType => columnTypes.longJdbcType
-    case ScalaBaseType.nullType => columnTypes.nullJdbcType
-    case ScalaBaseType.shortType => columnTypes.shortJdbcType
-    case ScalaBaseType.stringType => columnTypes.stringJdbcType
-    case t: OptionType => jdbcTypeFor(t.elementType)
-    case t: ErasedScalaBaseType[_, _] => jdbcTypeFor(t.erasure)
-    case t => throw new SlickException("JdbcProfile has no JdbcType for type "+t)
-  }): JdbcType[_]).asInstanceOf[JdbcType[Any]]
+    case ScalaBaseType.doubleType     => columnTypes.doubleJdbcType
+    case ScalaBaseType.floatType      => columnTypes.floatJdbcType
+    case ScalaBaseType.intType        => columnTypes.intJdbcType
+    case ScalaBaseType.longType       => columnTypes.longJdbcType
+    case ScalaBaseType.nullType       => columnTypes.nullJdbcType
+    case ScalaBaseType.shortType      => columnTypes.shortJdbcType
+    case ScalaBaseType.stringType     => columnTypes.stringJdbcType
+    case t: OptionType                => jdbcTypeFor(t.elementType)
+    case t: ErasedScalaBaseType[?, ?] => jdbcTypeFor(t.erasure)
+    case t                            => throw new SlickException("JdbcProfile has no JdbcType for type "+t)
+  }): JdbcType[?]).asInstanceOf[JdbcType[Any]]
 
-  def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR(254)")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
@@ -373,7 +373,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     }
 
     class FloatJdbcType extends DriverJdbcType[Float] with NumericTypedType {
-      def sqlType = java.sql.Types.REAL // see http://docs.oracle.com/javase/1.5.0/docs/guide/jdbc/getstart/mapping.html#1055162
+      // see http://docs.oracle.com/javase/1.5.0/docs/guide/jdbc/getstart/mapping.html#1055162
+      def sqlType = java.sql.Types.REAL
       def setValue(v: Float, p: PreparedStatement, idx: Int) = p.setFloat(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getFloat(idx)
       def updateValue(v: Float, r: ResultSet, idx: Int) = r.updateFloat(idx, v)
@@ -476,7 +477,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def sqlType = java.sql.Types.NULL
       def setValue(v: Null, p: PreparedStatement, idx: Int) = p.setString(idx, null)
       override def setNull(p: PreparedStatement, idx: Int) = p.setString(idx, null)
-      def getValue(r: ResultSet, idx: Int) = null
+      def getValue(r: ResultSet, idx: Int): Null = null
       def updateValue(v: Null, r: ResultSet, idx: Int) = r.updateNull(idx)
       override def valueToSQLLiteral(value: Null) = "NULL"
     }
