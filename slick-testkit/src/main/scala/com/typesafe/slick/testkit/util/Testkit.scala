@@ -4,16 +4,15 @@ import java.lang.reflect.Method
 import java.util.concurrent.{ExecutionException, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent._
+import scala.concurrent.*
 import scala.concurrent.duration.Duration
-import scala.language.existentials
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 import slick.SlickTreeException
 import slick.basic.Capability
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.{JdbcBackend, JdbcCapabilities}
 import slick.lifted.Rep
 import slick.relational.RelationalCapabilities
@@ -22,7 +21,7 @@ import slick.util.DumpInfo
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
-import org.junit.runners.model._
+import org.junit.runners.model.*
 import org.junit.Assert
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
 import org.slf4j.MDC
@@ -43,8 +42,8 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
         m.getName.startsWith("test") && m.getParameterTypes.length == 0
       }
       ms.map { m =>
-        val tname = m.getName + '[' + tdb.confName + ']'
-        new TestMethod(tname, Description.createTestDescription(t, tname), m, t)
+        val typeName = m.getName + '[' + tdb.confName + ']'
+        TestMethod(typeName, Description.createTestDescription(t, typeName), m, t)
       }
     }
 
@@ -166,15 +165,15 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     mark[DBIOAction[R, S, E]](id, f.named(id))
 
   def assertNesting(q: Rep[_], exp: Int): Unit = {
-    import slick.ast._
-    import slick.ast.Util._
+    import slick.ast.*
+    import slick.ast.Util.*
     import slick.compiler.QueryCompiler
     val qc = new QueryCompiler(tdb.profile.queryCompiler.phases.takeWhile(_.name != "codeGen"))
     val cs = qc.run(q.toNode)
-    val found = cs.tree.collect { case c: Comprehension => c }.length
+    val found = cs.tree.collect { case c: Comprehension.Base => c }.length
     if(found != exp)
       throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
-        cs.tree, mark = _.isInstanceOf[Comprehension], removeUnmarked = false))
+        cs.tree, mark = _.isInstanceOf[Comprehension.Base], removeUnmarked = false))
   }
 
   def rcap = RelationalCapabilities

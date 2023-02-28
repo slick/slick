@@ -11,7 +11,7 @@ import slick.util.ConfigExtensionMethods._
 import slick.SlickException
 
 /** A `JdbcDataSource` provides a way to create a `Connection` object for a database. It is
-  * similar to a `javax.sql.DataSource` but simpler. Unlike [[JdbcBackend.DatabaseDef]] it is not a
+  * similar to a `javax.sql.DataSource` but simpler. Unlike [[JdbcBackend.JdbcDatabaseDef]] it is not a
   * part of the backend cake. This trait defines the SPI for 3rd-party connection pool support. */
 trait JdbcDataSource extends Closeable {
 

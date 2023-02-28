@@ -1,20 +1,21 @@
 package slick.jdbc
 
+import java.sql.{Array as _, *}
+import java.time.*
 import java.time.format.DateTimeFormatter
-import java.time._
 import java.util.UUID
-import java.sql.{Array => _, _}
+
 import scala.concurrent.ExecutionContext
+
 import slick.SlickException
-import slick.ast._
+import slick.ast.*
+import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
-import slick.dbio._
+import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MTable}
-import slick.lifted._
+import slick.lifted.*
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
-import slick.basic.Capability
-import slick.sql.FixedSqlAction
 import slick.util.ConstArray
 import slick.util.MacroSupport.macroSupportInterpolation
 
@@ -34,7 +35,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     Other ''onUpdate'' actions are ignored.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
-  *     keys should be returned. Otherwise the operation is performmed
+  *     keys should be returned. Otherwise the operation is performed
   *     natively on the server side.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]:
   *     Oracle doesn't have booleans, so Slick maps to CHAR instead and
@@ -61,7 +62,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   * Updating Blob values in updatable result sets is not supported.
   */
 trait OracleProfile extends JdbcProfile {
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+  override protected def computeCapabilities: Set[Capability] = super.computeCapabilities
     - RelationalCapabilities.foreignKeyActions
     - JdbcCapabilities.insertOrUpdate
     - JdbcCapabilities.booleanMetaData
@@ -69,7 +70,6 @@ trait OracleProfile extends JdbcProfile {
     - JdbcCapabilities.supportsByte
     - JdbcCapabilities.returnMultipleInsertKey
     - JdbcCapabilities.insertMultipleRowsWithSingleStatement
-  )
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
@@ -104,26 +104,26 @@ trait OracleProfile extends JdbcProfile {
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
     for {
       user <- SimpleJdbcAction(_.session.metaData.getUserName)
-      mtables <- MTable.getTables(None, Some(user), Some("%"), Some(Seq("TABLE")))
-    } yield mtables
+      mTables <- MTable.getTables(None, Some(user), Some("%"), Some(Seq("TABLE")))
+    } yield mTables
   }
 
   override protected def computeQueryCompiler =
-    (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
+    super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
       .replace(Phase.resolveZipJoinsRownumStyle)
       - Phase.fixRowNumberOrdering
-      + Phase.rewriteBooleans + new RemoveSubqueryOrdering)
+      + Phase.rewriteBooleans + new RemoveSubqueryOrdering
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new OracleQueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new OracleTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): OracleColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new OracleTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): OracleColumnDDLBuilder =
     new OracleColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
-  override val columnTypes = new OracleJdbcTypes
+  override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new OracleSequenceDDLBuilder(seq)
+  override val columnTypes: OracleJdbcTypes = new OracleJdbcTypes
 
   val blobBufferSize = 4096
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR2(254)")(l => if(l.varying) s"VARCHAR2(${l.length})" else s"CHAR(${l.length})")
@@ -136,11 +136,11 @@ trait OracleProfile extends JdbcProfile {
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  override val scalarFrom = Some("sys.dual")
+  override val scalarFrom: Some[String] = Some("sys.dual")
 
   class OracleQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val supportsTuples = false
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val hasPiFunction = false
     /* Oracle officially supports {fn degrees} and {fn radians} but
      * Statement.execute throws a NullPointerException when you try to use
@@ -170,28 +170,29 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  class OracleTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class OracleTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override val createPhase1 = super.createPhase1 ++ createAutoIncSequences
     override val dropPhase2 = dropAutoIncSequences ++ super.dropPhase2
 
-    override def createIfNotExistsPhase = {
-      //
+    override def createIfNotExistsPhase =
       Iterable(
-"""
-BEGIN
-
-"""+ ((createPhase1 ++ createPhase2).map{s =>
-      "execute immediate '"+ s.replaceAll("'", "''") + " ';"
-  }.mkString("\n")) +"""
-EXCEPTION
-    WHEN OTHERS THEN
-      IF SQLCODE = -955 THEN
-        NULL; -- suppresses ORA-00955 exception
-      ELSE
-         RAISE;
-      END IF;
-END; """)
-    }
+        s"""
+           |BEGIN
+           |
+           |${
+          (createPhase1 ++ createPhase2)
+            .map(s => "execute immediate '" + s.replaceAll("'", "''") + " ';")
+            .mkString("\n")
+        }
+           |EXCEPTION
+           |    WHEN OTHERS THEN
+           |      IF SQLCODE = -955 THEN
+           |        NULL; -- suppresses ORA-00955 exception
+           |      ELSE
+           |         RAISE;
+           |      END IF;
+           |END; """.stripMargin
+      )
 
     override def dropIfExistsPhase = {
       //http://stackoverflow.com/questions/1799128/oracle-if-table-exists
@@ -271,13 +272,13 @@ END;
       if( unique ) sb append " UNIQUE"
     }
 
-    override protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
+    override protected def handleColumnOption(o: ColumnOption[?]): Unit = o match {
       case OracleProfile.ColumnOption.AutoIncSequenceName(s) => sequenceName = s
       case OracleProfile.ColumnOption.AutoIncTriggerName(s) => triggerName = s
       case _ => super.handleColumnOption(o)
     }
 
-    def createSequenceAndTrigger(t: Table[_]): Iterable[String] = if(!autoIncrement) Nil else {
+    def createSequenceAndTrigger(t: Table[?]): Iterable[String] = if(!autoIncrement) Nil else {
       val tab = quoteIdentifier(t.tableName)
       val seq = quoteIdentifier(if(sequenceName eq null) t.tableName+"__"+column.name+"_seq" else sequenceName)
       val trg = quoteIdentifier(if(triggerName eq null) t.tableName+"__"+column.name+"_trg" else triggerName)
@@ -289,7 +290,7 @@ END;
       )
     }
 
-    def dropTriggerAndSequence(t: Table[_]): Iterable[String] = if(!autoIncrement) Nil else {
+    def dropTriggerAndSequence(t: Table[?]): Iterable[String] = if(!autoIncrement) Nil else {
       val seq = quoteIdentifier(if(sequenceName eq null) t.tableName+"__"+column.name+"_seq" else sequenceName)
       val trg = quoteIdentifier(if(triggerName eq null) t.tableName+"__"+column.name+"_trg" else triggerName)
       Seq(
@@ -312,18 +313,18 @@ END;
   }
 
   class OracleJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType    = new OracleBooleanJdbcType
-    override val blobJdbcType       = new OracleBlobJdbcType
-    override val byteArrayJdbcType  = new OracleByteArrayJdbcType
-    override val stringJdbcType     = new OracleStringJdbcType
-    override val timeJdbcType       = new OracleTimeJdbcType
-    override val uuidJdbcType       = new OracleUUIDJdbcType
-    override val localDateType      = new OracleLocalDateJdbcType
-    override val localDateTimeType  = new OracleLocalDateTimeJdbcType
-    override val instantType        = new OracleInstantJdbcType
-    override val offsetTimeType     = new OracleOffsetTimeJdbcType
-    override val offsetDateTimeType = new OracleOffsetDateTimeJdbcType
-    override val zonedDateType      = new OracleZonedDateTimeJdbcType
+    override val booleanJdbcType: OracleBooleanJdbcType = new OracleBooleanJdbcType
+    override val blobJdbcType: OracleBlobJdbcType = new OracleBlobJdbcType
+    override val byteArrayJdbcType: OracleByteArrayJdbcType = new OracleByteArrayJdbcType
+    override val stringJdbcType: OracleStringJdbcType = new OracleStringJdbcType
+    override val timeJdbcType: OracleTimeJdbcType = new OracleTimeJdbcType
+    override val uuidJdbcType: OracleUUIDJdbcType = new OracleUUIDJdbcType
+    override val localDateType: OracleLocalDateJdbcType = new OracleLocalDateJdbcType
+    override val localDateTimeType: OracleLocalDateTimeJdbcType = new OracleLocalDateTimeJdbcType
+    override val instantType: OracleInstantJdbcType = new OracleInstantJdbcType
+    override val offsetTimeType: OracleOffsetTimeJdbcType = new OracleOffsetTimeJdbcType
+    override val offsetDateTimeType: OracleOffsetDateTimeJdbcType = new OracleOffsetDateTimeJdbcType
+    override val zonedDateType: OracleZonedDateTimeJdbcType = new OracleZonedDateTimeJdbcType
 
     /* Oracle does not have a proper BOOLEAN type. The suggested workaround is
      * a constrained CHAR with constants 1 and 0 for TRUE and FALSE. */
@@ -355,12 +356,12 @@ END;
           } finally out.close()
         } finally if(!added) ob.free()
       }
-      override def updateValue(v: Blob, r: ResultSet, idx: Int) =
+      override def updateValue(v: Blob, r: ResultSet, idx: Int): Nothing =
         throw new SlickException("OracleProfile does not support updating Blob values")
     }
 
     class OracleByteArrayJdbcType extends ByteArrayJdbcType {
-      override def updateValue(v: Array[Byte], r: ResultSet, idx: Int) =
+      override def updateValue(v: Array[Byte], r: ResultSet, idx: Int): Nothing =
         throw new SlickException("OracleProfile does not support updating Blob values")
     }
 
@@ -382,7 +383,7 @@ END;
         if(v eq null) null else new Time(v.getTime)
       }
       override def updateValue(v: Time, r: ResultSet, idx: Int) = r.updateTimestamp(idx, new Timestamp(v.getTime))
-      override def valueToSQLLiteral(value: Time) = "{ts '"+(new Timestamp(value.getTime).toString)+"'}"
+      override def valueToSQLLiteral(value: Time) = "{ts '"+ new Timestamp(value.getTime).toString +"'}"
     }
 
     class OracleUUIDJdbcType extends UUIDJdbcType {
@@ -409,9 +410,6 @@ END;
     }
 
     class OracleLocalTimeJdbcType extends LocalTimeJdbcType {
-      @inline private[this] def timestampFromLocalTime(localTime : LocalTime) : Timestamp = {
-        Timestamp.valueOf(LocalDateTime.of(LocalDate.MIN, localTime))
-      }
       override def sqlType = java.sql.Types.TIMESTAMP
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
 
@@ -525,30 +523,39 @@ END;
   class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
     extends JdbcSchemaActionExtensionMethodsImpl(schema) {
 
-    override def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withStatement()(_.execute(s))
-    }
-    override def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
-      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withStatement()(_.execute(s))
-    }
+    override def create: ProfileAction[Unit, NoStream, Effect.Schema] =
+      new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+          for (s <- sql) ctx.session.withStatement()(_.execute(s))
+      }
+    override def drop: ProfileAction[Unit, NoStream, Effect.Schema] =
+      new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Unit =
+          for (s <- sql) ctx.session.withStatement()(_.execute(s))
+      }
   }
 
-  override def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
-    if(ti.scalaType == ScalaBaseType.stringType)
-      (new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
-        override def read(pr: ResultSet) = {
-          val v = ti.getValue(pr, idx)
-          if((v eq null) || v.length == 0) None else Some(v)
-        }
-      }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
-    else super.createOptionResultConverter(ti, idx)
+  override def createOptionResultConverter[T](ti: JdbcType[T],
+                                              idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
+    ti.scalaType match {
+      case ScalaBaseType.stringType =>
+        new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
+          override def read(pr: ResultSet) = {
+            val v = ti.getValue(pr, idx)
+            if ((v eq null) || v.isEmpty) None else Some(v)
+          }
+        }.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
+      case _                        =>
+        super.createOptionResultConverter(ti, idx)
+    }
 
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new CountingInsertActionComposerImpl[T](compiled)
 
-  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
+  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert,
+                                                              keys: Node,
+                                                              mux: (U, QR) => RU
+                                                             ): ReturningInsertActionComposer[U, RU] =
     new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
 
   // Does not work to get around the ORA-00904 issue when returning columns
@@ -571,16 +578,16 @@ END;
     val name = "removeSubqueryOrdering"
 
     def apply(state: CompilerState) =
-      state.map { n => ClientSideOp.mapServerSide(n)(n => rewrite(n, false)) }
+      state.map { n => ClientSideOp.mapServerSide(n)(n => rewrite(n, inScalar = false)) }
 
     def rewrite(n: Node, inScalar: Boolean): Node = n match {
-      case n: Comprehension if inScalar && n.orderBy.nonEmpty =>
+      case n: Comprehension.Base if inScalar && n.orderBy.nonEmpty =>
         val n2 = n.copy(orderBy = ConstArray.empty) :@ n.nodeType
-        n2.mapChildren(ch => rewrite(ch, false), keepType = true)
+        n2.mapChildren(ch => rewrite(ch, inScalar = false), keepType = true)
       case Apply(_, _) if !n.nodeType.structural.isInstanceOf[CollectionType] =>
-        n.mapChildren(ch => rewrite(ch, true), keepType = true)
+        n.mapChildren(ch => rewrite(ch, inScalar = true), keepType = true)
       case n =>
-        n.mapChildren(ch => rewrite(ch, false), keepType = true)
+        n.mapChildren(ch => rewrite(ch, inScalar = false), keepType = true)
     }
   }
 }
@@ -598,19 +605,19 @@ object OracleProfile extends OracleProfile with JdbcActionComponent.OneRowPerSta
 
 
 /**
-  * Converts between {@link TIMESTAMPTZ} and java.time times and back.
+  * Converts between `TIMESTAMPTZ` and java.time times and back.
   * Oracle jar not on path at compile time (but must be a run time)
-  * Use reflection to get access to TIMESTAMPTZ class
+  * Use reflection to get access to `TIMESTAMPTZ` class
   */
 object TimestamptzConverter {
   val timestampTZClass = Class.forName("oracle.sql.TIMESTAMPTZ")
   val timestampTZCtor = timestampTZClass.getConstructor(classOf[Array[Byte]])
   val timestampTZToBytes = timestampTZClass.getMethod("toBytes")
   val zoneIdClass = Class.forName("oracle.sql.ZONEIDMAP")
-  val zoneIdgetId = zoneIdClass.getMethod("getID", classOf[String])
-  val zoneIdgetRegion = zoneIdClass.getMethod("getRegion", classOf[Int])
+  val zoneIdGetId = zoneIdClass.getMethod("getID", classOf[String])
+  val zoneIdGetRegion = zoneIdClass.getMethod("getRegion", classOf[Int])
 
-  val REGIONIDBIT = Integer.parseInt("10000000",2)
+  val RegionIdBit = Integer.parseInt("10000000",2)
 
   // Byte 0: Century, offset is 100 (value - 100 is century)
   // Byte 1: Decade, offset is 100 (value - 100 is decade)
@@ -683,8 +690,8 @@ object TimestamptzConverter {
     val utc = attribute.withZoneSameInstant(java.time.ZoneOffset.UTC)
     writeDateTime(bytes, utc)
 
-    val zoneId = attribute.getZone().getId
-    val regionCode = zoneIdgetId.invoke(null, zoneId).asInstanceOf[Integer]
+    val zoneId = attribute.getZone.getId
+    val regionCode = zoneIdGetId.invoke(null, zoneId).asInstanceOf[Integer]
 
     if (regionCode != -1) {
       // -1 is invalid
@@ -725,7 +732,7 @@ object TimestamptzConverter {
     OffsetDateTime.of(year, month, dayOfMonth, hour, minute, second, nanoOfSecond, java.time.ZoneOffset.UTC)
   }
 
-  def isFixedOffset(bytes: Array[Byte]) = (bytes(11) & REGIONIDBIT) == 0
+  def isFixedOffset(bytes: Array[Byte]) = (bytes(11) & RegionIdBit) == 0
 
   def newTIMESTAMPTZBuffer() = new Array[Byte](13)
 
@@ -759,13 +766,13 @@ object TimestamptzConverter {
   def extractZoneId(bytes: Array[Byte]) = {
     // high order bits
     val regionCode: Integer = ((bytes(11) & highBits) << 6) + ((bytes(12) & lowBits) >> 2)
-    val regionName = zoneIdgetRegion.invoke(null, regionCode).asInstanceOf[String]
+    val regionName = zoneIdGetRegion.invoke(null, regionCode).asInstanceOf[String]
     ZoneId.of(regionName)
   }
   val msb = Integer.parseInt("1111111000000", 2)
   val lsb = Integer.parseInt("111111", 2)
   def writeZoneId(bytes: Array[Byte], regionCode: Int): Unit = {
-    bytes(11) = (REGIONIDBIT | ((regionCode & msb) >>> 6)).toByte
+    bytes(11) = (RegionIdBit | ((regionCode & msb) >>> 6)).toByte
     bytes(12) = ((regionCode & lsb) << 2).toByte
   }
 }

@@ -2,10 +2,8 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 
-import scala.collection.mutable
-
 class UnionTest extends AsyncTest[RelationalTestDB] {
-  import tdb.profile.api._
+  import tdb.profile.api.*
 
   class Managers(tag: Tag) extends Table[(Int, String, String)](tag, "managers") {
     def id = column[Int]("id")

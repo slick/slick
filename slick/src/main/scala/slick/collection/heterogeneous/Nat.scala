@@ -1,6 +1,5 @@
 package slick.collection.heterogeneous
 
-import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
@@ -139,7 +138,7 @@ object Nat {
     * the proper type, otherwise only the supertype `Nat`. */
   def apply(i: Int): Nat = macro Nat.applyImpl
   def applyImpl(ctx: Context)(i: ctx.Expr[Int]): ctx.Expr[Nat] = {
-    import ctx.universe._
+    import ctx.universe.*
     val _Nat = typeOf[Nat].typeSymbol.companion
     val _Succ = typeOf[Succ[_]].typeSymbol
     val _Zero = reify(Zero).tree

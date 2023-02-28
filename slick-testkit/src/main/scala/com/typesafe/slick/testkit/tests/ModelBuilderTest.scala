@@ -1,20 +1,17 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-
-import org.junit.Assert._
-
-
 import slick.ast.ColumnOption
-import slick.model._
-import slick.jdbc.SQLiteProfile
 import slick.jdbc.meta.MTable
+import slick.model.*
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
 
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import org.junit.Assert.*
+
 @deprecated("Using deprecated .simple API", "3.0")
 class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
-  import tdb.profile.api._
+  import tdb.profile.api.*
 
   class Categories(tag: Tag) extends Table[(Int, String)](tag, "categories") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)

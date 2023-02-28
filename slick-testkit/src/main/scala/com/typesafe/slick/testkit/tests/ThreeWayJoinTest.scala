@@ -1,12 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 
 
 
 class ThreeWayJoinTest extends AsyncTest[RelationalTestDB] {
-  import tdb.profile.api._
+  import tdb.profile.api.*
 
   // ******************** Full many to many join test (i.e. four table) **********************
   def testManyToManyJoin = {
