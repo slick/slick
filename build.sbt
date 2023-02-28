@@ -64,7 +64,7 @@ def slickGeneralSettings =
     makePomConfiguration ~= {
       _.withConfigurations(Vector(Compile, Runtime, Optional))
     },
-    sonatypeProfileName := "com.typesafe",
+    sonatypeProfileName := "com.typesafe.slick",
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,
