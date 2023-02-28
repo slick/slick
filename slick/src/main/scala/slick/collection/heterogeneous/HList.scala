@@ -1,11 +1,11 @@
 package slick.collection.heterogeneous
 
-import scala.language.higherKinds
+import scala.annotation.unchecked.uncheckedVariance as uv
 import scala.language.experimental.macros
-import scala.annotation.unchecked.{uncheckedVariance => uv}
-import scala.reflect.macros.whitebox.Context
-import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 import scala.reflect.ClassTag
+import scala.reflect.macros.whitebox
+
+import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 
 /** A heterogenous list where each element has its own type. */
 sealed abstract class HList extends Product {
@@ -107,9 +107,9 @@ sealed abstract class HList extends Product {
     val b = new StringBuffer
     foreach { v =>
       v match {
-        case h: HList =>
+        case _: HList =>
           b.append("(").append(v).append(")")
-        case _ =>
+        case _        =>
           b.append(v)
       }
       b.append(" :: ") }
@@ -125,22 +125,38 @@ sealed abstract class HList extends Product {
 }
 
 object HList {
-  import syntax._
+  import syntax.*
 
-  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
-    def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
-    def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new HListShape(shapes)
+  final class HListShape[
+    Level <: ShapeLevel,
+    M <: HList,
+    U <: HList : ClassTag,
+    P <: HList
+  ](val shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
+    override def buildValue(elems: IndexedSeq[Any]): HList = elems.foldRight(HNil: HList)(_ :: _)
+    override def copy(shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]): HListShape[Level, Nothing, U, Nothing] =
+      new HListShape(shapes)
   }
   implicit def hnilShape[Level <: ShapeLevel]: HListShape[Level, HNil.type, HNil.type, HNil.type] =
     new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
-  implicit def hconsShape[Level <: ShapeLevel, M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: HListShape[_ <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
+  implicit def hconsShape[
+    Level <: ShapeLevel,
+    M1,
+    M2 <: HList,
+    U1,
+    U2 <: HList,
+    P1,
+    P2 <: HList
+  ](implicit s1: Shape[? <: Level, M1, U1, P1],
+    s2: HListShape[? <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
     new HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2](s1 +: s2.shapes)
 }
-// Separate object for macro impl to avoid dependency of companion class on scala.reflect, see https://github.com/xeno-by/sbt-example-paradise210/issues/1#issuecomment-21021396
+// Separate object for macro impl to avoid dependency of companion class on scala.reflect,
+// see https://github.com/xeno-by/sbt-example-paradise210/issues/1#issuecomment-21021396
 object HListMacros{
-  def applyImpl(ctx: Context { type PrefixType = HList })(n: ctx.Expr[Int]): ctx.Expr[Any] = {
-    import ctx.universe._
-    val _Succ = typeOf[Succ[_]].typeSymbol
+  def applyImpl(ctx: whitebox.Context { type PrefixType = HList })(n: ctx.Expr[Int]): ctx.Expr[Any] = {
+    import ctx.universe.*
+    val _Succ = typeOf[Succ[?]].typeSymbol
     val _Zero = reify(Zero).tree
     n.tree match {
       case t @ Literal(Constant(v: Int)) =>
@@ -190,6 +206,6 @@ object HNil extends HList {
   def head = throw new NoSuchElementException("HNil.head")
   def tail = throw new NoSuchElementException("HNil.tail")
   def fold[U, F[_ <: HList, _ <: U] <: U, Z <: U](f: TypedFunction2[HList, U, U, F], z: Z) = z
-  def toList = Nil
+  override def toList: Nil.type = Nil
   def nonEmpty = false
 }

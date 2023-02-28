@@ -1,7 +1,5 @@
 package slick.collection.heterogeneous
 
-import scala.language.higherKinds
-
 /** A function which operates at the type and value levels. */
 trait TypedFunction
 

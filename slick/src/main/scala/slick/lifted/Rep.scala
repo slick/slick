@@ -1,7 +1,6 @@
 package slick.lifted
 
-import scala.language.existentials
-import slick.ast._
+import slick.ast.*
 import slick.SlickException
 
 /** Common base trait for all lifted values, including columns.

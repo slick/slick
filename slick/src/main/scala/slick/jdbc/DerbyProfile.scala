@@ -5,14 +5,15 @@ import java.time.Instant
 import java.util.UUID
 
 import scala.concurrent.ExecutionContext
+
 import slick.SlickException
-import slick.ast._
-import slick.ast.TypeUtil._
+import slick.ast.*
+import slick.ast.TypeUtil.*
 import slick.basic.Capability
-import slick.dbio._
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
+import slick.dbio.*
 import slick.jdbc.meta.MTable
-import slick.lifted._
+import slick.lifted.*
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -98,14 +99,17 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     - JdbcCapabilities.returnMultipleInsertKey
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+
     override def createTableNamer(mTable: MTable): TableNamer = new DerbyTableNamer(mTable)
     class DerbyTableNamer(mTable: MTable) extends TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "APP") // remove default schema
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
+                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
@@ -121,8 +125,8 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
               ctx.session.withPreparedStatement(s)(_.execute)
             } catch {
               //<value> '<value>' already exists in <value> '<value>'.
-              case e: SQLException if e.getSQLState().equals("X0Y32") => ()
-              case e: Throwable                                       => throw e
+              case e: SQLException if e.getSQLState.equals("X0Y32") => ()
+              case e: Throwable                                     => throw e
             }
           }
         }
@@ -135,8 +139,8 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
               ctx.session.withPreparedStatement(s)(_.execute)
             } catch {
               //'<value>' cannot be performed on '<value>' because it does not exist.
-              case e: SQLException if e.getSQLState().equals("42Y55") => ()
-              case e: Throwable                                       => throw e
+              case e: SQLException if e.getSQLState.equals("42Y55") => ()
+              case e: Throwable                                     => throw e
             }
           }
         }
@@ -144,7 +148,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   override protected def computeQueryCompiler =
     super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
-  override val columnTypes = new DerbyJdbcTypes
+  override val columnTypes: DerbyJdbcTypes = new DerbyJdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DerbyQueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DerbyTableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
@@ -158,13 +162,13 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  override val scalarFrom = Some("sysibm.sysdummy1")
+  override val scalarFrom: Some[String] = Some("sysibm.sysdummy1")
 
   class DerbyQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val supportsTuples = false
     override protected val supportsLiteralGroupBy = true
-    override protected val quotedJdbcFns = Some(Vector(Library.User))
+    override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] = Some(Vector(Library.User))
 
     override protected def buildForUpdateClause(forUpdate: Boolean) = {
       super.buildForUpdateClause(forUpdate)
@@ -185,9 +189,9 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
           else if(tn.startsWith("varchar")) (true, tn)
           else (false, tn)
         }
-        if(toVarchar && jdbcTypeFor(ch(0).nodeType).isInstanceOf[NumericTypedType])
-          b"trim(cast(cast(${ch(0)} as char(30)) as $tn))"
-        else b"cast(${ch(0)} as $tn)"
+        if(toVarchar && jdbcTypeFor(ch.head.nodeType).isInstanceOf[NumericTypedType])
+          b"trim(cast(cast(${ch.head} as char(30)) as $tn))"
+        else b"cast(${ch.head} as $tn)"
       case Library.IfNull(l, r) =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
@@ -205,17 +209,19 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
          * explicit type annotation (in the form of a CAST expression). */
         if(c.volatileHint || !ti.hasLiteralForm) {
           b"cast("
-          b +?= { (p, idx, param) => if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx) else ti.setValue(v, p, idx) }
+          b +?= { (p, idx, _) =>
+            if (option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx) else ti.setValue(v, p, idx)
+          }
           b" as ${ti.sqlTypeName(None)})"
         } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
       case Union(left, right, all) =>
         b"\{"
-        buildFrom(left, None, true)
+        buildFrom(left, None, skipParens = true)
         if(all) b"\nunion all " else b"\nunion "
         b"\["
-        buildFrom(right, None, true)
+        buildFrom(right, None, skipParens = true)
         b"\]"
         b"\}"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
@@ -260,7 +266,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   class DerbySequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
-      import seq.integral._
+      import seq.integral.*
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero
       val b = new StringBuilder append "CREATE SEQUENCE " append quoteIdentifier(seq.name)
@@ -279,9 +285,9 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   }
 
   class DerbyJdbcTypes extends JdbcTypes {
-    override val booleanJdbcType = new DerbyBooleanJdbcType
-    override val uuidJdbcType = new DerbyUUIDJdbcType
-    override val instantType = new DerbyInstantJdbcType
+    override val booleanJdbcType: DerbyBooleanJdbcType = new DerbyBooleanJdbcType
+    override val uuidJdbcType: DerbyUUIDJdbcType = new DerbyUUIDJdbcType
+    override val instantType: DerbyInstantJdbcType = new DerbyInstantJdbcType
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */

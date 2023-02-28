@@ -36,12 +36,15 @@ inThisBuild(
         Developer("hvesalai", "Heikki Vesalainen", "", url("https://github.com/hvesalai/"))
       ),
     scmInfo := Some(ScmInfo(url("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git")),
-    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
     scalacOptions ++=
-      (CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, v)) if v <= 12 => Seq("-Xfuture")
-        case _                       => Nil
-      }),
+      List(
+        "-deprecation",
+        "-feature",
+        "-unchecked",
+        "-Xsource:3",
+        "-Wunused:imports",
+        "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
+      )
   )
 )
 
@@ -61,7 +64,7 @@ def slickGeneralSettings =
     makePomConfiguration ~= {
       _.withConfigurations(Vector(Compile, Runtime, Optional))
     },
-    sonatypeProfileName := "com.typesafe",
+    sonatypeProfileName := "com.typesafe.slick",
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,

@@ -1,20 +1,20 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import java.time._
+import java.time.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
+import java.util.UUID
 
 import scala.concurrent.ExecutionContext
-import java.util.{TimeZone, UUID}
 
+import slick.ast.*
 import slick.basic.Capability
-import slick.relational.{RelationalCapabilities, RelationalProfile}
-import slick.sql.SqlCapabilities
-import slick.ast._
-import slick.util.MacroSupport.macroSupportInterpolation
 import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.{MColumn, MTable}
+import slick.relational.{RelationalCapabilities, RelationalProfile}
+import slick.sql.SqlCapabilities
+import slick.util.MacroSupport.macroSupportInterpolation
 
 /** Slick profile for H2.
   *
@@ -88,7 +88,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
                                  (implicit ec: ExecutionContext): JdbcModelBuilder =
     new H2ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override val columnTypes = new H2JdbcTypes
+  override val columnTypes: H2JdbcTypes = new H2JdbcTypes
   override protected def computeQueryCompiler =
     super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) - Phase.fixRowNumberOrdering
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new H2QueryBuilder(n, state)
@@ -106,10 +106,10 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
   }
 
   class H2QueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
-    override protected val concatOperator = Some("||")
+    override protected val concatOperator: Some[String] = Some("||")
     override protected val alwaysAliasSubqueries = false
     override protected val supportsLiteralGroupBy = true
-    override protected val quotedJdbcFns = Some(Nil)
+    override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"
