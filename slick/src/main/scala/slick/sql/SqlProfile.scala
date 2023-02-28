@@ -1,11 +1,10 @@
 package slick.sql
 
-import slick.basic.{BasicStreamingAction, BasicAction}
+import slick.ast.{ColumnOption, Symbol, SymbolNamer, TableNode}
+import slick.basic.{BasicAction, BasicStreamingAction}
 import slick.compiler.QueryCompiler
-import slick.relational.{RelationalActionComponent, RelationalTableComponent, RelationalProfile}
-
 import slick.dbio._
-import slick.ast.{TableNode, Symbol, SymbolNamer, ColumnOption}
+import slick.relational.{RelationalActionComponent, RelationalProfile, RelationalTableComponent}
 import slick.util.DumpInfo
 
 /** Abstract profile for SQL-based databases. */
@@ -87,8 +86,13 @@ trait SqlProfile extends RelationalProfile with SqlTableComponent with SqlAction
   }
 
   object DDL { 
-    def apply(create1: Iterable[String], createIfNotExists: Iterable[String], create2: Iterable[String], drop1: Iterable[String],
-              dropIfExists: Iterable[String], drop2: Iterable[String] , truncate: Iterable[String]): DDL = new DDL {
+    def apply(create1: Iterable[String],
+              createIfNotExists: Iterable[String],
+              create2: Iterable[String],
+              drop1: Iterable[String],
+              dropIfExists: Iterable[String],
+              drop2: Iterable[String] ,
+              truncate: Iterable[String]): DDL = new DDL {
       protected def createPhase1 = create1
       protected def createIfNotExistsPhase = createIfNotExists
       protected def createPhase2 = create2
@@ -162,12 +166,12 @@ trait SqlTableComponent extends RelationalTableComponent { this: SqlProfile =>
 trait SqlActionComponent extends RelationalActionComponent { this: SqlProfile =>
 
   type ProfileAction[+R, +S <: NoStream, -E <: Effect] <: SqlAction[R, S, E]
-  type StreamingProfileAction[+R, +T, -E <: Effect] <: SqlStreamingAction[R, T, E] with ProfileAction[R, Streaming[T], E]
+  type StreamingProfileAction[+R, +T, -E <: Effect] <:
+    SqlStreamingAction[R, T, E] with ProfileAction[R, Streaming[T], E]
 }
 
 trait SqlAction[+R, +S <: NoStream, -E <: Effect] extends BasicAction[R, S, E] {
-
-  type ResultAction[+R, +S <: NoStream, -E <: Effect] <: SqlAction[R, S, E]
+  type ResultAction[+R0, +S0 <: NoStream, -E0 <: Effect] <: SqlAction[R0, S0, E0]
 
   /** Return the SQL statements that will be executed for this Action */
   def statements: Iterable[String]
@@ -182,7 +186,8 @@ trait SqlAction[+R, +S <: NoStream, -E <: Effect] extends BasicAction[R, S, E] {
 trait SqlStreamingAction[+R, +T, -E <: Effect] extends BasicStreamingAction[R, T, E] with SqlAction[R, Streaming[T], E]
 
 trait FixedSqlAction[+R, +S <: NoStream, -E <: Effect] extends SqlAction[R, S, E] {
-  type ResultAction[+R, +S <: NoStream, -E <: Effect] = SqlAction[R, S, E]
+  type ResultAction[+R0, +S0 <: NoStream, -E0 <: Effect] = SqlAction[R0, S0, E0]
 }
 
-trait FixedSqlStreamingAction[+R, +T, -E <: Effect] extends SqlStreamingAction[R, T, E] with FixedSqlAction[R, Streaming[T], E]
+trait FixedSqlStreamingAction[+R, +T, -E <: Effect]
+  extends SqlStreamingAction[R, T, E] with FixedSqlAction[R, Streaming[T], E]

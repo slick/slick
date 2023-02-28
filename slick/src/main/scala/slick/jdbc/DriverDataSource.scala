@@ -1,19 +1,18 @@
 package slick.jdbc
 
-import scala.language.reflectiveCalls
-
-import java.io.{PrintWriter, Closeable}
-import java.sql._
+import java.io.{Closeable, PrintWriter}
+import java.sql.*
 import java.util.Properties
 import java.util.logging.Logger
-import javax.sql.DataSource
-
-import slick.SlickException
-import slick.util.{ClassLoaderUtil, Logging, ignoreFollowOnError}
 
 import scala.beans.BeanProperty
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
+
+import slick.SlickException
+import slick.util.{ignoreFollowOnError, ClassLoaderUtil, Logging}
+
+import javax.sql.DataSource
 
 /** A DataSource that wraps the DriverManager API. It can be configured as a Java Bean and used
   * both stand-alone and as a source for a connection pool. */

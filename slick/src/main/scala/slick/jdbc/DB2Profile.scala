@@ -6,13 +6,13 @@ import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 
-import slick.ast._
-import slick.compiler.{CompilerState, Phase, RewriteBooleans}
-import slick.dbio._
-import slick.jdbc.meta.MTable
-import slick.lifted._
-import slick.relational.RelationalCapabilities
+import slick.ast.*
 import slick.basic.Capability
+import slick.compiler.{CompilerState, Phase, RewriteBooleans}
+import slick.dbio.*
+import slick.jdbc.meta.MTable
+import slick.lifted.*
+import slick.relational.RelationalCapabilities
 import slick.util.MacroSupport.macroSupportInterpolation
 
 /** Slick profile for IBM DB2 UDB.
@@ -58,7 +58,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
   override protected def computeQueryCompiler =
     (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
       + Phase.rewriteBooleans)
-  override val columnTypes = new DB2JdbcTypes
+  override val columnTypes: DB2JdbcTypes = new DB2JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DB2QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DB2TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
@@ -73,7 +73,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  override val scalarFrom = Some("sysibm.sysdummy1")
+  override val scalarFrom: Some[String] = Some("sysibm.sysdummy1")
 
   class DB2QueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
     override protected val hasPiFunction = false
@@ -194,9 +194,9 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
   }
 
   class DB2JdbcTypes extends JdbcTypes {
-    override val booleanJdbcType = new DB2BooleanJdbcType
-    override val uuidJdbcType = new DB2UUIDJdbcType
-    override val instantType = new DB2InstantJdbcType
+    override val booleanJdbcType: DB2BooleanJdbcType = new DB2BooleanJdbcType
+    override val uuidJdbcType: DB2UUIDJdbcType = new DB2UUIDJdbcType
+    override val instantType: DB2InstantJdbcType = new DB2InstantJdbcType
 
     class DB2UUIDJdbcType extends UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"

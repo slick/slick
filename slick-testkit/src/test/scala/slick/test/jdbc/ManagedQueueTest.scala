@@ -1,7 +1,6 @@
 package slick.test.jdbc
 
 import java.sql.Connection
-import java.util.UUID
 
 import com.typesafe.config.ConfigFactory
 import org.junit.Test

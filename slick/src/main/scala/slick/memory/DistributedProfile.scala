@@ -1,16 +1,15 @@
 package slick.memory
 
-
-import scala.collection.mutable.{Builder, HashMap}
+import scala.collection.mutable
 
 import slick.SlickException
-import slick.ast._
-import slick.ast.TypeUtil._
+import slick.ast.*
+import slick.ast.TypeUtil.*
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
-import slick.compiler._
-import slick.dbio._
-import slick.relational.{RelationalProfile, ResultConverter, CompiledMapping}
-import slick.util.{DumpInfo, RefId, ??}
+import slick.compiler.*
+import slick.dbio.*
+import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter}
+import slick.util.{??, DumpInfo, RefId}
 
 /** A profile for distributed queries. */
 class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryingProfile { self: DistributedProfile =>
@@ -24,20 +23,24 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   val api: MemoryQueryingAPI = new MemoryQueryingAPI {}
 
   lazy val queryCompiler =
-    QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) ++ QueryCompiler.interpreterPhases + new MemoryCodeGen
-  lazy val updateCompiler = ??
-  lazy val deleteCompiler = ??
-  lazy val insertCompiler = ??
+    QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) ++
+      QueryCompiler.interpreterPhases +
+      new MemoryCodeGen
+  override lazy val updateCompiler: Nothing = ??
+  override lazy val deleteCompiler: Nothing = ??
+  override lazy val insertCompiler: Nothing = ??
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
-  def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
+  def createDistributedQueryInterpreter(param: Any, session: Backend#Session) =
+    new DistributedQueryInterpreter(param, session)
 
   type QueryActionExtensionMethods[R, S <: NoStream] = DistributedQueryActionExtensionMethodsImpl[R, S]
   type StreamingQueryActionExtensionMethods[R, T] = DistributedStreamingQueryActionExtensionMethodsImpl[R, T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
     new QueryActionExtensionMethods[R, S](tree, param)
-  def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
+  def createStreamingQueryActionExtensionMethods[R, T](tree: Node,
+                                                       param: Any): StreamingQueryActionExtensionMethods[R, T] =
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
 
   val emptyHeapDB = HeapBackend.createEmptyDatabase
@@ -55,7 +58,8 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
 
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: ProfileAction[R, S, Effect.Read] =
-      new StreamingProfileAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
+      new StreamingProfileAction[R, Any, Effect.Read]
+        with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
         def run(ctx: Backend#Context) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.ProfileAction")
         def head: ResultAction[Any, NoStream, Effect.Read] = ??
@@ -66,14 +70,15 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   class DistributedStreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any)
     extends DistributedQueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param)
       with BasicStreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
+    override def result: StreamingProfileAction[R, T, Effect.Read] =
+      super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {
-    import QueryInterpreter._
+    import QueryInterpreter.*
 
     override def run(n: Node) = n match {
-      case ProfileComputation(compiled, profile, _) =>
+      case ProfileComputation(compiled, profile, _)                                             =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val idx = profiles.indexOf(profile)
         if(idx < 0) throw new SlickException("No session found for profile "+profile)
@@ -82,13 +87,16 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         val wr = wrapScalaValue(dv, n.nodeType)
         if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)
         wr
-      case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) :@ CollectionType(cons, el) =>
+      case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
-        val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.iterator.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, Any]]
+        b ++= fromV.iterator.map { v =>
+          converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]]
+            .read(v.asInstanceOf[QueryInterpreter.ProductValue])
+        }
         b.result()
-      case n => super.run(n)
+      case n                                                                                    => super.run(n)
     }
 
     def wrapScalaValue(value: Any, tpe: Type): Any = tpe match {
@@ -98,7 +106,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
           wrapScalaValue(p.productElement(i), ts(i))
         ).toVector)
       case CollectionType(_, elType) =>
-        val v = value.asInstanceOf[Iterable[_]]
+        val v = value.asInstanceOf[Iterable[?]]
         val b = v.iterableFactory.newBuilder[Any]
         v.foreach(v => b += wrapScalaValue(v, elType))
         b.result()
@@ -114,11 +122,11 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
 
     def apply(state: CompilerState) = state.map { tree =>
       // Collect the required profiles and tainting profiles for all subtrees
-      val needed = new HashMap[RefId[Node], Set[RelationalProfile]]
-      val taints = new HashMap[RefId[Node], Set[RelationalProfile]]
+      val needed = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
+      val taints = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
       def collect(n: Node, scope: Scope): (Set[RelationalProfile], Set[RelationalProfile]) = {
         val (dr: Set[RelationalProfile], tt: Set[RelationalProfile]) = n match {
-          case t: TableNode => (Set(t.profileTable.asInstanceOf[RelationalProfile#Table[_]].tableProvider), Set.empty)
+          case t: TableNode => (Set(t.profileTable.asInstanceOf[RelationalProfile#Table[?]].tableProvider), Set.empty)
           case Ref(sym) =>
             scope.get(sym) match {
               case Some(nn) =>
@@ -175,10 +183,13 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
   }
 }
 
-/** Represents a computation that needs to be performed by another profile.
-  * Despite having a child it is a NullaryNode because the sub-computation
-  * should be opaque to the query compiler. */
-final case class ProfileComputation(compiled: Node, profile: RelationalProfile, buildType: Type) extends NullaryNode with SimplyTypedNode {
+/**
+ * Represents a computation that needs to be performed by another profile.
+ * Despite having a child it is a NullaryNode because the sub-computation
+ * should be opaque to the query compiler. */
+final case class ProfileComputation(compiled: Node, profile: RelationalProfile, buildType: Type)
+  extends NullaryNode
+    with SimplyTypedNode {
   type Self = ProfileComputation
   protected[this] def rebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = profile.toString)
