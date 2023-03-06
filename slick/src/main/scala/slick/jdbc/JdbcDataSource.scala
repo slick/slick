@@ -1,8 +1,7 @@
 package slick.jdbc
 
 import java.io.Closeable
-import java.sql.{Connection, Driver, DriverManager, SQLException}
-import java.util.Properties
+import java.sql.{Connection, Driver}
 
 import slick.util.*
 import slick.util.ConfigExtensionMethods.*
