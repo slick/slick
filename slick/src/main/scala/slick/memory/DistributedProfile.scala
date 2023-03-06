@@ -1,8 +1,8 @@
 package slick.memory
 
 import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 
-import scala.collection.mutable.{ArrayBuffer, Builder, HashMap}
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
