@@ -96,7 +96,8 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     createInterpreter(session.database, param).run(tree).asInstanceOf[R]
 
   class InsertInvokerDef[T](tree: Node) {
-    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, _, _), CompiledMapping(converter, _)) = tree
+    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, _, _), CompiledMapping(converter, _)) =
+      tree: @unchecked
 
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
@@ -132,7 +133,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     type StreamState = Iterator[T]
     protected[this] def getIterator(ctx: Backend#Context): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
-      val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
+      val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree: @unchecked
       val productValueIterator = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].iterator
       productValueIterator.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read)
     }
@@ -227,7 +228,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
-    val Insert(_, table: TableNode, ProductNode(cols), _) = insert
+    val Insert(_, table: TableNode, ProductNode(cols), _) = insert: @unchecked
     val tableColumnIndexes = table.profileTable.asInstanceOf[Table[?]].create_*.zipWithIndex.toMap
 
     def createColumnConverter(n: Node,

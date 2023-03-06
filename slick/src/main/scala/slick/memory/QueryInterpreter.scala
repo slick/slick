@@ -6,8 +6,8 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import slick.SlickException
+import slick.ast.*
 import slick.ast.TypeUtil.typeToTypeUtil
-import slick.ast._
 import slick.util.{ConstArray, Logging, SlickLogger}
 
 import org.slf4j.LoggerFactory
@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory
   */
 class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
-  import QueryInterpreter._
+  import QueryInterpreter.*
 
   val scope = new HashMap[TermSymbol, Any]
   var indent = 0
@@ -372,7 +372,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.Concat => args.iterator.map(_._2.toString).mkString
     case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
     case Library.Count =>
-      val CollectionType(_, elType) = args(0)._1
+      val CollectionType(_, elType) = args(0)._1: @unchecked
       val coll = args(0)._2.asInstanceOf[Coll]
       (elType match {
         case ProductType(_) => coll

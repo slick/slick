@@ -509,7 +509,7 @@ final case class Aggregate(sym: TermSymbol, from: Node, select: Node) extends Bi
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Aggregate = copy(sym = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
-    val from2 :@ CollectionType(_, el) = from.infer(scope, typeChildren)
+    val from2 :@ CollectionType(_, el) = from.infer(scope, typeChildren): @unchecked
     val select2 = select.infer(scope + (sym -> el), typeChildren)
     val this2 = if((from2 eq from) && (select2 eq select)) this else copy(from = from2, select = select2)
     this2 :@ (if(!hasType) select2.nodeType else nodeType)
