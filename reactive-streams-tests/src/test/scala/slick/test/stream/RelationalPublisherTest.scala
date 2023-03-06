@@ -4,11 +4,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.util.control.NonFatal
 
 import slick.relational.RelationalProfile
 
-import org.reactivestreams.*
 import org.reactivestreams.tck.*
 import org.scalatestplus.testng.TestNGSuiteLike
 import org.testng.annotations.{AfterClass, BeforeClass}
