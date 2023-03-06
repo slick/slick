@@ -3,8 +3,6 @@ package slick.lifted
 import slick.util.ConstArray
 
 import scala.annotation.implicitNotFound
-import scala.language.experimental.macros
-import scala.reflect.macros.blackbox
 
 import slick.ast.{Join as AJoin, *}
 import slick.ast.ScalaBaseType.*
