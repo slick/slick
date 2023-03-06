@@ -59,7 +59,7 @@ def slickGeneralSettings =
         (if (scalaVersion.value.startsWith("2."))
           List("-Xsource:3", "-Wunused:imports", "-Wconf:cat=unused-imports&src=src_managed/.*:silent")
         else
-          List("-Xsource:3.2-migration")),
+          List("-source:3.0-migration")),
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,
