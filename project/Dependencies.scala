@@ -14,7 +14,6 @@ object Dependencies {
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
 
-
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
 
   val junit = Seq(
