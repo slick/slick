@@ -1,11 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
-import scala.language.existentials
-
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 
 class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
-  import tdb.profile.api._
+  import tdb.profile.api.*
 
   def testMappedType = {
     sealed trait Bool
