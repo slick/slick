@@ -53,7 +53,7 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
     else {
       tdb.cleanUpBefore()
       try {
-        val is = (children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance().asInstanceOf[GenericTest[_ >: Null <: TestDB]]))) //TODO why does Dotty require this cast?
+        val is = (children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance().asInstanceOf[AsyncTest[_ >: Null <: TestDB]]))) //TODO why does Dotty require this cast?
           .filter { case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
         val last = is.length - 1
         var previousTestObject: AsyncTest[_ >: Null <: TestDB] = null

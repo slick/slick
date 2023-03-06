@@ -239,7 +239,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       override def read(pr: QueryInterpreter.ProductValue): Nothing = ??
       override def update(value: Any, pr: Nothing): Nothing = ??
       def set(value: Any, pp: ArrayBuffer[Any]) = pp(tableIndex) = value
-      override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tableIndex=$tidx")
+      override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tableIndex=$tableIndex")
       def width = 1
     }
   }
