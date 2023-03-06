@@ -2,17 +2,17 @@ package slick.jdbc
 
 import java.sql.PreparedStatement
 
+import scala.collection.mutable.ArrayBuffer
+
 import slick.dbio.Effect
 import slick.sql.SqlStreamingAction
 
-import scala.collection.mutable.ArrayBuffer
-
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLActionBuilder via string interpolation */
-  def sql[P](param: P)(implicit pconv: SetParameter[P]): SQLActionBuilder[P] =
+  def sql[P](param: P = ())(implicit pconv: SetParameter[P]): SQLActionBuilder[P] =
     new SQLActionBuilder[P](s.parts, param, pconv)
   /** Build an Action for an UPDATE statement via string interpolation */
-  def sqlu[P](param: P)(implicit pconv: SetParameter[P]) = sql(param).asUpdate
+  def sqlu[P](param: P = ())(implicit pconv: SetParameter[P]) = sql(param).asUpdate
 }
 
 object SQLInterpolation {
