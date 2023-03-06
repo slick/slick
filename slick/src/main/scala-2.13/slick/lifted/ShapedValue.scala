@@ -33,6 +33,10 @@ object ShapedValue {
       case NoSymbol => q"${rSym.name.toTermName}" // This can happen for case classes defined inside of methods
       case s => q"$s"
     }
+    val rHasTupled = rSym.companion match {
+      case NoSymbol => true
+      case s        => s.info.member(TermName("tupled")) != NoSymbol
+    }
     val fields =  rTag.tpe.decls.collect {
       case s: TermSymbol if s.isVal && s.isCaseAccessor => (TermName(s.name.toString.trim), s.typeSignature, TermName(c.freshName()))
     }.toIndexedSeq
@@ -51,8 +55,11 @@ object ShapedValue {
     } else if(fields.length == 1) { // Map from single value
       (q"($rModule.apply _) : ($uTag => $rTag)",
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
-    } else { // Map from tuple
+    } else if(rHasTupled) { // Map from tuple
       (q"($rModule.tupled) : ($uTag => $rTag)",
+        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
+    } else { // Map from tuple with tupled apply
+      (q"(($rModule.apply _).tupled) : ($uTag => $rTag)",
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     }
 
