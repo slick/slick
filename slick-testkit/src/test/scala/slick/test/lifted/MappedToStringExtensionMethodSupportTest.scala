@@ -1,8 +1,5 @@
 package slick.test.lifted
 
-import org.junit.Assert._
-import org.junit.Test
-
 /** Test cases for MappedTo[String] getting access to String extension methods */
 class MappedToStringExtensionMethodSupportTest {
 
