@@ -255,7 +255,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def mutate(sendEndMarker: Boolean = false): ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = {
       val sql = tree.findNode(_.isInstanceOf[CompiledStatement]).get
         .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
-      val (rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType))) :@ (ct: CollectionType) = tree
+      val (rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType))) :@ (ct: CollectionType) = tree: @unchecked
       new MutatingResultAction[T](rsm, elemType, ct, sql, param, sendEndMarker)
     }
   }
@@ -272,7 +272,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   class DeleteActionExtensionMethodsImpl(tree: Node, param: Any) {
     /** An Action that deletes the data selected by this query. */
     def delete: ProfileAction[Int, NoStream, Effect.Write] = {
-      val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
+      val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree: @unchecked
       new SimpleJdbcProfileAction[Int]("delete", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           sres.setter(st, 1, param)
