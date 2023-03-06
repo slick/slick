@@ -374,7 +374,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.Concat => args.iterator.map(_._2.toString).mkString
     case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
     case Library.Count =>
-      val CollectionType(_, elType) = args(0)._1
+      val CollectionType(_, elType) = args(0)._1: @unchecked
       val coll = args(0)._2.asInstanceOf[Coll]
       (elType match {
         case ProductType(_) => coll

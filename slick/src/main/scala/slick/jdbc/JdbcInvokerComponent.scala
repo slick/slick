@@ -1,10 +1,12 @@
 package slick.jdbc
 
-import scala.language.existentials
 import java.sql.PreparedStatement
-import slick.ast.{CompiledStatement, ResultSetMapping, Node, ParameterSwitch}
+
+import scala.language.existentials
+
+import slick.ast.{CompiledStatement, Node, ParameterSwitch, ResultSetMapping}
+import slick.relational.{CompiledMapping, ResultConverter}
 import slick.util.SQLBuilder
-import slick.relational.{ResultConverter, CompiledMapping}
 
 trait JdbcInvokerComponent { self: JdbcProfile =>
 
@@ -21,7 +23,7 @@ trait JdbcInvokerComponent { self: JdbcProfile =>
   }
 
   class QueryInvokerImpl[R](tree: Node, param: Any, overrideSql: String) extends QueryInvoker[R] {
-    protected[this] val ResultSetMapping(_, compiled, CompiledMapping(_converter, _)) = tree
+    protected[this] val ResultSetMapping(_, compiled, CompiledMapping(_converter, _)) = tree: @unchecked
     protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, R]]
     protected[this] val CompiledStatement(_, sres: SQLBuilder.Result, _) = findCompiledStatement(compiled)
 

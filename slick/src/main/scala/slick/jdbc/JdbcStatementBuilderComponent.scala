@@ -37,7 +37,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     protected[this] def compile(compiler: QueryCompiler): Artifacts = {
       val compiled = compiler.run(source).tree
-      val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(conv, _)) = compiled
+      val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(conv, _)) =
+        compiled: @unchecked
       new Artifacts(compiled, conv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]], ibr)
     }
 
@@ -547,7 +548,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   /** Builder for INSERT statements. */
   class InsertBuilder(val ins: Insert) {
-    protected val Insert(_, table: TableNode, ProductNode(rawColumns), allFields) = ins
+    protected val Insert(_, table: TableNode, ProductNode(rawColumns), allFields) = ins: @unchecked
     protected val syms: ConstArray[FieldSymbol] = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }
     protected lazy val allNames = syms.map(fs => quoteIdentifier(fs.name))
     protected lazy val allVars = syms.iterator.map(_ => "?").mkString("(", ",", ")")
@@ -568,7 +569,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       else
         new InsertBuilderResult(table, s"$start values $allVars", syms) {
           override def buildInsert(compiledQuery: Node) = {
-            val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery)
+            val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery): @unchecked
             SQLBuilder.Result(start + sbr.sql, sbr.setter)
           }
 
