@@ -6,6 +6,10 @@ import slick.util.{Dumpable, DumpInfo, TupleSupport}
 /** A `ResultConverter` is used to read data from a result, update a result,
   * and set parameters of a query. */
 trait ResultConverter[R, W, U, T] extends Dumpable {
+  type Reader = R
+  type Updater = U
+  type Writer = W
+
   def read(pr: R): T
   def update(value: T, pr: U): Unit
   /**
