@@ -33,16 +33,7 @@ inThisBuild(
         Developer("szeiger", "Stefan Zeiger", "", url("http://szeiger.de")),
         Developer("hvesalai", "Heikki Vesalainen", "", url("https://github.com/hvesalai/"))
       ),
-    scmInfo := Some(ScmInfo(url("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git")),
-    scalacOptions ++=
-      List(
-        "-deprecation",
-        "-feature",
-        "-unchecked",
-        "-Xsource:3",
-        "-Wunused:imports",
-        "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
-      )
+    scmInfo := Some(ScmInfo(url("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git"))
   )
 )
 
@@ -63,6 +54,12 @@ def slickGeneralSettings =
       _.withConfigurations(Vector(Compile, Runtime, Optional))
     },
     sonatypeProfileName := "com.typesafe.slick",
+    scalacOptions ++=
+      List("-deprecation", "-feature", "-unchecked") ++
+        (if (scalaVersion.value.startsWith("2."))
+          List("-Xsource:3", "-Wunused:imports", "-Wconf:cat=unused-imports&src=src_managed/.*:silent")
+        else
+          List("-Xsource:3.2-migration")),
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,
