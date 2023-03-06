@@ -238,7 +238,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     class InsertResultConverter(tableIndex: Int) extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
       override def read(pr: QueryInterpreter.ProductValue): Nothing = ??
       override def update(value: Any, pr: Nothing): Nothing = ??
-      def set(value: Any, pp: ArrayBuffer[Any]) = pp(tableIndex) = value
+      override def set(value: Any, pp: ArrayBuffer[Any], offset: Int) = pp(tableIndex) = value
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tableIndex=$tableIndex")
       def width = 1
     }
