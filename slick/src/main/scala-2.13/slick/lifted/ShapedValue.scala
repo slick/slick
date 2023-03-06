@@ -70,7 +70,7 @@ object ShapedValue {
           new _root_.slick.relational.SimpleFastPathResultConverter[_root_.scala.Any, _root_.scala.Any, _root_.scala.Any, $rTag](tm.asInstanceOf[_root_.slick.relational.TypeMappingResultConverter[_root_.scala.Any, _root_.scala.Any, _root_.scala.Any, $rTag, _]]) {
             ..$fpChildren
             override def read(r: Any): $rTag = new $rTag(..$fpReadChildren)
-            override def set(value: $rTag, pp: Any): _root_.scala.Unit = {..$fpSetChildren}
+            override def set(value: $rTag, pp: Any, index: Int): _root_.scala.Unit = {..$fpSetChildren}
             override def update(value: $rTag, pr: Any): _root_.scala.Unit = {..$fpUpdateChildren}
             override def getDumpInfo = super.getDumpInfo.copy(name = $fpName)
           }
