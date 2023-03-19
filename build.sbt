@@ -157,10 +157,11 @@ lazy val testkit =
   project
     .in(file("slick-testkit"))
     .configs(DocTest)
-    .dependsOn(slick, codegen % "compile->compile", hikaricp)
+    .dependsOn(slick, codegen % s"compile->compile;${TypeProviders.TypeProvidersConfig.name}->test", hikaricp)
     .settings(
       slickGeneralSettings,
-      compilerDependencySetting("provided"),
+      compilerDependencySetting(Provided.name),
+      compilerDependencySetting(TypeProviders.TypeProvidersConfig.name),
       inConfig(DocTest)(Defaults.testSettings),
       TypeProviders.codegenSettings,
       extTarget("testkit"),
@@ -181,7 +182,7 @@ lazy val testkit =
         Dependencies.junit ++:
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
-          (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
+          (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
       run / fork := true,
       //connectInput in run := true,
       run / javaOptions += "-Dslick.ansiDump=true",
