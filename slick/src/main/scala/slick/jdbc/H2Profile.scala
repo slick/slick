@@ -72,7 +72,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
           .collect {
             case (v, "java.util.UUID") =>
               if (v.matches("^['\"].*['\"]$"))
-                Some(Some(java.util.UUID.fromString(v.replaceAll("[\'\"]", "")))) // strip quotes
+                Some(Some(java.util.UUID.fromString(v.replaceAll("['\"]", "")))) // strip quotes
               else
                 None // The UUID is generated through a function - treat it as if there was no default.
           }
