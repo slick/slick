@@ -62,15 +62,15 @@ import slick.util.QueryInterpolator.queryInterpolator
   * Updating Blob values in updatable result sets is not supported.
   */
 trait OracleProfile extends JdbcProfile {
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalCapabilities.foreignKeyActions
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.booleanMetaData
-    - JdbcCapabilities.distinguishesIntTypes
-    - JdbcCapabilities.supportsByte
-    - JdbcCapabilities.returnMultipleInsertKey
-    - JdbcCapabilities.insertMultipleRowsWithSingleStatement
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      RelationalCapabilities.foreignKeyActions -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.booleanMetaData -
+      JdbcCapabilities.distinguishesIntTypes -
+      JdbcCapabilities.supportsByte -
+      JdbcCapabilities.returnMultipleInsertKey -
+      JdbcCapabilities.insertMultipleRowsWithSingleStatement
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
@@ -110,10 +110,12 @@ trait OracleProfile extends JdbcProfile {
   }
 
   override protected def computeQueryCompiler =
-    (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
-      .replace(Phase.resolveZipJoinsRownumStyle)
-      - Phase.fixRowNumberOrdering
-      + Phase.rewriteBooleans + new RemoveSubqueryOrdering)
+    super.computeQueryCompiler
+      .addAfter(Phase.removeTakeDrop, Phase.expandSums)
+      .replace(Phase.resolveZipJoinsRownumStyle) -
+      Phase.fixRowNumberOrdering +
+      Phase.rewriteBooleans +
+      new RemoveSubqueryOrdering
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new OracleQueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new OracleTableDDLBuilder(table)

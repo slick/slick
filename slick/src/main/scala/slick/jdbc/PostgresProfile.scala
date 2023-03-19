@@ -52,11 +52,12 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = super.computeCapabilities
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly
-    - JdbcCapabilities.nullableNoDefault
-    - JdbcCapabilities.supportsByte
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly -
+      JdbcCapabilities.nullableNoDefault -
+      JdbcCapabilities.supportsByte
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
