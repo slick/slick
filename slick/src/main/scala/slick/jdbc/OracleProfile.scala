@@ -412,18 +412,6 @@ END;
       }
     }
 
-    class OracleLocalTimeJdbcType extends LocalTimeJdbcType {
-      override def sqlType = java.sql.Types.TIMESTAMP
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6)"
-
-      override def getValue(r: ResultSet, idx: Int) : LocalTime = {
-        r.getTimestamp(idx) match {
-          case null => null
-          case timestamp => timestamp.toLocalDateTime.toLocalTime
-        }
-      }
-    }
-
     // LocalDateTime and Instant are the 2 types which have no TZ component
     // So, store them at UTC timestamps, otherwise the JDBC layer might attempt to map them
     // and with DST changes, there are some times which will be unrepresentable during the switchover
