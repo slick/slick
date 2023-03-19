@@ -62,13 +62,13 @@ import com.typesafe.config.Config
 trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { profile =>
   import MySQLProfile.{RowNum, RowNumGen}
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - JdbcCapabilities.returnInsertOther
-    - SqlCapabilities.sequenceLimited
-    - RelationalCapabilities.joinFull
-    - JdbcCapabilities.nullableNoDefault
-    - JdbcCapabilities.distinguishesIntTypes //https://github.com/slick/slick/pull/1735
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      JdbcCapabilities.returnInsertOther -
+      SqlCapabilities.sequenceLimited -
+      RelationalCapabilities.joinFull -
+      JdbcCapabilities.nullableNoDefault -
+      JdbcCapabilities.distinguishesIntTypes //https://github.com/slick/slick/pull/1735
 
   override protected[this] def loadProfileConfig: Config = {
     if(!GlobalConfig.profileConfig("slick.driver.MySQL").entrySet().isEmpty)

@@ -37,20 +37,20 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if the
   *     data to insert contains an `AutoInc` fields. Otherwise the operation
-  *     is performmed natively on the server side.</li>
+  *     is performed natively on the server side.</li>
   * </ul>
   */
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - SqlCapabilities.sequenceMin
-    - SqlCapabilities.sequenceMax
-    - SqlCapabilities.sequenceCycle
-    - JdbcCapabilities.returnInsertOther
-    - RelationalCapabilities.joinFull
-    - JdbcCapabilities.insertOrUpdate
-    - RelationalCapabilities.reverse
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      SqlCapabilities.sequenceMin -
+      SqlCapabilities.sequenceMax -
+      SqlCapabilities.sequenceCycle -
+      JdbcCapabilities.returnInsertOther -
+      RelationalCapabilities.joinFull -
+      JdbcCapabilities.insertOrUpdate -
+      RelationalCapabilities.reverse
 
   class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -180,7 +180,8 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     extends CountingInsertActionComposerImpl[U](compiled) {
     // H2 cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
     // the same in ReturningInsertInvoker because H2 does not allow returning non-AutoInc keys anyway.
-    override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
+    override protected val useServerSideUpsert =
+      compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 }

@@ -25,7 +25,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     This String function is not available in DB2.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
-  *     keys should be returned. Otherwise the operation is performmed
+  *     keys should be returned. Otherwise the operation is performed
   *     natively on the server side.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]:
   *     DB2 doesn't have booleans, so Slick maps to SMALLINT instead.
@@ -44,20 +44,20 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalCapabilities.reverse
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.supportsByte
-    - JdbcCapabilities.booleanMetaData
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      RelationalCapabilities.reverse -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.supportsByte -
+      JdbcCapabilities.booleanMetaData
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
   override protected val invokerMutateType: ResultSetType = ResultSetType.ScrollSensitive
 
   override protected def computeQueryCompiler =
-    (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
-      + Phase.rewriteBooleans)
+    super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums) +
+      Phase.rewriteBooleans
   override val columnTypes: DB2JdbcTypes = new DB2JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DB2QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DB2TableDDLBuilder(table)
@@ -66,7 +66,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new DB2SequenceDDLBuilder(seq)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
-    MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(_.name.schema.filter(_ == "SYSTOOLS").isEmpty))
+    MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(!_.name.schema.exists(_ == "SYSTOOLS")))
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.TINYINT => "SMALLINT" // DB2 has no smaller binary integer type
@@ -148,23 +148,25 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     override def createIfNotExistsPhase = {
       //
       Iterable(
-        "begin\n"
-      + "declare continue handler for sqlstate '42710' begin end; \n"
-      + ((createPhase1 ++ createPhase2).map{s =>
-        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
-      }.mkString("\n"))
-      + "\nend")
+        "begin\n" +
+          "declare continue handler for sqlstate '42710' begin end; \n" +
+          (createPhase1 ++ createPhase2).map { s =>
+            "execute immediate '" + s.replaceAll("'", """\\'""") + " ';"
+          }.mkString("\n") +
+          "\nend"
+      )
     }
 
     override def dropIfExistsPhase = {
       //
       Iterable(
-        "begin\n"
-      + "declare continue handler for sqlstate '42704' begin end; \n"
-      + ((dropPhase1 ++ dropPhase2).map{s =>
-        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
-      }.mkString("\n"))
-      + "\nend")
+        "begin\n" +
+          "declare continue handler for sqlstate '42704' begin end; \n" +
+          (dropPhase1 ++ dropPhase2).map { s =>
+            "execute immediate '" + s.replaceAll("'", """\\'""") + " ';"
+          }.mkString("\n") +
+          "\nend"
+      )
     }
   }
 

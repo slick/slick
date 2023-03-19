@@ -80,24 +80,24 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalCapabilities.functionDatabase
-    - RelationalCapabilities.pagingNested
-    - JdbcCapabilities.returnInsertOther
-    - SqlCapabilities.sequenceCurr
-    // Cycling is broken in Derby. It cycles to the start value instead of min or max
-    - SqlCapabilities.sequenceCycle
-    - RelationalCapabilities.zip
-    - RelationalCapabilities.joinFull
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly
-    - RelationalCapabilities.replace
-    - RelationalCapabilities.reverse
-    - JdbcCapabilities.booleanMetaData
-    - JdbcCapabilities.supportsByte
-    - RelationalCapabilities.repeat
-    - JdbcCapabilities.returnMultipleInsertKey
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      RelationalCapabilities.functionDatabase -
+      RelationalCapabilities.pagingNested -
+      JdbcCapabilities.returnInsertOther -
+      SqlCapabilities.sequenceCurr -
+      // Cycling is broken in Derby. It cycles to the start value instead of min or max
+      SqlCapabilities.sequenceCycle -
+      RelationalCapabilities.zip -
+      RelationalCapabilities.joinFull -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly -
+      RelationalCapabilities.replace -
+      RelationalCapabilities.reverse -
+      JdbcCapabilities.booleanMetaData -
+      JdbcCapabilities.supportsByte -
+      RelationalCapabilities.repeat -
+      JdbcCapabilities.returnMultipleInsertKey
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -178,7 +178,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
 
     override def expr(c: Node): Unit = c match {
-      case Library.Cast(ch @ _*) =>
+      case Library.Cast(ch*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
         val (toVarchar, tn) = {
