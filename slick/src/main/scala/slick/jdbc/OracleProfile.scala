@@ -17,7 +17,7 @@ import slick.lifted.*
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
 import slick.util.ConstArray
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for Oracle.
   *
@@ -147,7 +147,7 @@ trait OracleProfile extends JdbcProfile {
      * these functions. */
     override protected val hasRadDegConversion = false
 
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+    override def expr(c: Node): Unit = c match {
       case RowNumber(_) => b"rownum"
       case Library.NextValue(SequenceNode(name)) => b += quoteIdentifier(name) += ".nextval"
       case Library.CurrentValue(SequenceNode(name)) => b += quoteIdentifier(name) += ".currval"
@@ -156,17 +156,17 @@ trait OracleProfile extends JdbcProfile {
       case Library.==(left: ProductNode, right: ProductNode) => //TODO
         b"\("
         val cols = (left.children zip right.children).force
-        b.sep(cols, " and "){ case (l,r) => expr(Library.==.typed[Boolean](l, r)) }
+        b.sep(cols, " and "){ case (l,r) => expr(Library.==.typed[Boolean](l, r), false) }
         b"\)"
       case Library.==(l, r) if (l.nodeType != UnassignedType) && jdbcTypeFor(l.nodeType).sqlType == Types.BLOB =>
         b"\(dbms_lob.compare($l, $r) = 0\)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
-        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
-      case _ => super.expr(c, skipParens)
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
+      case _ => super.expr(c)
     }
   }
 

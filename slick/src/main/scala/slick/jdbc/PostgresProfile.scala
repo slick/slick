@@ -15,7 +15,7 @@ import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MIndexInfo, MTable}
 import slick.relational.RelationalProfile
 import slick.util.ConstArray
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for PostgreSQL.
   *
@@ -203,7 +203,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       case _ =>
     }
 
-    override def expr(n: Node, skipParens: Boolean = false) = n match {
+    override def expr(n: Node) = n match {
       case Library.UCase(ch) => b"upper($ch)"
       case Library.LCase(ch) => b"lower($ch)"
       case Library.IfNull(ch, d) => b"coalesce($ch, $d)"
@@ -213,11 +213,11 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       case Library.CurrentTime() => b"current_time"
       case Union(left, right, all) =>
         b"\{"
-        buildFrom(left, None)
+        buildFrom(left, None, false)
         if (all) b"\nunion all " else b"\nunion "
-        buildFrom(right, None)
+        buildFrom(right, None, false)
         b"\}"
-      case _ => super.expr(n, skipParens)
+      case _ => super.expr(n)
     }
   }
 

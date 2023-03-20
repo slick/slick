@@ -2,19 +2,23 @@ package slick.test.stream
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.reactivestreams._
-import org.reactivestreams.tck._
-import org.testng.annotations.{AfterClass, BeforeClass}
-import org.scalatestplus.testng.TestNGSuiteLike
-
-import slick.relational.RelationalProfile
-
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
-abstract class RelationalPublisherTest[P <: RelationalProfile](val profile: P, timeout: Long) extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L) with TestNGSuiteLike {
-  import profile.api._
+import slick.relational.RelationalProfile
+
+import org.reactivestreams.*
+import org.reactivestreams.tck.*
+import org.scalatestplus.testng.TestNGSuiteLike
+import org.testng.annotations.{AfterClass, BeforeClass}
+
+
+abstract class RelationalPublisherTest[P <: RelationalProfile](val profile: P, timeout: Long)
+  extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L) with TestNGSuiteLike {
+
+  import profile.api.*
+
 
   override def maxElementsFromPublisher = 73L
   override def boundedDepthOfOnNextAndRequestRecursion = 1L
