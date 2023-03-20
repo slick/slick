@@ -13,7 +13,7 @@ import slick.dbio.*
 import slick.jdbc.meta.MTable
 import slick.lifted.*
 import slick.relational.RelationalCapabilities
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for IBM DB2 UDB.
   *
@@ -25,7 +25,7 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *     This String function is not available in DB2.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
-  *     keys should be returned. Otherwise the operation is performmed
+  *     keys should be returned. Otherwise the operation is performed
   *     natively on the server side.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]:
   *     DB2 doesn't have booleans, so Slick maps to SMALLINT instead.
@@ -44,20 +44,20 @@ import slick.util.MacroSupport.macroSupportInterpolation
   */
 trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalCapabilities.reverse
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.supportsByte
-    - JdbcCapabilities.booleanMetaData
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      RelationalCapabilities.reverse -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.supportsByte -
+      JdbcCapabilities.booleanMetaData
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
   override protected val invokerMutateType: ResultSetType = ResultSetType.ScrollSensitive
 
   override protected def computeQueryCompiler =
-    (super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
-      + Phase.rewriteBooleans)
+    super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums) +
+      Phase.rewriteBooleans
   override val columnTypes: DB2JdbcTypes = new DB2JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DB2QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DB2TableDDLBuilder(table)
@@ -66,7 +66,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new DB2SequenceDDLBuilder(seq)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
-    MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(_.name.schema.filter(_ == "SYSTOOLS").isEmpty))
+    MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(!_.name.schema.exists(_ == "SYSTOOLS")))
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.TINYINT => "SMALLINT" // DB2 has no smaller binary integer type
@@ -80,7 +80,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     override protected val hasRadDegConversion = false
     override protected val pi = "decfloat(3.1415926535897932384626433832)"
 
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+    override def expr(c: Node): Unit = c match {
       case RowNumber(by) =>
         b += "row_number() over("
         if(!by.isEmpty) buildOrderByClause(by)
@@ -94,12 +94,12 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
       case Library.Database() => b += "current server"
       case Library.CountAll(LiteralNode(1)) => b"count(*)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
-        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
-      case _ => super.expr(c, skipParens)
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
+      case _ => super.expr(c)
     }
 
     override protected def buildOrdering(n: Node, o: Ordering): Unit = {
@@ -107,14 +107,14 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
        * sorted after non-null values by default. */
       if(o.nulls.first && !o.direction.desc) {
         b += "case when ("
-        expr(n)
+        expr(n, false)
         b += ") is null then 0 else 1 end,"
       } else if(o.nulls.last && o.direction.desc) {
         b += "case when ("
-        expr(n)
+        expr(n, false)
         b += ") is null then 1 else 0 end,"
       }
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b += " desc"
     }
 
@@ -148,23 +148,25 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     override def createIfNotExistsPhase = {
       //
       Iterable(
-        "begin\n"
-      + "declare continue handler for sqlstate '42710' begin end; \n"
-      + ((createPhase1 ++ createPhase2).map{s =>
-        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
-      }.mkString("\n"))
-      + "\nend")
+        "begin\n" +
+          "declare continue handler for sqlstate '42710' begin end; \n" +
+          (createPhase1 ++ createPhase2).map { s =>
+            "execute immediate '" + s.replaceAll("'", """\\'""") + " ';"
+          }.mkString("\n") +
+          "\nend"
+      )
     }
 
     override def dropIfExistsPhase = {
       //
       Iterable(
-        "begin\n"
-      + "declare continue handler for sqlstate '42704' begin end; \n"
-      + ((dropPhase1 ++ dropPhase2).map{s =>
-        "execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
-      }.mkString("\n"))
-      + "\nend")
+        "begin\n" +
+          "declare continue handler for sqlstate '42704' begin end; \n" +
+          (dropPhase1 ++ dropPhase2).map { s =>
+            "execute immediate '" + s.replaceAll("'", """\\'""") + " ';"
+          }.mkString("\n") +
+          "\nend"
+      )
     }
   }
 
