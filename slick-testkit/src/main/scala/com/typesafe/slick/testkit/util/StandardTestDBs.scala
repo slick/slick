@@ -168,6 +168,7 @@ object StandardTestDBs {
         _ <- if(systoolspace.isEmpty && schema.isDefined) {
           // We must ensure that SYSTOOLSPACE has been created before the admin_drop_schema procedure can be used
           println(s"[Creating DB2 SYSTOOLSPACE table space]")
+          //noinspection LongLine
           sqlu"CREATE TABLESPACE SYSTOOLSPACE IN IBMCATGROUP MANAGED BY AUTOMATIC STORAGE USING STOGROUP IBMSTOGROUP EXTENTSIZE 4"
         } else DBIO.successful(())
         _ <- if(schema.isDefined) {
@@ -242,8 +243,10 @@ object StandardTestDBs {
         for {
           tables <- localTables
           sequences <- localSequences
-          _ <- DBIO.seq((tables.map(t => sqlu"drop table #${profile.quoteIdentifier(t)} cascade constraints") ++
-            sequences.map(s => sqlu"drop sequence #${profile.quoteIdentifier(s)}")) *)
+          _ <- DBIO.sequence(
+            tables.map(t => sqlu"drop table #${profile.quoteIdentifier(t)} cascade constraints") ++
+              sequences.map(s => sqlu"drop sequence #${profile.quoteIdentifier(s)}")
+          )
         } yield ()
       }
 
@@ -270,8 +273,10 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
     for {
       tables <- localTables
       sequences <- localSequences
-      _ <- DBIO.seq((tables.map(t => sqlu"""drop table if exists #${profile.quoteIdentifier(t)}""") ++
-        sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)}""")) *)
+      _ <- DBIO.sequence(
+        tables.map(t => sqlu"""drop table if exists #${profile.quoteIdentifier(t)}""") ++
+          sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)}""")
+      )
     } yield ()
   }
 }
@@ -304,9 +309,9 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
           yield sqlu"""alter table ${profile.quoteIdentifier(t)} drop constraint ${profile.quoteIdentifier(c)}""") *)
         tables <- localTables
         sequences <- localSequences
-        _ <- DBIO.seq(
-          (tables.map(t => sqlu"""drop table #${profile.quoteIdentifier(t)}""") ++
-            sequences.map(t => sqlu"""drop sequence #${profile.quoteIdentifier(t)}""")) *
+        _ <- DBIO.sequence(
+          tables.map(t => sqlu"""drop table #${profile.quoteIdentifier(t)}""") ++
+            sequences.map(t => sqlu"""drop sequence #${profile.quoteIdentifier(t)}""")
         )
       } yield ()
     }

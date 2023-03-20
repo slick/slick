@@ -7,18 +7,16 @@ object TypeProviders {
 
   /** Slick type provider code gen  */
   val typeProviders = taskKey[Seq[File]]("Type provider code generation")
-  val TypeProvidersConfig = config("codegen").hide
-  val CompileConfig = config("compile")
+  val TypeProvidersConfig = config("codegen").hide.extend(Compile)
+  private val Test = sbt.Test.extend(TypeProvidersConfig)
   def codegenSettings = {
     inConfig(TypeProvidersConfig)(Defaults.configSettings) ++
+    inConfig(Test)(Defaults.configSettings) ++
     Seq(
       Test / sourceGenerators += typeProviders.taskValue,
       typeProviders := typeProvidersTask.value,
-      ivyConfigurations += TypeProvidersConfig.extend(Compile),
-      (Test / compile) := ((Test / compile) dependsOn (TypeProvidersConfig / compile)).value,
-      TypeProvidersConfig / unmanagedClasspath ++= (CompileConfig / fullClasspath).value,
-      TypeProvidersConfig / unmanagedClasspath ++= (LocalProject("codegen") / Test / fullClasspath).value,
-      Test / unmanagedClasspath ++= (TypeProvidersConfig / fullClasspath).value,
+      ivyConfigurations += TypeProvidersConfig,
+      ivyConfigurations += Test,
       Test / packageSrc / mappings ++= {
         val src = (Test / sourceDirectory).value / "codegen"
         val inFiles = src ** "*.scala"

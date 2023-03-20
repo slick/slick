@@ -16,7 +16,7 @@ import slick.jdbc.meta.MTable
 import slick.lifted.*
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for Derby/JavaDB.
   *
@@ -80,24 +80,24 @@ import slick.util.MacroSupport.macroSupportInterpolation
   */
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalCapabilities.functionDatabase
-    - RelationalCapabilities.pagingNested
-    - JdbcCapabilities.returnInsertOther
-    - SqlCapabilities.sequenceCurr
-    // Cycling is broken in Derby. It cycles to the start value instead of min or max
-    - SqlCapabilities.sequenceCycle
-    - RelationalCapabilities.zip
-    - RelationalCapabilities.joinFull
-    - JdbcCapabilities.insertOrUpdate
-    - JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly
-    - RelationalCapabilities.replace
-    - RelationalCapabilities.reverse
-    - JdbcCapabilities.booleanMetaData
-    - JdbcCapabilities.supportsByte
-    - RelationalCapabilities.repeat
-    - JdbcCapabilities.returnMultipleInsertKey
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      RelationalCapabilities.functionDatabase -
+      RelationalCapabilities.pagingNested -
+      JdbcCapabilities.returnInsertOther -
+      SqlCapabilities.sequenceCurr -
+      // Cycling is broken in Derby. It cycles to the start value instead of min or max
+      SqlCapabilities.sequenceCycle -
+      RelationalCapabilities.zip -
+      RelationalCapabilities.joinFull -
+      JdbcCapabilities.insertOrUpdate -
+      JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly -
+      RelationalCapabilities.replace -
+      RelationalCapabilities.reverse -
+      JdbcCapabilities.booleanMetaData -
+      JdbcCapabilities.supportsByte -
+      RelationalCapabilities.repeat -
+      JdbcCapabilities.returnMultipleInsertKey
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -177,8 +177,8 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       }
     }
 
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case Library.Cast(ch @ _*) =>
+    override def expr(c: Node): Unit = c match {
+      case Library.Cast(ch*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
         val (toVarchar, tn) = {
@@ -213,7 +213,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
             if (option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx) else ti.setValue(v, p, idx)
           }
           b" as ${ti.sqlTypeName(None)})"
-        } else super.expr(c, skipParens)
+        } else super.expr(c)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
       case Union(left, right, all) =>
@@ -225,12 +225,12 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         b"\]"
         b"\}"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
-        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a), skipParens)
+        expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
-        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))), skipParens)
-      case _ => super.expr(c, skipParens)
+        super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
+      case _ => super.expr(c)
     }
   }
 

@@ -14,7 +14,7 @@ import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for H2.
   *
@@ -37,20 +37,20 @@ import slick.util.MacroSupport.macroSupportInterpolation
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if the
   *     data to insert contains an `AutoInc` fields. Otherwise the operation
-  *     is performmed natively on the server side.</li>
+  *     is performed natively on the server side.</li>
   * </ul>
   */
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - SqlCapabilities.sequenceMin
-    - SqlCapabilities.sequenceMax
-    - SqlCapabilities.sequenceCycle
-    - JdbcCapabilities.returnInsertOther
-    - RelationalCapabilities.joinFull
-    - JdbcCapabilities.insertOrUpdate
-    - RelationalCapabilities.reverse
-  )
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      SqlCapabilities.sequenceMin -
+      SqlCapabilities.sequenceMax -
+      SqlCapabilities.sequenceCycle -
+      JdbcCapabilities.returnInsertOther -
+      RelationalCapabilities.joinFull -
+      JdbcCapabilities.insertOrUpdate -
+      RelationalCapabilities.reverse
 
   class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -72,7 +72,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
           .collect {
             case (v, "java.util.UUID") =>
               if (v.matches("^['\"].*['\"]$"))
-                Some(Some(java.util.UUID.fromString(v.replaceAll("[\'\"]", "")))) // strip quotes
+                Some(Some(java.util.UUID.fromString(v.replaceAll("['\"]", "")))) // strip quotes
               else
                 None // The UUID is generated through a function - treat it as if there was no default.
           }
@@ -111,11 +111,11 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
-    override def expr(n: Node, skipParens: Boolean = false) = n match {
+    override def expr(n: Node) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval(schema(), '$name')"
       case RowNumber(_) => b"rownum"
-      case _ => super.expr(n, skipParens)
+      case _ => super.expr(n)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
@@ -180,7 +180,8 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     extends CountingInsertActionComposerImpl[U](compiled) {
     // H2 cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
     // the same in ReturningInsertInvoker because H2 does not allow returning non-AutoInc keys anyway.
-    override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
+    override protected val useServerSideUpsert =
+      compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 }

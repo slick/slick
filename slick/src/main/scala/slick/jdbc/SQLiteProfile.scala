@@ -15,7 +15,7 @@ import slick.basic.Capability
 import slick.compiler.CompilerState
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
-import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.QueryInterpolator.queryInterpolator
 
 /** Slick profile for SQLite.
   *
@@ -225,7 +225,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
         b"($n) is null,"
       else if(o.nulls.first && o.direction.desc)
         b"($n) is null desc,"
-      expr(n)
+      expr(n, false)
       if(o.direction.desc) b" desc"
     }
 
@@ -236,7 +236,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       case _ =>
     }
 
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+    override def expr(c: Node): Unit = c match {
       case Library.UCase(ch)                => b"upper(!$ch)"
       case Library.LCase(ch)                => b"lower(!$ch)"
       case Library.Substring(n, start, end) =>
@@ -266,7 +266,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
         buildFrom(right, None, skipParens = true)
         b"\]"
         b"\}"
-      case _                        => super.expr(c, skipParens)
+      case _                        => super.expr(c)
     }
   }
 

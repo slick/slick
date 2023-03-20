@@ -1,5 +1,4 @@
 import com.jsuereth.sbtpgp.PgpKeys
-import com.typesafe.tools.mima.core.{MissingClassProblem, ProblemFilters}
 
 
 val testAll = taskKey[Unit]("Run all tests")
@@ -9,7 +8,6 @@ val cleanCompileTimeTests =
 
 /* Test Configuration for running tests on doc sources */
 val DocTest = config("doctest").extend(Test)
-val MacroConfig = config("macro")
 
 val tagTestGroupOther = Tags.Tag("test-group-other")
 Global / concurrentRestrictions :=
@@ -95,8 +93,7 @@ def commonTestResourcesSetting =
 
 def sampleSettings = Seq(
   Compile / unmanagedClasspath :=
-    Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value,
-  Compile / unmanagedClasspath ++= (slick / MacroConfig / products).value
+    Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value
 )
 
 ThisBuild / crossScalaVersions := Dependencies.scalaVersions
@@ -125,8 +122,7 @@ lazy val slick =
     .enablePlugins(MimaPlugin)
     .settings(
       slickGeneralSettings,
-      compilerDependencySetting("macro"),
-      inConfig(MacroConfig)(Defaults.configSettings),
+      compilerDependencySetting("provided"),
       FMPP.preprocessorSettings,
       extTarget("slick"),
       name := "Slick",
@@ -139,28 +135,18 @@ lazy val slick =
 
       // suppress test status output
       test := {},
-      testOnly := {},
-
-      ivyConfigurations += MacroConfig.hide.extend(Compile),
-      Compile / unmanagedClasspath ++= (MacroConfig / products).value,
-      libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
-      (Compile / packageSrc / mappings) ++= (MacroConfig / packageSrc / mappings).value,
-      (Compile / packageBin / mappings) ++= (MacroConfig / packageBin / mappings).value,
-
-      mimaBinaryIssueFilters ++= Seq(
-        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
-        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl"),
-      )
+      testOnly := {}
     )
 
 lazy val testkit =
   project
     .in(file("slick-testkit"))
     .configs(DocTest)
-    .dependsOn(slick, codegen % "compile->compile", hikaricp)
+    .dependsOn(slick, codegen % s"compile->compile;${TypeProviders.TypeProvidersConfig.name}->test", hikaricp)
     .settings(
       slickGeneralSettings,
-      compilerDependencySetting("provided"),
+      compilerDependencySetting(Provided.name),
+      compilerDependencySetting(TypeProviders.TypeProvidersConfig.name),
       inConfig(DocTest)(Defaults.testSettings),
       TypeProviders.codegenSettings,
       extTarget("testkit"),
@@ -181,7 +167,7 @@ lazy val testkit =
         Dependencies.junit ++:
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
-          (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
+          (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
       run / fork := true,
       //connectInput in run := true,
       run / javaOptions += "-Dslick.ansiDump=true",
