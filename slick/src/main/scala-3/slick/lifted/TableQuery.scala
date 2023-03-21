@@ -1,6 +1,6 @@
 package slick.lifted
 
-import scala.quoted._
+import scala.quoted.*
 
 import slick.ast.Node
 
@@ -38,7 +38,7 @@ object TableQuery {
   inline def apply[E <: AbstractTable[_]]: TableQuery[E] = ${ applyExpr[E] }
 
   private def applyExpr[E <: AbstractTable[_]](using quotes: Quotes, e: Type[E]): Expr[TableQuery[E]] = {
-    import quotes.reflect._
+    import quotes.reflect.*
     val eTpe = TypeRepr.of(using e)
     val tagTpe = TypeRepr.of[Tag]
     val mt = MethodType(List("tag"))(_ => List(tagTpe), _ => eTpe)
@@ -50,6 +50,8 @@ object TableQuery {
       )
     })
 
-    '{ TableQuery.apply[E](${ cons.asExprOf[Tag => E] }) }
+    val ctorExpr = cons.asExprOf[Tag => E]
+
+    '{ TableQuery.apply[E](${ ctorExpr }) }
   }
 }
