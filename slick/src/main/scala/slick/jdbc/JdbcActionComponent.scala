@@ -5,6 +5,7 @@ import java.sql.{PreparedStatement, ResultSet, Statement}
 import scala.collection.mutable.Builder
 import scala.language.existentials
 import scala.util.control.NonFatal
+
 import slick.SlickException
 import slick.ast.*
 import slick.ast.ColumnOption.PrimaryKey
@@ -622,7 +623,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           retManyMultiRowStatement(st, values, count)
         }
 
-      def run(ctx: Backend#Context, sql: Vector[String]) =
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): MultiInsertResult =
         rowsPerStatement match {
           case RowsPerStatement.One =>
             values match {
