@@ -8,6 +8,7 @@ final case class Insert(tableSym: TermSymbol, table: Node, linear: Node, allFiel
   extends BinaryNode
     with DefNode {
   type Self = Insert
+  override def self = this
   def left = table
   def right = linear
   override def childNames: Vector[String] = Vector("table " + tableSym, "linear")
@@ -27,6 +28,7 @@ final case class InsertColumn(children: ConstArray[Node], fs: FieldSymbol, build
   extends Node
     with SimplyTypedNode {
   type Self = InsertColumn
+  override def self = this
   protected[this] def rebuild(ch: ConstArray[Node]) = copy(children = ch)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = fs.toString)
 }

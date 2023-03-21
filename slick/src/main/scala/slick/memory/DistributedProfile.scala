@@ -189,6 +189,7 @@ final case class ProfileComputation(compiled: Node, profile: RelationalProfile, 
   extends NullaryNode
     with SimplyTypedNode {
   type Self = ProfileComputation
+  override def self = this
   protected[this] def rebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = profile.toString)
 }

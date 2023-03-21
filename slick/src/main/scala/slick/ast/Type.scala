@@ -165,7 +165,7 @@ trait CollectionTypeConstructor {
   """Cannot use collection in a query
             collection type: ${C}[_]
   requires implicit of type: slick.ast.TypedCollectionTypeConstructor[${C}]""")
-abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[?]]) extends CollectionTypeConstructor {
+abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[Any]]) extends CollectionTypeConstructor {
   override def toString = classTag.runtimeClass.getName
     .replaceFirst("^scala.collection.immutable.", "")
     .replaceFirst("^scala.collection.mutable.", "m.")
@@ -178,7 +178,7 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[?]]
   }
 }
 
-class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[?]])
+class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[Any]])
   extends TypedCollectionTypeConstructor[C](classTag) {
   val isSequential = classOf[scala.collection.Seq[?]].isAssignableFrom(classTag.runtimeClass)
   val isUnique = classOf[scala.collection.Set[?]].isAssignableFrom(classTag.runtimeClass)
@@ -186,14 +186,14 @@ class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], class
 }
 
 object TypedCollectionTypeConstructor {
-  private[this] val arrayClassTag = mkClassTag[Array[?]]
+  private[this] val arrayClassTag = mkClassTag[Array[Any]]
   /** The standard TypedCollectionTypeConstructor for Seq */
   def seq = forColl[Vector]
   /** The standard TypedCollectionTypeConstructor for Set */
   def set = forColl[Set]
   /** Get a TypedCollectionTypeConstructor for an Iterable type */
   implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]],
-                                            tag: ClassTag[C[?]]): TypedCollectionTypeConstructor[C] =
+                                            tag: ClassTag[C[Any]]): TypedCollectionTypeConstructor[C] =
     new ErasedCollectionTypeConstructor[C](cbf, tag)
   /** Get a TypedCollectionTypeConstructor for an Array type */
   implicit val forArray: TypedCollectionTypeConstructor[Array] =

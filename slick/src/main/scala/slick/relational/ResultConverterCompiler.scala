@@ -64,6 +64,7 @@ object ResultConverterCompiler {
 /** A node that wraps a ResultConverter */
 final case class CompiledMapping(converter: ResultConverter[_, _, _, _], buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = CompiledMapping
+  override def self = this
   def rebuild = copy()
   override def getDumpInfo = {
     val di = super.getDumpInfo

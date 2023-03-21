@@ -17,6 +17,7 @@ final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
                                                        offset: Option[Node] = None,
                                                        forUpdate: Boolean = false) extends DefNode {
   type Self = Comprehension[Option[Node]]
+  override def self = this
   lazy val children =
     (ConstArray.newBuilder() +
       from +
@@ -111,6 +112,7 @@ object Comprehension {
 /** The row_number window function */
 final case class RowNumber(by: ConstArray[(Node, Ordering)] = ConstArray.empty) extends SimplyTypedNode {
   type Self = RowNumber
+  override def self = this
   override def buildType: ScalaNumericType[Long] = ScalaBaseType.longType
   lazy val children = by.map(_._1)
   protected[this] def rebuild(ch: ConstArray[Node]) =
