@@ -86,6 +86,7 @@ object ShapedValue {
   }
 }
 
+@FunctionalInterface
 trait ToTuple[E, T] extends (E => Option[T])
 
 object ToTuple extends ToTupleLowPriority {
