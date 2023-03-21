@@ -30,8 +30,8 @@ object ShapedValue {
     import quotes.reflect._
     val rtpe = summon[Type[R]]
     val utpe = summon[Type[U]]
-    val rct = Expr.summon[ClassTag[R]].getOrElse(report.throwError(s"No ClassTag available for ${Type.show[R]}"))
-    val rpm = Expr.summon[Mirror.ProductOf[R]].getOrElse(report.throwError(s"${Type.show[R]} is not a product type"))
+    val rct = Expr.summon[ClassTag[R]].getOrElse(report.errorAndAbort(s"No ClassTag available for ${Type.show[R]}"))
+    val rpm = Expr.summon[Mirror.ProductOf[R]].getOrElse(report.errorAndAbort(s"${Type.show[R]} is not a product type"))
 
     def decomposeTuple(tpe: Type[_ <: Tuple]): List[Type[_]] = tpe match {
       case '[ t *: ts ] => Type.of[t] :: decomposeTuple(Type.of[ts])
@@ -66,7 +66,7 @@ object ShapedValue {
             val g = '{ ((r: R) => r.asInstanceOf[Product].productElement(0)).asInstanceOf[Any => Any] }
             (f, g, targetElemTpes)
           case _ =>
-            report.throwError(s"Source type ${Type.show[U]} must be a product, HList or single value")
+            report.errorAndAbort(s"Source type ${Type.show[U]} must be a product, HList or single value")
         }
     }
 
@@ -74,7 +74,7 @@ object ShapedValue {
       // todo: change
       val src = elemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
       val target = targetElemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
-      report.throwError(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
+      report.errorAndAbort(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
     }
 
     '{ new MappedProjection[R, U]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
