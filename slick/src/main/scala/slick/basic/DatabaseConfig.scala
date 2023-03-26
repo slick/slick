@@ -6,7 +6,7 @@ import scala.reflect.ClassTag
 import scala.reflect.macros.blackbox.Context
 import scala.util.control.NonFatal
 
-import java.net.{URL, URI}
+import java.net.URI
 
 import slick.util.{SlickLogger, ClassLoaderUtil}
 import slick.util.ConfigExtensionMethods.configExtensionMethods
@@ -125,7 +125,7 @@ object DatabaseConfig {
     }
     val root =
       if(base eq null) ConfigFactory.load(classLoader)
-      else ConfigFactory.parseURL(new URL(base)).resolve()
+      else ConfigFactory.parseURL(new URI(base).toURL).resolve()
     forConfig[P](path, root, classLoader)
   }
 
