@@ -70,14 +70,14 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
   protected lazy val defaultStringType = profileConfig.getStringOpt("defaultStringType")
 
   override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities
-      - JdbcCapabilities.forceInsert
-      - JdbcCapabilities.returnInsertOther
-      - JdbcCapabilities.insertOrUpdate
-      - SqlCapabilities.sequence
-      - JdbcCapabilities.supportsByte
-      - JdbcCapabilities.returnMultipleInsertKey
-      - JdbcCapabilities.insertMultipleRowsWithSingleStatement
+    super.computeCapabilities -
+      JdbcCapabilities.forceInsert -
+      JdbcCapabilities.returnInsertOther -
+      JdbcCapabilities.insertOrUpdate -
+      SqlCapabilities.sequence -
+      JdbcCapabilities.supportsByte -
+      JdbcCapabilities.returnMultipleInsertKey -
+      JdbcCapabilities.insertMultipleRowsWithSingleStatement
 
   override protected def computeQueryCompiler =
     super.computeQueryCompiler
