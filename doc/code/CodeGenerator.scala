@@ -3,8 +3,9 @@ package com.typesafe.slick.docs
 //#imports
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
-import slick.jdbc.H2Profile.api._
+
 import slick.jdbc.H2Profile
+import slick.jdbc.H2Profile.api.*
 //#imports
 
 object CodeGenerator extends App {
@@ -59,7 +60,7 @@ object CodeGenerator extends App {
           // use the data model member of this column to change the Scala type,
           // e.g. to a custom enum or anything else
           override def rawType =
-            if(model.name == "SOME_SPECIAL_COLUMN_NAME") "MyCustomType" else super.rawType
+            if(this.model.name == "SOME_SPECIAL_COLUMN_NAME") "MyCustomType" else super.rawType
         }
       }
     })

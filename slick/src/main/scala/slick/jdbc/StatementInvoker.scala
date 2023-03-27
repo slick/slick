@@ -1,9 +1,12 @@
 package slick.jdbc
 
 import java.sql.PreparedStatement
-import slick.util.{TableDump, SlickLogger, CloseableIterator}
-import org.slf4j.LoggerFactory
+
 import scala.collection.mutable.ArrayBuffer
+
+import slick.util.{CloseableIterator, SlickLogger, TableDump}
+
+import org.slf4j.LoggerFactory
 
 private[jdbc] object StatementInvoker {
   val maxLogResults = 5
@@ -38,9 +41,9 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
       st.setMaxRows(maxRows)
       val doLogResult = StatementInvoker.resultLogger.isDebugEnabled
       if(st.execute) {
-        val rs = st.getResultSet
+        val resultSet = st.getResultSet
         val logHeader = if(doLogResult) {
-          val meta = rs.getMetaData
+          val meta = resultSet.getMetaData
           Vector(
             1.to(meta.getColumnCount).map(_.toString),
             1.to(meta.getColumnCount).map(idx => meta.getColumnLabel(idx)).to(ArrayBuffer)
@@ -48,9 +51,9 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
         } else null
         val logBuffer = if(doLogResult) new ArrayBuffer[ArrayBuffer[Any]] else null
         var rowCount = 0
-        val pr = new PositionedResult(rs) {
+        val pr = new PositionedResult(resultSet) {
           def close() = {
-            rs.close()
+            this.rs.close()
             st.close()
             if(doLogResult) {
               StatementInvoker.tableDump(logHeader.toIndexedSeq.map(_.toIndexedSeq), logBuffer.toIndexedSeq.map(_.toIndexedSeq)).foreach(s => StatementInvoker.resultLogger.debug(s))
