@@ -40,9 +40,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] = super.computeCapabilities
-    - SqlCapabilities.sequenceCurr
-    - JdbcCapabilities.insertOrUpdate
+  override protected def computeCapabilities: Set[Capability] =
+    super.computeCapabilities -
+      SqlCapabilities.sequenceCurr -
+      JdbcCapabilities.insertOrUpdate
 
   class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

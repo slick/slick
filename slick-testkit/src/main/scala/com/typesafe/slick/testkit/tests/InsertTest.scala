@@ -340,9 +340,9 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       val ts2 = TableQuery[T2]
       (for {
         _ <- ts1.schema.create
-        _ <- ts1 ++= Seq((1), (2))
-        _ <- ts1.insertOrUpdate((0)).map(_ shouldBe 1)
-        _ <- ts1.insertOrUpdate((1)).map(_ shouldBe 1)
+        _ <- ts1 ++= Seq(1, 2)
+        _ <- ts1.insertOrUpdate(0).map(_ shouldBe 1)
+        _ <- ts1.insertOrUpdate(1).map(_ shouldBe 1)
         _ <- ts2.schema.create
         _ <- ts2 ++= Seq(V(1, "a"), V(2, "b"))
         _ <- ts2.insertOrUpdate(V(0, "c")).map(_ shouldBe 1)
@@ -374,7 +374,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
 
     val bookMeta = BookMeta(-1, -1, 0) // fail, because there are no books.
     DBIO.seq(
-      (meta.insertOrUpdate(bookMeta)).asTry.map {
+      meta.insertOrUpdate(bookMeta).asTry.map {
         case Success(_) => throw new Exception("Insertion should be failed.")
         case _ => ()
       }
