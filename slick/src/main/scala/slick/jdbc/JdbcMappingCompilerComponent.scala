@@ -21,7 +21,7 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
 
   /** Create a (possibly specialized) `ResultConverter` for `Option` values of the given `JdbcType`. */
   def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
-    SpecializedJdbcResultConverter.option(ti, idx)
+    new OptionResultConverter(ti, idx)
 
   /** A ResultConverterCompiler that builds JDBC-based converters. Instances of
     * this class use mutable state internally. They are meant to be used for a

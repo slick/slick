@@ -1,16 +1,14 @@
 package com.typesafe.slick.docs
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future, Await}
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 //#imports
-import slick.jdbc.H2Profile.api._
+import slick.jdbc.H2Profile.api.*
 //#imports
 import slick.jdbc.GetResult
-import slick.jdbc.JdbcProfile
-import slick.basic.{DatabaseConfig, StaticDatabaseConfig}
 
 /** A simple example that uses plain SQL queries against an in-memory
   * H2 database. The example data comes from Oracle's JDBC tutorial at

@@ -554,7 +554,7 @@ object LiftedEmbedding extends App {
     }
 
     {
-      //#mappedtype1
+      //#mappedtype
       // Custom data type for booleans that maps to NUMBER in database
       object Bool extends Enumeration {
           type Bool = Value
@@ -571,24 +571,10 @@ object LiftedEmbedding extends App {
       implicit val boolColumnType = Bool.columnMapper
 
       // You can now use Bool.{True, False} like any built-in column type (in tables, queries, etc.)
-      //#mappedtype1
+      //#mappedtype
     }
 
     {
-      //#mappedtype2
-      // A custom ID type for a table
-      case class MyID(value: Long) extends MappedTo[Long]
-
-      // Use it directly for this table's ID -- No extra boilerplate needed
-      class MyTable(tag: Tag) extends Table[(MyID, String)](tag, "MY_TABLE") {
-        def id = column[MyID]("ID")
-        def data = column[String]("DATA")
-        def * = (id, data)
-      }
-      //#mappedtype2
-    }
-
-    ;{
       //#recordtype1
       // A custom record class
       case class Pair[A, B](a: A, b: B)
