@@ -25,17 +25,4 @@ object SpecializedJdbcResultConverter {
       }
     }
   }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
-
-  /** Create a new type-specialized `OptionResultConverter` for the given type-specialized `JdbcType` */
-  def option[T](ti: JdbcType[T], idx: Int) = (ti.scalaType match {
-    <#list specTypes as tpe>
-    case ScalaBaseType.${tpe?lower_case}Type => new OptionResultConverter[${tpe}](ti.asInstanceOf[JdbcType[${tpe}]], idx)
-    </#list>
-    case _ => new OptionResultConverter[T](ti.asInstanceOf[JdbcType[T]], idx) {
-      override def read(pr: ResultSet) = {
-        val v = ti.getValue(pr, idx)
-        if(v.asInstanceOf[AnyRef] eq null) None else Some(v)
-      }
-    }
-  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
 }
