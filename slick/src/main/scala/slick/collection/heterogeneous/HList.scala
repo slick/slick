@@ -45,7 +45,7 @@ sealed abstract class HList extends Product {
   }
 
   /** Prepend an element to this HList, returning a new HList. */
-  @inline final def :: [@specialized E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
+  @inline final def :: [E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
 
   /** Drop the first `n` elements from this HList. */
   final def drop(i: Int): HList = {
@@ -119,7 +119,7 @@ object HList {
 }
 
 /** A cons cell of an `HList`, containing an element type and the element */
-final class HCons[@specialized +H, +T <: HList](val head: H, val tail: T) extends HList {
+final class HCons[+H, +T <: HList](val head: H, val tail: T) extends HList {
   type Self = HCons[H @uv, T @uv]
   type Head = H @uv
   type Tail = T @uv

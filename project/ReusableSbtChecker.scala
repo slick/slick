@@ -1,8 +1,8 @@
-import com.typesafe.sbt.sdlc.Checker
+import java.io.File
+
 import sbt.MessageOnlyException
 import sbt.util.Logger
-
-import java.io.File
+import sbtsdlc.Checker
 
 
 /**

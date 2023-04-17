@@ -56,17 +56,9 @@ application-specific type to an already supported type in the database. This can
 @scaladoc[type](slick.jdbc.JdbcProfile#MappedColumnType:MappedJdbcType.type)
 which takes care of all the boilerplate. It comes with the usual import from the profile.
 
-@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtype1 }
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtype }
 
 You can also subclass @scaladoc[MappedJdbcType](slick.jdbc.JdbcProfile#MappedJdbcType) for a bit more flexibility.
-
-If you have a wrapper class (which can optionally be a case class and/or value
-class) for an underlying value of some supported type, you can make it extend
-@scaladoc[MappedTo](slick.lifted.MappedTo) to get a macro-generated implicit
-`ColumnType` for free. Such wrapper classes are commonly used for type-safe
-table-specific primary key types:
-
-@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtype2 }
 
 Using Custom Record Types in Queries
 ------------------------------------

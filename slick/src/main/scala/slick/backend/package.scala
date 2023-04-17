@@ -16,7 +16,4 @@ package object backend {
   type DatabaseConfig[P <: BasicProfile] = slick.basic.DatabaseConfig[P]
   @deprecated("Use object `slick.basic.DatabaseConfig` instead of `slick.backend.DatabaseConfig`", "3.2")
   val DatabaseConfig = slick.basic.DatabaseConfig
-
-  @deprecated("Use type `slick.basic.StaticDatabaseConfig` instead of `slick.backend.StaticDatabaseConfig`", "3.2")
-  type StaticDatabaseConfig = slick.basic.StaticDatabaseConfig
 }
