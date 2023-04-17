@@ -1,109 +1,74 @@
 package slick.jdbc
 
-import java.net.URI
 import java.sql.PreparedStatement
 
-import com.typesafe.config.ConfigException
+import scala.collection.mutable.ArrayBuffer
+import scala.language.implicitConversions
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.language.experimental.macros
-import scala.reflect.macros.{blackbox, whitebox}
+import slick.dbio.Effect
+import slick.sql.SqlStreamingAction
 
-import slick.SlickException
-import slick.basic.{DatabaseConfig, StaticDatabaseConfigMacros}
-import slick.dbio.{NoStream, Effect}
-import slick.sql.{SqlAction, SqlStreamingAction}
-import slick.util.ClassLoaderUtil
 
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
-  import ActionBasedSQLInterpolation._
-  
   /** Build a SQLActionBuilder via string interpolation */
-  def sql(param: Any*): SQLActionBuilder = macro sqlImpl
+  def sql(params: TypedParameter[?]*): SQLActionBuilder =
+    SQLActionBuilder(s.parts, params)
+
   /** Build an Action for an UPDATE statement via string interpolation */
-  def sqlu(param: Any*): SqlAction[Int, NoStream, Effect] = macro sqluImpl
-  /** Build an Invoker for a statement with computed types via string interpolation */
-  def tsql(param: Any*): SqlStreamingAction[Vector[Any], Any, Effect] = macro tsqlImpl
+  def sqlu(params: TypedParameter[?]*) = sql(params *).asUpdate
 }
 
-object ActionBasedSQLInterpolation {
-  def sqlImpl(ctxt: blackbox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
-    import ctxt.universe._
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
-    reify {
-      SQLActionBuilder(
-        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
-        ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
-      )
-    }
-  }
+class TypedParameter[T](val param: T, val setParameter: SetParameter[T])
 
-  def sqluImpl(ctxt: blackbox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlAction[Int, NoStream, Effect]] = {
-    import ctxt.universe._
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
-    reify {
-      val res: SQLActionBuilder = SQLActionBuilder(
-        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
-        ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
-      )
-      res.asUpdate
-    }
-  }
-  def tsqlImpl(ctxt: whitebox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Vector[Any], Any, Effect]] = {
-    import ctxt.universe._
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
+object TypedParameter {
+  implicit def typedParameter[T](param: T)(implicit setParameter: SetParameter[T]): TypedParameter[T] =
+    new TypedParameter[T](param, setParameter)
+}
 
-    val uri = StaticDatabaseConfigMacros.getURI(ctxt)
-    //TODO The database configuration and connection should be cached for subsequent macro invocations
-    val dc =
-      try DatabaseConfig.forURI[JdbcProfile](new URI(uri), ClassLoaderUtil.defaultClassLoader) catch {
-        case ex @ (_: ConfigException | _: SlickException) =>
-          ctxt.abort(ctxt.enclosingPosition, s"""Cannot load @StaticDatabaseConfig("$uri"): ${ex.getMessage}""")
-      }
-    val rTypes = try {
-      val a = SimpleJdbcAction { ctx =>
-        ctx.session.withPreparedStatement(macroTreeBuilder.staticQueryString) {
-          _.getMetaData match {
-            case null => Vector()
-            case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
-              val modelBuilder = dc.profile.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
-              modelBuilder.jdbcTypeToScala(resultMeta.getColumnType(i + 1), resultMeta.getColumnTypeName(i + 1))
-            }
+object SQLInterpolation {
+  def parse(strings: Seq[String], typedParams: Seq[TypedParameter[Any]]): (String, SetParameter[Unit]) = {
+    if (strings.length == 1)
+      (strings.head, SetParameter.SetUnit)
+    else {
+      val b = new StringBuilder
+      val remaining = new ArrayBuffer[SetParameter[Unit]]
+      typedParams.zip(strings.iterator).foreach { zipped =>
+        val p = zipped._1.param
+        var literal = false
+        def decode(s: String): String =
+          if (s.endsWith("##"))
+            decode(s.substring(0, s.length - 2)) + "#"
+          else if (s.endsWith("#")) {
+            literal = true
+            s.substring(0, s.length - 1)
           }
+          else
+            s
+        b.append(decode(zipped._2))
+        if (literal) b.append(p.toString)
+        else {
+          b.append('?')
+          remaining += zipped._1.setParameter.applied(p)
         }
       }
-      Await.result(dc.db.run(a), Duration.Inf)
-    } finally dc.db.close()
-
-    reify {
-      val rconv = ctxt.Expr[GetResult[Any]](macroTreeBuilder.rconvTree(rTypes)).splice
-      val res: SQLActionBuilder = SQLActionBuilder(
-        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
-        ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
-      )
-      res.as(rconv)
+      b.append(strings.last)
+      (b.toString, (u, pp) => remaining.foreach(_.apply(u, pp)))
     }
   }
 }
 
-case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit]) {
-  def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
-    val query =
-      if(queryParts.length == 1 && queryParts(0).isInstanceOf[String]) queryParts(0).asInstanceOf[String]
-      else queryParts.iterator.map(String.valueOf).mkString
+case class SQLActionBuilder(strings: Seq[String], params: Seq[TypedParameter[?]]) {
+  def as[R](implicit getResult: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
+    val (sql, unitPConv) = SQLInterpolation.parse(strings, params.asInstanceOf[Seq[TypedParameter[Any]]])
     new StreamingInvokerAction[Vector[R], R, Effect] {
-      def statements = List(query)
+      def statements = List(sql)
       protected[this] def createInvoker(statements: Iterable[String]) = new StatementInvoker[R] {
         val getStatement = statements.head
         protected def setParam(st: PreparedStatement) = unitPConv((), new PositionedParameters(st))
-        protected def extractValue(rs: PositionedResult): R = rconv(rs)
+        protected def extractValue(rs: PositionedResult): R = getResult(rs)
       }
       protected[this] def createBuilder = Vector.newBuilder[R]
     }
   }
   def asUpdate = as[Int](GetResult.GetUpdateValue).head
-  def stripMargin(marginChar: Char): SQLActionBuilder =
-    copy(queryParts.map(_.asInstanceOf[String].stripMargin(marginChar)))
-  def stripMargin: SQLActionBuilder = copy(queryParts.map(_.asInstanceOf[String].stripMargin))
 }
