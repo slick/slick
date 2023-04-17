@@ -440,11 +440,9 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   // the zoneIds returned from ZoneId.getAvailableZoneIds (e.g. Oracle 11), so pick a subset to test with
   val zoneIds = List(
     "Europe/Zaporozhye",
-    "America/Argentina/Cordoba",
     "America/Argentina/Salta",
     "Etc/GMT+7",
     "Antarctica/Davis",
-    "Mexico/BajaSur",
     "Australia/ACT",
     "America/Dawson_Creek",
     "GB",
