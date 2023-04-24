@@ -17,9 +17,6 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   with RelationalSequenceComponent with RelationalTypesComponent
   with RelationalActionComponent { self: RelationalProfile =>
 
-  @deprecated("Use the Profile object directly instead of calling `.profile` on it", "3.2")
-  override val profile: RelationalProfile = this
-
   type Backend <: RelationalBackend
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalCapabilities.all
@@ -33,8 +30,6 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     type BaseColumnType[T] = self.BaseColumnType[T]
     val MappedColumnType = self.MappedColumnType
 
-    @deprecated("Use an explicit conversion to an Option column with `.?`", "3.0")
-    implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T): LiteralColumn[T] = new LiteralColumn[T](v)
     implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
     implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[?], U](q: Query[T, U, Seq] & TableQuery[T]): TableQueryExtensionMethods[T, U] =
