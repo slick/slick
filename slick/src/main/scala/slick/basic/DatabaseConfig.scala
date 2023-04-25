@@ -19,21 +19,15 @@ trait DatabaseConfig[P <: BasicProfile] {
 
   /** The configured Profile. */
   val profile: P
-  @deprecated("Use `profile` instead of `driver`", "3.2")
-  val driver: P
 
   /** The raw configuration. */
   def config: Config
 
   /** The name of the Profile class or object (without a trailing "$"). */
   def profileName: String
-  @deprecated("Use `profileName` instead of `driverName`", "3.2")
-  final def driverName: String = profileName
 
   /** Whether the `profileName` represents an object instead of a class. */
   def profileIsObject: Boolean
-  @deprecated("Use `profileIsObject` instead of `driverIsObject`", "3.2")
-  final def driverIsObject: Boolean = profileIsObject
 }
 
 object DatabaseConfig {
