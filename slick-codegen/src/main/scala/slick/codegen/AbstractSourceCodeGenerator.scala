@@ -68,8 +68,6 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
           else
             "\nlazy val schema: profile.SchemaDescription = profile.DDL(Nil, Nil)"
           ) +
-        "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")" +
-        "\ndef ddl = schema" +
         "\n\n"
     } else ""
   }
