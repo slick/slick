@@ -2,7 +2,7 @@ package slick.relational
 
 import slick.basic.Capability
 
-/** Capabilities for [[slick.profile.RelationalProfile]]. */
+/** Capabilities for [[slick.relational.RelationalProfile]]. */
 object RelationalCapabilities {
   /** Supports default values in column definitions */
   val columnDefaults = Capability("relational.columnDefaults")
