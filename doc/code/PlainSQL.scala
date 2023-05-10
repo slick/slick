@@ -27,7 +27,8 @@ object PlainSQL extends App {
     GetResult { r =>
       Supplier(r.nextInt(), r.nextString(), r.nextString(), r.nextString(), r.nextString(), r.nextString())
     }
-  implicit val getCoffeeResult: GetResult[Coffee] = GetResult(r => Coffee(r.<<, r.<<, r.<<, r.<<, r.<<))
+  implicit val getCoffeeResult: GetResult[Coffee] =
+    GetResult(r => Coffee(r.<<, r.<<, r.<<, r.<<, r.<<))
   //#getresult
 
   val db = Database.forConfig("h2mem1")
