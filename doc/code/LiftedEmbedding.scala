@@ -7,9 +7,7 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
-import slick.ast.BaseTypedType
 import slick.jdbc.H2Profile.api.*
-import slick.jdbc.JdbcType
 //#imports
 
 object LiftedEmbedding {
@@ -627,13 +625,13 @@ object LiftedEmbedding {
         // two custom case class variants
         case class LiftedB(a: Rep[Int], b: Rep[String])
         object LiftedB {
-          def tupled = (LiftedB.apply _).tupled
-        }
-        case class B(a: Int, b: String)
+        def tupled = (LiftedB.apply _).tupled
+      }
+      case class B(a: Int, b: String)
 
         // custom case class mapping
-        implicit object BShape
-          extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedB, (Int, String), B]((LiftedB.apply _).tupled, (B.apply _).tupled)
+        implicit val BShape
+          = new CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedB, (Int, String), B]((LiftedB.apply _).tupled, (B.apply _).tupled)
 
         class BRow(tag: Tag) extends Table[B](tag, "shape_b") {
           def id = column[Int]("id", O.PrimaryKey)
@@ -661,15 +659,21 @@ object LiftedEmbedding {
         // Combining multiple mapped types
         case class LiftedC(p: Pair[Rep[Int], Rep[String]], b: LiftedB)
         object LiftedC {
-          def tupled = (LiftedC.apply _).tupled
-        }
-        case class C(p: Pair[Int, String], b: B)
-        object C {
-          def tupled = (C.apply _).tupled
-        }
+        def tupled = (LiftedC.apply _).tupled
+      }
+      case class C(p: Pair[Int,String], b: B)
+      object C {
+        def tupled = (C.apply _).tupled
+      }
 
-        implicit object CShape
-          extends CaseClassShape[Product, (Pair[Rep[Int], Rep[String]], LiftedB), LiftedC, (Pair[Int, String], B), C]((LiftedC.apply _).tupled, (C.apply _).tupled)
+        implicit val CShape: CaseClassShape[
+        Any,
+        (Pair[Rep[Int], Rep[String]], LiftedB),
+        LiftedC,
+        (Pair[Int, String], B),
+        C
+      ] =
+        new CaseClassShape[Product, (Pair[Rep[Int], Rep[String]], LiftedB), LiftedC, (Pair[Int, String], B), C]((LiftedC.apply _).tupled, (C.apply _).tupled)
 
         class CRow(tag: Tag) extends Table[C](tag, "shape_c") {
           def id = column[Int]("id")
