@@ -149,8 +149,7 @@ object OrmToSlick extends App {
       val person = PeopleFinder.getById(5)
       //#ormWriteCaching
     };{
-      import scala.language.reflectiveCalls
-      val person = new {
+      object person {
         var name: String = ""
         var age: Int = 0
       }
@@ -218,7 +217,7 @@ object OrmToSlick extends App {
               = people join addresses on (_.addressId === _.id)
 
         case class PersonWithAddress(person: Person, address: Address)
-        val caseClassJoinResults = db.run(tupledJoin.result).map(_.map(PersonWithAddress.tupled))
+        val caseClassJoinResults = db.run(tupledJoin.result).map(_.map((PersonWithAddress.apply _).tupled))
         //#associationTuple
       }
     }

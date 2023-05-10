@@ -1,11 +1,15 @@
 package com.typesafe.slick.docs
 
 //#imports
-import scala.concurrent.{Future, Await}
-import scala.concurrent.duration.Duration
-import slick.jdbc.H2Profile.api._
 import java.sql.Date
+
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
+
+import slick.ast.BaseTypedType
+import slick.jdbc.H2Profile.api.*
+import slick.jdbc.JdbcType
 //#imports
 
 object LiftedEmbedding extends App {
@@ -110,21 +114,24 @@ object LiftedEmbedding extends App {
   }
   //#tablequery2
   }
-//#reptypes
+  //#reptypes
   val q = coffees.filter(_.price > 8.0).map(_.name)
   //                       ^       ^          ^
   //               Rep[Double]  Rep[Double]  Rep[String]
-//#reptypes
+  //#reptypes
 
-//#mappedtable
-//#insert2
+  //#mappedtable
+  //#insert2
   case class User(id: Option[Int], first: String, last: String)
+  object User {
+    def tupled = (apply _).tupled
+  }
 
   class Users(tag: Tag) extends Table[User](tag, "users") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first")
     def last = column[String]("last")
-    def * = (id.?, first, last) <> (User.tupled, User.unapply)
+    def * = (id.?, first, last) <> ((User.apply _).tupled, User.unapply _)
   }
   val users = TableQuery[Users]
   //#mappedtable
@@ -561,14 +568,14 @@ object LiftedEmbedding extends App {
           val True, False = Value
 
           // A ColumnType that maps it to NUMBER values 1 and 0
-          val columnMapper = MappedColumnType.base[Bool, Int](
+          val columnMapper: BaseColumnType[Bool] = MappedColumnType.base[Bool, Int](
               { case True => 1; case False => 0 }, // map Bool to NUMBER
               { i => if (i == 1) True else False } // map NUMBER to Bool
           )
       }
 
       // Make columnMapper available in table definitions and where you do queries
-      implicit val boolColumnType = Bool.columnMapper
+      implicit val boolColumnType: BaseColumnType[Bool.Bool] = Bool.columnMapper
 
       // You can now use Bool.{True, False} like any built-in column type (in tables, queries, etc.)
       //#mappedtype
@@ -589,7 +596,7 @@ object LiftedEmbedding extends App {
 
       implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](
         implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]
-      ) = new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
+      ): PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]] = new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
       //#recordtype1
 
       //#recordtype2
@@ -622,10 +629,13 @@ object LiftedEmbedding extends App {
       //#case-class-shape
       // two custom case class variants
       case class LiftedB(a: Rep[Int], b: Rep[String])
+      object LiftedB {
+        def tupled = (LiftedB.apply _).tupled
+      }
       case class B(a: Int, b: String)
 
       // custom case class mapping
-      implicit object BShape extends CaseClassShape(LiftedB.tupled, B.tupled)
+      implicit object BShape extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedB, (Int, String), B]((LiftedB.apply _).tupled, (B.apply _).tupled)
 
       class BRow(tag: Tag) extends Table[B](tag, "shape_b") {
         def id = column[Int]("id", O.PrimaryKey)
@@ -652,9 +662,15 @@ object LiftedEmbedding extends App {
       //#combining-shapes
       // Combining multiple mapped types
       case class LiftedC(p: Pair[Rep[Int],Rep[String]], b: LiftedB)
+      object LiftedC {
+        def tupled = (LiftedC.apply _).tupled
+      }
       case class C(p: Pair[Int,String], b: B)
+      object C {
+        def tupled = (C.apply _).tupled
+      }
 
-      implicit object CShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+      implicit object CShape extends CaseClassShape[Product, (Pair[Rep[Int], Rep[String]], LiftedB), LiftedC, (Pair[Int, String], B), C]((LiftedC.apply _).tupled, (C.apply _).tupled)
 
       class CRow(tag: Tag) extends Table[C](tag, "shape_c") {
         def id = column[Int]("id")
