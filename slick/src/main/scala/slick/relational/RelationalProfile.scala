@@ -187,7 +187,7 @@ trait RelationalTypesComponent { self: RelationalProfile =>
   trait MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T]
 
-    protected[this] def assertNonNullType(t: BaseColumnType[?]): Unit =
+    protected[this] def assertNonNullType[A](t: BaseColumnType[A]): Unit =
       if(t == null)
         throw new NullPointerException("implicit BaseColumnType[U] for MappedColumnType.base[T, U] is null. This may be an initialization order problem.")
   }
