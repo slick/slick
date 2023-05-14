@@ -1,14 +1,13 @@
 package slick.jdbc
 
-import slick.util.TableDump
+import java.sql as js
+import java.io.{InputStream, Reader}
+import java.sql.*
+import java.util.Calendar
 
 import scala.collection.mutable.ArrayBuffer
-import scala.language.reflectiveCalls
 
-import java.io.{InputStream, Reader}
-import java.util.Calendar
-import java.{sql => js}
-import java.sql.{PreparedStatement, Connection, SQLWarning, ResultSet, Statement, Timestamp}
+import slick.util.TableDump
 
 /** A wrapper for `java.sql.Statement` that logs statements and benchmark results
   * to the appropriate [[JdbcBackend]] loggers. */
@@ -143,10 +142,8 @@ class LoggingStatement(st: Statement) extends Statement {
   def setEscapeProcessing(enable: Boolean) = st.setEscapeProcessing(enable)
   def getConnection: Connection = st.getConnection
   def getMaxFieldSize: Int = st.getMaxFieldSize
-  def closeOnCompletion(): Unit =
-    st.asInstanceOf[{ def closeOnCompletion(): Unit }].closeOnCompletion()
-  def isCloseOnCompletion(): Boolean =
-    st.asInstanceOf[{ def isCloseOnCompletion(): Boolean }].isCloseOnCompletion()
+  def closeOnCompletion(): Unit = st.closeOnCompletion()
+  def isCloseOnCompletion(): Boolean = st.isCloseOnCompletion()
 }
 
 /** A wrapper for `java.sql.PreparedStatement` that logs statements, parameters and benchmark results
