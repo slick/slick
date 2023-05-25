@@ -2,7 +2,7 @@ package slick.sql
 
 import slick.basic.Capability
 
-/** Capabilities for [[slick.profile.SqlProfile]]. */
+/** Capabilities for [[slick.sql.SqlProfile]]. */
 object SqlCapabilities {
   /** Supports sequences (real or emulated) */
   val sequence = Capability("sql.sequence")
