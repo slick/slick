@@ -3,6 +3,7 @@ package slick.jdbc
 import java.sql.{PreparedStatement, ResultSet}
 
 import scala.language.existentials
+import scala.collection.mutable.HashMap
 
 import slick.SlickException
 import slick.ast.*
@@ -293,7 +294,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       n match {
         case t: TableNode =>
           b += quoteTableName(t)
-          addAlias()
+          addAlias
         case j: Join =>
           buildJoin(j)
         case n =>

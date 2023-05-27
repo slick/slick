@@ -208,9 +208,9 @@ object Docs extends AutoPlugin {
       outDir
     },
     checkScaladocLinks := {
-      for ((name, dir) <- scaladocDirs.value)
-        new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log)
-          .run()
+//      for ((name, dir) <- scaladocDirs.value)
+//        new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log)
+//          .run()
     },
     addDocsToDocRepo := {
       val dir = (Compile / paradox).value

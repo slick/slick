@@ -3,6 +3,9 @@ package slick.basic
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
+import java.net.{URL, URI}
+
+
 import slick.util.{ClassLoaderUtil, SlickLogger}
 import slick.util.ConfigExtensionMethods.configExtensionMethods
 import slick.SlickException

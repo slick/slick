@@ -8,6 +8,7 @@ import java.util.UUID
 
 import scala.concurrent.ExecutionContext
 import scala.reflect.{classTag, ClassTag}
+import com.typesafe.config.Config
 
 import slick.ast.*
 import slick.ast.Util.*

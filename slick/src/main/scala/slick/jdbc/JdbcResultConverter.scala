@@ -14,8 +14,8 @@ class BaseResultConverter[T](val ti: JdbcType[T], val name: String, val idx: Int
     v
   }
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
-  def set(value: T, pp: PreparedStatement, offset: Int) =
-    ti.setValue(value, pp, idx + offset)
+  def set(value: T, pp: PreparedStatement) =
+    ti.setValue(value, pp, idx)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx, name=$name", attrInfo = ": " + ti)
   def width = 1
 }
@@ -31,9 +31,9 @@ class OptionResultConverter[T](val ti: JdbcType[T], val idx: Int) extends Result
     case Some(v) => ti.updateValue(v, pr, idx)
     case _ => ti.updateNull(pr, idx)
   }
-  def set(value: Option[T], pp: PreparedStatement, offset: Int) = value match {
-    case Some(v) => ti.setValue(v, pp, idx + offset)
-    case _ => ti.setNull(pp, idx + offset)
+  def set(value: Option[T], pp: PreparedStatement) = value match {
+    case Some(v) => ti.setValue(v, pp, idx)
+    case _ => ti.setNull(pp, idx)
   }
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
   def width = 1
@@ -56,7 +56,7 @@ class DefaultingResultConverter[T](val ti: JdbcType[T], val default: () => T, va
     if (ti.wasNull(pr, idx)) default() else v
   }
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
-  def set(value: T, pp: PreparedStatement, offset: Int) = ti.setValue(value, pp, idx + offset)
+  def set(value: T, pp: PreparedStatement) = ti.setValue(value, pp, idx)
   override def getDumpInfo =
     super.getDumpInfo.copy(
       mainInfo =
@@ -78,7 +78,7 @@ class IsDefinedResultConverter[T](val ti: JdbcType[T], val idx: Int) extends Res
   }
   override def update(value: Boolean, pr: ResultSet): Nothing =
     throw new SlickException("Cannot insert/update IsDefined check")
-  override def set(value: Boolean, pp: PreparedStatement, offset: Int): Nothing =
+  override def set(value: Boolean, pp: PreparedStatement): Nothing =
     throw new SlickException("Cannot insert/update IsDefined check")
   def width = 1
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)

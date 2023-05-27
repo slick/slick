@@ -79,7 +79,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   * </ul>
   */
 
-trait SQLiteProfile extends JdbcProfile {
+trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - RelationalCapabilities.functionDatabase

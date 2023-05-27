@@ -80,7 +80,7 @@ final case class CompoundResultConverter[R, W, U, T](width: Int, childConverters
   def set(value: T, pp: W) = {
     var i = 0
     while (i < len) {
-      cha(i).set(value, pp, offset)
+      cha(i).set(value, pp)
       i += 1
     }
   }

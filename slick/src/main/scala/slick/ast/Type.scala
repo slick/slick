@@ -152,7 +152,7 @@ trait CollectionTypeConstructor {
   /** Determines if only distinct elements are allowed */
   def isUnique: Boolean
   /** Create a `Builder` for the collection type, given a ClassTag for the element type */
-  def createBuilder[E : ClassTag]: mutable.Builder[E, Any]
+  def createBuilder[E : ClassTag]: Builder[E, Any]
   /** Return a CollectionTypeConstructor which builds a subtype of Iterable
     * but has the same properties otherwise. */
   def iterableSubstitute: CollectionTypeConstructor =
@@ -167,7 +167,7 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[Any
     .replaceFirst("^scala.collection.immutable.", "")
     .replaceFirst("^scala.collection.mutable.", "m.")
     .replaceFirst("^scala.collection.generic.", "g.")
-  def createBuilder[E : ClassTag]: mutable.Builder[E, C[E]]
+  def createBuilder[E : ClassTag]: Builder[E, C[E]]
   override def hashCode = classTag.hashCode() * 10
   override def equals(o: Any) = o match {
     case o: TypedCollectionTypeConstructor[?] => classTag == o.classTag
@@ -195,7 +195,7 @@ object TypedCollectionTypeConstructor {
     new TypedCollectionTypeConstructor[Array](arrayClassTag) {
       def isSequential = true
       def isUnique = false
-      def createBuilder[E: ClassTag]: mutable.Builder[E, Array[E]] = mutable.ArrayBuilder.make[E]
+      def createBuilder[E: ClassTag]: Builder[E, Array[E]] = ArrayBuilder.make[E]
     }
 }
 
@@ -246,7 +246,6 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
   }
   override def childrenForeach[R](f: Type => R): Unit = f(structuralView)
   def children: ConstArray[Type] = ConstArray(structuralView)
-  @tailrec
   def sourceNominalType: NominalType = structuralView match {
     case n: NominalType => n.sourceNominalType
     case _ => this

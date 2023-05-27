@@ -1,6 +1,6 @@
 package slick.lifted
 
-import scala.language.implicitConversions
+import slick.util.ConstArray
 
 import scala.language.implicitConversions
 import slick.ast._

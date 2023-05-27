@@ -13,7 +13,8 @@ import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter, Re
 import slick.util.{??, DumpInfo}
 
 /** A profile for interpreted queries on top of the in-memory database. */
-trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
+trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile {
+  self: MemoryProfile =>
 
   type SchemaDescription = SchemaDescriptionDef
   type InsertInvoker[T] = InsertInvokerDef[T]
@@ -35,7 +36,9 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryCapabilities.all
 
   def createInsertInvoker[T](tree: Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
+
   def buildSequenceSchemaDescription(seq: Sequence[?]): SchemaDescription = ??
+
   def buildTableSchemaDescription(table: Table[?]): SchemaDescription = new DDL(Vector(table))
 
   type QueryActionExtensionMethods[R, S <: NoStream] = MemoryQueryActionExtensionMethodsImpl[R, S]
@@ -45,18 +48,21 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
     new QueryActionExtensionMethods[R, S](tree, param)
+
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node,
                                                        param: Any): StreamingQueryActionExtensionMethods[R, T] =
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
+
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
     new MemorySchemaActionExtensionMethodsImpl(schema)
+
   def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new MemoryInsertActionExtensionMethodsImpl[T](compiled)
 
   override lazy val MappedColumnType = new MemoryMappedColumnTypeFactory
 
   class MemoryMappedColumnTypeFactory extends MappedColumnTypeFactory {
-    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
+    def base[T: ClassTag, U: BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
       assertNonNullType(implicitly[BaseColumnType[U]])
       new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
     }
@@ -65,9 +71,12 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T)
                               (implicit val classTag: ClassTag[T]) extends ScalaType[T] with BaseTypedType[T] {
     def nullable: Boolean = baseType.nullable
+
     def ordered: Boolean = baseType.ordered
+
     def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T] = new scala.math.Ordering[T] {
       val uOrdering = baseType.scalaOrderingFor(ord)
+
       def compare(x: T, y: T): Int = uOrdering.compare(toBase(x), toBase(y))
     }
   }
@@ -86,6 +95,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
         b.result()
       case n => super.run(n)
     }
+  }
 
   def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R =
     createInterpreter(session.database, param).run(tree).asInstanceOf[R]
@@ -96,14 +106,14 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
 
-    def += (value: T)(implicit session: Backend#Session): Unit = {
+    def +=(value: T)(implicit session: Backend#Session): Unit = {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
       converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]].set(value, buf)
       htable.append(buf.toIndexedSeq)
     }
 
-    def ++= (values: Iterable[T])(implicit session: Backend#Session): Unit =
+    def ++=(values: Iterable[T])(implicit session: Backend#Session): Unit =
       values.foreach(this += _)
   }
 
@@ -117,37 +127,46 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
 
   protected[this] def dbAction[R, S <: NoStream, E <: Effect](f: Backend#Session => R): ProfileAction[R, S, E] = new ProfileAction[R, S, E] with SynchronousDatabaseAction[R, S, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, E] {
     def run(ctx: HeapBackend#BasicActionContext): R = f(ctx.session)
+
     def getDumpInfo = DumpInfo("MemoryProfile.ProfileAction")
   }
 
   class StreamingQueryAction[R, T](tree: Node, param: Any) extends StreamingProfileAction[R, T, Effect.Read] with SynchronousDatabaseAction[R, Streaming[T], HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.Read] {
     type StreamState = Iterator[T]
+
     protected[this] def getIterator(ctx: HeapBackend#BasicActionContext): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
       val pvit = inter.run(from).asInstanceOf[IterableOnce[QueryInterpreter.ProductValue]].iterator
       pvit.map(converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, T]].read _)
     }
+
     def run(ctx: HeapBackend#BasicActionContext): R =
       createInterpreter(ctx.session.database, param).run(tree).asInstanceOf[R]
+
     override def emitStream(ctx: HeapBackend#BasicStreamingActionContext, limit: Long, state: StreamState): StreamState = {
-      val it = if(state ne null) state else getIterator(ctx.asInstanceOf[Backend#Context]) //TODO why does Dotty need this cast?
+      val it = if (state ne null) state else getIterator(ctx.asInstanceOf[Backend#Context]) //TODO why does Dotty need this cast?
       var count = 0L
-      while(count < limit && it.hasNext) {
+      while (count < limit && it.hasNext) {
         count += 1
         ctx.emit(it.next())
       }
-      if(it.hasNext) it else null
+      if (it.hasNext) it else null
     }
+
     def head: ProfileAction[T, NoStream, Effect.Read] = new ProfileAction[T, NoStream, Effect.Read] with SynchronousDatabaseAction[T, NoStream, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.Read] {
       def run(ctx: HeapBackend#BasicActionContext): T = getIterator(ctx).next()
+
       def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
     }
+
     def headOption: ProfileAction[Option[T], NoStream, Effect.Read] = new ProfileAction[Option[T], NoStream, Effect.Read] with SynchronousDatabaseAction[Option[T], NoStream, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.Read] {
       def run(ctx: HeapBackend#BasicActionContext): Option[T] = {
         val it = getIterator(ctx)
-        if(it.hasNext) Some(it.next()) else None
+        if (it.hasNext) Some(it.next()) else None
       }
+      def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.firstOption")
+    }
     def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction")
   }
 
@@ -160,8 +179,10 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     override def result: StreamingProfileAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
   }
 
+
   class MemorySchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends RelationalSchemaActionExtensionMethodsImpl {
     protected[this] val tables = schema.asInstanceOf[DDL].tables
+
     override def create: FixedBasicAction[Unit, Nothing, Effect.Schema] = dbAction { session =>
       tables.foreach(t =>
         session.database.createTable(t.tableName,
@@ -186,8 +207,8 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       tables.foreach(t => session.database.dropTableIfExists(t.tableName))
     }
 
-    override def truncate: FixedBasicAction[Unit, Nothing, Effect.Schema] = dbAction{ session =>
-      tables.foreach(t => session.database.truncateTable(t.tableName) )
+    override def truncate: FixedBasicAction[Unit, Nothing, Effect.Schema] = dbAction { session =>
+      tables.foreach(t => session.database.truncateTable(t.tableName))
     }
   }
 
@@ -195,7 +216,9 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     protected[this] val inv = createInsertInvoker[T](compiled)
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
+
     override def +=(value: T): FixedBasicAction[Unit, Nothing, Effect.Write] = dbAction(inv.+=(value)(_))
+
     override def ++=(values: Iterable[T]): FixedBasicAction[Unit, Nothing, Effect.Write] = dbAction(inv.++=(values)(_))
   }
 
@@ -210,9 +233,15 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
 
     class InsertResultConverter(tidx: Int) extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
       def read(pr: QueryInterpreter.ProductValue) = ??
+
       def update(value: Any, pr: Nothing) = ??
-      def set(value: Any, pp: ArrayBuffer[Any]) = pp(tidx) = value
+
+      def set(value: Any, pp: ArrayBuffer[Any]) = {
+        pp(tidx) = value
+      }
+
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tidx=$tidx")
+
       def width = 1
     }
   }
@@ -223,13 +252,15 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
                                              state: CompilerState): (Node, Option[CompiledMapping]) =
       (serverSide, mapping.map(new InsertMappingCompiler(serverSide.asInstanceOf[Insert]).compileMapping))
   }
+
 }
+
 
 object MemoryProfile extends MemoryProfile
 
 /** A non-streaming Action that wraps a synchronous MemoryProfile API call. */
-
 case class SimpleMemoryAction[+R](f: HeapBackend#BasicActionContext => R) extends SynchronousDatabaseAction[R, NoStream, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.All] {
   def run(context: HeapBackend#BasicActionContext): R = f(context)
+
   def getDumpInfo = DumpInfo(name = "SimpleMemoryAction")
 }

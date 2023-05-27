@@ -48,25 +48,34 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
-  class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new HsqldbTableNamer(mTable)
-    class HsqldbTableNamer(mTable: MTable) extends TableNamer(mTable) {
-      override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
-      override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
+    class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+      override def createTableNamer(mTable: MTable): TableNamer = new HsqldbTableNamer(mTable)
+
+      class HsqldbTableNamer(mTable: MTable) extends TableNamer(mTable) {
+        override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
+
+        override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
+      }
     }
   }
 
+
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new HsqldbModelBuilder(tables, ignoreInvalidDefaults)
+
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override protected def computeQueryCompiler =
     super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) + Phase.specializeParameters - Phase.fixRowNumberOrdering
+
   override val columnTypes = new HsqldbJdbcTypes
+
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new HsqldbQueryBuilder(n, state)
+
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new HsqldbTableDDLBuilder(table)
+
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new HsqldbSequenceDDLBuilder(seq)
 
   override protected lazy val useServerSideUpsert = true
@@ -74,10 +83,11 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
   override val scalarFrom: Some[String] = Some("(VALUES (0))")
 
+
   override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
-      size.fold("LONGVARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
+      size.fold("LONGVARCHAR")(l => if (l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
@@ -88,12 +98,12 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
     override def expr(c: Node): Unit = c match {
-      case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.nodeType).sqlType != Types.CHAR =>
+      case l@LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.nodeType).sqlType != Types.CHAR =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
-         * spaces in some expressions, so we cast all string literals to
-         * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave
-         * enough room for concatenating strings (which extends the size even if
-         * it is not needed). */
+       * spaces in some expressions, so we cast all string literals to
+       * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave
+       * enough room for concatenating strings (which extends the size even if
+       * it is not needed). */
         b"cast("
         withSkipParens(false)(super.expr(c))
         b" as varchar(16777216))"
@@ -106,8 +116,8 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
     override protected def buildJoin(j: Join): Unit = {
       /* Re-balance inner joins to the left because Hsqldb does not supported RHS nesting. Paths
-       * into joined views have already been mapped to unique identifiers at this point, so we can
-       * safely rearrange views. */
+     * into joined views have already been mapped to unique identifiers at this point, so we can
+     * safely rearrange views. */
       j match {
         case Join(ls, rs, l, Join(ls2, rs2, l2, r2, JoinType.Inner, on2), JoinType.Inner, on) =>
           val on3 = (on, on2) match {
@@ -122,8 +132,8 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b"\nlimit $t offset $d"
-      case (Some(t), None   ) => b"\nlimit $t"
-      case (None, Some(d)   ) => b"\noffset $d"
+      case (Some(t), None) => b"\nlimit $t"
+      case (None, Some(d)) => b"\noffset $d"
       case _ =>
     }
   }
@@ -134,7 +144,9 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
+
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
+
       override def valueToSQLLiteral(value: UUID) = s"x'${value.toString.replace("-", "")}'"
     }
     override val localTimeType = new LocalTimeJdbcType {
@@ -187,19 +199,19 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       }
 
       /**
-        * Add offset padding e.g. +1:00 becomes +01:00.
-        */
-      def offsetConvertHsqldbToISO(hsqldbString : String) : String = hsqldbString.takeRight(5).toArray match {
-        case Array('+'|'-',_,':',_,_) => hsqldbString.dropRight(4) + "0" + hsqldbString.takeRight(4)
+       * Add offset padding e.g. +1:00 becomes +01:00.
+       */
+      def offsetConvertHsqldbToISO(hsqldbString: String): String = hsqldbString.takeRight(5).toArray match {
+        case Array('+' | '-', _, ':', _, _) => hsqldbString.dropRight(4) + "0" + hsqldbString.takeRight(4)
         case _ => hsqldbString
       }
 
       /**
-        * Remove offset padding e.g. +01:00 becomes +1:00. 'Z' becomes '+0:00'.
-        */
-      def offsetConvertISOToHsqldb(isoString : String) : String = isoString.takeRight(6).toArray match {
-        case Array(_,_,_,_,_,'Z') => isoString.dropRight(1) + "+0:00"
-        case Array('+'|'-','0',_,':',_,_) => isoString.dropRight(5) + isoString.takeRight(4)
+       * Remove offset padding e.g. +01:00 becomes +1:00. 'Z' becomes '+0:00'.
+       */
+      def offsetConvertISOToHsqldb(isoString: String): String = isoString.takeRight(6).toArray match {
+        case Array(_, _, _, _, _, 'Z') => isoString.dropRight(1) + "+0:00"
+        case Array('+' | '-', '0', _, ':', _, _) => isoString.dropRight(5) + isoString.takeRight(4)
         case _ => isoString
       }
     }
@@ -226,7 +238,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
         r.getString(idx) match {
           case null => null
           case hsqldbString =>
-            @inline val normalizedIsoString : String = offsetConvertHsqldbToISO(hsqldbString)
+            @inline val normalizedIsoString: String = offsetConvertHsqldbToISO(hsqldbString)
             // in a subsecond greater than 00:00:00 and with an offset, we seem to get back a string like
             // '24:00:00.745+01:00' instead of '00:00:00.745+01:00' which is an invalid OffsetTime,
             // so update the leading 24 to 00
@@ -265,17 +277,21 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
           case null => null
           case hsqldbString =>
             @inline val normalizedIsoString: String = offsetConvertHsqldbToISO(hsqldbString)
-            OffsetDateTime.parse(normalizedIsoString,datetimeFormatter)
+            OffsetDateTime.parse(normalizedIsoString, datetimeFormatter)
         }
       }
 
       override def valueToSQLLiteral(v: OffsetDateTime): String =
         s"'${offsetConvertISOToHsqldb(v.format(datetimeFormatter))}'"
     }
+
     class HsqldbInstantJdbcType extends InstantJdbcType with HsqldbTimeJdbcTypeWithOffset {
       override def sqlType = java.sql.Types.TIMESTAMP_WITH_TIMEZONE
+
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
+
       override val hasLiteralForm: Boolean = false
+
       override def setValue(v: Instant, p: PreparedStatement, idx: Int) = {
         @inline val correctedOffsetTime = offsetConvertISOToHsqldb(
           OffsetDateTime.ofInstant(v, ZoneOffset.UTC).format(datetimeFormatter))
@@ -293,7 +309,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
           case null => null
           case hsqldbString =>
             @inline val normalizedIsoString: String = offsetConvertHsqldbToISO(hsqldbString)
-            OffsetDateTime.parse(normalizedIsoString,datetimeFormatter).toInstant
+            OffsetDateTime.parse(normalizedIsoString, datetimeFormatter).toInstant
         }
       }
     }
@@ -301,11 +317,11 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
   class HsqldbTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
     override protected def createIndex(idx: Index) = {
-      if(idx.unique) {
+      if (idx.unique) {
         /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
-         * index) because Hsqldb does not allow a FOREIGN KEY CONSTRAINT to
-         * reference columns which have a UNIQUE INDEX but not a nominal UNIQUE
-         * CONSTRAINT. */
+       * index) because Hsqldb does not allow a FOREIGN KEY CONSTRAINT to
+       * reference columns which have a UNIQUE INDEX but not a nominal UNIQUE
+       * CONSTRAINT. */
         val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
         sb append "CONSTRAINT " append quoteIdentifier(idx.name) append " UNIQUE("
         addIndexColumnList(idx.on, sb, idx.table.tableName)
@@ -315,20 +331,27 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
+
   class HsqldbSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       import seq.integral.*
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero
-      val start = seq._start.getOrElse(if(desc) -1 else 1)
+      val start = seq._start.getOrElse(if (desc) -1 else 1)
       val b = new StringBuilder append "CREATE SEQUENCE " append quoteIdentifier(seq.name)
-      seq._increment.foreach { b append " INCREMENT BY " append _ }
-      seq._minValue.foreach { b append " MINVALUE " append _ }
-      seq._maxValue.foreach { b append " MAXVALUE " append _ }
+      seq._increment.foreach {
+        b append " INCREMENT BY " append _
+      }
+      seq._minValue.foreach {
+        b append " MINVALUE " append _
+      }
+      seq._maxValue.foreach {
+        b append " MAXVALUE " append _
+      }
       /* The START value in Hsqldb defaults to 0 instead of the more
-       * conventional 1/-1 so we rewrite it to make 1/-1 the default. */
-      if(start != 0) b append " START WITH " append start
-      if(seq._cycle) b append " CYCLE"
+     * conventional 1/-1 so we rewrite it to make 1/-1 the default. */
+      if (start != 0) b append " START WITH " append start
+      if (seq._cycle) b append " CYCLE"
       DDL(b.toString, "DROP SEQUENCE " + quoteIdentifier(seq.name))
     }
   }

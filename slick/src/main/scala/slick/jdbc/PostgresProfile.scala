@@ -294,7 +294,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BYTEA"
     }
 
-    trait PostgresTimeJdbcType [T] {
+    trait PostgreTimeJdbcType [T] {
 
       val min : T
       val max : T
@@ -316,7 +316,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       }
     }
 
-    trait PostgresInfinityTimeJdbcType [T] extends PostgresTimeJdbcType[T] {
+    trait PostgresInfinityTimeJdbcType [T] extends PostgreTimeJdbcType[T] {
 
       @inline
       private[this] val negativeInfinite = "-infinity"

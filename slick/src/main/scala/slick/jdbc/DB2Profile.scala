@@ -11,6 +11,7 @@ import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio.*
 import slick.jdbc.meta.MTable
+import slick.jdbc.JdbcActionComponent
 import slick.lifted.*
 import slick.relational.RelationalCapabilities
 import slick.basic.Capability

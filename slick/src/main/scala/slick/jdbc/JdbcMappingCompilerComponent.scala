@@ -1,7 +1,6 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-
 import slick.ast.*
 import slick.compiler.{CodeGen, CompilerState}
 import slick.relational.*

@@ -60,7 +60,7 @@ case class SQLActionBuilder(strings: Seq[String], params: Seq[TypedParameter[_]]
       protected[this] def createInvoker(statements: Iterable[String]) = new StatementInvoker[R] {
         val getStatement = statements.head
         protected def setParam(st: PreparedStatement) = unitPConv((), new PositionedParameters(st))
-        protected def extractValue(rs: PositionedResult): R = getResult(rs)
+        protected def extractValue(rs: PositionedResult): R = rconv(rs)
       }
       protected[this] def createBuilder = Vector.newBuilder[R]
     }

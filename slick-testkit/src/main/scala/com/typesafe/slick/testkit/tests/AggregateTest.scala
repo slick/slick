@@ -371,8 +371,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
 
       def cWrapped = c <> (StrWrapper.applyOption, StrWrapper.unapplyOption)
 
-      def * = (id, a, b, cWrapped) <> ((BData.apply _).tupled, BData.unapply)
-      def * = (id, a, b).mapTo[BData]
+      def * = (id, a, b, cWrapped) <> ((BData.apply _).tupled, BData.unapply _)
     }
 
     val bs = TableQuery[B]

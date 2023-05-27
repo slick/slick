@@ -109,8 +109,8 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
 
     def apply(state: CompilerState) = state.map { tree =>
       // Collect the required profiles and tainting profiles for all subtrees
-      val needed = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
-      val taints = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
+      val needed = new HashMap[RefId[Node], Set[RelationalProfile]]
+      val taints = new HashMap[RefId[Node], Set[RelationalProfile]]
       def collect(n: Node, scope: Scope): (Set[RelationalProfile], Set[RelationalProfile]) = {
         val (dr: Set[RelationalProfile], tt: Set[RelationalProfile]) = n match {
           case t: TableNode => (Set(t.profileTable.asInstanceOf[RelationalProfile#Table[?]].tableProvider), Set.empty)
