@@ -10,7 +10,7 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
   def testNestedTuples = {
     import TupleMethods._
 
-    class T(tag: Tag) extends Table[(Int, String, String)](tag, "T") {
+    class T(tag: Tag) extends Table[(Int, String, String)](tag, "T_28") {
       def a = column[Int]("A")
       def b = column[String]("B")
       def c = column[String]("C")

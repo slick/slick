@@ -204,7 +204,7 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testMappedUnion = {
-    class T(tag: Tag) extends Table[(String, Int, String, Int)](tag, "t".withUniquePostFix) {
+    class T(tag: Tag) extends Table[(String, Int, String, Int)](tag, "t_3".withUniquePostFix) {
       def a = column[String]("a")
       def b = column[Int]("b")
       def c = column[String]("c")
@@ -223,7 +223,7 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testInUnion = {
-    class T(tag: Tag) extends Table[(String, Int)](tag, "t") {
+    class T(tag: Tag) extends Table[(String, Int)](tag, "t_2") {
       def id = column[String]("id")
       def data = column[Int]("data")
       def * = (id, data)

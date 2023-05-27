@@ -20,7 +20,7 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       }
     )
 
-    class T(tag: Tag) extends Table[(Int, Bool, Option[Bool])](tag, "t2") {
+    class T(tag: Tag) extends Table[(Int, Bool, Option[Bool])](tag, "t_32") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def c = column[Option[Bool]]("c")
@@ -93,7 +93,7 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       }
     )
 
-    class T(tag: Tag) extends Table[(Int, Bool, Option[Bool])](tag, "t3") {
+    class T(tag: Tag) extends Table[(Int, Bool, Option[Bool])](tag, "t_33") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def c = column[Option[Bool]]("c")

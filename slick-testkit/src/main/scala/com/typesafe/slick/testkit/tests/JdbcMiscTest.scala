@@ -14,7 +14,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     }
     val t1 = TableQuery[T1]
 
-    class T3(tag: Tag) extends Table[Option[String]](tag, "t3") {
+    class T3(tag: Tag) extends Table[Option[String]](tag, "t_29") {
       def a = column[Option[String]]("a")
       def * = a
     }
@@ -51,13 +51,13 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testOverrideStatements = {
-    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+    class T(tag: Tag) extends Table[Int](tag, "t_7".withUniquePostFix) {
       def id = column[Int]("a")
       def * = id
     }
     val t = TableQuery[T]
 
-    class U(tag: Tag) extends Table[Int](tag, "u") {
+    class U(tag: Tag) extends Table[Int](tag, "u_2") {
       def id = column[Int]("id")
       def * = id
     }

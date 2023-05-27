@@ -334,7 +334,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
   def testOldComposition = {
     import TupleMethods._
 
-    class Users(tag: Tag) extends Table[(Int, String, String)](tag, "users") {
+    class Users(tag: Tag) extends Table[(Int, String, String)](tag, "users_5") {
       def id = column[Int]("id")
       def first = column[String]("first")
       def last = column[String]("last")
@@ -342,7 +342,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     }
     val users = TableQuery[Users]
 
-    class Orders(tag: Tag) extends Table[(Int, Int)](tag, "orders") {
+    class Orders(tag: Tag) extends Table[(Int, Int)](tag, "orders_3") {
       def userID = column[Int]("userID")
       def orderID = column[Int]("orderID")
       def * = userID ~ orderID

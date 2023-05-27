@@ -7,16 +7,16 @@ class PrimaryKeyTest extends AsyncTest[RelationalTestDB] {
 
   def test = {
 
-    class A(tag: Tag) extends Table[(Int, Int, String)](tag, "a") {
+    class A(tag: Tag) extends Table[(Int, Int, String)](tag, "a_5") {
       def k1 = column[Int]("k1")
       def k2 = column[Int]("k2")
       def s = column[String]("s")
       def * = (k1, k2, s)
-      def pk = primaryKey("pk_a", (k1, k2))
+      def pk = primaryKey("pk_a_4", (k1, k2))
     }
     val as = TableQuery[A]
 
-    as.baseTableRow.primaryKeys.map(_.name).toSet shouldBe Set("pk_a")
+    as.baseTableRow.primaryKeys.map(_.name).toSet shouldBe Set("pk_a_4")
 
     seq(
       as.schema.create,

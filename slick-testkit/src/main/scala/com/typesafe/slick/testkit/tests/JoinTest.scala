@@ -6,14 +6,14 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def testJoin = {
-    class Categories(tag: Tag) extends Table[(Int, String)](tag, "cat_j") {
+    class Categories(tag: Tag) extends Table[(Int, String)](tag, "cat_j_1") {
       def id = column[Int]("id")
       def name = column[String]("name")
       def * = (id, name)
     }
     val categories = TableQuery[Categories]
 
-    class Posts(tag: Tag) extends Table[(Int, String, Int)](tag, "posts_j") {
+    class Posts(tag: Tag) extends Table[(Int, String, Int)](tag, "posts_j_1") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")

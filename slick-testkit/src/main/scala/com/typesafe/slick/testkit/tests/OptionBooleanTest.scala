@@ -6,7 +6,7 @@ class OptionBooleanTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
   def testFilterWithOption = {
-    class A(tag: Tag) extends Table[(Int, Option[Boolean], Option[Int])](tag, "a") {
+    class A(tag: Tag) extends Table[(Int, Option[Boolean], Option[Int])](tag, "a_2") {
       def id = column[Int]("id")
       def b = column[Option[Boolean]]("b")
       def oi = column[Option[Int]]("oi")

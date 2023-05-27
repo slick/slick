@@ -8,7 +8,7 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
   def test1 = ifCap(scap.sequence) {
     case class User(id: Int, first: String, last: String)
 
-    class Users(tag: Tag) extends Table[Int](tag, "users") {
+    class Users(tag: Tag) extends Table[Int](tag, "users_3") {
       def id = column[Int]("id", O.PrimaryKey)
       def * = id
     }

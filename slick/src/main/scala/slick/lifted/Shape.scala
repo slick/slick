@@ -232,14 +232,25 @@ final class TupleShape[
  *   implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
  * }}}
  */
-class CaseClassShape[P <: Product, LiftedTuple, LiftedCaseClass <: P, PlainTuple, PlainCaseClass <: P](
-  mapLifted: LiftedTuple => LiftedCaseClass, mapPlain: PlainTuple => PlainCaseClass)(
-  implicit columnShapes: Shape[FlatShapeLevel, LiftedTuple, PlainTuple, LiftedTuple], classTag: ClassTag[PlainCaseClass])
+class CaseClassShape[
+  P <: Product,
+  LiftedTuple,
+  LiftedCaseClass <: P,
+  PlainTuple,
+  PlainCaseClass <: P
+](mapLifted: LiftedTuple => LiftedCaseClass, mapPlain: PlainTuple => PlainCaseClass)
+ (implicit columnShapes: Shape[FlatShapeLevel, LiftedTuple, PlainTuple, LiftedTuple],
+  classTag: ClassTag[PlainCaseClass])
   extends MappedScalaProductShape[FlatShapeLevel, P, LiftedCaseClass, PlainCaseClass, LiftedCaseClass] {
-  val shapes = columnShapes.asInstanceOf[TupleShape[_,_,_,_]].shapes
-  override def toMapped(v: Any) = mapPlain(v.asInstanceOf[PlainTuple])
-  def buildValue(elems: IndexedSeq[Any]) = mapLifted(TupleSupport.buildTuple(elems).asInstanceOf[LiftedTuple])
-  def copy(s: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new CaseClassShape(mapLifted, mapPlain) { override val shapes = s }
+  val shapes = columnShapes.asInstanceOf[TupleShape[?, ?, ?, ?]].shapes
+  override def toMapped(v: Any): PlainCaseClass = mapPlain(v.asInstanceOf[PlainTuple])
+  override def buildValue(elems: IndexedSeq[Any]): LiftedCaseClass =
+    mapLifted(TupleSupport.buildTuple(elems).asInstanceOf[LiftedTuple])
+  override def copy(s: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]
+                   ) =
+    new CaseClassShape(mapLifted, mapPlain) {
+      override val shapes = s
+    }
 }
 
 

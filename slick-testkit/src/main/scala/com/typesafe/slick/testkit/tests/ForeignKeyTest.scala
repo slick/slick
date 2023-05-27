@@ -56,12 +56,12 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testMultiColumn = {
-    class A(tag: Tag) extends Table[(Int, Int, String)](tag, "a") {
+    class A(tag: Tag) extends Table[(Int, Int, String)](tag, "a22") {
       def k1 = column[Int]("k1")
       def k2 = column[Int]("k2")
       def s = column[String]("s")
       def * = (k1, k2, s)
-      def bFK = foreignKey("b_fk", (k1, k2), bs)(b => (b.f1, b.f2), onDelete = ForeignKeyAction.Cascade)
+      def bFK = foreignKey("a22_fk", (k1, k2), bs)(b => (b.f1, b.f2), onDelete = ForeignKeyAction.Cascade)
     }
     lazy val as = TableQuery[A]
 
@@ -74,7 +74,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
     }
     lazy val bs = TableQuery[B]
 
-    as.baseTableRow.foreignKeys.map(_.name).toSet shouldBe Set("b_fk")
+    as.baseTableRow.foreignKeys.map(_.name).toSet shouldBe Set("a22_fk")
 
     for {
       _ <- (as.schema ++ bs.schema).create

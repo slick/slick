@@ -86,7 +86,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testReturning = ifCap(jcap.returnInsertKey) {
-    class A(tag: Tag) extends Table[(Int, String, String)](tag, "A") {
+    class A(tag: Tag) extends Table[(Int, String, String)](tag, "A_24") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
       def s1 = column[String]("S1")
       def s2 = column[String]("S2")

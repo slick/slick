@@ -8,7 +8,7 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
   def testTransactions = {
-    class T(tag: Tag) extends Table[Int](tag, "t") {
+    class T(tag: Tag) extends Table[Int](tag, "t_25") {
       def a = column[Int]("a", O.PrimaryKey)
       def * = a
     }

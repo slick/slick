@@ -16,7 +16,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     case class User(id: Option[Int], first: String, last: String)
     case class Foo[T](value: T)
 
-    class Users(tag: Tag) extends Table[User](tag, "users") {
+    class Users(tag: Tag) extends Table[User](tag, "users_1") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")

@@ -6,14 +6,14 @@ class TemplateTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def testParameters = {
-    class Users(tag: Tag) extends Table[(Int, String)](tag, "users") {
+    class Users(tag: Tag) extends Table[(Int, String)](tag, "users_2") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def * = (id, first)
     }
     lazy val users = TableQuery[Users]
 
-    class Orders(tag: Tag) extends Table[(Int, Int, String)](tag, "orders") {
+    class Orders(tag: Tag) extends Table[(Int, Int, String)](tag, "orders_2") {
       def userID = column[Int]("userID")
       def orderID = column[Int]("orderID", O.PrimaryKey, O.AutoInc)
       def product = column[String]("product")
