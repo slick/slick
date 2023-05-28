@@ -6,7 +6,7 @@ object Dependencies {
   val scala213 = "2.13.11"
   val scala3 = "3.2.2"
 
-  val scalaVersions = Seq(scala212, scala213) // When updating these also update ci.yml and .mergify.yml
+  val scalaVersions = Seq(scala212, scala213, scala3) // When updating these also update ci.yml and .mergify.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "2.0.7"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
