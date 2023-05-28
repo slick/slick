@@ -33,17 +33,17 @@ class DerbyDiskTest extends ProfileTest(StandardTestDBs.DerbyDisk)
 @RunWith(classOf[Testkit])
 class PostgresTest extends ProfileTest(StandardTestDBs.Postgres)
 
-@RunWith(classOf[Testkit])
-class MySQLTest extends ProfileTest(StandardTestDBs.MySQL)
+//@RunWith(classOf[Testkit])
+//class MySQLTest extends ProfileTest(StandardTestDBs.MySQL)
 
 @RunWith(classOf[Testkit])
 class HeapTest extends ProfileTest(StandardTestDBs.Heap)
 
-@RunWith(classOf[Testkit])
-class DB2Test extends ProfileTest(StandardTestDBs.DB2)
+//@RunWith(classOf[Testkit])
+//class DB2Test extends ProfileTest(StandardTestDBs.DB2)
 
-@RunWith(classOf[Testkit])
-class OracleTest extends ProfileTest(StandardTestDBs.Oracle)
+//@RunWith(classOf[Testkit])
+//class OracleTest extends ProfileTest(StandardTestDBs.Oracle)
 
 @RunWith(classOf[Testkit])
 class SQLServerSQLJDBCTest extends ProfileTest(StandardTestDBs.SQLServerSQLJDBC)

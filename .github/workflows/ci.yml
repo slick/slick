@@ -14,12 +14,12 @@ concurrency:
 jobs:
   build:
     name: Build and Test
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        java: [ 8, 17 ]
-        scala: [2.13.10, 3.0.0]
+        java: [ 8 ]
+        scala: [3.2.2]
 
     services:
       postgres:

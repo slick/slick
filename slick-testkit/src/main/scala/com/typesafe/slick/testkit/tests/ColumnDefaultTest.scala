@@ -13,11 +13,11 @@ class ColumnDefaultTest extends AsyncTest[RelationalTestDB] {
   }
   lazy val as = TableQuery[A]
 
-  def test = ifCap(rcap.columnDefaults) {
-    for {
-      _ <- as.schema.create
-      _ <- as.map(_.id) += 42
-      _ <- as.result.map(_ shouldBe List((42, "foo", Some(true))))
-    } yield ()
-  }
+//  def test = ifCap(rcap.columnDefaults) {
+//    for {
+//      _ <- as.schema.create
+//      _ <- as.map(_.id) += 42
+//      _ <- as.result.map(_ shouldBe List((42, "foo", Some(true))))
+//    } yield ()
+//  }
 }

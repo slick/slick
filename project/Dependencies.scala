@@ -6,7 +6,7 @@ object Dependencies {
   // NOTE: remember to change the version numbers in the sample projects
   // when changing them here
 
-  val scalaVersions = Seq("2.13.10", "3.3.0-RC6") // When updating these also update .travis.yml and appveyor.yml
+  val scalaVersions = Seq("2.13.10", "3.2.2") // When updating these also update .travis.yml and appveyor.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.31"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.1"

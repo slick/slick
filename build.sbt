@@ -58,7 +58,6 @@ inThisBuild(
         "-feature",
         "-unchecked",
         "-Xsource:3",
-        "-Wunused:imports",
         "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
       )
   )
@@ -432,4 +431,3 @@ lazy val root =
         }
       }
     )
-

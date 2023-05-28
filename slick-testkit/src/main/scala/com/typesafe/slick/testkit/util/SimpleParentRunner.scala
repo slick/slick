@@ -46,8 +46,8 @@ abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Fi
       notifier.fireTestFailure(new Failure(desc, t))
   }
 
-  def getDescription = {
-    val desc = Description.createSuiteDescription(testClass.getName, testClass.getAnnotations: _*)
+  def getDescription: Description = {
+    val desc = Description.createSuiteDescription(testClass.getName, testClass.getAnnotations.toSeq: _*)
     for(ch <- children) desc.addChild(describeChild(ch))
     desc
   }
