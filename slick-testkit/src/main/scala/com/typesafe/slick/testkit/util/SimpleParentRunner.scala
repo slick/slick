@@ -37,7 +37,8 @@ abstract class SimpleParentRunner[T](testClass: Class[?]) extends Runner with Fi
   }
 
   def getDescription = {
-    val desc = Description.createSuiteDescription(testClass.getName, testClass.getAnnotations *)
+    val annotations = testClass.getAnnotations
+    val desc = Description.createSuiteDescription(testClass.getName, annotations *)
     for(ch <- children) desc.addChild(describeChild(ch))
     desc
   }
