@@ -7,7 +7,10 @@ import scala.reflect.ClassTag
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
+
+//noinspection ScalaUnusedSymbol
 class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
+
   import tdb.profile.api.*
 
   def testMappedEntity = {
@@ -22,7 +25,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def last = column[String]("last")
       def * = (id.? ~: baseProjection).mapTo[User]
       def baseProjection = first ~ last
-      def forUpdate = baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { (u: User) => Some((u.first, u.last)) })
+      def forUpdate =
+        baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { (u: User) => Some((u.first, u.last)) })
       def asFoo = forUpdate.<>((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
     object users extends TableQuery(new Users(_)) {
@@ -33,7 +37,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     updateQ.updateStatement.length.should(_ > 0)
 
     val q1 = for {
-      u <- users
+      _ <- users
       u2 <- users
     } yield u2
 
@@ -48,8 +52,17 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       users.filter(_.last inSet Set("Bouvier", "Ferdinand")).size.result.map(_ shouldBe 1),
       updateQ.update(User(None, "Marge", "Simpson")),
       Query(users.filter(_.id === 1).exists).result.head.map(_ shouldBe true),
-      users.filter(_.id.between(1, 2)).to[Set].result.map(_ shouldBe Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson"))),
-      users.filter(_.id.between(1, 2)).map(_.asFoo).to[Set].result.map(_ shouldBe Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson")))),
+      users
+        .filter(_.id.between(1, 2))
+        .to[Set]
+        .result
+        .map(_.shouldBe(Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")))),
+      users
+        .filter(_.id.between(1, 2))
+        .map(_.asFoo)
+        .to[Set]
+        .result
+        .map(_ shouldBe Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson")))),
       users.byID(3).result.head.map(_ shouldBe User(Some(3), "Carl", "Carlson")),
       q1.result.head.map(_.should(_.isInstanceOf[User]))
     )
@@ -70,10 +83,10 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
     seq(
       ts.schema.create,
-      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
+      ts ++= Seq(Data(1, 2), Data(3, 4), Data(5, 6)),
       updateQ.update(Data(7, 8)),
       updateQ2.update(Data(9, 10)),
-      ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
+      ts.to[Set].result.map(_.shouldBe(Set(Data(7, 8), Data(9, 10), Data(5, 6))))
     )
   }
 
@@ -165,8 +178,13 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       ts.schema.create,
       ts += oData,
       ts.result.head.map(_ shouldBe oData),
-      ts.map(_.m2).result.head.map(_ shouldBe oData),
-      ts.map(_.m3).result.head.map(_ shouldBe BigCase(0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 41, 42, 43, 44, 45, 46))
+      ts.map(_.m2).result.head.map(_.shouldBe(oData)),
+      ts.map(_.m3).result.head
+        .map { bigCase =>
+          bigCase.shouldBe(
+            BigCase(0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 41, 42, 43, 44, 45, 46)
+          )
+        }
     )
   }
 
@@ -405,25 +423,31 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     }
     val bs = TableQuery[B]
 
-    val q1 = (for {
-      id :: b :: s :: HNil <- (for { b <- bs } yield b.id :: b.b :: b.s :: HNil) if !b
-    } yield id :: b :: (s ++ s) :: HNil).sortBy(h => h.tail.tail.head).map {
-      case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil
-    }
+    val q1 =
+      (for {
+        case id :: b :: s :: HNil <- for (b <- bs) yield b.id :: b.b :: b.s :: HNil
+        if !b
+      } yield id :: b :: (s ++ s) :: HNil)
+        .sortBy(h => h.tail.tail.head)
+        .map {
+          case id :: _ :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil
+        }
     val q2 = bs
-      .map { case b => b.id :: b.b :: (b.s ++ b.s) :: HNil }
+      .map(b => b.id :: b.b :: (b.s ++ b.s) :: HNil)
       .filter { h => !h.tail.head }
       .sortBy { case _ :: _ :: ss :: HNil => ss }
-      .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
+      .map { case id :: _ :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
 
+    val expected = Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil)
     seq(
       bs.schema.create,
       bs += (1 :: true :: "a" :: HNil),
       bs += (2 :: false :: "c" :: HNil),
-      bs.map(_.mapped) += Data(3, false, "b"),
-      q1.result.map(_ shouldBe Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil)),
-      q2.result.map(_ shouldBe Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil)),
-      bs.map(_.mapped).result.map(_.toSet shouldBe Set(Data(1, true, "a"), Data(2, false, "c"), Data(3, false, "b")))
+      bs.map(_.mapped) += Data(3, b = false, "b"),
+      q1.result.map(_.shouldBe(expected)),
+      q2.result.map(_.shouldBe(expected)),
+      bs.map(_.mapped).result
+        .map(_.toSet.shouldBe(Set(Data(1, b = true, "a"), Data(2, b = false, "c"), Data(3, b = false, "b"))))
     )
   }
 
@@ -464,7 +488,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       _ <- cs.schema.create
       _ <- cs += ("Foo" :: HNil)
       _ <- cs.update("Foo" :: HNil)
-      cres :: HNil <- cs.result.head
+      case cres :: HNil <- cs.result.head
       _ = cres shouldBe "Foo"
     } yield ()
   }
@@ -475,7 +499,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).mapTo[Data].fastPath(new FastPath[Data](_) { //TODO Can we remove the type param from FastPath in Dotty? Scala 2 doesn't need it.
+      def * = (a, b).mapTo[Data].fastPath(new FastPath(_) {
         val (a, b) = (next[Int], next[Int])
         override def read(r: ResultSet) = Data(a.read(r), b.read(r))
       })
@@ -485,7 +509,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
     seq(
       ts.schema.create,
-      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
+      ts ++= Seq(Data(1, 2), Data(3, 4), Data(5, 6)),
       ts.filter(_.a === 1).update(Data(7, 8)),
       ts.filter(_.a === 3).map(identity).update(Data(9, 10)),
       ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6))),
