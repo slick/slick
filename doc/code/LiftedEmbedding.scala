@@ -131,7 +131,7 @@ object LiftedEmbedding extends App {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first")
     def last = column[String]("last")
-    def * = (id.?, first, last) <> (User.tupled, User.unapply)
+    def * = (id.?, first, last) <> ((User.apply _).tupled, User.unapply _)
   }
   val users = TableQuery[Users]
   //#mappedtable
@@ -575,7 +575,7 @@ object LiftedEmbedding extends App {
       }
 
       // Make columnMapper available in table definitions and where you do queries
-      implicit val boolColumnType = Bool.columnMapper
+      implicit val boolColumnType: BaseColumnType[Bool.Bool] = Bool.columnMapper
 
       // You can now use Bool.{True, False} like any built-in column type (in tables, queries, etc.)
       //#mappedtype
@@ -596,7 +596,7 @@ object LiftedEmbedding extends App {
 
       implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](
         implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]
-      ) = new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
+      ): PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]] = new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
       //#recordtype1
 
       //#recordtype2
@@ -635,7 +635,7 @@ object LiftedEmbedding extends App {
       case class B(a: Int, b: String)
 
       // custom case class mapping
-      implicit val BShape = new CaseClassShape(LiftedB.tupled, B.tupled)
+      implicit object BShape extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedB, (Int, String), B]((LiftedB.apply _).tupled, (B.apply _).tupled)
 
       class BRow(tag: Tag) extends Table[B](tag, "shape_b") {
         def id = column[Int]("id", O.PrimaryKey)
@@ -670,14 +670,7 @@ object LiftedEmbedding extends App {
         def tupled = (C.apply _).tupled
       }
 
-      implicit val CShape: CaseClassShape[
-        Any,
-        (Pair[Rep[Int], Rep[String]], LiftedB),
-        LiftedC,
-        (Pair[Int, String], B),
-        C
-      ] =
-        new CaseClassShape(LiftedC.tupled, C.tupled)
+      implicit object CShape extends CaseClassShape[Product, (Pair[Rep[Int], Rep[String]], LiftedB), LiftedC, (Pair[Int, String], B), C]((LiftedC.apply _).tupled, (C.apply _).tupled)
 
       class CRow(tag: Tag) extends Table[C](tag, "shape_c") {
         def id = column[Int]("id")
