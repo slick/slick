@@ -18,8 +18,6 @@ pull_request_rules:
 
   - name: Automatic merge on approval
     conditions:
-      - "check-success=Build and Test (8, 2.13.x)"
-      - "check-success=Build and Test (17, 2.13.x)"
       - "#changes-requested-reviews-by=0"
       - or:
           - "#approved-reviews-by>=1"
@@ -27,6 +25,23 @@ pull_request_rules:
           - "author=scala-steward"
           - "author=slick-scala-steward[bot]"
           - "author=renovate[bot]"
+      - and:
+        - "check-success=General (8, 2.13.x)"
+        - "check-success=General (17, 2.13.x)"
+        - "check-success=DB2 (DB2Test, 8, 2.13.x)"
+        - "check-success=DB2 (DB2Test, 17, 2.13.x)"
+        - "check-success=Oracle (OracleTest, 8, 2.13.x)"
+        - "check-success=Oracle (OracleTest, 17, 2.13.x)"
+        - "check-success=Postgres (PostgresTest, 8, 2.13.x)"
+        - "check-success=Postgres (PostgresTest, 17, 2.13.x)"
+        - "check-success=SQL Server (SQLServerJTDSTest, 8, 2.13.x)"
+        - "check-success=SQL Server (SQLServerJTDSTest, 17, 2.13.x)"
+        - "check-success=SQL Server (SQLServer2012JTDSTest, 8, 2.13.x)"
+        - "check-success=SQL Server (SQLServer2012JTDSTest, 17, 2.13.x)"
+        - "check-success=SQL Server (SQLServer2014JTDSTest, 8, 2.13.x)"
+        - "check-success=SQL Server (SQLServer2014JTDSTest, 17, 2.13.x)"
+        - "check-success=SQL Server (SQLServer2017JTDSTest, 8, 2.13.x)"
+        - "check-success=SQL Server (SQLServer2017JTDSTest, 17, 2.13.x)"
     actions:
       queue:
         name: default
