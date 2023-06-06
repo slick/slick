@@ -18,7 +18,9 @@ pull_request_rules:
 
   - name: Automatic merge on approval
     conditions:
+      - "check-success=Build and Test (8, 2.12.x)"
       - "check-success=Build and Test (8, 2.13.x)"
+      - "check-success=Build and Test (17, 2.12.x)"
       - "check-success=Build and Test (17, 2.13.x)"
       - "#changes-requested-reviews-by=0"
       - or:

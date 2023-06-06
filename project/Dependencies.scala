@@ -2,7 +2,7 @@ import sbt.*
 
 /** Dependencies for reuse in different parts of the build */
 object Dependencies {
-  val scalaVersions = Seq("2.13.11") // When updating these also update ci.yml and .mergify.yml
+  val scalaVersions = Seq("2.12.17", "2.13.11") // When updating these also update ci.yml and .mergify.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "2.0.7"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
