@@ -1,5 +1,6 @@
 package slick.memory
 
+import scala.collection.compat.*
 import scala.collection.mutable
 
 import slick.SlickException

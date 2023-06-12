@@ -1,4 +1,4 @@
-import sbt._
+import sbt.*
 
 /** Dependencies for reuse in different parts of the build */
 object Dependencies {
@@ -9,8 +9,9 @@ object Dependencies {
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.10.0"
 
-  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
+  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",

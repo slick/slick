@@ -2,8 +2,9 @@ package slick.memory
 
 import java.util.regex.Pattern
 
+import scala.collection.compat.*
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.ArrayBuffer
 
 import slick.SlickException
 import slick.ast.*
@@ -29,7 +30,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
   import QueryInterpreter.*
 
-  val scope = new HashMap[TermSymbol, Any]
+  val scope = new mutable.HashMap[TermSymbol, Any]
   var indent = 0
   type Coll = Iterable[Any]
 
@@ -187,7 +188,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         b.result()
       case GroupBy(gen, from, by, _) =>
         val fromV = run(from).asInstanceOf[Coll]
-        val grouped = new HashMap[Any, ArrayBuffer[Any]]()
+        val grouped = new mutable.HashMap[Any, ArrayBuffer[Any]]()
         fromV.foreach { v =>
           scope(gen) = v
           grouped.getOrElseUpdate(run(by), new ArrayBuffer[Any]()) += v

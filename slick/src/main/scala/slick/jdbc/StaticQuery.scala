@@ -2,6 +2,7 @@ package slick.jdbc
 
 import java.sql.PreparedStatement
 
+import scala.collection.compat.*
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
 
@@ -32,7 +33,7 @@ object SQLInterpolation {
     else {
       val b = new StringBuilder
       val remaining = new ArrayBuffer[SetParameter[Unit]]
-      typedParams.zip(strings.iterator).foreach { zipped =>
+      typedParams.zip(strings.iterator.to(Iterable)).foreach { zipped =>
         val p = zipped._1.param
         var literal = false
         def decode(s: String): String =
