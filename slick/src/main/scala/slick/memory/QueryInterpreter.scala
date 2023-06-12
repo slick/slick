@@ -410,9 +410,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       var len = s.length
       while(len > 0 && s.charAt(len-1) == ' ') len -= 1
       if(len == s.length) s else s.substring(0, len)
-    case Library.Sign =>
-      val n = args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric
-      n.toInt(n.sign(args(0)._2))
+    case Library.Sign => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.signum(args(0)._2)
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
     case Library.User => ""
