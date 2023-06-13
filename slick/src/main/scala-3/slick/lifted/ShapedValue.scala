@@ -1,12 +1,11 @@
 package slick.lifted
 
-import slick.ast.{MappedScalaType, Node}
-import slick.collection.heterogeneous._
-
-import scala.compiletime._
-import scala.deriving.{Mirror}
-import scala.quoted._
+import scala.deriving.Mirror
+import scala.quoted.*
 import scala.reflect.ClassTag
+
+import slick.ast.{MappedScalaType, Node}
+import slick.collection.heterogeneous.*
 
 /** A value together with its Shape */
 case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _]) extends Rep[U] {
