@@ -1,10 +1,11 @@
 package com.typesafe.slick.testkit.util
 
-import slick.dbio.DBIO
-
-import scala.jdk.CollectionConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters.*
+
+import slick.dbio.DBIO
+
 import org.junit.{After, Before}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
