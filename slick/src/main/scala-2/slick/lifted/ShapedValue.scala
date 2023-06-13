@@ -1,11 +1,10 @@
 package slick.lifted
 
 import scala.language.experimental.macros
+import scala.reflect.ClassTag
+import scala.reflect.macros.blackbox
 
 import slick.ast.{MappedScalaType, Node}
-
-import scala.reflect.ClassTag
-import scala.reflect.macros.blackbox.Context
 
 /** A value together with its Shape */
 case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _]) extends Rep[U] {
@@ -14,33 +13,36 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def toNode = shape.toNode(value)
-  def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
+  def packedValue[R](implicit ev: Shape[? <: FlatShapeLevel, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
   def <>[R : ClassTag](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
   @inline def shaped: ShapedValue[T, U] = this
 
-  def mapTo[R <: Product with Serializable](implicit rCT: ClassTag[R]): MappedProjection[R, U] = macro ShapedValue.mapToImpl[R, U]
+  def mapTo[R <: Product & Serializable](implicit rCT: ClassTag[R]): MappedProjection[R, U] = macro ShapedValue.mapToImpl[R, U]
   override def toString = s"ShapedValue($value, $shape)"
 }
 
 object ShapedValue {
-  def mapToImpl[R <: Product with Serializable, U](c: Context { type PrefixType = ShapedValue[_, U] })(rCT: c.Expr[ClassTag[R]])(implicit rTag: c.WeakTypeTag[R], uTag: c.WeakTypeTag[U]): c.Tree = {
-    import c.universe._
+  def mapToImpl[R <: Product & Serializable, U](c: blackbox.Context {type PrefixType = ShapedValue[?, U]})
+                                               (rCT: c.Expr[ClassTag[R]])
+                                               (implicit rTag: c.WeakTypeTag[R], uTag: c.WeakTypeTag[U]): c.Tree = {
+    import c.universe.*
     val rSym = symbolOf[R]
-    if(!rSym.isClass || !rSym.asClass.isCaseClass)
+    if (!rSym.isClass || !rSym.asClass.isCaseClass)
       c.abort(c.enclosingPosition, s"${rSym.fullName} must be a case class")
     val rModule = rSym.companion match {
       case NoSymbol => q"${rSym.name.toTermName}" // This can happen for case classes defined inside of methods
-      case s => q"$s"
+      case s        => q"$s"
     }
     val rHasTupled = rSym.companion match {
       case NoSymbol => true
       case s        => s.info.member(TermName("tupled")) != NoSymbol
     }
-    val fields =  rTag.tpe.decls.collect {
-      case s: TermSymbol if s.isVal && s.isCaseAccessor => (TermName(s.name.toString.trim), s.typeSignature, TermName(c.freshName()))
+    val fields = rTag.tpe.decls.collect {
+      case s: TermSymbol if s.isVal && s.isCaseAccessor => (TermName(s.name.toString.trim), s.typeSignature, TermName
+      (c.freshName()))
     }.toIndexedSeq
-    val (f, g) = if(uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
+    val (f, g) = if (uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
       val rTypeAsHList = fields.foldRight[Tree](tq"_root_.slick.collection.heterogeneous.HNil.type") {
         case ((_, t, _), z) => tq"_root_.slick.collection.heterogeneous.HCons[$t, $z]"
       }
@@ -52,10 +54,10 @@ object ShapedValue {
       }
       (q"({ case $pat => new $rTag(..${fields.map(_._3)}) } : ($rTypeAsHList => $rTag)): ($uTag => $rTag)",
         q"{ case v => $cons }: ($rTag => $uTag)")
-    } else if(fields.length == 1) { // Map from single value
+    } else if (fields.length == 1) { // Map from single value
       (q"($rModule.apply _) : ($uTag => $rTag)",
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
-    } else if(rHasTupled) { // Map from tuple
+    } else if (rHasTupled) { // Map from tuple
       (q"($rModule.tupled) : ($uTag => $rTag)",
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     } else { // Map from tuple with tupled apply
@@ -63,7 +65,7 @@ object ShapedValue {
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     }
 
-    val fpName = Constant("Fast Path of ("+fields.map(_._2).mkString(", ")+").mapTo["+rTag.tpe+"]")
+    val fpName = Constant("Fast Path of (" + fields.map(_._2).mkString(", ") + ").mapTo[" + rTag.tpe + "]")
     val fpChildren = fields.map { case (_, t, n) => q"val $n = next[$t]" }
     val fpReadChildren = fields.map { case (_, _, n) => q"$n.read(r)" }
     val fpSetChildren = fields.map { case (fn, _, n) => q"$n.set(value.$fn, pp, index)" }
@@ -76,9 +78,9 @@ object ShapedValue {
         case tm @ _root_.slick.relational.TypeMappingResultConverter(_: _root_.slick.relational.ProductResultConverter[_, _, _, _], _, _) =>
           new _root_.slick.relational.SimpleFastPathResultConverter[_root_.scala.Any, _root_.scala.Any, _root_.scala.Any, $rTag](tm.asInstanceOf[_root_.slick.relational.TypeMappingResultConverter[_root_.scala.Any, _root_.scala.Any, _root_.scala.Any, $rTag, _]]) {
             ..$fpChildren
-            override def read(r: Any): $rTag = new $rTag(..$fpReadChildren)
-            override def set(value: $rTag, pp: Any, index: Int): _root_.scala.Unit = {..$fpSetChildren}
-            override def update(value: $rTag, pr: Any): _root_.scala.Unit = {..$fpUpdateChildren}
+            override def read(r: Reader): $rTag = new $rTag(..$fpReadChildren)
+            override def set(value: $rTag, pp: Writer, index: Int): _root_.scala.Unit = {..$fpSetChildren}
+            override def update(value: $rTag, pr: Updater): _root_.scala.Unit = {..$fpUpdateChildren}
             override def getDumpInfo = super.getDumpInfo.copy(name = $fpName)
           }
         case tm => tm
