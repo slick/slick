@@ -3,6 +3,7 @@ package slick.basic
 import java.io.Closeable
 import java.util.concurrent.atomic.{AtomicLong, AtomicReferenceArray}
 
+import scala.collection.compat.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal

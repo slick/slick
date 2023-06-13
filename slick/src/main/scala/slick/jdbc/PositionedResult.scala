@@ -1,9 +1,9 @@
 package slick.jdbc
 
 import java.io.Closeable
-import java.sql.{Array as _, *}
+import java.sql.{Blob, Clob, Date, ResultSet, Time, Timestamp, Array as _}
 
-import scala.collection.Factory
+import scala.collection.compat.*
 
 import slick.util.{CloseableIterator, ReadAheadIterator}
 

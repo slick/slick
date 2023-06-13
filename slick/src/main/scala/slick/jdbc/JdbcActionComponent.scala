@@ -2,6 +2,7 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, Statement}
 
+import scala.collection.compat.*
 import scala.collection.mutable.Builder
 import scala.language.existentials
 import scala.util.control.NonFatal

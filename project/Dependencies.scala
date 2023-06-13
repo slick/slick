@@ -1,16 +1,17 @@
-import sbt._
+import sbt.*
 
 /** Dependencies for reuse in different parts of the build */
 object Dependencies {
-  val scalaVersions = Seq("2.13.11") // When updating these also update ci.yml and .mergify.yml
+  val scalaVersions = Seq("2.12.17", "2.13.11") // When updating these also update ci.yml and .mergify.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "2.0.7"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.10.0"
 
-  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
+  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",
