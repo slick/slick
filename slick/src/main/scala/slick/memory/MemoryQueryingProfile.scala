@@ -102,14 +102,16 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
                               column: Option[FieldSymbol]): ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, ?] =
       new QueryResultConverter(idx, typeInfoFor(n.nodeType.structural).nullable)
 
-    class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
+    class QueryResultConverter(ridx: Int, nullable: Boolean)
+      extends ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any] {
+
       def read(pr: QueryInterpreter.ProductValue) = {
-        val v = pr(ridx-1)
-        if(!nullable && (v.asInstanceOf[AnyRef] eq null))
+        val v = pr(ridx - 1)
+        if (!nullable && (v.asInstanceOf[AnyRef] eq null))
           throw new SlickException("Read null value for non-nullable column")
 
         // TODO: Remove this hack; see comment in ternary logic section of QueryInterpreter
-        if(!nullable && v.isInstanceOf[Option[?]]) v.asInstanceOf[Option[?]].get
+        if (!nullable && v.isInstanceOf[Option[?]]) v.asInstanceOf[Option[?]].get
         else v
       }
       override def update(value: Any, pr: Updater): Nothing = ??
