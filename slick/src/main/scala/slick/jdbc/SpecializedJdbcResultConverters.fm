@@ -15,12 +15,14 @@ object SpecializedJdbcResultConverter {
   /** Create a new type-specialized `BaseResultConverter` for the given type-specialized `JdbcType` */
   def base[T](ti: JdbcType[T], name: String, idx: Int) = (ti.scalaType match {
     <#list specTypes as tpe>
-    case ScalaBaseType.${tpe?lower_case}Type => new BaseResultConverter[${tpe}](ti.asInstanceOf[JdbcType[${tpe}]], name, idx)
+    case ScalaBaseType.${tpe?lower_case}Type =>
+      new BaseResultConverter[${tpe}](ti.asInstanceOf[JdbcType[${tpe}]], name, idx)
     </#list>
     case _ => new BaseResultConverter[T](ti.asInstanceOf[JdbcType[T]], name, idx) {
       override def read(pr: ResultSet) = {
         val v = ti.getValue(pr, idx)
-        if(v.asInstanceOf[AnyRef] eq null) throw new SlickException("Read NULL value ("+v+") for ResultSet column "+name)
+        if(v.asInstanceOf[AnyRef] eq null)
+          throw new SlickException("Read NULL value ("+v+") for ResultSet column " + name)
         v
       }
     }

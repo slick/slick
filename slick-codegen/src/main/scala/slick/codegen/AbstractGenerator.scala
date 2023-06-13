@@ -1,10 +1,10 @@
 package slick.codegen
 
+import slick.model as m
 import slick.ast.ColumnOption
-import slick.{model => m}
 import slick.model.ForeignKeyAction
-import slick.sql.SqlProfile
 import slick.relational.RelationalProfile
+import slick.sql.SqlProfile
 
 /**
  * Slick code generator providing the base structure and facilities.
@@ -374,10 +374,17 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Common interface for definitions that define a term (val, def, ...) within the generated code */
     trait AbstractTermDef extends AbstractDef {
       override def docWithCode: Code = {
-        val newdoc = doc +
-          (if(scalaKeywords.contains(rawName)) s"\nNOTE: The name was escaped because it collided with a Scala keyword." else "")+
-          (if(slickTableTermMembersNoArgs.contains(rawName)) s"\nNOTE: The name was disambiguated because it collided with Slick's method Table#$rawName." else "")
-        codegen.docWithCode(newdoc, code)
+        val newDoc =
+          doc +
+            (if (scalaKeywords.contains(rawName))
+              s"\nNOTE: The name was escaped because it collided with a Scala keyword."
+            else
+              "") +
+            (if (slickTableTermMembersNoArgs.contains(rawName))
+              s"\nNOTE: The name was disambiguated because it collided with Slick's method Table#$rawName."
+            else
+              "")
+        codegen.docWithCode(newDoc, this.code)
       }
       /** Name (escaped if colliding with Scala keyword). */
       final def name: TermName = termName{
