@@ -3,11 +3,11 @@ package slick.util
 import java.beans.Introspector
 import java.util.Properties
 
-import scala.jdk.CollectionConverters._
-
-import com.typesafe.config.ConfigFactory
+import scala.jdk.CollectionConverters.*
 
 import slick.SlickException
+
+import com.typesafe.config.ConfigFactory
 
 /** Configure Java Beans reflectively, using Typesafe Config for data type conversions. */
 object BeanConfigurator extends Logging {

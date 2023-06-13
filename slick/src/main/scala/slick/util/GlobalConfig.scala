@@ -1,11 +1,13 @@
 package slick.util
 
+import java.util.concurrent.TimeUnit
+import java.util.Properties
+
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
-import com.typesafe.config._
-import java.util.concurrent.TimeUnit
-import java.util.Properties
+
+import com.typesafe.config.*
 
 /** Singleton object with Slick's configuration, loaded from the application config.
   * This includes configuration for the global profile objects and settings for debug logging.
@@ -14,7 +16,7 @@ import java.util.Properties
   * default values hardcoded here because we cannot rely on getting reference.conf on the classpath
   * in all cases (e.g. the `tsql` macro). */
 object GlobalConfig {
-  import ConfigExtensionMethods._
+  import ConfigExtensionMethods.*
 
   private[this] val config = ConfigFactory.load()
 
@@ -45,7 +47,7 @@ object GlobalConfig {
 
 /** Extension methods to make Typesafe Config easier to use */
 class ConfigExtensionMethods(val c: Config) extends AnyVal {
-  import scala.jdk.CollectionConverters._
+  import scala.jdk.CollectionConverters.*
 
   def getBooleanOr(path: String, default: => Boolean = false) = if(c.hasPath(path)) c.getBoolean(path) else default
   def getIntOr(path: String, default: => Int = 0) = if(c.hasPath(path)) c.getInt(path) else default

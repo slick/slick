@@ -1,6 +1,6 @@
 package slick.jdbc
 
-import scala.annotation.unchecked.{uncheckedVariance => uV}
+import scala.annotation.unchecked.uncheckedVariance as uV
 import scala.collection.Factory
 
 import slick.util.CloseableIterator
@@ -33,7 +33,7 @@ trait Invoker[+R] { self =>
     try {
       if(it.hasNext) it.next()
       else throw new NoSuchElementException("empty result set" + debuggingId.map(" when invoking " + _))
-    } finally it.close
+    } finally it.close()
   }
 
   /** Execute the statement and return a fully materialized collection. */

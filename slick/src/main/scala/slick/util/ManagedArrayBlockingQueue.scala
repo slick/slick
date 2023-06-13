@@ -1,10 +1,10 @@
 package slick.util
 
-import java.util.concurrent.{BlockingQueue, TimeUnit}
-import java.util.concurrent.locks._
 import java.util
+import java.util.concurrent.{BlockingQueue, TimeUnit}
+import java.util.concurrent.locks.*
 
-import slick.util.AsyncExecutor._
+import slick.util.AsyncExecutor.*
 
 /** A simplified copy of `java.util.concurrent.ArrayBlockingQueue` with additional logic for
  * temporarily rejecting elements based on the current size. All features of the original
@@ -214,7 +214,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
   }
 
   def iterator: util.Iterator[PrioritizedRunnable] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
 
     // copy all items from queues and build a snapshot
     val items = locked {

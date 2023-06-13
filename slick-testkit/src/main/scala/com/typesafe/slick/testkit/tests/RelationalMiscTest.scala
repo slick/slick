@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 
 class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
-  import tdb.profile.api._
+  import tdb.profile.api.*
 
   def isNotAndOrTest = {
     class T(tag: Tag) extends Table[(String, String)](tag, "users") {
@@ -56,7 +56,7 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testSorting = {
-    import slick.lifted.{Shape, Ordered}
+    import slick.lifted.{Ordered, Shape}
 
     class T1(tag: Tag) extends Table[(String, String, String)](tag, "t1_3") {
       def a = column[String]("a")
@@ -159,7 +159,7 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
     // putting `Tables` before `A` caused a StackOverflowException
     object Tables {
       val as = TableQuery[A]
-      implicit val idMapper = MappedColumnType.base[Id, Int](_.toInt, Id)
+      implicit val idMapper: BaseColumnType[Id] = MappedColumnType.base[Id, Int](_.toInt, Id)
     }
     class A(tag: Tag) extends Table[Customer](tag, "INIT_A") {
       def id = column[Id]("ID", O.PrimaryKey, O.AutoInc)(Tables.idMapper)
