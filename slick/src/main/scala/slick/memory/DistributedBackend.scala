@@ -1,15 +1,17 @@
 package slick.memory
 
+import scala.collection.compat.*
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{blocking, ExecutionContext, Future}
+import scala.util.{Failure, Try}
+
+import slick.SlickException
+import slick.basic.BasicBackend
+import slick.relational.RelationalBackend
+import slick.util.Logging
+
 import com.typesafe.config.Config
 import org.reactivestreams.Subscriber
-
-import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.util.{Failure, Try}
-import slick.SlickException
-import slick.relational.RelationalBackend
-import slick.basic.BasicBackend
-import slick.util.Logging
 
 /** The backend for DistributedProfile. */
 trait DistributedBackend extends RelationalBackend with Logging {

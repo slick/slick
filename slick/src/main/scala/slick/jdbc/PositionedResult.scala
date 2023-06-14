@@ -1,9 +1,9 @@
 package slick.jdbc
 
 import java.io.Closeable
-import java.sql.{Array => _, _}
+import java.sql.{Blob, Clob, Date, ResultSet, Time, Timestamp, Array as _}
 
-import scala.collection.Factory
+import scala.collection.compat.*
 
 import slick.util.{CloseableIterator, ReadAheadIterator}
 
@@ -14,7 +14,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
   protected[this] var pos = Int.MaxValue
   protected[this] val startPos = 0
 
-  lazy val numColumns = rs.getMetaData().getColumnCount()
+  lazy val numColumns = rs.getMetaData.getColumnCount
 
   final def currentPos = pos
   final def hasMoreColumns = pos < numColumns

@@ -1,7 +1,8 @@
 package slick.ast
 
 import scala.annotation.{implicitNotFound, tailrec}
-import scala.collection.{mutable, Factory}
+import scala.collection.compat.*
+import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.reflect.{ClassTag, classTag as mkClassTag}
 

@@ -3,7 +3,8 @@ package slick.test.codegen
 import slick.jdbc.H2Profile
 
 object CustomTyping {
-  import H2Profile.api._
+
+  import H2Profile.api.*
   sealed trait Bool {
     def isTrue: Boolean
   }
@@ -14,7 +15,7 @@ object CustomTyping {
     def isTrue = false
   }
 
-  implicit val boolTypeMapper = MappedColumnType.base[Bool, Int](
+  implicit val boolTypeMapper: BaseColumnType[Bool] = MappedColumnType.base[Bool, Int](
     { b =>
       if (b == True) 1 else 0
     }, { i =>

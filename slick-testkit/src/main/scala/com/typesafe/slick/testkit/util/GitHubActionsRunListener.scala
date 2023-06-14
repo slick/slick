@@ -3,10 +3,10 @@ package com.typesafe.slick.testkit.util
 import java.nio.file.{Files, Paths}
 import java.time.Duration
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
-import org.junit.runner.notification.{Failure, RunListener}
 import org.junit.runner.{Description, Result}
+import org.junit.runner.notification.{Failure, RunListener}
 
 
 class GitHubActionsRunListener extends RunListener {

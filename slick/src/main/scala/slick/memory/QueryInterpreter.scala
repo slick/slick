@@ -2,12 +2,13 @@ package slick.memory
 
 import java.util.regex.Pattern
 
+import scala.collection.compat.*
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.ArrayBuffer
 
 import slick.SlickException
+import slick.ast.*
 import slick.ast.TypeUtil.typeToTypeUtil
-import slick.ast._
 import slick.util.{ConstArray, Logging, SlickLogger}
 
 import org.slf4j.LoggerFactory
@@ -27,9 +28,9 @@ import org.slf4j.LoggerFactory
   */
 class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
-  import QueryInterpreter._
+  import QueryInterpreter.*
 
-  val scope = new HashMap[TermSymbol, Any]
+  val scope = new mutable.HashMap[TermSymbol, Any]
   var indent = 0
   type Coll = Iterable[Any]
 
@@ -47,7 +48,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val v = run(in)
         field match {
           case ElementSymbol(idx) => v.asInstanceOf[ProductValue].apply(idx-1)
-          case (_: AnonSymbol | _: FieldSymbol) => v.asInstanceOf[StructValue].getBySymbol(field)
+          case _: AnonSymbol | _: FieldSymbol => v.asInstanceOf[StructValue].getBySymbol(field)
         }
       case n: StructNode =>
         new StructValue(n.children.toSeq.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
@@ -133,10 +134,10 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         scope.remove(rightGen)
         val emptyRightRes = run(right).asInstanceOf[Coll].filter { r =>
           scope(rightGen) = r
-          run(left).asInstanceOf[Coll].find { l =>
+          !run(left).asInstanceOf[Coll].exists { l =>
             scope(leftGen) = l
             asBoolean(run(by))
-          }.isEmpty
+          }
         }.map { r => new ProductValue(Vector(createNullRow(left.nodeType.asCollectionType.elementType), r)) }
         scope.remove(leftGen)
         scope.remove(rightGen)
@@ -187,7 +188,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         b.result()
       case GroupBy(gen, from, by, _) =>
         val fromV = run(from).asInstanceOf[Coll]
-        val grouped = new HashMap[Any, ArrayBuffer[Any]]()
+        val grouped = new mutable.HashMap[Any, ArrayBuffer[Any]]()
         fromV.foreach { v =>
           scope(gen) = v
           grouped.getOrElseUpdate(run(by), new ArrayBuffer[Any]()) += v
@@ -221,16 +222,16 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case OptionApply(ch) =>
         Option(run(ch))
       case c: IfThenElse =>
-        val opt = n.nodeType.asInstanceOf[ScalaType[_]].nullable
+        val opt = n.nodeType.asInstanceOf[ScalaType[?]].nullable
         val take = c.ifThenClauses.find { case (pred, _) => asBoolean(run(pred)) }
         take match {
           case Some((_, r)) =>
             val res = run(r)
-            if(opt && !r.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
+            if(opt && !r.nodeType.asInstanceOf[ScalaType[?]].nullable) Option(res)
             else res
           case _ =>
             val res = run(c.elseClause)
-            if(opt && !c.elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
+            if(opt && !c.elseClause.nodeType.asInstanceOf[ScalaType[?]].nullable) Option(res)
             else res
         }
       case QueryParameter(extractor, _, _) =>
@@ -242,7 +243,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case (tpe, OptionType(tpe2)) if tpe == tpe2 => Option(chV)
         }
       case Library.Exists(coll) =>
-        !run(coll).asInstanceOf[Coll].isEmpty
+        run(coll).asInstanceOf[Coll].nonEmpty
       case Library.IfNull(cond, default) =>
         val condV = run(cond)
         if((condV.asInstanceOf[AnyRef] eq null) || condV == None) {
@@ -261,14 +262,14 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           where.nodeType match {
             case ProductType(elTypes) =>
               val p = whereV.asInstanceOf[ProductValue]
-              0.until(elTypes.length).iterator.map { i =>
-                if(elTypes(i).isInstanceOf[OptionType]) {
+              0.until(elTypes.length).iterator.exists { i =>
+                if (elTypes(i).isInstanceOf[OptionType]) {
                   p(i).asInstanceOf[Option[Any]] match {
                     case Some(v) => whatBase == v
-                    case None => false
+                    case None    => false
                   }
                 } else whatBase == p(i)
-              } contains true
+              }
             case ct: CollectionType =>
               val (els, singleType) = unwrapSingleColumn(whereV.asInstanceOf[Coll], ct)
               (if(singleType.isInstanceOf[OptionType])
@@ -295,7 +296,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
         }
         reduceOptionIt[(Int, Any)](it, opt, (1, _), { case ((ai, a), (bi, b)) => (ai + bi, num.plus(a, b)) }).map { case (count, sum) =>
-          if(num.isInstanceOf[Fractional[_]]) num.asInstanceOf[Fractional[Any]].div(sum, num.fromInt(count))
+          if(num.isInstanceOf[Fractional[?]]) num.asInstanceOf[Fractional[Any]].div(sum, num.fromInt(count))
           else num.fromInt(num.toInt(sum) / count)
         }
       case Library.Min(ch) =>
@@ -316,7 +317,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         reduceOptionIt[Any](it, opt, identity, (a, b) => if(ord.gt(b, a)) b else a)
       case Library.==(ch, LiteralNode(null)) =>
         val chV = run(ch)
-        chV == null || chV.asInstanceOf[Option[_]].isEmpty
+        chV == null || chV.asInstanceOf[Option[?]].isEmpty
       case Apply(sym, ch) =>
         val chV = ch.map(n => (n.nodeType, run(n)))
         logDebug("[chV: "+chV.mkString(", ")+"]")
@@ -341,6 +342,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     res
   }
 
+  //noinspection ZeroIndexToHead
   def evalFunction(sym: TermSymbol, args: Seq[(Type, Any)], retType: Type) = sym match {
     case Library.== => args(0)._2 == args(1)._2
     case Library.< => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lt(args(0)._2, args(1)._2)
@@ -389,7 +391,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.Length => args(0)._2.asInstanceOf[String].length
     case Library.Like =>
       val pat = compileLikePattern(args(1)._2.toString, if(args.length > 2) Some(args(2)._2.toString.charAt(0)) else None)
-      val mat = pat.matcher(args(0)._2.toString())
+      val mat = pat.matcher(args(0)._2.toString)
       mat.matches()
     case Library.LTrim =>
       val s = args(0)._2.asInstanceOf[String]
@@ -408,9 +410,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       var len = s.length
       while(len > 0 && s.charAt(len-1) == ' ') len -= 1
       if(len == s.length) s else s.substring(0, len)
-    case Library.Sign =>
-      val n = args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric
-      n.toInt(n.sign(args(0)._2))
+    case Library.Sign => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.signum(args(0)._2)
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
     case Library.User => ""
@@ -499,8 +499,8 @@ object QueryInterpreter {
   }
 
   /** The representation for StructType values in the interpreter */
-  class StructValue(data: IndexedSeq[Any], symbolToIndex: (TermSymbol => Int)) extends ProductValue(data) {
-    def getBySymbol(sym: TermSymbol): Any = apply(symbolToIndex(sym))
+  class StructValue(data: IndexedSeq[Any], symbolToIndex: TermSymbol => Int) extends ProductValue(data) {
+    def getBySymbol(sym: TermSymbol): Any = super.apply(symbolToIndex(sym))
     override def toString = "StructValue("+data.mkString(", ")+"){"+symbolToIndex+"}"
   }
 }

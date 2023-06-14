@@ -4,6 +4,7 @@ import java.lang.reflect.Method
 import java.util.concurrent.{ExecutionException, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.collection.compat.*
 import scala.concurrent.*
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag

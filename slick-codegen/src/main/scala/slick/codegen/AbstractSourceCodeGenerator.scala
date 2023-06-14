@@ -1,6 +1,8 @@
 package slick.codegen
 
-import slick.{SlickException, model => m}
+import scala.collection.compat.*
+
+import slick.{SlickException, model as m}
 import slick.ast.ColumnOption
 import slick.model.ForeignKeyAction
 import slick.relational.RelationalProfile
@@ -254,9 +256,10 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
     }
 
     class AbstractSourceCodeColumnDef(model: m.Column) extends AbstractColumnDef(model) {
-      import ColumnOption._
-      import RelationalProfile.ColumnOption._
-      import SqlProfile.ColumnOption._
+
+      import ColumnOption.*
+      import RelationalProfile.ColumnOption.*
+      import SqlProfile.ColumnOption.*
       def columnOptionCode = {
         case ColumnOption.PrimaryKey => Some(s"O.PrimaryKey")
         case Default(_)              => Some(s"O.Default(${default.get})") // .get is safe here
@@ -323,7 +326,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
         val fkExpr = compoundValue(fkColumns)
         val pkExpr = compoundValue(pkColumns)
         s"lazy val $name = " +
-          s"foreignKey(\"$dbName\", $fkExpr, $pkTable)(r => $pkExpr, onUpdate=$onUpdate, onDelete=$onDelete)"
+          s"""foreignKey("$dbName", $fkExpr, $pkTable)(r => $pkExpr, onUpdate=$onUpdate, onDelete=$onDelete)"""
       }
     }
 

@@ -7,68 +7,67 @@ import slick.SlickException
 
 
 /** Specialized JDBC ResultConverter for non-`Option` values. */
-class BaseResultConverter[T](val ti: JdbcType[T],
-                                                                                                val name: String,
-                                                                                                val idx: Int)
+class BaseResultConverter[T](val jdbcType: JdbcType[T], val columnName: String, val index: Int)
   extends ResultConverter[JdbcResultConverterDomain, T] {
   def read(pr: ResultSet) = {
-    val v = ti.getValue(pr, idx)
-    if(ti.wasNull(pr, idx)) throw new SlickException("Read NULL value for ResultSet column "+name)
+    val v = jdbcType.getValue(pr, index)
+    if (jdbcType.wasNull(pr, index)) throw new SlickException("Read NULL value for ResultSet column " + columnName)
     v
   }
-  def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
+  def update(value: T, pr: ResultSet) = jdbcType.updateValue(value, pr, index)
   def set(value: T, pp: PreparedStatement, offset: Int) =
-    ti.setValue(value, pp, idx + offset)
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx, name=$name", attrInfo = ": " + ti)
+    jdbcType.setValue(value, pp, index + offset)
+  override def getDumpInfo =
+    super.getDumpInfo.copy(mainInfo = s"idx=$index, name=$columnName", attrInfo = ": " + jdbcType)
   def width = 1
 }
 
 /**
  * Specialized JDBC ResultConverter for handling values of type `Option[T]`.
  * Boxing is avoided when the result is `None`. */
-class OptionResultConverter[T](val ti: JdbcType[T],
-                                                                                                  val idx: Int)
+class OptionResultConverter[T](val jdbcType: JdbcType[T], val index: Int)
   extends ResultConverter[JdbcResultConverterDomain, Option[T]] {
   def read(pr: ResultSet) = {
-    val v = ti.getValue(pr, idx)
-    if(ti.wasNull(pr, idx)) None else Some(v)
+    val v = jdbcType.getValue(pr, index)
+    if(jdbcType.wasNull(pr, index)) None else Some(v)
   }
   def update(value: Option[T], pr: ResultSet) = value match {
-    case Some(v) => ti.updateValue(v, pr, idx)
-    case _ => ti.updateNull(pr, idx)
+    case Some(v) => jdbcType.updateValue(v, pr, index)
+    case _ => jdbcType.updateNull(pr, index)
   }
   def set(value: Option[T], pp: PreparedStatement, offset: Int) = value match {
-    case Some(v) => ti.setValue(v, pp, idx + offset)
-    case _ => ti.setNull(pp, idx + offset)
+    case Some(v) => jdbcType.setValue(v, pp, index + offset)
+    case _ => jdbcType.setNull(pp, index + offset)
   }
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$index", attrInfo = ": " + jdbcType)
   def width = 1
   def getOrElse(default: () => T): DefaultingResultConverter[T] =
-    if(ti.scalaType.isPrimitive) new DefaultingResultConverter[T](ti, default, idx)
-    else new DefaultingResultConverter[T](ti, default, idx) {
+    if(jdbcType.scalaType.isPrimitive) new DefaultingResultConverter[T](jdbcType, default, index)
+    else new DefaultingResultConverter[T](jdbcType, default, index) {
       override def read(pr: ResultSet) = {
-        val v = ti.getValue(pr, idx)
-        if(v.asInstanceOf[AnyRef] eq null) default() else v
+        val v = ti.getValue(pr, this.index)
+        if(v.asInstanceOf[AnyRef] eq null) computeDefault() else v
       }
     }
-  def isDefined = new IsDefinedResultConverter[T](ti, idx)
+  def isDefined = new IsDefinedResultConverter[T](jdbcType, index)
 }
 
 /** Specialized JDBC ResultConverter for handling non-`Option` values with a default.
  * A (possibly specialized) function for the default value is used to translate SQL `NULL` values. */
-class DefaultingResultConverter[
-  T](val ti: JdbcType[T], val default: () => T, val idx: Int) extends ResultConverter[JdbcResultConverterDomain, T] {
+class DefaultingResultConverter[T](val ti: JdbcType[T], val computeDefault: () => T, val index: Int)
+  extends ResultConverter[JdbcResultConverterDomain, T] {
+
   def read(pr: ResultSet) = {
-    val v = ti.getValue(pr, idx)
-    if (ti.wasNull(pr, idx)) default() else v
+    val v = ti.getValue(pr, index)
+    if (ti.wasNull(pr, index)) computeDefault() else v
   }
-  def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
-  def set(value: T, pp: PreparedStatement, offset: Int) = ti.setValue(value, pp, idx + offset)
+  def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, index)
+  def set(value: T, pp: PreparedStatement, offset: Int) = ti.setValue(value, pp, index + offset)
   override def getDumpInfo =
     super.getDumpInfo.copy(
       mainInfo =
-        s"idx=$idx, default=" + {
-          try default() catch {
+        s"idx=$index, default=" + {
+          try computeDefault() catch {
             case e: Throwable => "[" + e.getClass.getName + "]"
           }
         },

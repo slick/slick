@@ -1,5 +1,6 @@
 package slick.ast
 
+import scala.collection.compat.immutable.LazyList
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 

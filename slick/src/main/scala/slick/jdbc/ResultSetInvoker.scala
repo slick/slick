@@ -1,8 +1,9 @@
 package slick.jdbc
 
 import java.sql.ResultSet
-import slick.dbio.Effect
+
 import slick.basic.BasicStreamingAction
+import slick.dbio.Effect
 import slick.util.CloseableIterator
 
 /** An invoker which calls a function to retrieve a ResultSet. This can be used
@@ -16,10 +17,10 @@ abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
   protected def createResultSet(session: JdbcBackend#Session): ResultSet
 
   def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = {
-    val rs = createResultSet(session)
-    if(rs eq null) CloseableIterator.empty
+    val resultSet = createResultSet(session)
+    if(resultSet eq null) CloseableIterator.empty
     else {
-      val pr = new PositionedResult(rs) {
+      val pr = new PositionedResult(resultSet) {
         def close() = rs.close()
       }
       new PositionedResultIterator[R](pr, maxRows, true) {

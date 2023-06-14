@@ -1,7 +1,7 @@
 package slick.jdbc
 
-import scala.annotation.unchecked.{uncheckedVariance => uV}
-import scala.collection.Factory
+import scala.annotation.unchecked.uncheckedVariance
+import scala.collection.compat.*
 
 import slick.util.CloseableIterator
 
@@ -33,11 +33,12 @@ trait Invoker[+R] { self =>
     try {
       if(it.hasNext) it.next()
       else throw new NoSuchElementException("empty result set" + debuggingId.map(" when invoking " + _))
-    } finally it.close
+    } finally it.close()
   }
 
   /** Execute the statement and return a fully materialized collection. */
-  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: Factory[R, C[R @uV]]): C[R @uV] = {
+  final def buildColl[C[_]](implicit session: JdbcBackend#Session,
+                            canBuildFrom: Factory[R, C[R @uncheckedVariance]]): C[R @uncheckedVariance] = {
     val b = canBuildFrom.newBuilder
     foreach({ x => b += x }, 0)
     b.result()
