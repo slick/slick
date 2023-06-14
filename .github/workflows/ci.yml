@@ -82,7 +82,7 @@ jobs:
           TZ: Asia/Kamchatka
 
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()    # run this step even if previous step failed
         with:
           name: test-results
