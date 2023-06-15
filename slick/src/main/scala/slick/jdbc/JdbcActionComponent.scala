@@ -2,7 +2,6 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet, Statement}
 
-import scala.collection.compat.*
 import scala.collection.mutable.Builder
 import scala.language.existentials
 import scala.util.control.NonFatal
@@ -16,6 +15,7 @@ import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
 import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder}
+import slick.compat.collection.*
 
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>

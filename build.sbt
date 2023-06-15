@@ -48,6 +48,29 @@ def scaladocSourceUrl(dir: String) =
     )
   }
 
+def slickScalacOptions = Seq(
+  scalacOptions ++=
+    List(
+      "-deprecation",
+      "-feature",
+      "-unchecked",
+      "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
+    ) ++ (CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, 12)) => List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3")
+      case Some((2, 13)) =>
+        List(
+          "-Xsource:3",
+          "-Wunused:imports",
+          "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
+          "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
+        )
+      case Some((3, _)) =>
+        List("-source:3.0-migration")
+      case _ =>
+        Nil
+    })
+)
+
 def slickGeneralSettings =
   Seq(
     Test / publishArtifact := false,
@@ -56,26 +79,6 @@ def slickGeneralSettings =
       _.withConfigurations(Vector(Compile, Runtime, Optional))
     },
     sonatypeProfileName := "com.typesafe.slick",
-    scalacOptions ++=
-      List(
-        "-deprecation",
-        "-feature",
-        "-unchecked",
-        "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
-      ) ++ (CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, 12)) => List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3")
-        case Some((2, 13)) =>
-          List(
-            "-Xsource:3",
-            "-Wunused:imports",
-            "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
-            "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
-          )
-        case Some((3, _)) =>
-          List("-source:3.0-migration")
-        case _             =>
-          Nil
-      }),
     Compile / doc / scalacOptions ++= Seq(
       "-doc-title", name.value,
       "-doc-version", version.value,
@@ -85,7 +88,7 @@ def slickGeneralSettings =
       "-groups"
     ),
     logBuffered := false
-  )
+  ) ++ slickScalacOptions
 
 // add a scala 2 compiler dependency unless a local scala is in use
 def compilerDependencySetting(config: String) =
@@ -130,6 +133,44 @@ val docDir = settingKey[File]("Base directory for documentation")
 
 ThisBuild / docDir := (site / baseDirectory).value
 
+lazy val slickCompatCollections =
+  project
+    .in(file("slick-compat-collections"))
+    .settings(
+      slickScalacOptions,
+      // Do not publish this artifact
+      publish / skip := true,
+      Compile / doc / sources := Seq.empty,
+      // Adds a `src/main/scala-2.13+` source directory for code shared
+      // between Scala 2.13 and Scala 3
+      Compile / unmanagedSourceDirectories ++= {
+        val sourceDir = (Compile / sourceDirectory).value
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((3, n)) => Seq(sourceDir / "scala-2.13+")
+          case Some((2, n)) if n >= 13 => Seq(sourceDir / "scala-2.13+")
+          case _ => Nil
+        }
+      },
+    )
+
+def slickCollectionsCompatSettings = Seq(
+  libraryDependencies ++= Dependencies.scalaCollectionCompat.value,
+  // So that compiled from slickCompatCollections sbt module appear in slick
+  (Compile / packageBin / mappings) ++= (slickCompatCollections / Compile / packageBin / mappings).value,
+  (Compile / packageSrc / mappings) ++= (slickCompatCollections / Compile / packageSrc / mappings).value,
+  pomPostProcess := { // we need to remove the dependency onto the slickCompatCollections module from the POM
+    import scala.xml.transform._
+    import scala.xml.{NodeSeq, Node => XNode}
+
+    val filter = new RewriteRule {
+      override def transform(n: XNode) =
+        if ((n \ "artifactId").text.contains("slickCompatCollections"))
+          NodeSeq.Empty
+        else n
+    }
+    new RuleTransformer(filter).transform(_).head
+  }
+)
 
 lazy val slick =
   project
@@ -139,6 +180,7 @@ lazy val slick =
       compilerDependencySetting("provided"),
       FMPP.preprocessorSettings,
       extTarget("slick"),
+      slickCollectionsCompatSettings,
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       libraryDependencies ++= Dependencies.mainDependencies,
@@ -150,7 +192,7 @@ lazy val slick =
       // suppress test status output
       test := {},
       testOnly := {}
-    )
+    ).dependsOn(slickCompatCollections)
 
 lazy val testkit =
   project

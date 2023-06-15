@@ -1,9 +1,9 @@
 package slick.jdbc
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.compat.*
 
 import slick.util.CloseableIterator
+import slick.compat.collection.*
 
 /** Base trait for all statement invokers of result element type R. */
 trait Invoker[+R] { self =>
