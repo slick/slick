@@ -63,10 +63,23 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def filterIf[T : CanBeQueryCondition](p: Boolean)(f: E => T): Query[E, U, C] =
     if (p) withFilter(f) else this
 
+  /** Applies the given filterNot, if the Option value is defined.
+   * If the value is None, the filter will not be part of the query. */
+  def filterNotOpt[V, T: CanBeQueryCondition](optValue: Option[V])(f: (E, V) => T): Query[E, U, C] =
+    optValue
+      .map(v => filterHelper(e => f(e, v), node => Library.Not.typed(node.nodeType, node)))
+      .getOrElse(this)
+
+  /** Applies the given filterNot function, if the boolean parameter `p` evaluates to true.
+   * If not, the filter will not be part of the query. */
+  def filterNotIf[T: CanBeQueryCondition](p: Boolean)(f: E => T): Query[E, U, C] =
+    if (p) filterHelper(f, node => Library.Not.typed(node.nodeType, node))
+    else this
+
   /** Select all elements of this query which satisfy a predicate. This method
     * is used when desugaring for-comprehensions over queries. There is no
     * reason to call it directly because it is the same as `filter`. */
-  def withFilter[T : CanBeQueryCondition](f: E => T) = filterHelper(f, identity)
+  def withFilter[T : CanBeQueryCondition](f: E => T): Query[E, U, C] = filterHelper(f, identity)
 
   /** Join two queries with a cross join or inner join.
     * An optional join predicate can be specified later by calling `on`. */
