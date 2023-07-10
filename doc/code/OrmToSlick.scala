@@ -191,19 +191,22 @@ object OrmToSlick extends App {
       //#slickRelationships
       Await.result(chrisWithAddress, Duration.Inf)
       Await.result(stefanWithAddress, Duration.Inf)
-      };{
+      }
+      {
         //#relationshipNavigation
         val chris: Person = PeopleFinder.getById(2)
         val address: Address = chris.address
         //#relationshipNavigation
-      };{
-        /*
-        //#relationshipNavigation2
-        case class Address( … )
-        case class Person( …, address: Address )
-        //#relationshipNavigation2
-        */
-      };{
+      }
+
+      /*
+      //#relationshipNavigation2
+      case class Address( … )
+      case class Person( …, address: Address )
+      //#relationshipNavigation2
+      */
+
+      {
         //#slickRelationships2
         val chrisQuery: Query[People,Person,Seq] = people.filter(_.id === 2)
         val addressQuery: Query[Addresses,Address,Seq] = chrisQuery.withAddress.map(_._2)

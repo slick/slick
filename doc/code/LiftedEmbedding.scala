@@ -7,9 +7,7 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
-import slick.ast.BaseTypedType
 import slick.jdbc.H2Profile.api.*
-import slick.jdbc.JdbcType
 //#imports
 
 object LiftedEmbedding extends App {
