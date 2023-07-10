@@ -3,6 +3,7 @@ package slick.test.codegen
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
+
 import slick.codegen.SourceCodeGenerator
 import slick.jdbc.JdbcProfile
 
@@ -18,8 +19,8 @@ object GenerateRoundtripSources {
     val url = "jdbc:h2:mem:test4"
     val jdbcDriver = "org.h2.Driver"
     object Tables extends Tables(profile)
-    import Tables._
-    import Tables.profile.api._
+    import Tables.*
+    import Tables.profile.api.*
     val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def parentType = Some("slick.test.codegen.EmptyTestTrait")
@@ -53,7 +54,7 @@ object GenerateRoundtripSources {
 }
 
 class Tables(val profile: JdbcProfile){
-  import profile.api._
+  import profile.api.*
   /** Tests single column table, scala keyword type name, non-dentifier column name and all nullable columns table*/
   class `null`(tag: Tag) extends Table[Option[String]](tag, "null") {
     def name = column[Option[String]]("na me")
@@ -113,7 +114,7 @@ class Tables(val profile: JdbcProfile){
   class Categories(tag: Tag) extends Table[Category](tag, "categories") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def name = column[String]("name", O.Length(254))
-    def * = (id, name).<>(Category.tupled,Category.unapply)
+    def * = (id, name).mapTo[Category]
     def idx = index("IDX_NAME",name)
   }
   val categories = TableQuery[Categories]
@@ -186,6 +187,9 @@ class Tables(val profile: JdbcProfile){
 
   // testing table larger 22 columns (code gen round trip does not preserve structure of the * projection or names of mapped to classes)
   case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
+  object Part {
+    def tupled = (apply _).tupled
+  }
   case class Whole(id: Long, p1: Part, p2: Part, p3: Part, p4: Part, p5: Part, p6: Part)
   class Large(tag: Tag) extends Table[Whole](tag, "LARGE") {
     def id = column[Long]("id", O.PrimaryKey)
@@ -235,9 +239,17 @@ class Tables(val profile: JdbcProfile){
       (p6i1, p6i2, p6i3, p6i4, p6i5, p6i6)
       ).shaped.<>({ case (id, p1, p2, p3, p4, p5, p6) =>
       // We could do this without .shaped but then we'd have to write a type annotation for the parameters
-      Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4), Part.tupled.apply(p5), Part.tupled.apply(p6))
+      Whole(
+        id,
+        Part.tupled(p1),
+        Part.tupled(p2),
+        Part.tupled(p3),
+        Part.tupled(p4),
+        Part.tupled(p5),
+        Part.tupled(p6)
+      )
     }, { (w: Whole) =>
-      def f(p: Part) = Part.unapply(p).get
+      def f(p: Part) = (p.i1, p.i2, p.i3, p.i4, p.i5, p.i6)
       Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4), f(w.p5), f(w.p6)))
     })
   }
