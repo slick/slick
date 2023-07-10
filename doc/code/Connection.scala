@@ -4,8 +4,6 @@ package com.typesafe.slick.docs
 import java.sql.Blob
 import javax.sql.rowset.serial.SerialBlob
 
-import org.reactivestreams.Publisher
-
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration

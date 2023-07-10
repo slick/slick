@@ -9,7 +9,7 @@ object Ordered {
 <#list 2..22 as i>
  implicit def tuple${i}Ordered[<#list 1..i as j>T${j} <#if i != j>, </#if></#list>](t: (<#list 1..i as j>T${j}<#if i != j>, </#if></#list>))
     (implicit <#list 1..i as j>ev${j}: T${j} => Ordered<#if i != j>, </#if></#list>): Ordered =
-    new Ordered(<#list 1..i as j>t._${j}.columns<#if i != j> ++ </#if></#list>)
+    new Ordered(<#list 1..i as j>ev${j}(t._${j}).columns<#if i != j> ++ </#if></#list>)
 
 </#list>
 }

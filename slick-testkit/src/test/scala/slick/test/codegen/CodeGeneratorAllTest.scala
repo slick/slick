@@ -19,7 +19,7 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
     class Categories(tag: Tag) extends Table[Category](tag, "categories") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def name = column[String]("name", O.Length(254))
-      def * = (id, name).<>(Category.tupled,Category.unapply)
+      def * = (id, name).mapTo[Category]
       def idx = index("IDX_NAME",name)
     }
     val categories = TableQuery[Categories]

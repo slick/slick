@@ -17,7 +17,6 @@ import org.reactivestreams.Subscriber
 
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends RelationalBackend with Logging {
-  type This = HeapBackend
   type Database = HeapDatabaseDef
   type Session = HeapSessionDef
   type DatabaseFactory = HeapDatabaseFactoryDef

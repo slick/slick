@@ -2,14 +2,18 @@ import sbt.*
 
 /** Dependencies for reuse in different parts of the build */
 object Dependencies {
-  val scalaVersions = Seq("2.12.18", "2.13.11") // When updating these also update ci.yml and .mergify.yml
+  val scala212 = "2.12.18"
+  val scala213 = "2.13.11"
+  val scala3 = "3.2.2"
+
+  val scalaVersions = Seq(scala212, scala213, scala3) // When updating these also update ci.yml and .mergify.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "2.0.7"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.2"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.10.0"
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.11.0"
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
 
@@ -36,7 +40,7 @@ object Dependencies {
     "org.xerial" % "sqlite-jdbc" % "3.41.0.0",
     "org.hsqldb" % "hsqldb" % "2.5.2",
     "org.postgresql" % "postgresql" % "42.6.0",
-    "mysql" % "mysql-connector-java" % "8.0.33",
+    "com.mysql" % "mysql-connector-j" % "8.0.33",
     "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.10.0.0",
     "com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"
   )

@@ -3,7 +3,7 @@ package com.typesafe.slick.docs
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import slick.jdbc.H2Profile.api._
-import scala.concurrent.ExecutionContext.Implicits.global
+
 
 object SqlToSlick extends App {
 
@@ -95,7 +95,6 @@ object SqlToSlick extends App {
       //#SlickPlainSQL
     }
     val slickTypesafeQuery = {
-      import Tables.People // <- import auto-generated or hand-written TableQuery
       //#SlickTypesafeQuery
       import slick.jdbc.H2Profile.api._
 
@@ -118,7 +117,6 @@ object SqlToSlick extends App {
 
     ;{
       import slick.jdbc.H2Profile.api._
-      import Tables.People // <- import auto-generated or hand-written TableQuery
 
       //#slickFunction
       implicit class MyStringColumnExtensions(i: Rep[Int]){

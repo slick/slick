@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         java: [ 8, 17 ]
-        scala: [ 2.12.x, 2.13.x ]
+        scala: [ 2.12.x, 2.13.x, 3.x ]
 
     services:
       postgres:

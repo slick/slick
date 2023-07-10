@@ -14,33 +14,33 @@ import slick.jdbc.H2Profile.api._
  * http://docs.oracle.com/javase/tutorial/jdbc/basics/tables.html.
  */
 object GettingStartedOverview extends App {
-//#quick-imports
-import slick.jdbc.H2Profile.api._
-//#quick-imports
+  //#quick-imports
+  import slick.jdbc.H2Profile.api._
+  //#quick-imports
 
-//#quick-schema
+  //#quick-schema
   class Coffees(tag: Tag) extends Table[(String, Double)](tag, "COFFEES") {
     def name = column[String]("COF_NAME", O.PrimaryKey)
     def price = column[Double]("PRICE")
     def * = (name, price)
   }
   val coffees = TableQuery[Coffees]
-//#quick-schema
+  //#quick-schema
 
   val f1 =
-//#quick-query
+  //#quick-query
   Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver").run(
-//#quick-query
+  //#quick-query
     coffees.schema.create andThen
-//#quick-query
+  //#quick-query
     ( for( c <- coffees; if c.price < 10.0 ) yield c.name ).result
-//#quick-query
+  //#quick-query
     andThen
-//#quick-query
+  //#quick-query
     // or
     coffees.filter(_.price < 10.0).map(_.name).result
   )
-//#quick-query
+  //#quick-query
   Await.result(f1, Duration.Inf)
 
   val f2 = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver").run(

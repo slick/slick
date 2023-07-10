@@ -22,7 +22,6 @@ import com.typesafe.config.{ConfigFactory, Config}
 
 /** A JDBC-based database back-end that is used by [[slick.jdbc.JdbcProfile]]. */
 trait JdbcBackend extends RelationalBackend {
-  type This = JdbcBackend
   type Database = JdbcDatabaseDef
   type Session = JdbcSessionDef
   type DatabaseFactory = DatabaseFactoryDef
@@ -149,7 +148,7 @@ trait JdbcBackend extends RelationalBackend {
       )
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url: String, prop: Map[String, String]): Database = {
+    def forURL(url: String, prop: Map[String, String]): JdbcDatabaseDef = {
       val p = new Properties
       if(prop ne null)
         for((k,v) <- prop) if(k.ne(null) && v.ne(null)) p.setProperty(k, v)

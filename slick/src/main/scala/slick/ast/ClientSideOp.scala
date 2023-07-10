@@ -29,6 +29,7 @@ object ClientSideOp {
 /** Get the first element of a collection. For client-side operations only. */
 final case class First(child: Node) extends UnaryNode with SimplyTypedNode with ClientSideOp {
   type Self = First
+  override def self = this
   protected[this] def rebuild(ch: Node) = copy(child = ch)
   protected def buildType = child.nodeType.asCollectionType.elementType
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
@@ -45,6 +46,7 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node)
     with DefNode
     with ClientSideOp {
   type Self = ResultSetMapping
+  override def self = this
   def left = from
   def right = map
   override def childNames: Seq[String] = Seq("from "+generator, "map")
@@ -81,6 +83,7 @@ final case class ParameterSwitch(cases: ConstArray[(Any => Boolean, Node)], defa
   extends SimplyTypedNode
     with ClientSideOp {
   type Self = ParameterSwitch
+  override def self = this
   def children = cases.map(_._2) :+ default
   override def childNames: IndexedSeq[String] = cases.map("[" + _._1 + "]").toSeq :+ "default"
   protected[this] def rebuild(ch: ConstArray[Node]): Self =

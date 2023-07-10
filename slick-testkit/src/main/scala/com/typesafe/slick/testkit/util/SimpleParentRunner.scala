@@ -13,10 +13,9 @@ import org.junit.runners.model.*
  * A JUnit Runner similar to JUnit's own ParentRunner but simpler, more
  * extensible (in the way we need it), and more Scala-like.
  */
-abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Filterable with Sortable {
-
-  private var _children: Seq[T] = null
-  protected final def children = {
+abstract class SimpleParentRunner[T](testClass: Class[?]) extends Runner with Filterable with Sortable {
+  private var _children: Seq[T] = _
+  protected final def children: Seq[T] = {
     if(_children == null) _children = getChildren
     _children
   }
@@ -26,18 +25,7 @@ abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Fi
 
   protected def describeChild(child: T): Description
 
-  protected def runChildInner(child: T, notifier: RunNotifier) = ???
-
-  protected def runChild(child: T, notifier: RunNotifier): Unit = {
-    val desc = describeChild(child)
-    notifier.fireTestStarted(desc)
-    try runChildInner(child, notifier) catch {
-      case t: Throwable => addFailure(t, notifier, desc)
-    } finally notifier.fireTestFinished(desc)
-  }
-
-  protected def runChildren(notifier: RunNotifier) =
-    children.foreach(ch => runChild(ch, notifier))
+  protected def runChildren(notifier: RunNotifier): Unit
 
   protected final def addFailure(t: Throwable, notifier: RunNotifier, desc: Description): Unit = t match {
     case t: MultipleFailureException =>
@@ -49,7 +37,8 @@ abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Fi
   }
 
   def getDescription = {
-    val desc = Description.createSuiteDescription(testClass.getName, testClass.getAnnotations: _*)
+    val annotations = testClass.getAnnotations
+    val desc = Description.createSuiteDescription(testClass.getName, annotations *)
     for(ch <- children) desc.addChild(describeChild(ch))
     desc
   }
@@ -74,9 +63,11 @@ abstract class SimpleParentRunner[T](testClass: Class[_]) extends Runner with Fi
   }
 
   final def sort(sorter: Sorter): Unit = {
-    children.foreach(sorter.apply _)
-    children = children.sorted(new Ordering[T] {
-      def compare(o1: T, o2: T): Int = sorter.compare(describeChild(o1), describeChild(o2))
-    })
+    children.foreach(sorter.apply)
+    children =
+      children.sorted(
+        Ordering.comparatorToOrdering(sorter)
+          .on(describeChild)
+      )
   }
 }

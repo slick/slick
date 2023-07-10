@@ -1,13 +1,12 @@
 package slick.lifted
 
+import slick.util.ConstArray
+
 import scala.annotation.implicitNotFound
-import scala.language.experimental.macros
-import scala.reflect.macros.blackbox
 
 import slick.ast.{Join as AJoin, *}
 import slick.ast.ScalaBaseType.*
 import slick.lifted.FunctionSymbolExtensionMethods.*
-import slick.util.ConstArray
 
 sealed trait QueryBase[T] extends Rep[T]
 
@@ -19,7 +18,7 @@ sealed trait QueryBase[T] extends Rep[T]
   * Additional extension methods for queries containing a single column are
   * defined in [[slick.lifted.SingleColumnQueryExtensionMethods]].
   */
-sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
+/*sealed*/ abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self => //TODO seal again after removing separate 2.13 sources
   def shaped: ShapedValue[? <: E, U]
   final lazy val packed = shaped.toNode
 
@@ -63,10 +62,23 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def filterIf[T : CanBeQueryCondition](p: Boolean)(f: E => T): Query[E, U, C] =
     if (p) withFilter(f) else this
 
+  /** Applies the given filterNot, if the Option value is defined.
+   * If the value is None, the filter will not be part of the query. */
+  def filterNotOpt[V, T: CanBeQueryCondition](optValue: Option[V])(f: (E, V) => T): Query[E, U, C] =
+    optValue
+      .map(v => filterHelper(e => f(e, v), node => Library.Not.typed(node.nodeType, node)))
+      .getOrElse(this)
+
+  /** Applies the given filterNot function, if the boolean parameter `p` evaluates to true.
+   * If not, the filter will not be part of the query. */
+  def filterNotIf[T: CanBeQueryCondition](p: Boolean)(f: E => T): Query[E, U, C] =
+    if (p) filterHelper(f, node => Library.Not.typed(node.nodeType, node))
+    else this
+
   /** Select all elements of this query which satisfy a predicate. This method
     * is used when desugaring for-comprehensions over queries. There is no
     * reason to call it directly because it is the same as `filter`. */
-  def withFilter[T : CanBeQueryCondition](f: E => T) = filterHelper(f, identity)
+  def withFilter[T : CanBeQueryCondition](f: E => T): Query[E, U, C] = filterHelper(f, identity)
 
   /** Join two queries with a cross join or inner join.
     * An optional join predicate can be specified later by calling `on`. */
@@ -162,7 +174,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def sortBy[T](f: E => T)(implicit ev: T => Ordered): Query[E, U, C] = {
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator))
-    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(f(aliased.value).columns)), shaped)
+    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(ev(f(aliased.value)).columns)), shaped)
   }
 
   /** Sort this query according to a the ordering of its elements. */
@@ -313,49 +325,4 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: TermSymbol,
   /** Add a join condition to a join operation. */
   def on[T <: Rep[?]](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
     new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(b1, b2)).toNode), base)
-}
-
-/** Represents a database table. Profiles add extension methods to TableQuery
-  * for operations that can be performed on tables but not on arbitrary
-  * queries, e.g. getting the table DDL. */
-class TableQuery[E <: AbstractTable[?]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
-  override lazy val shaped: ShapedValue[E, E#TableElementType] = {
-    val baseTable = cons(new BaseTag { base =>
-      def taggedAs(path: Node): AbstractTable[?] = cons(new RefTag(path) {
-        def taggedAs(path: Node) = base.taggedAs(path)
-      })
-    })
-    ShapedValue(baseTable, RepShape[FlatShapeLevel, E, E#TableElementType])
-  }
-
-  lazy val toNode = shaped.toNode
-
-  /** Get the "raw" table row that represents the table itself, as opposed to
-    * a Path for a variable of the table's type. This method should generally
-    * not be called from user code. */
-  def baseTableRow: E = shaped.value
-}
-
-object TableQuery {
-  /** Create a TableQuery for a table row class using an arbitrary constructor function. */
-  def apply[E <: AbstractTable[?]](cons: Tag => E): TableQuery[E] =
-    new TableQuery[E](cons)
-
-  /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
-  def apply[E <: AbstractTable[?]]: TableQuery[E] =
-    macro TableQueryMacroImpl.apply[E]
-}
-
-object TableQueryMacroImpl {
-  def apply[E <: AbstractTable[?]](c: blackbox.Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
-    import c.universe.*
-    val cons = c.Expr[Tag => E](Function(
-      List(ValDef(Modifiers(Flag.PARAM), TermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),
-      Apply(
-        Select(New(TypeTree(e.tpe)), termNames.CONSTRUCTOR),
-        List(Ident(TermName("tag")))
-      )
-    ))
-    reify { TableQuery.apply[E](cons.splice) }
-  }
 }

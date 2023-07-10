@@ -96,7 +96,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       JdbcCapabilities.forUpdate -
       JdbcCapabilities.returnMultipleInsertKey
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+  class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
@@ -120,12 +120,9 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       override def dbType: Some[String] = Some(extractedType)
       override def length = extractedLength
       override def varying = dbType.contains("VARCHAR")
-      override def default: Option[Option[Any]] =
-        meta.columnDef
-          .map((_, tpe))
-          .collect {
-            case ("null", _)               => Some(None) // 3.7.15-M1
-            case (v, "java.sql.Timestamp") =>
+      override def default: Option[Option[Any]] = meta.columnDef.map((_,tpe)).collect{
+        case ("null",_)  => Some(None) // 3.7.15-M1
+        case (v, "java.sql.Timestamp") =>
               import scala.util.{Success, Try}
               val convertors = Seq((s: String) => new java.sql.Timestamp(s.toLong),
                 (s: String) => Timestamp.valueOf(s),
@@ -148,9 +145,9 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
                 }
               )
               val v2 = v.replace("\"", "")
-              convertors.collectFirst(fn => Try(fn(v2)) match {
-                case Success(v) => Some(v)
-              })
+              convertors.iterator.map(fn => Try(fn(v2))).collectFirst {
+            case Success(v) => Some(v)
+          }
           }
           .getOrElse(super.default)
       override def tpe = dbType match {
@@ -178,7 +175,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
                                  (implicit ec: ExecutionContext): JdbcModelBuilder =
-    new ModelBuilder(tables, ignoreInvalidDefaults)
+    new SQLiteModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
