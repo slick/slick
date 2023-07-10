@@ -11,14 +11,14 @@ trait Invoker[+R] { self =>
   /** Execute the statement and return a CloseableIterator of the converted
     * results. The iterator must either be fully read or closed explicitly.
     * @param maxRows Maximum number of rows to read from the result (0 for unlimited). */
-  def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R]
+  def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#JdbcSessionDef): CloseableIterator[R]
 
   /** Execute the statement and ignore the results. */
-  final def execute(implicit session: JdbcBackend#Session): Unit = iteratorTo(0)(session).close()
+  final def execute(implicit session: JdbcBackend#JdbcSessionDef): Unit = iteratorTo(0)(session).close()
 
   /** Execute the statement and return the first row of the result set wrapped
     * in Some, or None if the result set is empty. */
-  final def firstOption(implicit session: JdbcBackend#Session): Option[R] = {
+  final def firstOption(implicit session: JdbcBackend#JdbcSessionDef): Option[R] = {
     var res: Option[R] = None
     foreach({ x => res = Some(x) }, 1)
     res
@@ -28,7 +28,7 @@ trait Invoker[+R] { self =>
 
   /** Execute the statement and return the first row of the result set.
     * If the result set is empty, a NoSuchElementException is thrown. */
-  final def first(implicit session: JdbcBackend#Session): R = {
+  final def first(implicit session: JdbcBackend#JdbcSessionDef): R = {
     val it = iteratorTo(0)
     try {
       if(it.hasNext) it.next()
@@ -37,7 +37,7 @@ trait Invoker[+R] { self =>
   }
 
   /** Execute the statement and return a fully materialized collection. */
-  final def buildColl[C[_]](implicit session: JdbcBackend#Session,
+  final def buildColl[C[_]](implicit session: JdbcBackend#JdbcSessionDef,
                             canBuildFrom: Factory[R, C[R @uncheckedVariance]]): C[R @uncheckedVariance] = {
     val b = canBuildFrom.newBuilder
     foreach({ x => b += x }, 0)
@@ -46,7 +46,7 @@ trait Invoker[+R] { self =>
 
   /** Execute the statement and call f for each converted row of the result set.
    * @param maxRows Maximum number of rows to read from the result (0 for unlimited). */
-  final def foreach(f: R => Unit, maxRows: Int = 0)(implicit session: JdbcBackend#Session): Unit = {
+  final def foreach(f: R => Unit, maxRows: Int = 0)(implicit session: JdbcBackend#JdbcSessionDef): Unit = {
     val it = iteratorTo(maxRows)
     try { it.foreach(f) } finally { it.close() }
   }

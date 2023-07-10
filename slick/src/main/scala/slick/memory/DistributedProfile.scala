@@ -2,6 +2,7 @@ package slick.memory
 
 import scala.collection.compat.*
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 import slick.SlickException
 import slick.ast.*
@@ -57,8 +58,8 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: ProfileAction[R, S, Effect.Read] =
       new StreamingProfileAction[R, Any, Effect.Read]
-        with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
-        def run(ctx: Backend#Context) = exe.run(ctx.session)
+        with SynchronousDatabaseAction[R, Streaming[Any], DistributedBackend#BasicActionContext, DistributedBackend#BasicStreamingActionContext, Effect.Read] {
+        def run(ctx: DistributedBackend#BasicActionContext) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.ProfileAction")
         def head: ResultAction[Any, NoStream, Effect.Read] = ??
         def headOption: ResultAction[Option[Any], NoStream, Effect.Read] = ??
@@ -80,7 +81,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val idx = profiles.indexOf(profile)
         if(idx < 0) throw new SlickException("No session found for profile "+profile)
-        val profileSession = session.sessions(idx).asInstanceOf[profile.Backend#Session]
+        val profileSession = session.sessions(idx).asInstanceOf[profile.backend.Session]
         val dv = profile.runSynchronousQuery[Any](compiled, param)(profileSession)
         val wr = wrapScalaValue(dv, n.nodeType)
         if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)
@@ -90,7 +91,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         val fromV = run(from).asInstanceOf[IterableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, Any]]
         b ++= fromV.iterator.map { v =>
-          converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]]
+          converter.asInstanceOf[ResultConverter[QueryInterpreter.ProductValue, ArrayBuffer[Any], Nothing, Any]]
             .read(v.asInstanceOf[QueryInterpreter.ProductValue])
         }
         b.result()
@@ -123,7 +124,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
       val needed = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
       val taints = new mutable.HashMap[RefId[Node], Set[RelationalProfile]]
       def collect(n: Node, scope: Scope): (Set[RelationalProfile], Set[RelationalProfile]) = {
-        val (dr: Set[RelationalProfile], tt: Set[RelationalProfile]) = n match {
+        val (dr: Set[RelationalProfile] @unchecked, tt: Set[RelationalProfile] @unchecked) = n match {
           case t: TableNode => (Set(t.profileTable.asInstanceOf[RelationalProfile#Table[?]].tableProvider), Set.empty)
           case Ref(sym) =>
             scope.get(sym) match {
@@ -189,6 +190,7 @@ final case class ProfileComputation(compiled: Node, profile: RelationalProfile, 
   extends NullaryNode
     with SimplyTypedNode {
   type Self = ProfileComputation
+  override def self = this
   protected[this] def rebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = profile.toString)
 }

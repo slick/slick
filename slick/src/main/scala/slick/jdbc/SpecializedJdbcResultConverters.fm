@@ -26,5 +26,5 @@ object SpecializedJdbcResultConverter {
         v
       }
     }
-  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+  }).asInstanceOf[BaseResultConverter[T]]
 }

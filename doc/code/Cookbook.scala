@@ -7,7 +7,7 @@ object Cookbook {
   object MoreThan22FieldsPattern {
    
     //#imports22
-    import slick.collection.heterogeneous.{HList, HCons, HNil}
+    import slick.collection.heterogeneous._
     import slick.collection.heterogeneous.syntax._
     //#imports22
     
@@ -58,4 +58,3 @@ object Cookbook {
   }
 
 }
-

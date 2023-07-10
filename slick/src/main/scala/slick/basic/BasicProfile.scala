@@ -36,9 +36,9 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
   }
 
   trait BasicAPI extends Aliases with ExtensionMethodConversions {
-    type Database = Backend#Database
+    type Database = backend.Database
     val Database = backend.Database
-    type Session = Backend#Session
+    type Session = backend.Session
     type SlickException = slick.SlickException
 
     implicit val slickProfile: self.type = self

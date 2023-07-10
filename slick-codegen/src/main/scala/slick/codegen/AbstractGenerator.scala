@@ -106,9 +106,6 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Function that constructs an entity object from the unmapped values
         @group Basic customization overrides */
     def factory: Code
-    /** Function that extracts the unmapped values from an entity object
-        @group Basic customization overrides */
-    def extractor: Code
 
     /** Entity case class or type alias generator virtual class */
     type EntityType <: AbstractEntityTypeDef
@@ -305,7 +302,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Referenced Table code generator */
       final lazy val referencedTable: Table = tablesByName(model.referencedTable)
       /** Referenced Columns code generators */
-      final lazy val referencedColumns: Seq[Table#Column] =
+      final lazy val referencedColumns: Seq[AbstractTableDef#Column] =
         model.referencedColumns.map(_.name).map(referencedTable.columnsByName)
       /** Name used in the db or a default name */
       def dbName = model.name.getOrElse( referencedTable.model.name.table + "_FK_" + id )
