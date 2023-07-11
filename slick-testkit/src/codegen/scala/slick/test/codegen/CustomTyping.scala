@@ -22,10 +22,16 @@ object CustomTyping {
       if (i == 1) True else False
     })
 
+  case class SimpleA(_1: Bool, _2: String)
+  // We need to use `mapTo` instead of `<>` for Dotty compatibility (because the old `unapply` is gone),
+  // so this is no longer supported, at least in 2.x. It does work in Dotty but that is due to `SimpleA` being
+  // a tuple, not because of the companion object methods.
+  /*
   type SimpleA = Tuple2[Bool, String]
   object SimpleA{
     def unapply(s: SimpleA): Option[SimpleA] = Tuple2.unapply(s)
     def apply (s: SimpleA): SimpleA = s
     def tupled(s: SimpleA): SimpleA = s
   }
+   */
 }

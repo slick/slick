@@ -21,8 +21,12 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalCapabilities.all
 
+  type ResultConverterReader
+  type ResultConverterWriter
+  type ResultConverterUpdater
+
   trait RelationalAPI extends BasicAPI with RelationalImplicitColumnTypes {
-    type FastPath[T] = SimpleFastPathResultConverter[ResultConverterDomain, T]
+    type FastPath[T] = SimpleFastPathResultConverter[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T]
     type Table[T] = self.Table[T]
     type Sequence[T] = self.Sequence[T]
     val Sequence = self.Sequence
@@ -40,7 +44,8 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
 
-    implicit def fastPathExtensionMethods[T, P](mp: MappedProjection[T, P]): FastPathExtensionMethods[ResultConverterDomain, T, P] = new FastPathExtensionMethods[ResultConverterDomain, T, P](mp)
+    implicit def fastPathExtensionMethods[T, P](mp: MappedProjection[T, P]): FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T, P] =
+      new FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T, P](mp)
   }
 
   val api: RelationalAPI
@@ -70,13 +75,13 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   /** Run a query synchronously on the provided session. This is used by DistributedProfile until we
     * can make it fully asynchronous. */
-  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R
+  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R
 
-  class FastPathExtensionMethods[M <: ResultConverterDomain, T, P](val mp: MappedProjection[T, P]) {
-    def fastPath(fpf: TypeMappingResultConverter[M, T, ?] => SimpleFastPathResultConverter[M, T]): MappedProjection[T, P] = mp.genericFastPath {
-      case tm @ TypeMappingResultConverter(_: ProductResultConverter[?, ?], _, _) =>
-        fpf(tm.asInstanceOf[TypeMappingResultConverter[M, T, ?]])
-      case tm                                                                     => tm
+  class FastPathExtensionMethods[R, W, U, T, P](val mp: MappedProjection[T, P]) {
+    def fastPath(fpf: (TypeMappingResultConverter[R, W, U, T, _] => SimpleFastPathResultConverter[R, W, U, T])): MappedProjection[T, P] = mp.genericFastPath {
+      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _, _, _], _, _) =>
+        fpf(tm.asInstanceOf[TypeMappingResultConverter[R, W, U, T, _]])
+      case tm => tm
     }
   }
 }
@@ -181,13 +186,13 @@ trait RelationalTypesComponent { self: RelationalProfile =>
   type ColumnType[T] <: TypedType[T]
   type BaseColumnType[T] <: ColumnType[T] & BaseTypedType[T]
 
-  val MappedColumnType: MappedColumnTypeFactory
+  lazy val MappedColumnType: MappedColumnTypeFactory = null //TODO should be abstract but 2.13 doesn't allow abstract lazy vals and Dotty doesn't allow overriding a non-lazy val with a lazy val
 
 
   trait MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T]
 
-    protected[this] def assertNonNullType(t: BaseColumnType[?]): Unit =
+    protected[this] def assertNonNullType[A](t: BaseColumnType[A]): Unit =
       if(t == null)
         throw new NullPointerException("implicit BaseColumnType[U] for MappedColumnType.base[T, U] is null. This may be an initialization order problem.")
   }

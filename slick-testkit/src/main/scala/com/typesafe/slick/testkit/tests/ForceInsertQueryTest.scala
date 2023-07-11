@@ -20,7 +20,7 @@ class ForceInsertQueryTest extends AsyncTest[JdbcTestDB] {
 
     def eyeColor = column[Option[String]]("eye_color")
 
-    def * = (id.?, name, hairColor, eyeColor).<>(Person.tupled, Person.unapply)
+    def * = (id.?, name, hairColor, eyeColor).mapTo[Person]
   }
 
   object peopleTable extends TableQuery(new People(_)) {

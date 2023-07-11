@@ -1,5 +1,7 @@
 package slick.benchmark
 
+import java.sql.{PreparedStatement, ResultSet}
+
 import slick.ast._
 import slick.jdbc._
 import slick.relational._
@@ -24,22 +26,22 @@ object UnboxedBenchmark extends App {
   val as = TableQuery[ARow]
 
   // Standard converters
-  val q1 =  as.map(a => a.proj.<>(A.tupled, A.unapply))
+  val q1 =  as.map(a => a.proj.<>((A.apply _).tupled, A.unapply))
 
   // Fast path
-  val q2 =  as.map(a => a.proj.<>(A.tupled, A.unapply)
-    fastPath(new FastPath(_) {
+  val q2 =  as.map(a => a.proj.<>((A.apply _).tupled, A.unapply)
+    fastPath(new FastPath[A](_) {
       val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
-      override def read(r: Reader) = new A(a.read(r), b.read(r), c.read(r), d.read(r))
+      override def read(r: ResultSet) = new A(a.read(r), b.read(r), c.read(r), d.read(r))
     })
   )
 
   // Allocation-free fast path
   val sharedA = new A(0, 0, 0, 0)
-  val q3 =  as.map(a => a.proj.<>(A.tupled, A.unapply)
-    fastPath(new FastPath(_) {
+  val q3 =  as.map(a => a.proj.<>((A.apply _).tupled, A.unapply)
+    fastPath(new FastPath[A](_) {
       val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
-      override def read(r: Reader) = {
+      override def read(r: ResultSet) = {
         sharedA.a = a.read(r)
         sharedA.b = b.read(r)
         sharedA.c = c.read(r)
@@ -58,12 +60,12 @@ object UnboxedBenchmark extends App {
     TreePrinter.default.print(rsm)
     val ResultSetMapping(_, _, CompiledMapping(converter, _)) = rsm
     for(i <- 1 to 5) {
-      val pr = createFakePR(10000000, converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]])
+      val pr = createFakePR(10000000, converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, _]])
       readPR(pr)
     }
   }
 
-  def createFakePR(len: Long, converter: ResultConverter[JdbcResultConverterDomain, _]): PositionedResultIterator[Any] = {
+  def createFakePR(len: Long, converter: ResultConverter[ResultSet, PreparedStatement, ResultSet, _]): PositionedResultIterator[Any] = {
     val fakeRS = new DelegateResultSet(null) {
       var count: Long = 0
       var lastIndex: Int = 0

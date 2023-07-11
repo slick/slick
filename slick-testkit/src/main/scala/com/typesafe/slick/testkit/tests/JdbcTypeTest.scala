@@ -86,7 +86,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   def testMappedBlob = ifCap(rcap.typeBlob) {
     case class Serialized[T](value: T)
 
-    implicit def serializedType[T] = MappedColumnType.base[Serialized[T], Blob]({ s =>
+    implicit def serializedType[T]: BaseColumnType[Serialized[T]] = MappedColumnType.base[Serialized[T], Blob]({ s =>
       val b = new ByteArrayOutputStream
       val out = new ObjectOutputStream(b)
       out.writeObject(s.value)

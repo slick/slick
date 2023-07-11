@@ -1,14 +1,20 @@
 package com.typesafe.slick.testkit.tests
 
 
-import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
+import java.sql.ResultSet
+
 import scala.reflect.ClassTag
 
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+
+
+//noinspection ScalaUnusedSymbol
 class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
-  import tdb.profile.api._
+
+  import tdb.profile.api.*
 
   def testMappedEntity = {
-    import TupleMethods._
+    import TupleMethods.*
 
     case class User(id: Option[Int], first: String, last: String)
     case class Foo[T](value: T)
@@ -17,9 +23,10 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
-      def * = (id.? ~: baseProjection).<>(User.tupled, User.unapply _)
+      def * = (id.? ~: baseProjection).mapTo[User]
       def baseProjection = first ~ last
-      def forUpdate = baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { (u:User) => Some((u.first, u.last)) })
+      def forUpdate =
+        baseProjection.shaped.<>({ case (f, l) => User(None, f, l) }, { (u: User) => Some((u.first, u.last)) })
       def asFoo = forUpdate.<>((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
     object users extends TableQuery(new Users(_)) {
@@ -30,7 +37,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     updateQ.updateStatement.length.should(_ > 0)
 
     val q1 = for {
-      u <- users
+      _ <- users
       u2 <- users
     } yield u2
 
@@ -45,8 +52,17 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       users.filter(_.last inSet Set("Bouvier", "Ferdinand")).size.result.map(_ shouldBe 1),
       updateQ.update(User(None, "Marge", "Simpson")),
       Query(users.filter(_.id === 1).exists).result.head.map(_ shouldBe true),
-      users.filter(_.id.between(1, 2)).to[Set].result.map(_ shouldBe Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson"))),
-      users.filter(_.id.between(1, 2)).map(_.asFoo).to[Set].result.map(_ shouldBe Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson")))),
+      users
+        .filter(_.id.between(1, 2))
+        .to[Set]
+        .result
+        .map(_.shouldBe(Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")))),
+      users
+        .filter(_.id.between(1, 2))
+        .map(_.asFoo)
+        .to[Set]
+        .result
+        .map(_ shouldBe Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson")))),
       users.byID(3).result.head.map(_ shouldBe User(Some(3), "Carl", "Carlson")),
       q1.result.head.map(_.should(_.isInstanceOf[User]))
     )
@@ -67,15 +83,15 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
     seq(
       ts.schema.create,
-      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
+      ts ++= Seq(Data(1, 2), Data(3, 4), Data(5, 6)),
       updateQ.update(Data(7, 8)),
       updateQ2.update(Data(9, 10)),
-      ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
+      ts.to[Set].result.map(_.shouldBe(Set(Data(7, 8), Data(9, 10), Data(5, 6))))
     )
   }
 
   def testWideMappedEntity = {
-    import slick.collection.heterogeneous._
+    import slick.collection.heterogeneous.*
 
     case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
     case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
@@ -115,7 +131,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def m1 = (
         id,
         (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6).mapTo[Part],
-        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6).<>(Part.tupled, Part.unapply _),
+        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6).mapTo[Part],
         (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6).mapTo[Part],
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6).mapTo[Part]
       ).mapTo[Whole]
@@ -128,9 +144,15 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
         ).shaped.<>({ case (id, p1, p2, p3, p4) =>
         // We could do this without .shaped but then we'd have to write a type annotation for the parameters
-        Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
+        Whole(
+          id,
+          (Part.apply _).tupled(p1),
+          (Part.apply _).tupled(p2),
+          (Part.apply _).tupled(p3),
+          (Part.apply _).tupled(p4)
+        )
       }, { (w: Whole) =>
-        def f(p: Part) = Part.unapply(p).get
+        def f(p: Part) = (p.i1, p.i2, p.i3, p.i4, p.i5, p.i6)
         Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
       })
       // HList-based wide case class mapping
@@ -156,8 +178,13 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       ts.schema.create,
       ts += oData,
       ts.result.head.map(_ shouldBe oData),
-      ts.map(_.m2).result.head.map(_ shouldBe oData),
-      ts.map(_.m3).result.head.map(_ shouldBe BigCase(0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 41, 42, 43, 44, 45, 46))
+      ts.map(_.m2).result.head.map(_.shouldBe(oData)),
+      ts.map(_.m3).result.head
+        .map { bigCase =>
+          bigCase.shouldBe(
+            BigCase(0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 41, 42, 43, 44, 45, 46)
+          )
+        }
     )
   }
 
@@ -171,9 +198,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def p2 = column[String]("p2")
       def p3 = column[String]("p3")
       def p4 = column[Int]("p4")
-      def part1 = (p1,p2).<>(Part1.tupled,Part1.unapply)
+      def part1 = (p1,p2).mapTo[Part1]
       def part2 = (p3,p4).mapTo[Part2]
-      def * = (part1, part2).<>(Whole.tupled,Whole.unapply)
+      def * = (part1, part2).mapTo[Whole]
     }
     val T = TableQuery[T]
 
@@ -247,9 +274,21 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       f: Option[Int]
     )
 
-    implicit object shape
-        extends CaseClassShape((LiftedB.apply _).tupled,
-                               (B.apply _).tupled)
+    implicit object shape extends CaseClassShape[Product, (
+      Rep[Option[Long]],
+      Rep[Option[Long]],
+      Rep[Option[Long]],
+      Rep[Option[Int]],
+      Rep[Option[Double]],
+      Rep[Option[Int]]
+    ), LiftedB, (
+      Option[Long],
+      Option[Long],
+      Option[Long],
+      Option[Int],
+      Option[Double],
+      Option[Int]
+    ), B]((LiftedB.apply _).tupled, (B.apply _).tupled)
 
     case class ARow(id: Int, s: Long)
 
@@ -278,7 +317,11 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   def testCaseClassShape = {
     case class C(a: Int, b: String)
     case class LiftedC(a: Rep[Int], b: Rep[String])
-    implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+    implicit object cShape
+      extends CaseClassShape[Product, (Rep[Int], Rep[String]), LiftedC, (Int, String), C](
+        (LiftedC.apply _).tupled,
+        (C.apply _).tupled
+      )
 
     class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -311,7 +354,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         case _ => false
       }
     }
-    implicit object cShape extends ProductClassShape(
+    implicit object cShape extends ProductClassShape[C, LiftedC](
       Seq(columnShape[Int], columnShape[Option[String]]),
       seq => new LiftedC(seq(0).asInstanceOf[Rep[Int]], seq(1).asInstanceOf[Rep[Option[String]]]),
       seq => new C(seq(0).asInstanceOf[Int], seq(1).asInstanceOf[Option[String]])
@@ -337,7 +380,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
       def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
     }
-    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]) =
+    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]): PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]] =
       new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
 
     // Use it in a table definition
@@ -366,8 +409,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testHList = {
-    import slick.collection.heterogeneous._
-    import slick.collection.heterogeneous.syntax._
+    import slick.collection.heterogeneous.*
+    import slick.collection.heterogeneous.syntax.*
 
     case class Data(id: Int, b: Boolean, s: String)
 
@@ -380,31 +423,37 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     }
     val bs = TableQuery[B]
 
-    val q1 = (for {
-      id :: b :: s :: HNil <- (for { b <- bs } yield b.id :: b.b :: b.s :: HNil) if !b
-    } yield id :: b :: (s ++ s) :: HNil).sortBy(h => h.tail.tail.head).map {
-      case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil
-    }
+    val q1 =
+      (for {
+        case id :: b :: s :: HNil <- for (b <- bs) yield b.id :: b.b :: b.s :: HNil
+        if !b
+      } yield id :: b :: (s ++ s) :: HNil)
+        .sortBy(h => h.tail.tail.head)
+        .map {
+          case id :: _ :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil
+        }
     val q2 = bs
-      .map { case b => b.id :: b.b :: (b.s ++ b.s) :: HNil }
+      .map(b => b.id :: b.b :: (b.s ++ b.s) :: HNil)
       .filter { h => !h.tail.head }
       .sortBy { case _ :: _ :: ss :: HNil => ss }
-      .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
+      .map { case id :: _ :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
 
+    val expected = Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil)
     seq(
       bs.schema.create,
       bs += (1 :: true :: "a" :: HNil),
       bs += (2 :: false :: "c" :: HNil),
-      bs.map(_.mapped) += Data(3, false, "b"),
-      q1.result.map(_ shouldBe Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil)),
-      q2.result.map(_ shouldBe Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil)),
-      bs.map(_.mapped).result.map(_.toSet shouldBe Set(Data(1, true, "a"), Data(2, false, "c"), Data(3, false, "b")))
+      bs.map(_.mapped) += Data(3, b = false, "b"),
+      q1.result.map(_.shouldBe(expected)),
+      q2.result.map(_.shouldBe(expected)),
+      bs.map(_.mapped).result
+        .map(_.toSet.shouldBe(Set(Data(1, b = true, "a"), Data(2, b = false, "c"), Data(3, b = false, "b"))))
     )
   }
 
   def testSingleElement = {
-    import slick.collection.heterogeneous._
-    import slick.collection.heterogeneous.syntax._
+    import slick.collection.heterogeneous.*
+    import slick.collection.heterogeneous.syntax.*
 
     class A(tag: Tag) extends Table[String](tag, "single_a") {
       def b = column[String]("b")
@@ -439,7 +488,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       _ <- cs.schema.create
       _ <- cs += ("Foo" :: HNil)
       _ <- cs.update("Foo" :: HNil)
-      cres :: HNil <- cs.result.head
+      case cres :: HNil <- cs.result.head
       _ = cres shouldBe "Foo"
     } yield ()
   }
@@ -450,9 +499,9 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).<>(Data.tupled, Data.unapply _).fastPath(new FastPath(_) {
+      def * = (a, b).mapTo[Data].fastPath(new FastPath(_) {
         val (a, b) = (next[Int], next[Int])
-        override def read(r: Reader) = Data(a.read(r), b.read(r))
+        override def read(r: ResultSet) = Data(a.read(r), b.read(r))
       })
       def auto = (a, b).mapTo[Data]
     }
@@ -460,7 +509,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
     seq(
       ts.schema.create,
-      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
+      ts ++= Seq(Data(1, 2), Data(3, 4), Data(5, 6)),
       ts.filter(_.a === 1).update(Data(7, 8)),
       ts.filter(_.a === 3).map(identity).update(Data(9, 10)),
       ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6))),

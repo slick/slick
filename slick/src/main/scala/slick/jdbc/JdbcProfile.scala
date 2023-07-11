@@ -1,8 +1,9 @@
 package slick.jdbc
 
+import java.sql.{PreparedStatement, ResultSet}
+
 import scala.collection.mutable
 import scala.language.implicitConversions
-
 import slick.ast.*
 import slick.ast.TypeUtil.:@
 import slick.compiler.{InsertCompiler, Phase, QueryCompiler}
@@ -14,6 +15,10 @@ import slick.sql.SqlProfile
 trait JdbcProfile extends SqlProfile with JdbcActionComponent
   with JdbcInvokerComponent with JdbcTypesComponent with JdbcModelComponent
   /* internal: */ with JdbcStatementBuilderComponent with JdbcMappingCompilerComponent {
+
+  type ResultConverterReader = ResultSet
+  type ResultConverterWriter = PreparedStatement
+  type ResultConverterUpdater = ResultSet
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
@@ -98,7 +103,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
   val api: JdbcAPI = new JdbcAPI {}
 
-  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R = tree match {
+  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R = tree match {
     case rsm @ ResultSetMapping(_, _, CompiledMapping(_, _)) :@ CollectionType(cons, el) =>
       val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, R]]
       createQueryInvoker[Any](rsm, param, null).foreach({ x => b += x })(session)
