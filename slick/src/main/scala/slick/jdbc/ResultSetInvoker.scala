@@ -14,14 +14,14 @@ import slick.util.CloseableIterator
   * empty ResultSet. */
 abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
 
-  protected def createResultSet(session: JdbcBackend#Session): ResultSet
+  protected def createResultSet(session: JdbcBackend#JdbcSessionDef): ResultSet
 
-  def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = {
+  def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#JdbcSessionDef): CloseableIterator[R] = {
     val resultSet = createResultSet(session)
     if(resultSet eq null) CloseableIterator.empty
     else {
       val pr = new PositionedResult(resultSet) {
-        def close() = rs.close()
+        def close() = this.rs.close()
       }
       new PositionedResultIterator[R](pr, maxRows, true) {
         def extractValue(pr: PositionedResult) = self.extractValue(pr)
@@ -33,14 +33,14 @@ abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
 }
 
 object ResultSetInvoker {
-  def apply[R](f: JdbcBackend#Session => ResultSet)(implicit conv: PositionedResult => R): Invoker[R] = new ResultSetInvoker[R] {
-    def createResultSet(session: JdbcBackend#Session) = f(session)
+  def apply[R](f: JdbcBackend#JdbcSessionDef => ResultSet)(implicit conv: PositionedResult => R): Invoker[R] = new ResultSetInvoker[R] {
+    def createResultSet(session: JdbcBackend#JdbcSessionDef) = f(session)
     def extractValue(pr: PositionedResult) = conv(pr)
   }
 }
 
 object ResultSetAction {
-  def apply[R](f: JdbcBackend#Session => ResultSet)(implicit conv: PositionedResult => R): BasicStreamingAction[Vector[R], R, Effect.Read] = new StreamingInvokerAction[Vector[R], R, Effect.Read] {
+  def apply[R](f: JdbcBackend#JdbcSessionDef => ResultSet)(implicit conv: PositionedResult => R): BasicStreamingAction[Vector[R], R, Effect.Read] = new StreamingInvokerAction[Vector[R], R, Effect.Read] {
     protected[this] def createInvoker(sql: Iterable[String]) = ResultSetInvoker(f)(conv)
     protected[this] def createBuilder = Vector.newBuilder[R]
     def statements = Nil

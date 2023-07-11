@@ -1,6 +1,5 @@
 package com.typesafe.slick.docs
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import slick.jdbc.H2Profile.api._
 
 object DBIOCombinators extends App {

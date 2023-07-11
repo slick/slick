@@ -53,7 +53,7 @@ Very simple example without a connection pool and using the driver directly:
 To use the MySQL driver, the following library dependency needs to be configured via SBT:
 
 ```scala
-libraryDependencies += "mysql" % "mysql-connector-java" % "6.0.6"
+libraryDependencies += "com.mysql" % "mysql-connector-j" % "8.0.33"
 ```
 
 ##### Generic JDBC

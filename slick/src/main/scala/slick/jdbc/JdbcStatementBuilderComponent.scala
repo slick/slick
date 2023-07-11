@@ -1,5 +1,7 @@
 package slick.jdbc
 
+import java.sql.{PreparedStatement, ResultSet}
+
 import scala.collection.mutable
 import scala.language.existentials
 
@@ -28,7 +30,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   class JdbcCompiledInsert(source: Node) {
     class Artifacts(val compiled: Node,
-                    val converter: ResultConverter[JdbcResultConverterDomain, Any],
+                    val converter: ResultConverter[ResultSet, PreparedStatement, ResultSet, Any],
                     val ibr: InsertBuilderResult) {
       def table: TableNode = ibr.table
       def sql: String = ibr.sql
@@ -37,8 +39,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     protected[this] def compile(compiler: QueryCompiler): Artifacts = {
       val compiled = compiler.run(source).tree
-      val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(conv, _)) = compiled
-      new Artifacts(compiled, conv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]], ibr)
+      val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(conv, _)) =
+        compiled: @unchecked
+      new Artifacts(compiled, conv.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, Any]], ibr)
     }
 
     /** The compiled artifacts for standard insert statements. */
@@ -57,7 +60,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     lazy val updateInsert = compile(updateInsertCompiler)
 
     /** Build a list of columns and a matching `ResultConverter` for retrieving keys of inserted rows. */
-    def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[JdbcResultConverterDomain, _], Boolean) = {
+    def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[ResultSet, PreparedStatement, ResultSet, _], Boolean) = {
       if(!capabilities.contains(JdbcCapabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(rconv, _)) =
@@ -72,7 +75,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
             "This DBMS allows only a single column to be returned from an INSERT," +
               " and that column must be an AutoInc column."
           )
-      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]], returnOther)
+      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, _]], returnOther)
     }
   }
 
@@ -547,7 +550,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
   /** Builder for INSERT statements. */
   class InsertBuilder(val ins: Insert) {
-    protected val Insert(_, table: TableNode, ProductNode(rawColumns), allFields) = ins
+    protected val Insert(_, table: TableNode, ProductNode(rawColumns), allFields) = ins: @unchecked
     protected val syms: ConstArray[FieldSymbol] = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }
     protected lazy val allNames = syms.map(fs => quoteIdentifier(fs.name))
     protected lazy val allVars = syms.iterator.map(_ => "?").mkString("(", ",", ")")
@@ -568,7 +571,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       else
         new InsertBuilderResult(table, s"$start values $allVars", syms) {
           override def buildInsert(compiledQuery: Node) = {
-            val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery)
+            val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery): @unchecked
             SQLBuilder.Result(start + sbr.sql, sbr.setter)
           }
 

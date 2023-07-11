@@ -1,17 +1,16 @@
 package slick.jdbc
 
 
-import scala.concurrent.ExecutionContext
-import scala.reflect.ClassTag
-
-import scala.util.{Failure, Success}
 import java.sql.DatabaseMetaData
 
-import slick.SlickException
+import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success}
+
+import slick.{SlickException, model as m}
 import slick.ast.ColumnOption
-import slick.dbio._
-import slick.jdbc.meta._
-import slick.{model => m}
+import slick.dbio.*
+import slick.jdbc.meta.*
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
 import slick.util.Logging
@@ -100,7 +99,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
 
   /** Converts from java.sql.Types w/ type name to the corresponding Java class name (with fully qualified path). */
   def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
-    import java.sql.Types._
+    import java.sql.Types.*
+
     import scala.reflect.classTag
     // see TABLE B-1 of JSR-000221 JBDCTM API Specification 4.1 Maintenance Release
     // Mapping to corresponding Scala types where applicable
@@ -126,7 +126,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       // case ROWID => classTag[java.sql.RowId]
       // case NCLOB => classTag[java.sql.NClob]
       // case SQLXML => classTag[java.sql.SQLXML]
-      case NULL => classTag[Null]
+      case NULL => ClassTag.Null
       case DISTINCT => logger.warn(s"Found jdbc type DISTINCT. Assuming Blob. This may be wrong. You can override ModelBuilder#Table#Column#tpe to fix this."); classTag[java.sql.Blob] // FIXME
       case t => logger.warn(s"Found unknown jdbc type $t. Assuming String. This may be wrong. You can override ModelBuilder#Table#Column#tpe to fix this."); classTag[String] // FIXME
     }
@@ -198,7 +198,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     /** Indicates whether this should be a varchar in case of a string column.
       * Should be based on the value of dbType in the future. */
     def varying: Boolean = {
-      import java.sql.Types._
+      import java.sql.Types.*
       Seq(NVARCHAR, VARCHAR, LONGVARCHAR, LONGNVARCHAR) contains meta.sqlType
     }
 
@@ -275,7 +275,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
 
     def model = m.Column(name=name, table=tableBuilder.namer.qualifiedName, tpe=tpe, nullable=nullable,
       options = Set() ++
-        dbType.map(SqlProfile.ColumnOption.SqlType) ++
+        dbType.map(str => SqlProfile.ColumnOption.SqlType(str)) ++
         (if(autoInc) Some(ColumnOption.AutoInc) else None) ++
         (if(createPrimaryKeyColumnOption) Some(ColumnOption.PrimaryKey) else None) ++
         length.map(RelationalProfile.ColumnOption.Length.apply(_,varying=varying)) ++

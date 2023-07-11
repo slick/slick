@@ -131,7 +131,7 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
     case class Weird(u: Unit, x: (Int, String), c: Const.type)
 
     implicit val getC = GetResult.const[Const.type](Const)
-    implicit val get = GetResult[Weird](r => new Weird(r.<<[Unit], r.<<, r.<<[Const.type]))
+    implicit val get: GetResult[Weird] = GetResult[Weird](r => new Weird(r.<<[Unit], r.<<, r.<<[Const.type]))
 
     implicit val setC = SetParameter.const[Const.type]
     implicit val setU = SetParameter[User]{(u, p) => println(u); p.setInt(u.id); p.setString(u.name)}

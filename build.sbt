@@ -59,16 +59,18 @@ def slickGeneralSettings =
         "-deprecation",
         "-feature",
         "-unchecked",
-        "-Xsource:3",
         "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
       ) ++ (CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, 12)) => List("-Ywarn-unused:imports", "-language:higherKinds")
+        case Some((2, 12)) => List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3")
         case Some((2, 13)) =>
           List(
+            "-Xsource:3",
             "-Wunused:imports",
             "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
             "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
           )
+        case Some((3, _)) =>
+          List("-source:3.0-migration")
         case _             =>
           Nil
       }),
@@ -84,11 +86,13 @@ def slickGeneralSettings =
     logBuffered := false
   )
 
-// set the scala-compiler dependency unless a local scala is in use
+// add a scala 2 compiler dependency unless a local scala is in use
 def compilerDependencySetting(config: String) =
-  if (sys.props("scala.home.local") != null) Nil else Seq(
-    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % config
-  )
+  libraryDependencies ++=
+    (if (sys.props("scala.home.local") == null && scalaVersion.value.startsWith("2."))
+      List("org.scala-lang" % "scala-compiler" % scalaVersion.value % config)
+    else
+      Nil)
 
 def extTarget(extName: String): Seq[Setting[File]] =
   sys.props("slick.build.target") match {

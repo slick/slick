@@ -32,7 +32,7 @@ import org.slf4j.MDC
 class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
   extends SimpleParentRunner[TestMethod](clazz) {
 
-  val profileTest = clazz.getConstructor().newInstance()
+  val profileTest: ProfileTest = clazz.getConstructor().newInstance()
   var tdb: TestDB = profileTest.tdb
 
   def describeChild(ch: TestMethod) = ch.desc
@@ -54,7 +54,7 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
     else {
       tdb.cleanUpBefore()
       try {
-        val is = children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance()))
+        val is = (children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance().asInstanceOf[AsyncTest[_ >: Null <: TestDB]]))) //TODO why does Dotty require this cast?
           .filter { case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
         val last = is.length - 1
         var previousTestObject: AsyncTest[_ >: Null <: TestDB] = null
@@ -117,9 +117,9 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
         false
     }
   }
-  lazy val tdb: TDB = _tdb
+  final lazy val tdb: TDB = _tdb
 
-  private[testkit] var keepAliveSession: tdb.profile.Backend#Session = null
+  private[testkit] var keepAliveSession: tdb.profile.backend.Session = null
 
   private[this] var unique = new AtomicInteger
 
@@ -190,28 +190,28 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
   /** Test Action: Get the current database session */
   object GetSession
-    extends SynchronousDatabaseAction[TDB#Profile#Backend#Session, NoStream, TDB#Profile#Backend, Effect] {
-    def run(context: TDB#Profile#Backend#Context) = context.session
+    extends SynchronousDatabaseAction[tdb.profile.backend.Session, NoStream, tdb.profile.backend.Context, tdb.profile.backend.StreamingContext, Effect] {
+    def run(context: tdb.profile.backend.Context) = context.session
     def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
 
   /** Test Action: Check if the current database session is pinned */
-  object IsPinned extends SynchronousDatabaseAction[Boolean, NoStream, TDB#Profile#Backend, Effect] {
-    def run(context: TDB#Profile#Backend#Context) = context.isPinned
+  object IsPinned extends SynchronousDatabaseAction[Boolean, NoStream, tdb.profile.backend.Context, tdb.profile.backend.StreamingContext, Effect] {
+    def run(context: tdb.profile.backend.Context) = context.isPinned
     def getDumpInfo = DumpInfo(name = "<IsPinned>")
   }
 
   /** Test Action: Get the current transactionality level and autoCommit flag */
-  object GetTransactionality extends SynchronousDatabaseAction[(Int, Boolean), NoStream, JdbcBackend, Effect] {
-    def run(context: JdbcBackend#Context) =
+  object GetTransactionality extends SynchronousDatabaseAction[(Int, Boolean), NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+    def run(context: JdbcBackend#JdbcActionContext) =
       context.session.asInstanceOf[JdbcBackend#BaseSession].getTransactionality
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
   /** Test Action: Get the current statement parameters, except for `statementInit` which is always set to null */
   object GetStatementParameters
-    extends SynchronousDatabaseAction[JdbcBackend.StatementParameters, NoStream, JdbcBackend, Effect] {
-    def run(context: JdbcBackend#Context) = {
+    extends SynchronousDatabaseAction[JdbcBackend.StatementParameters, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+    def run(context: JdbcBackend#JdbcActionContext) = {
       val s = context.session
       JdbcBackend.StatementParameters(
         s.resultSetType,

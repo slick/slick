@@ -4,10 +4,8 @@ package slick.lifted
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.compat.*
-import scala.language.experimental.macros
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
-import scala.reflect.macros.blackbox
 
 import slick.SlickException
 import slick.ast.*
@@ -42,7 +40,7 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
   type Packed = Packed_
 
   /** Convert a value of this Shape's (mixed) type to the fully packed type */
-  def pack(value: Mixed): Packed
+  def pack(value: Any /* should be Mixed */): Packed
 
   /** Return the fully packed Shape */
   def packedShape: Shape[Level, Packed, Unpacked, Packed]
@@ -56,23 +54,24 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
   /** Encode a reference into a value of this Shape.
     * This method may not be available for shapes where Mixed and Packed are
     * different types. */
-  def encodeRef(value: Mixed, path: Node): Any
+  def encodeRef(value: Any, path: Node): Any
 
   /** Return an AST Node representing a mixed value. */
-  def toNode(value: Mixed): Node
+  def toNode(value: Any): Node
 }
 
 object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits with TupleShapeImplicits {
   implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]
                                                            ): Shape[Level, T, T, ConstColumn[T]] =
     new Shape[Level, T, T, ConstColumn[T]] {
-      def pack(value: Mixed) = LiteralColumn(value)
+      def pack(value: Any) = LiteralColumn(value.asInstanceOf[T])
       def packedShape = RepShape[Level, Packed, Unpacked]
       def buildParams(extract: Any => Unpacked): Packed = new ConstColumn[T](new QueryParameter(extract, tm))(tm)
-      def encodeRef(value: Mixed, path: Node) =
+      def encodeRef(value: Any, path: Node) =
         throw new SlickException("Shape does not have the same Mixed and Packed type")
-      def toNode(value: Mixed): Node = pack(value).toNode
-    }
+      def toNode(value: Any): Node = pack(value).toNode
+    override def toString = s"PrimitiveShape($tm)"
+  }
 
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
@@ -96,11 +95,12 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
     RepShape[Level, MappedProjection[T, P], T]
 
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
-    def pack(value: Mixed) = ()
+    def pack(value: Any) = ()
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked) = ()
-    def encodeRef(value: Mixed, path: Node) = ()
-    def toNode(value: Mixed) = ProductNode(ConstArray.empty)
+    def encodeRef(value: Any, path: Node) = ()
+    def toNode(value: Any) = ProductNode(ConstArray.empty)
+    override def toString = s"UnitShape"
   }
 }
 
@@ -145,13 +145,13 @@ trait OptionShapeImplicits {
 /** Shape for Rep values (always fully packed) */
 object RepShape extends Shape[FlatShapeLevel, Rep[?], Any, Rep[?]] {
   def apply[Level <: ShapeLevel, MP <: Rep[?], U]: Shape[Level, MP, U, MP] = this.asInstanceOf[Shape[Level, MP, U, MP]]
-
-  def pack(value: Mixed): Packed = value
+  def pack(value: Any): Packed = value.asInstanceOf[Packed]
   def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
   def buildParams(extract: Any => Unpacked): Packed =
     throw new SlickException("Shape does not have the same Mixed and Unpacked type")
-  override def encodeRef(value: Mixed, path: Node): Rep[?] = value.encodeRef(path)
-  def toNode(value: Mixed): Node = value.toNode
+  override def encodeRef(value: Any, path: Node): Rep[?] = value.asInstanceOf[Rep[_]].encodeRef(path)
+  def toNode(value: Any): Node = value.asInstanceOf[Rep[_]].toNode
+  override def toString = "RepShape"
 }
 
 /** Base class for Shapes of record values which are represented by
@@ -182,8 +182,8 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
     shapes.iterator.zipWithIndex.map(t => getElement(value, t._2))
 
   private def shapesWithValues(value: Mixed) = shapes.iterator.zip(getIterator(value))
-  def pack(value: Mixed) = {
-    val elems = shapesWithValues(value).map{ case (p, f) => p.pack(f.asInstanceOf[p.Mixed]) }
+  def pack(value: Any) = {
+    val elems = shapesWithValues(value.asInstanceOf[M]).map{ case (p, f) => p.pack(f) }
     buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
   def packedShape: Shape[Level, Packed, Unpacked, Packed] =
@@ -195,22 +195,24 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
     }
     buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
-  def encodeRef(value: Mixed, path: Node) = {
-    val elems = shapesWithValues(value).zipWithIndex.map {
-      case ((p, x), pos) => p.encodeRef(x.asInstanceOf[p.Mixed], Select(path, ElementSymbol(pos + 1)))
+  def encodeRef(value: Any, path: Node) = {
+    val elems = shapesWithValues(value.asInstanceOf[M]).zipWithIndex.map {
+      case ((p, x), pos) => p.encodeRef(x, Select(path, ElementSymbol(pos + 1)))
     }
     buildValue(elems.toIndexedSeq)
   }
-  def toNode(value: Mixed): Node = ProductNode(ConstArray.from(shapesWithValues(value).map {
-    case (p, f) => p.toNode(f.asInstanceOf[p.Mixed])
+  def toNode(value: Any): Node = ProductNode(ConstArray.from(shapesWithValues(value.asInstanceOf[M]).map {
+    case (p, f) => p.toNode(f)
   }.to(Vector)))
+
+  override def toString = shapes.mkString("ProductNodeShape(", ", ", ")")
 }
 
 /** Base class for ProductNodeShapes with a type mapping */
 abstract class MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C]
   extends ProductNodeShape[Level, C, M, U, P] {
 
-  override def toNode(value: Mixed): TypeMapping =
+  override def toNode(value: Any): TypeMapping =
     TypeMapping(super.toNode(value), MappedScalaType.Mapper(toBase, toMapped, None), classTag)
   def toBase(v: Any) = new ProductWrapper(getIterator(v.asInstanceOf[C]).toIndexedSeq)
   def toMapped(v: Any) = buildValue(TupleSupport.buildIndexedSeq(v.asInstanceOf[Product]))
@@ -272,8 +274,7 @@ class CaseClassShape[
   override def toMapped(v: Any): PlainCaseClass = mapPlain(v.asInstanceOf[PlainTuple])
   override def buildValue(elems: IndexedSeq[Any]): LiftedCaseClass =
     mapLifted(TupleSupport.buildTuple(elems).asInstanceOf[LiftedTuple])
-  override def copy(s: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]
-                   ): CaseClassShape[P, LiftedTuple, LiftedCaseClass, PlainTuple, PlainCaseClass] =
+  override def copy(s: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]) =
     new CaseClassShape(mapLifted, mapPlain) {
       override val shapes = s
     }
@@ -337,116 +338,6 @@ trait FlatShapeLevel extends NestedShapeLevel
   * This level is used for parameters of compiled queries. */
 trait ColumnsShapeLevel extends FlatShapeLevel
 
-/** A value together with its Shape */
-case class ShapedValue[T, U](value: T, shape: Shape[? <: FlatShapeLevel, T, U, ?]) extends Rep[U] {
-  def encodeRef(path: Node): ShapedValue[T, U] = {
-    val fv = shape.encodeRef(value, path).asInstanceOf[T]
-    if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
-  }
-  def toNode = shape.toNode(value)
-  def packedValue[R](implicit ev: Shape[? <: FlatShapeLevel, T, ?, R]): ShapedValue[R, U] =
-    ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, ?]])
-  def zip[T2, U2](s2: ShapedValue[T2, U2]) =
-    new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
-  def <>[R : ClassTag](f: U => R, g: R => Option[U]) =
-    new MappedProjection[R, U](
-      shape.toNode(value),
-      MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None),
-      implicitly[ClassTag[R]]
-    )
-  @inline def shaped: ShapedValue[T, U] = this
-
-  def mapTo[R <: Product & Serializable](implicit rCT: ClassTag[R]
-                                        ): MappedProjection[R, U] = macro ShapedValue.mapToImpl[R, U]
-}
-
-object ShapedValue {
-  def mapToImpl[R <: Product & Serializable, U](c: blackbox.Context { type PrefixType = ShapedValue[?, U] })
-                                               (rCT: c.Expr[ClassTag[R]])
-                                               (implicit rTag: c.WeakTypeTag[R], uTag: c.WeakTypeTag[U]): c.Tree = {
-    import c.universe.*
-    val rSym = symbolOf[R]
-    if(!rSym.isClass || !rSym.asClass.isCaseClass)
-      c.abort(c.enclosingPosition, s"${rSym.fullName} must be a case class")
-    val rModule = rSym.companion match {
-      case NoSymbol => q"${rSym.name.toTermName}" // This can happen for case classes defined inside of methods
-      case s => q"$s"
-    }
-    val rHasTupled = rSym.companion match {
-      case NoSymbol => true
-      case s => s.info.member(TermName("tupled")) != NoSymbol
-    }
-    val fields =
-      rTag.tpe.decls
-        .collect {
-          case s: TermSymbol if s.isVal && s.isCaseAccessor =>
-            (TermName(s.name.toString.trim), s.typeSignature, TermName(c.freshName()))
-        }
-        .toIndexedSeq
-    val (f, g) = if(uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
-      val rTypeAsHList = fields.foldRight[Tree](tq"_root_.slick.collection.heterogeneous.HNil.type") {
-        case ((_, t, _), z) => tq"_root_.slick.collection.heterogeneous.HCons[$t, $z]"
-      }
-      val pat = fields.foldRight[Tree](pq"_root_.slick.collection.heterogeneous.HNil") {
-        case ((_, _, n), z) => pq"_root_.slick.collection.heterogeneous.HCons($n, $z)"
-      }
-      val cons = fields.foldRight[Tree](q"_root_.slick.collection.heterogeneous.HNil") {
-        case ((n, _, _), z) => q"v.$n :: $z"
-      }
-      (q"({ case $pat => new $rTag(..${fields.map(_._3)}) } : ($rTypeAsHList => $rTag)): ($uTag => $rTag)",
-       q"{ case v => $cons }: ($rTag => $uTag)")
-    } else if(fields.length == 1) { // Map from single value
-      (q"($rModule.apply _) : ($uTag => $rTag)",
-       q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
-    } else if (rHasTupled) { // Map from tuple with existing tupled
-      (q"($rModule.tupled) : ($uTag => $rTag)",
-        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
-    } else { // Map from tuple with tupled apply
-      (q"(($rModule.apply _).tupled) : ($uTag => $rTag)",
-        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
-    }
-
-    val fpName = Constant("Fast Path of ("+fields.map(_._2).mkString(", ")+").mapTo["+rTag.tpe+"]")
-    val fpChildren = fields.map { case (_, t, n) => q"val $n = next[$t]" }
-    val fpReadChildren = fields.map { case (_, _, n) => q"$n.read(r)" }
-    val fpSetChildren = fields.map { case (fn, _, n) => q"$n.set(value.$fn, pp, offset)" }
-    val fpUpdateChildren = fields.map { case (fn, _, n) => q"$n.update(value.$fn, pr)" }
-
-    q"""
-      // Resolving f first creates more useful type errors
-      val ff = $f.asInstanceOf[_root_.scala.Any => _root_.scala.Any]
-      val gg = $g.asInstanceOf[_root_.scala.Any => _root_.scala.Any]
-      val fpMatch: (_root_.scala.Any => _root_.scala.Any) = {
-        case tm @ _root_.slick.relational.TypeMappingResultConverter(
-          _: _root_.slick.relational.ProductResultConverter[_, _],
-          _,
-          _
-        ) =>
-          new _root_.slick.relational.SimpleFastPathResultConverter[
-            _root_.slick.relational.ResultConverterDomain,
-             $rTag
-          ](
-            tm.asInstanceOf[
-              _root_.slick.relational.TypeMappingResultConverter[
-                _root_.slick.relational.ResultConverterDomain,
-                $rTag,
-                _
-              ]
-            ]
-          ) {
-            ..$fpChildren
-            override def read(r: Reader): $rTag = new $rTag(..$fpReadChildren)
-            override def set(value: $rTag, pp: Writer, offset: Int): _root_.scala.Unit = {..$fpSetChildren}
-            override def update(value: $rTag, pr: Updater): _root_.scala.Unit = {..$fpUpdateChildren}
-            override def getDumpInfo = super.getDumpInfo.copy(name = $fpName)
-          }
-        case tm => tm
-      }
-      new _root_.slick.lifted.MappedProjection[$rTag, $uTag](${c.prefix}.toNode,
-        _root_.slick.ast.MappedScalaType.Mapper(gg, ff, _root_.scala.Some(fpMatch)), $rCT)
-    """
-  }
-}
 
 /** A limited version of ShapedValue which can be constructed for every type
   * that has a valid shape. We use it to enforce that a table's * projection
@@ -466,23 +357,33 @@ object ProvenShape {
       def value: T = v
       val shape: Shape[? <: FlatShapeLevel, ?, U, ?] = sh
       def packedValue[R](implicit ev: Shape[? <: FlatShapeLevel, ?, U, R]): ShapedValue[R, U] =
-        ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, ?]])
+        ShapedValue(sh.pack(value.asInstanceOf[sh.Mixed]).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, ?]])
     }
 
   /** The Shape for a ProvenShape */
   implicit def provenShapeShape[T, P](implicit shape: Shape[? <: FlatShapeLevel, T, T, P]
                                      ): Shape[FlatShapeLevel, ProvenShape[T], T, P] =
     new Shape[FlatShapeLevel, ProvenShape[T], T, P] {
-      def pack(value: Mixed): Packed =
-        value.shape.pack(value.value.asInstanceOf[value.shape.Mixed]).asInstanceOf[Packed]
-      def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] =
-        shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, Packed, Unpacked, Packed]]
-      def buildParams(extract: Any => Unpacked): Packed =
-        shape.buildParams(extract)
-      def encodeRef(value: Mixed, path: Node) =
-        value.shape.encodeRef(value.value.asInstanceOf[value.shape.Mixed], path)
-      def toNode(value: Mixed): Node =
-        value.shape.toNode(value.value.asInstanceOf[value.shape.Mixed])
+      def pack(value: Any): Packed = {
+        val v = value.asInstanceOf[ProvenShape[T]]
+      v.shape.pack(v.value).asInstanceOf[Packed]
+    }
+
+    def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] =
+      shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, Packed, Unpacked, Packed]]
+    def buildParams(extract: Any => Unpacked): Packed =
+      shape.buildParams(extract)
+      def encodeRef(value: Any, path: Node) = {
+        val v = value.asInstanceOf[ProvenShape[T]]
+      v.shape.encodeRef(v.value, path)
+      }
+
+    def toNode(value: Any): Node = {
+        val v = value.asInstanceOf[ProvenShape[T]]
+      v.shape.toNode(v.value)
+    }
+
+    override def toString = s"ProvenShapeShape($shape)"
     }
 }
 

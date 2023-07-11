@@ -165,7 +165,7 @@ trait CollectionTypeConstructor {
   """Cannot use collection in a query
             collection type: ${C}[_]
   requires implicit of type: slick.ast.TypedCollectionTypeConstructor[${C}]""")
-abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[?]]) extends CollectionTypeConstructor {
+abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[Any]]) extends CollectionTypeConstructor {
   override def toString = classTag.runtimeClass.getName
     .replaceFirst("^scala.collection.immutable.", "")
     .replaceFirst("^scala.collection.mutable.", "m.")
@@ -178,23 +178,22 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[?]]
   }
 }
 
-class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[?]])
+class ErasedCollectionTypeConstructor[C[_]](factory: Factory[Any, C[Any]], classTag: ClassTag[C[Any]])
   extends TypedCollectionTypeConstructor[C](classTag) {
-
   val isSequential = classOf[scala.collection.Seq[?]].isAssignableFrom(classTag.runtimeClass)
   val isUnique = classOf[scala.collection.Set[?]].isAssignableFrom(classTag.runtimeClass)
   def createBuilder[E: ClassTag] = factory.newBuilder.asInstanceOf[mutable.Builder[E, C[E]]]
 }
 
 object TypedCollectionTypeConstructor {
-  private[this] val arrayClassTag = mkClassTag[Array[?]]
+  private[this] val arrayClassTag = mkClassTag[Array[Any]]
   /** The standard TypedCollectionTypeConstructor for Seq */
   def seq = forColl[Vector]
   /** The standard TypedCollectionTypeConstructor for Set */
   def set = forColl[Set]
   /** Get a TypedCollectionTypeConstructor for an Iterable type */
   implicit def forColl[C[X] <: Iterable[X]](implicit cbf: Factory[Any, C[Any]],
-                                            tag: ClassTag[C[?]]): TypedCollectionTypeConstructor[C] =
+                                            tag: ClassTag[C[Any]]): TypedCollectionTypeConstructor[C] =
     new ErasedCollectionTypeConstructor[C](cbf, tag)
   /** Get a TypedCollectionTypeConstructor for an Array type */
   implicit val forArray: TypedCollectionTypeConstructor[Array] =
@@ -385,18 +384,18 @@ class ErasedScalaBaseType[T, E](implicit val erasure: ScalaBaseType[E], val ct: 
 }
 
 object ScalaBaseType {
-  implicit val booleanType: ScalaBaseType[Boolean] = new ScalaBaseType[Boolean]
-  implicit val bigDecimalType: ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal](BigDecimal.apply)
-  implicit val byteType: ScalaNumericType[Byte] = new ScalaNumericType[Byte](_.toByte)
-  implicit val charType: ScalaBaseType[Char] = new ScalaBaseType[Char]
-  implicit val doubleType: ScalaNumericType[Double] = new ScalaNumericType[Double](identity)
-  implicit val floatType: ScalaNumericType[Float] = new ScalaNumericType[Float](_.toFloat)
-  implicit val intType: ScalaNumericType[Int] = new ScalaNumericType[Int](_.toInt)
-  implicit val longType: ScalaNumericType[Long] = new ScalaNumericType[Long](_.toLong)
-  implicit val nullType: ScalaBaseType[Null] = new ScalaBaseType[Null]
-  implicit val shortType: ScalaNumericType[Short] = new ScalaNumericType[Short](_.toShort)
-  implicit val stringType: ScalaBaseType[String] = new ScalaBaseType[String]
-  implicit val optionDiscType: ErasedScalaBaseType[OptionDisc, Int] = new ErasedScalaBaseType[OptionDisc, Int]
+  implicit val booleanType    : ScalaBaseType[Boolean]       = new ScalaBaseType[Boolean]
+  implicit val bigDecimalType : ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal](BigDecimal.apply)
+  implicit val byteType       : ScalaNumericType[Byte]       = new ScalaNumericType[Byte](_.toByte)
+  implicit val charType       : ScalaBaseType[Char]          = new ScalaBaseType[Char]
+  implicit val doubleType     : ScalaNumericType[Double]     = new ScalaNumericType[Double](identity)
+  implicit val floatType      : ScalaNumericType[Float]      = new ScalaNumericType[Float](_.toFloat)
+  implicit val intType        : ScalaNumericType[Int]        = new ScalaNumericType[Int](_.toInt)
+  implicit val longType       : ScalaNumericType[Long]       = new ScalaNumericType[Long](_.toLong)
+  implicit val nullType       : ScalaBaseType[Null]          = { implicit val c: ClassTag[Null] = scala.reflect.ClassTag.Null; new ScalaBaseType[Null] }
+  implicit val shortType      : ScalaNumericType[Short]      = new ScalaNumericType[Short](_.toShort)
+  implicit val stringType     : ScalaBaseType[String]        = new ScalaBaseType[String]
+  implicit val optionDiscType : ErasedScalaBaseType[OptionDisc, Int] = new ErasedScalaBaseType[OptionDisc, Int]
 
   private[this] val all: Map[ClassTag[?], ScalaBaseType[?]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
