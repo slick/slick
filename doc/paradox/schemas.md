@@ -113,9 +113,17 @@ to call `.shaped` on a tuple on the left-hand side in order to get its
 type inferred properly. Otherwise you may have to add full type annotations
 to the mapping functions.
 
-For case classes with hand-written companion objects, `.tupled` only works
-if you manually extend the correct Scala function type. Alternatively you can use
-`(User.apply _).tupled`. See @extref[SI-3664](SI:3664) and [SI-4808](SI:4808).
+For using `.tupled` on case classes the following workarounds are necessary
+* Scala 2 with hand-written companion objects: `.tupled` only works
+  if you manually extend the correct Scala function type, alternately you can
+  manually redefine `.tupled` in the case class companion object i.e.
+  `def tupled = (apply _).tupled`. See @extref[SI-3664](SI:3664) and
+  [SI-4808](SI:4808) for more info.
+* Scala 3: `.tupled` is no longer defined for case classes so you need to
+  manually define `.tupled` (i.e. `def tupled = (apply _).tupled`) yourself 
+  on the case class companion object (if you don't have a case class companion
+  object then you need to create it). Doing this also means your `.tupled`
+  method will cross compile for all versions of Scala.
 
 It is also possible to use the convenience method `mapTo` in most circumstances,
 which uses a compile-time macro to automatically fill in an implementation like the above.
