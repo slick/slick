@@ -111,7 +111,7 @@ def sampleSettings = Seq(
 )
 
 ThisBuild / crossScalaVersions := Dependencies.scalaVersions
-ThisBuild / scalaVersion := Dependencies.scalaVersions.last
+ThisBuild / scalaVersion := Dependencies.scala213
 
 ThisBuild / versionScheme := Some("pvp")
 
@@ -294,14 +294,11 @@ lazy val site: Project =
         val file = (buildCompatReport / target).value / "compat-report.md"
         IO.write(
           file,
-          if (compatReports.forall(_.trim.isEmpty))
-            "There are no incompatible changes"
-          else
-            compatReports.mkString(
-              "## Incompatible changes\n\n",
-              "\n\n",
-              "\n"
-            )
+          "## Incompatible changes\n\n" +
+            (if (compatReports.forall(_.trim.isEmpty))
+              "There are no incompatible changes"
+            else
+              compatReports.sorted.mkString("", "\n\n", "\n"))
         )
         file
       },
