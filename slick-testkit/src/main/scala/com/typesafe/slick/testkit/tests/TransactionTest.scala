@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import com.typesafe.slick.testkit.tests.TransactionTest.ExpectedException
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 import slick.jdbc.TransactionIsolation
@@ -16,7 +17,6 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
 
     val getTI = SimpleDBIO(_.connection.getTransactionIsolation)
 
-    class ExpectedException extends RuntimeException
 
     ts.schema.create andThen { // failed transaction
       (for {
@@ -73,4 +73,8 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
       } yield ()).withPinnedSession
     }}
   }
+}
+
+object TransactionTest {
+  private class ExpectedException extends RuntimeException
 }
