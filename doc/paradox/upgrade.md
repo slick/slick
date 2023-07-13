@@ -29,6 +29,12 @@ Latest changes
 
 See @ref:[the generated tables of incompatible changes](compat-report.md)
 
+Upgrade from 3.4.x to 3.5.0
+-----------------------
+
+- `SynchronousDatabaseAction` has 5 type parameters instead of 4. See for instance
+  https://github.com/tminglei/slick-pg/pull/651/files#diff-208b921209dd4b53867be1f55f1fa054d81f6473575ae4b7efd960a3d8c7a298L17
+
 Upgrade from 3.3.x to 3.4.0
 -----------------------
 
