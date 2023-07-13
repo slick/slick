@@ -111,7 +111,7 @@ def sampleSettings = Seq(
 )
 
 ThisBuild / crossScalaVersions := Dependencies.scalaVersions
-ThisBuild / scalaVersion := Dependencies.scalaVersions.last
+ThisBuild / scalaVersion := Dependencies.scala213
 
 ThisBuild / versionScheme := Some("pvp")
 
