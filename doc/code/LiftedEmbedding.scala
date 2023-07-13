@@ -122,9 +122,6 @@ object LiftedEmbedding {
     //#mappedtable
     //#insert2
     case class User(id: Option[Int], first: String, last: String)
-    object User {
-      def tupled = (apply _).tupled
-    }
 
     class Users(tag: Tag) extends Table[User](tag, "users") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -139,9 +136,6 @@ object LiftedEmbedding {
     //#insert2
 
     //#maptotable
-    object Person {
-      def tupled = (apply _).tupled
-    }
     case class Person(id: Option[Int], first: String, last: String)
 
     class People(tag: Tag) extends Table[Person](tag, "person") {
