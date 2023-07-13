@@ -297,7 +297,7 @@ lazy val site: Project =
           if (compatReports.forall(_.trim.isEmpty))
             "There are no incompatible changes"
           else
-            compatReports.mkString(
+            compatReports.sorted.mkString(
               "## Incompatible changes\n\n",
               "\n\n",
               "\n"

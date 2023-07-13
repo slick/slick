@@ -1,15 +1,15 @@
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 import com.typesafe.tools.mima.core.Problem
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaFindBinaryIssues}
 import com.typesafe.tools.mima.plugin.MimaPlugin
 import coursier.version.Version
+import sbt.{config, inConfig, settingKey, taskKey, AutoPlugin, Compile, Def, Defaults, Keys}
 import sbt.Keys.projectDependencies
 import sbt.librarymanagement.CrossVersion
-import sbt.{AutoPlugin, Compile, Def, Defaults, Keys, config, inConfig, settingKey, taskKey}
-import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVersions
-import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport._
 import sbtversionpolicy.{DependencyCheckReport, Direction, SbtVersionPolicyMima, SbtVersionPolicyPlugin}
+import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVersions
+import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.*
 
 
 object CompatReportPlugin extends AutoPlugin {
@@ -35,7 +35,7 @@ object CompatReportPlugin extends AutoPlugin {
     val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
   }
 
-  import autoImport._
+  import autoImport.*
 
 
   private def markdownTable(headers: String*)(rows: Seq[Seq[String]]) = {
@@ -45,15 +45,15 @@ object CompatReportPlugin extends AutoPlugin {
         .transpose
         .map(_.max)
 
-    def row(r: Seq[String]) =
+    def row(r: Seq[String], pad: Char) =
       r
         .zipWithIndex
-        .map { case (s, i) => (" " + s + " ").padTo(widths(i) + 2, ' ') }
+        .map { case (s, i) => (pad + s + pad).padTo(widths(i) + 2, ' ') }
         .mkString("|", "|", "|\n")
 
-    row(headers) +
-      row(widths.map("-" * _)) +
-      escaped.map(row).mkString
+    row(headers, ' ') +
+      row(widths.map("-" * _), '-') +
+      escaped.map(row(_, ' ')).mkString
   }
 
   private def renderDirection(direction: Direction) = {
@@ -162,18 +162,12 @@ object CompatReportPlugin extends AutoPlugin {
       case n =>
         Some(
           s"""
-             |<details>
-             |  <summary>
-             |    <h3>
-             |      $n change${if (n == 1) "" else "s"} to <code>${moduleReport.module}</code>
-             |      since <code>${moduleReport.sinceVersion}</code>
-             |    </h3>
-             |  </summary>
-             |
-             |${renderDependencyChangesMarkdownSection(moduleReport.depChanges)}
-             |${renderCodeChangesMarkdownSection(moduleReport.codeChanges)}
-             |</details>
-             |""".stripMargin
+             >### ${moduleReport.module}
+             >$n change${if (n == 1) "" else "s"} since ${moduleReport.sinceVersion}
+             >
+             >${renderDependencyChangesMarkdownSection(moduleReport.depChanges)}
+             >${renderCodeChangesMarkdownSection(moduleReport.codeChanges)}
+             >""".stripMargin('>')
         )
     }
 
@@ -195,7 +189,7 @@ object CompatReportPlugin extends AutoPlugin {
     // So we're using the usual default repositories from coursier here…
     val fullRepos = coursierapi.Repository.defaults().asScala ++ repos
     val res = coursierapi.Versions.create()
-      .withRepositories(fullRepos: _*)
+      .withRepositories(fullRepos *)
       .withModule(coursierapi.Module.of(projId.organization, name))
       .versions()
     res.getMergedListings.getAvailable.asScala
@@ -267,8 +261,8 @@ object CompatReportPlugin extends AutoPlugin {
                     }
                     .sorted
 
-                val moduleOrgAndName :+ sinceVersion = moduleString.split(':').toSeq
-                ModuleReport(moduleOrgAndName.mkString(":"), sinceVersion, depChanges, codeChanges)
+                val moduleOrg :+ moduleName :+ sinceVersion = moduleString.split(':').toSeq
+                ModuleReport(moduleName, sinceVersion, depChanges, codeChanges)
               }
             },
             compatReportMarkdown := {
