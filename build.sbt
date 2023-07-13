@@ -41,8 +41,10 @@ def scaladocSourceUrl(dir: String) =
   Compile / doc / scalacOptions ++= {
     val ref = Versioning.currentRef(baseDirectory.value)
     Seq(
+      "-sourcepath",
+      (ThisBuild / baseDirectory).value.getAbsolutePath,
       "-doc-source-url",
-      s"https://github.com/slick/slick/blob/$ref/$dir/src/main€{FILE_PATH}.scala"
+      s"https://github.com/slick/slick/blob/${ref}€{FILE_PATH}.scala"
     )
   }
 
@@ -78,7 +80,6 @@ def slickGeneralSettings =
       "-doc-title", name.value,
       "-doc-version", version.value,
       "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
-      "-sourcepath", (Compile / sourceDirectory).value.getPath, // make scaladoc strip location of linked source path
       "-implicits",
       "-diagrams", // requires graphviz
       "-groups"
