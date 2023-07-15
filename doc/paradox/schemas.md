@@ -102,37 +102,61 @@ Mapped Tables
 -------------
 
 It is possible to define a mapped table that uses a custom type for its `*`
-projection by adding a bi-directional mapping with the `<>` operator:
+projection by adding a bi-directional mapping to the custom type.
 
-@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtable }
+Mapped projections can also be created from individual columns, tuples of
+columns, or existing mapped projections.
 
-It is optimized for case classes (with a simple `apply` method and an
-`unapply` method that wraps its result in an `Option`) but it can also
-be used with arbitrary mapping functions. In these cases it can be useful
-to call `.shaped` on a tuple on the left-hand side in order to get its
-type inferred properly. Otherwise you may have to add full type annotations
-to the mapping functions.
+### Case classes with the `mapTo` macro
 
-For using `.tupled` on case classes the following workarounds are necessary
-* Scala 2 with hand-written companion objects: `.tupled` only works
-  if you manually extend the correct Scala function type, alternately you can
-  manually redefine `.tupled` in the case class companion object i.e.
-  `def tupled = (apply _).tupled`. See @extref[SI-3664](SI:3664) and
-  [SI-4808](SI:4808) for more info.
-* Scala 3: `.tupled` is no longer defined for case classes so you need to
-  manually define `.tupled` (i.e. `def tupled = (apply _).tupled`) yourself 
-  on the case class companion object (if you don't have a case class companion
-  object then you need to create it). Doing this also means your `.tupled`
-  method will cross compile for all versions of Scala.
-
-It is also possible to use the convenience method `mapTo` in most circumstances,
-which uses a compile-time macro to automatically fill in an implementation like the above.
+It is possible to use the convenience method `mapTo` in most circumstances,
+which uses a compile-time macro to automatically fill in mapping functions.
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #maptotable }
 
-The macro should work for most case classes, even those with hand-written companion
-objects, however there are still come cases where you will have to fall back to the
-above `<>` operator with `(User.apply _).tupled`.
+The macro should work for most case classes, even those with user-defined companion
+objects. However there are still come cases where you will have to use the
+`<>` operator, as described below.
+
+### Arbitrary mapping functions with the `<>` operator
+
+You can also map to arbitrary types by using the `<>` operator. It takes
+two functions as parameters, one for mapping from the raw value (which may
+be a tuple) to the custom type, and one for mapping back.
+
+The API is designed to be optimal for Scala 2 case classes, which generate
+a companion object with a `tupled` method, and an `unapply` method that
+returns an `Option` of the case class.
+
+When using it with arbitrary mapping functions, however, it can be useful
+to call `.shaped` on the column or columns tuple, to get its
+type inferred properly. Otherwise you may have to add full type annotations
+to the mapping functions.
+
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtable }
+
+@@@ note {title="No tupled method?"}
+
+In Scala 2, case classes generate a default companion object that extends a function type. For instance, in the above
+snippet the compiler generates `object User extends ((Option[Int], String, String) => User)`. Since scala function types
+contain a `tupled` method, in the above snippet you could replace `(User.apply _).tupled` with just `User.tupled`.
+However, this is not a given.
+
+  * In Scala 2, if you explicitly define a companion object, it will not automatically extend a function type.
+  * In Scala 3, companions never extend a function type.
+
+The workaround is to lift the `apply` method into a function type, and call `tupled` on that. That is why in the above
+snippet we use `(User.apply _).tupled` instead of `User.tupled`.
+
+Alternatively, you can manually define `.tupled` in the companion object:
+
+```scala
+object User {
+  def tupled = (apply _).tupled
+}
+```
+
+@@@
 
 Constraints
 -----------
