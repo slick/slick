@@ -235,7 +235,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     class ETable(tag: Tag) extends Table[E](tag, "ETABLE") {
       def id = column[Int]("id", O.PrimaryKey)
 
-      def * = (id) <> ((E.apply _), E.unapply)
+      def * = id.<>(E.apply, (e : E) => Option(e.id))
     }
 
     val a = TableQuery[ATable]
@@ -289,7 +289,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       case class F(id: Int)
       class FTable(tag: Tag) extends Table[F](tag, "FTABLE") {
         def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
-        def * = (id) <> (F.apply _, F.unapply)
+        def * = (id) <> (F.apply, (f: F) => Option(f.id))
       }
       val c = TableQuery[CTable]
       val d = TableQuery[DTable]
