@@ -319,6 +319,28 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       }
     }
 
+  def testInertOrUpdateWithAutoIncAndUniqueColumn() =
+    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
+      case class AnimalRow(id: Int, name: String, location: String)
+      class Animals(tag: Tag) extends Table[AnimalRow](tag, "animals") {
+        def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+        def name = column[String]("name", O.Unique, O.Length(100))
+        def location = column[String]("location")
+        def * = (id, name, location).mapTo[AnimalRow]
+      }
+      val animals = TableQuery[Animals]
+      for {
+        _ <- animals.schema.create
+        _ <- animals.insertOrUpdate(AnimalRow(0, "tiger", "NY"))
+        tigerAfterInsert <- animals.filter(_.name === "tiger").result.head
+        _ <- animals.insertOrUpdate(AnimalRow(0, "tiger", "CA"))
+        tigerAfterUpsertByUniqueName <- animals.filter(_.name === "tiger").result.head
+      } yield {
+        tigerAfterInsert.id shouldBe tigerAfterUpsertByUniqueName.id
+        tigerAfterUpsertByUniqueName.location shouldBe "CA"
+      }
+    }
+
   def testInsertOrUpdateAutoInc: DBIOAction[Unit, NoStream, Effect.All] = {
     class T(tag: Tag) extends Table[(Int, String)](tag, "T_MERGE2") {
       def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
