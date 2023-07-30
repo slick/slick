@@ -208,59 +208,62 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()
   }
 
-  def testInsertOrUpdateNotIncrement() = {
-    case class A(id1: Int, id2: Int)
-    class ATable(tag: Tag) extends Table[A](tag, "ATABLE") {
-      def id1 = column[Int]("id1")
+  def testInsertOrUpdateNotIncrement() =
+    if (!tdb.capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
+      DBIO.successful(())
+    } else {
+      case class A(id1: Int, id2: Int)
+      class ATable(tag: Tag) extends Table[A](tag, "ATABLE") {
+        def id1 = column[Int]("id1")
 
-      def id2 = column[Int]("id2")
+        def id2 = column[Int]("id2")
 
-      val pk = primaryKey("pk_for_atable", (id1, id2))
+        val pk = primaryKey("pk_for_atable", (id1, id2))
 
-      def * = (id1, id2) <> ((A.apply _).tupled, A.unapply)
+        def * = (id1, id2) <> ((A.apply _).tupled, A.unapply)
+      }
+      case class B(id1: Int, id2: Int, v: Int)
+      class BTable(tag: Tag) extends Table[B](tag, "BTABLE") {
+        def id1 = column[Int]("id1")
+
+        def id2 = column[Int]("id2")
+
+        def v = column[Int]("v")
+
+        val pk = primaryKey("pk_for_btable", (id1, id2))
+
+        def * = (id1, id2, v) <> ((B.apply _).tupled, B.unapply)
+      }
+      case class E(id: Int)
+      class ETable(tag: Tag) extends Table[E](tag, "ETABLE") {
+        def id = column[Int]("id", O.PrimaryKey)
+
+        def * = id.<>(E.apply, (e : E) => Option(e.id))
+      }
+
+      val a = TableQuery[ATable]
+      val b = TableQuery[BTable]
+      val e = TableQuery[ETable]
+      for {
+        _ <- a.schema.create
+        _ <- a.insertOrUpdate(A(0, 0))
+        _ <- a.insertOrUpdate(A(0, 0))
+        allA <- a.result
+        _ <- b.schema.create
+        _ <- b.insertOrUpdate(B(0, 0, 1))
+        _ <- b.insertOrUpdate(B(0, 0, 2))
+        _ <- b.insertOrUpdate(B(1, 0, 2))
+        allB <- b.result
+        _ <- e.schema.create
+        _ <- e.insertOrUpdate(E(0))
+        _ <- e.insertOrUpdate(E(0))
+        allE <- e.result
+      } yield {
+        allA shouldBe Seq(A(0, 0))
+        allB.toSet shouldBe Set(B(0, 0, 2), B(1, 0, 2))
+        allE shouldBe Seq(E(0))
+      }
     }
-    case class B(id1: Int, id2: Int, v: Int)
-    class BTable(tag: Tag) extends Table[B](tag, "BTABLE") {
-      def id1 = column[Int]("id1")
-
-      def id2 = column[Int]("id2")
-
-      def v = column[Int]("v")
-
-      val pk = primaryKey("pk_for_btable", (id1, id2))
-
-      def * = (id1, id2, v) <> ((B.apply _).tupled, B.unapply)
-    }
-    case class E(id: Int)
-    class ETable(tag: Tag) extends Table[E](tag, "ETABLE") {
-      def id = column[Int]("id", O.PrimaryKey)
-
-      def * = id.<>(E.apply, (e : E) => Option(e.id))
-    }
-
-    val a = TableQuery[ATable]
-    val b = TableQuery[BTable]
-    val e = TableQuery[ETable]
-    for {
-      _ <- a.schema.create
-      _ <- a.insertOrUpdate(A(0, 0))
-      _ <- a.insertOrUpdate(A(0, 0))
-      allA <- a.result
-      _ <- b.schema.create
-      _ <- b.insertOrUpdate(B(0, 0, 1))
-      _ <- b.insertOrUpdate(B(0, 0, 2))
-      _ <- b.insertOrUpdate(B(1, 0, 2))
-      allB <- b.result
-      _ <- e.schema.create
-      _ <- e.insertOrUpdate(E(0))
-      _ <- e.insertOrUpdate(E(0))
-      allE <- e.result
-    } yield {
-      allA shouldBe Seq(A(0, 0))
-      allB.toSet shouldBe Set(B(0, 0, 2), B(1, 0, 2))
-      allE shouldBe Seq(E(0))
-    }
-  }
 
   def testInsertOrUpdateWithInsertedWhen0IsSpecifiedForAutoInc: DBIOAction[Unit, NoStream, Effect.All] =
     if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
