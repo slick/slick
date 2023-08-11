@@ -4,7 +4,7 @@ import sbt.*
 object Dependencies {
   val scala212 = "2.12.18"
   val scala213 = "2.13.11"
-  val scala3 = "3.3.1-RC4"
+  val scala3 = "3.3.1-RC5"
 
   val scalaVersions = Seq(scala212, scala213, scala3) // When updating these also update ci.yml and .mergify.yml
 
@@ -21,7 +21,7 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.3"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.3.9"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.3.11"
   val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
@@ -41,7 +41,7 @@ object Dependencies {
     "org.hsqldb" % "hsqldb" % "2.5.2",
     "org.postgresql" % "postgresql" % "42.6.0",
     "com.mysql" % "mysql-connector-j" % "8.1.0",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.10.0.0",
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.11.0.0",
     "com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"
   )
 
