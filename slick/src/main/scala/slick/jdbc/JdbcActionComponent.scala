@@ -180,7 +180,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
             try prit.close() catch ignoreFollowOnError
             throw ex
         }
-        if(state < 2) this else null
+        if(state < 2) this else null.asInstanceOf[this.type]
       }
       def end = if(state > 1) throw new SlickException("After end of result set") else state > 0
       override def toString = s"Mutator(state = $state, current = $current)"
