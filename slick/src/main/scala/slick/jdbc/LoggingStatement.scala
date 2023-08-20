@@ -6,10 +6,10 @@ import java.net.URL
 import java.sql.{Array as _, *}
 import java.util.Calendar
 
-import scala.collection.compat.*
 import scala.collection.mutable.ArrayBuffer
 
 import slick.jdbc.JdbcBackend.{benchmarkLogger, parameterLogger, statementAndParameterLogger, statementLogger}
+import slick.compat.collection.*
 import slick.util.TableDump
 
 /** A wrapper for `java.sql.Statement` that logs statements and benchmark results

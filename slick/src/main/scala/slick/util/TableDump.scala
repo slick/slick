@@ -1,8 +1,8 @@
 package slick.util
 
-import scala.collection.compat.*
 import scala.collection.mutable.ArrayBuffer
 
+import slick.compat.collection.*
 import slick.util.LogUtil.*
 
 /** Utility methods for creating result set debug output. */

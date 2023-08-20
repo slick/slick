@@ -1,6 +1,5 @@
 package slick.memory
 
-import scala.collection.compat.*
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.existentials
@@ -12,6 +11,7 @@ import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler.*
 import slick.dbio.*
 import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter, ResultConverterCompiler}
+import slick.compat.collection.*
 import slick.util.{??, DumpInfo}
 
 /** A profile for interpreted queries on top of the in-memory database. */
