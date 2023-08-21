@@ -67,5 +67,14 @@ class QueryMethodTest {
     val s12 = ts.filterNotIf(false)(_.myString endsWith "nope").filterNotIf(true)(_.myString === "stack").filterNotIf(true)(_.myString endsWith "yes").result.statements.head
     println(s12)
     assertTrue("filterNotIf stacks", s12 endsWith """where (not ("myString" = 'stack')) and (not ("myString" like '%yes' escape '^'))""")
+
+    val z = Rep.None[Int].getOrElse(0) //https://github.com/slick/slick/issues/2674
+    val s13 = z.result.statements.head
+    println(s13)
+    assertTrue("zero", s13 == "select null")
+
+    def rep1: Rep[Option[Boolean]] = ???
+    def rep2: Rep[Boolean] = ???
+    def rep3: Rep[Boolean] = rep1.getOrElse(rep2) //checking that it compiles https://github.com/slick/slick/issues/2761
   }
 }
