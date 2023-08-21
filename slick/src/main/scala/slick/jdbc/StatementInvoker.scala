@@ -2,9 +2,9 @@ package slick.jdbc
 
 import java.sql.PreparedStatement
 
-import scala.collection.compat.*
 import scala.collection.mutable.ArrayBuffer
 
+import slick.compat.collection.*
 import slick.util.{CloseableIterator, SlickLogger, TableDump}
 
 import org.slf4j.LoggerFactory

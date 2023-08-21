@@ -2,7 +2,6 @@ package slick.memory
 
 import java.util.concurrent.atomic.AtomicLong
 
-import scala.collection.compat.*
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -10,6 +9,7 @@ import slick.SlickException
 import slick.ast.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
+import slick.compat.collection.*
 import slick.util.Logging
 
 import com.typesafe.config.Config

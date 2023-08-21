@@ -12,3 +12,5 @@ Supplier #49: Vector(Supplier(49,Superior Coffee,1 Party Place,Mendocino,CA,9546
 Coffee Colombian: Some(Coffee(Colombian,101,7.99,0,0))
 Deleted 1 rows
 Coffee Colombian: None
+Found all coffees: 4
+Found one coffee: 1

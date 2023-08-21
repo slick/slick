@@ -48,7 +48,13 @@ object PlainSQL {
           },
           coffeeByName("Colombian").map { s =>
             println(s"Coffee Colombian: $s")
-          }
+          },
+          coffeesByName(None).map { s =>
+            println(s"Found all coffees: ${s.size}")
+          },
+          coffeesByName(Some("Espresso")).map { s =>
+            println(s"Found one coffee: ${s.size}")
+          },
         )
         db.run(a)
       }
@@ -141,6 +147,12 @@ object PlainSQL {
       val table = "coffees"
       sql"select * from #$table where name = $name".as[Coffee].headOption
       //#literal
+    }
+
+    def coffeesByName(name: Option[String]): DBIO[Seq[Coffee]] = {
+      //#concat
+      (sql"select * from coffees where " concat name.fold(sql"true")(name => sql"name = $name")).as[Coffee]
+      //#concat
     }
 
     def deleteCoffee(name: String): DBIO[Int] =

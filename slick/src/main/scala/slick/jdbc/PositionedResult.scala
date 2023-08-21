@@ -3,8 +3,7 @@ package slick.jdbc
 import java.io.Closeable
 import java.sql.{Blob, Clob, Date, ResultSet, Time, Timestamp, Array as _}
 
-import scala.collection.compat.*
-
+import slick.compat.collection.*
 import slick.util.{CloseableIterator, ReadAheadIterator}
 
 /**

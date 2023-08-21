@@ -3,9 +3,9 @@ package slick.util
 import java.util.Arrays
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.compat.*
 import scala.collection.immutable
 import scala.reflect.ClassTag
+import slick.compat.collection.*
 import scala.util.hashing.MurmurHash3
 
 /** An efficient immutable array implementation which is used in the AST. Semantics are generally

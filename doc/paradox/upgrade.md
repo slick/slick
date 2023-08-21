@@ -35,6 +35,19 @@ Upgrade from 3.4.x to 3.5.0
 - `SynchronousDatabaseAction` has 5 type parameters instead of 4. See for instance
   https://github.com/tminglei/slick-pg/pull/651/files#diff-208b921209dd4b53867be1f55f1fa054d81f6473575ae4b7efd960a3d8c7a298L17
 
+### Dependency upgrades
+
+Slick 3.5.x drops [scala-collection-compat](https://github.com/scala/scala-collection-compat) for Scala versions
+2.13 and higher. This shouldn't affect end users unless you happen to be transitively relying on
+`scala-collection-compat` on a version of Scala 2.13 or higher. If this is the case then it's recommended to migrate
+your codebase away from `scala-collection-compat`, otherwise if this is not possible then you can just add the
+
+```sbt
+"org.scala-lang.modules" %% "scala-collection-compat" % "2.10.0"
+```
+
+dependency manually.
+
 Upgrade from 3.3.x to 3.4.0
 -----------------------
 

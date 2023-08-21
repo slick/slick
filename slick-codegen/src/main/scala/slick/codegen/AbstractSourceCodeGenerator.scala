@@ -1,12 +1,12 @@
 package slick.codegen
 
-import scala.collection.compat.*
 
 import slick.{SlickException, model as m}
 import slick.ast.ColumnOption
 import slick.model.ForeignKeyAction
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
+import slick.compat.collection.*
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)
@@ -319,8 +319,8 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
           else if(!p.model.nullable && f.model.nullable) (s"Rep.Some($pk)", fk)
           else (pk, fk)
         }.unzip
-        val fkExpr = compoundValue(fkColumns)
-        val pkExpr = compoundValue(pkColumns)
+        val fkExpr = compoundValue(fkColumns.toSeq)
+        val pkExpr = compoundValue(pkColumns.toSeq)
         s"lazy val $name = " +
           s"""foreignKey("$dbName", $fkExpr, $pkTable)(r => $pkExpr, onUpdate=$onUpdate, onDelete=$onDelete)"""
       }

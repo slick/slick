@@ -2,13 +2,13 @@ package slick.memory
 
 import java.util.regex.Pattern
 
-import scala.collection.compat.*
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.typeToTypeUtil
+import slick.compat.collection.*
 import slick.util.{ConstArray, Logging, SlickLogger}
 
 import org.slf4j.LoggerFactory

@@ -3,12 +3,12 @@ package slick.lifted
 
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.compat.*
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 import slick.SlickException
 import slick.ast.*
+import slick.compat.collection.*
 import slick.util.{ConstArray, ProductWrapper, TupleSupport}
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a

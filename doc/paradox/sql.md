@@ -95,6 +95,13 @@ this purpose, as shown in the following piece of code:
 
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #literal }
 
+Concatenating SQL statements
+-----------------------
+
+It is possible to combine partial SQL statements using `concat` method:
+
+@@snip [PlainSQL.scala](../code/PlainSQL.scala) { #concat }
+
 Type-Checked SQL Statements
 ---------------------------
 

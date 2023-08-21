@@ -1,4 +1,5 @@
 import sbt.*
+import sbt.Keys.scalaVersion
 
 /** Dependencies for reuse in different parts of the build */
 object Dependencies {
@@ -13,9 +14,17 @@ object Dependencies {
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.11.0"
 
-  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, scalaCollectionCompat)
+  val scalaCollectionCompat = Def.setting {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, n)) if n == 12 =>
+        Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.11.0")
+      case _ =>
+        Seq.empty
+    }
+  }
+
+  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",
