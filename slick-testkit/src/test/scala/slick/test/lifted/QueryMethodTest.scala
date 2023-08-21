@@ -67,5 +67,9 @@ class QueryMethodTest {
     val s12 = ts.filterNotIf(false)(_.myString endsWith "nope").filterNotIf(true)(_.myString === "stack").filterNotIf(true)(_.myString endsWith "yes").result.statements.head
     println(s12)
     assertTrue("filterNotIf stacks", s12 endsWith """where (not ("myString" = 'stack')) and (not ("myString" like '%yes' escape '^'))""")
+
+    val z = Rep.None[Int].getOrElse(0)
+    println(z.result.statements.head)
+    assertTrue("zero", z.result.statements.head == "select null")
   }
 }
