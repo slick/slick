@@ -1,11 +1,11 @@
 package slick.ast
 
-import scala.collection.compat.immutable.LazyList
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
 import slick.SlickException
 import slick.ast.TypeUtil.*
+import slick.compat.collection.LazyList
 import slick.util.{ConstArray, Dumpable, DumpInfo, GlobalConfig}
 
 /** A node in the Slick AST.

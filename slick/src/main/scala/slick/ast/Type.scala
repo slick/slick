@@ -1,13 +1,13 @@
 package slick.ast
 
 import scala.annotation.{implicitNotFound, tailrec}
-import scala.collection.compat.*
 import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.reflect.{ClassTag, classTag as mkClassTag}
 
 import slick.SlickException
 import slick.util.{ConstArray, Dumpable, DumpInfo, TupleSupport}
+import slick.compat.collection.*
 
 /** Super-trait for all types */
 trait Type extends Dumpable {
