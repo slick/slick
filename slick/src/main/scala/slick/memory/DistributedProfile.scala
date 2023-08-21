@@ -1,6 +1,5 @@
 package slick.memory
 
-import scala.collection.compat.*
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -11,6 +10,7 @@ import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler.*
 import slick.dbio.*
 import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter}
+import slick.compat.collection.*
 import slick.util.{??, DumpInfo, RefId}
 
 /** A profile for distributed queries. */
@@ -106,7 +106,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
         ).toVector)
       case CollectionType(_, elType) =>
         val v = value.asInstanceOf[Iterable[?]]
-        val b = v.iterableFactory.newBuilder[Any]
+        val b = Iterable.newBuilder[Any]
         v.foreach(v => b += wrapScalaValue(v, elType))
         b.result()
       case _ => value

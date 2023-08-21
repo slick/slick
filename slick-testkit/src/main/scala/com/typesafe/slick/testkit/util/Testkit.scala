@@ -4,7 +4,6 @@ import java.lang.reflect.Method
 import java.util.concurrent.{ExecutionException, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.collection.compat.*
 import scala.concurrent.*
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
@@ -19,6 +18,7 @@ import slick.lifted.Rep
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.util.DumpInfo
+import slick.compat.collection.*
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
