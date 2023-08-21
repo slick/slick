@@ -158,18 +158,7 @@ def slickCollectionsCompatSettings = Seq(
   // So that compiled from slickCompatCollections sbt module appear in slick
   (Compile / packageBin / mappings) ++= (slickCompatCollections / Compile / packageBin / mappings).value,
   (Compile / packageSrc / mappings) ++= (slickCompatCollections / Compile / packageSrc / mappings).value,
-  pomPostProcess := { // we need to remove the dependency onto the slickCompatCollections module from the POM
-    import scala.xml.transform._
-    import scala.xml.{NodeSeq, Node => XNode}
-
-    val filter = new RewriteRule {
-      override def transform(n: XNode) =
-        if ((n \ "artifactId").text.contains("slickCompatCollections"))
-          NodeSeq.Empty
-        else n
-    }
-    new RuleTransformer(filter).transform(_).head
-  }
+  projectDependencies := projectDependencies.value.filterNot(_.name.equalsIgnoreCase("slickcompatcollections"))
 )
 
 lazy val slick =
