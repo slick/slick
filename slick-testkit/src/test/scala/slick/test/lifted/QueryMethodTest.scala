@@ -69,7 +69,8 @@ class QueryMethodTest {
     assertTrue("filterNotIf stacks", s12 endsWith """where (not ("myString" = 'stack')) and (not ("myString" like '%yes' escape '^'))""")
 
     val z = Rep.None[Int].getOrElse(0)
-    println(z.result.statements.head)
-    assertTrue("zero", z.result.statements.head == "select null")
+    val s13 = z.result.statements.head
+    println(s13)
+    assertTrue("zero", s13 == "select null")
   }
 }
