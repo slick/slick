@@ -1,9 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
+<<<<<<< HEAD
+=======
+import scala.util.{Failure, Success}
+>>>>>>> 8665e0e1 (Fixed behavior of `insertOrUpdate` on tables with auto_increment option (#2785))
 import slick.jdbc.{DerbyProfile, JdbcCapabilities}
-
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
 
@@ -208,6 +210,139 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()
   }
 
+  def testInsertOrUpdateNotIncrement() =
+    if (!tdb.capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
+      DBIO.successful(())
+    } else {
+      case class A(id1: Int, id2: Int)
+      class ATable(tag: Tag) extends Table[A](tag, "ATABLE") {
+        def id1 = column[Int]("id1")
+
+        def id2 = column[Int]("id2")
+
+        val pk = primaryKey("pk_for_atable", (id1, id2))
+
+        def * = (id1, id2) <> ((A.apply _).tupled, A.unapply)
+      }
+      case class B(id1: Int, id2: Int, v: Int)
+      class BTable(tag: Tag) extends Table[B](tag, "BTABLE") {
+        def id1 = column[Int]("id1")
+
+        def id2 = column[Int]("id2")
+
+        def v = column[Int]("v")
+
+        val pk = primaryKey("pk_for_btable", (id1, id2))
+
+        def * = (id1, id2, v) <> ((B.apply _).tupled, B.unapply)
+      }
+      case class E(id: Int)
+      class ETable(tag: Tag) extends Table[E](tag, "ETABLE") {
+        def id = column[Int]("id", O.PrimaryKey)
+
+        def * = id.<>(E.apply, (e : E) => Option(e.id))
+      }
+
+      val a = TableQuery[ATable]
+      val b = TableQuery[BTable]
+      val e = TableQuery[ETable]
+      for {
+        _ <- a.schema.create
+        _ <- a.insertOrUpdate(A(0, 0))
+        _ <- a.insertOrUpdate(A(0, 0))
+        allA <- a.result
+        _ <- b.schema.create
+        _ <- b.insertOrUpdate(B(0, 0, 1))
+        _ <- b.insertOrUpdate(B(0, 0, 2))
+        _ <- b.insertOrUpdate(B(1, 0, 2))
+        allB <- b.result
+        _ <- e.schema.create
+        _ <- e.insertOrUpdate(E(0))
+        _ <- e.insertOrUpdate(E(0))
+        allE <- e.result
+      } yield {
+        allA shouldBe Seq(A(0, 0))
+        allB.toSet shouldBe Set(B(0, 0, 2), B(1, 0, 2))
+        allE shouldBe Seq(E(0))
+      }
+    }
+
+  def testInsertOrUpdateWithInsertedWhen0IsSpecifiedForAutoInc: DBIOAction[Unit, NoStream, Effect.All] =
+    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
+      case class C(id1: Int, id2: Int)
+      class CTable(tag: Tag) extends Table[C](tag, "CTABLE") {
+        def id1 = column[Int]("id1", O.AutoInc)
+
+        def id2 = column[Int]("id2")
+
+        val pk = primaryKey("pk_for_ctable", (id1, id2))
+
+        def * = (id1, id2) <> ((C.apply _).tupled, C.unapply)
+      }
+      case class D(id1: Int, id2: Int, v: Int)
+      class DTable(tag: Tag) extends Table[D](tag, "DTABLE") {
+        def id1 = column[Int]("id1", O.AutoInc)
+
+          def id2 = column[Int]("id2")
+
+          def v = column[Int]("v")
+
+          val pk = primaryKey("pk_for_dtable", (id1, id2))
+
+          def * = (id1, id2, v) <> ((D.apply _).tupled, D.unapply)
+      }
+      case class F(id: Int)
+      class FTable(tag: Tag) extends Table[F](tag, "FTABLE") {
+        def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+        def * = (id) <> (F.apply, (f: F) => Option(f.id))
+      }
+      val c = TableQuery[CTable]
+      val d = TableQuery[DTable]
+      val f = TableQuery[FTable]
+      for {
+        _ <- sqlu"CREATE TABLE CTABLE(id1 INT AUTO_INCREMENT, id2 INT, PRIMARY KEY(id1, id2))"
+        _ <- c.insertOrUpdate(C(0, 1)) // inserted
+        _ <- c.insertOrUpdate(C(0, 1)) // inserted
+        allC <- c.result
+        _ <- sqlu"CREATE TABLE DTABLE(id1 INT AUTO_INCREMENT, id2 INT, v INT, PRIMARY KEY(id1, id2))"
+        _ <- d.insertOrUpdate(D(0, 0, 1)) // inserted
+        _ <- d.insertOrUpdate(D(0, 0, 2)) // inserted
+        _ <- d.insertOrUpdate(D(0, 0, 2)) // inserted
+        _ <- d.insertOrUpdate(D(1, 0, 1)) // updated
+        allD <- d.result
+        _ <- f.schema.create
+        _ <- f.insertOrUpdate(F(0)) // inserted
+        _ <- f.insertOrUpdate(F(0)) // inserted
+        allF <- f.result
+      } yield {
+        allC.toSet shouldBe Set(C(1, 1), C(2, 1))
+        allD.toSet shouldBe Set(D(1, 0, 1), D(2, 0, 2), D(3, 0, 2))
+        allF.toSet shouldBe Set(F(1), F(2))
+      }
+    }
+
+  def testInertOrUpdateWithAutoIncAndUniqueColumn() =
+    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
+      case class AnimalRow(id: Int, name: String, location: String)
+      class Animals(tag: Tag) extends Table[AnimalRow](tag, "animals") {
+        def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+        def name = column[String]("name", O.Unique, O.Length(100))
+        def location = column[String]("location")
+        def * = (id, name, location).mapTo[AnimalRow]
+      }
+      val animals = TableQuery[Animals]
+      for {
+        _ <- animals.schema.create
+        _ <- animals.insertOrUpdate(AnimalRow(0, "tiger", "NY"))
+        tigerAfterInsert <- animals.filter(_.name === "tiger").result.head
+        _ <- animals.insertOrUpdate(AnimalRow(0, "tiger", "CA"))
+        tigerAfterUpsertByUniqueName <- animals.filter(_.name === "tiger").result.head
+      } yield {
+        tigerAfterInsert.id shouldBe tigerAfterUpsertByUniqueName.id
+        tigerAfterUpsertByUniqueName.location shouldBe "CA"
+      }
+    }
+
   def testInsertOrUpdateAutoInc: DBIOAction[Unit, NoStream, Effect.All] = {
     class T(tag: Tag) extends Table[(Int, String)](tag, "T_MERGE2") {
       def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
@@ -216,7 +351,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def ins = (id, name)
     }
     val ts = TableQuery[T]
-
     (for {
       _ <- ts.schema.create
       _ <- ts ++= Seq((1, "a"), (2, "b"))
@@ -323,4 +457,5 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       }
     )
   } else DBIO.seq()
+
 }

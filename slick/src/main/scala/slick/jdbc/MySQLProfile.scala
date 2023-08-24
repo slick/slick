@@ -266,8 +266,21 @@ trait MySQLProfile extends JdbcProfile { profile =>
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
+<<<<<<< HEAD
       val update = allNames.map(n => s"$n=VALUES($n)").mkString(", ")
       new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
+=======
+      val names = syms.filter(!_.existsColumnOption[ColumnOption.AutoInc.type]).map(_.name)
+      val update =
+        if (names.isEmpty) ""
+        else s"on duplicate key update ${names.map(n => s"$n=VALUES($n)").mkString(", ")}"
+      def makeValues(size: Int) =
+        (1 to size).map(_ => allVars).mkString(",")
+      def makeSql(size: Int) = s"$start values ${makeValues(size)} $update"
+      new InsertBuilderResult(table, makeSql(1), syms) {
+        override def buildMultiRowInsert(size: Int) = makeSql(size)
+      }
+>>>>>>> 8665e0e1 (Fixed behavior of `insertOrUpdate` on tables with auto_increment option (#2785))
     }
   }
 
