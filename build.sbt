@@ -48,6 +48,14 @@ def scaladocSourceUrl(dir: String) =
     )
   }
 
+val scala2InlineSettings = List(
+  "-opt:l:inline",
+  // Code in slick.compat is private and is also not going to change so its safe to inline within this project. Remove
+  // when Scala 2.12 support is dropped along with slick.compat
+  "-opt-inline-from:slick.compat.**",
+  "-opt-inline-from:<sources>"
+)
+
 def slickScalacOptions = Seq(
   scalacOptions ++=
     List(
@@ -56,14 +64,15 @@ def slickScalacOptions = Seq(
       "-unchecked",
       "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
     ) ++ (CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3")
+      case Some((2, 12)) =>
+        List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3") ++ scala2InlineSettings
       case Some((2, 13)) =>
         List(
           "-Xsource:3",
           "-Wunused:imports",
           "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
           "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
-        )
+        ) ++ scala2InlineSettings
       case Some((3, _)) =>
         List("-source:3.0-migration")
       case _ =>
@@ -158,7 +167,8 @@ def slickCollectionsCompatSettings = Seq(
   // So that compiled from slickCompatCollections sbt module appear in slick
   (Compile / packageBin / mappings) ++= (slickCompatCollections / Compile / packageBin / mappings).value,
   (Compile / packageSrc / mappings) ++= (slickCompatCollections / Compile / packageSrc / mappings).value,
-  projectDependencies := projectDependencies.value.filterNot(_.name.equalsIgnoreCase("slickcompatcollections"))
+  projectDependencies := projectDependencies.value.filterNot(_.name.equalsIgnoreCase("slickcompatcollections")),
+  scalacOptions ++= scala2InlineSettings
 )
 
 lazy val slick =
