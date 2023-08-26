@@ -21,6 +21,8 @@ trait TermSymbol extends Symbol
 case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol {
   def findColumnOption[T <: ColumnOption[_]](implicit ct: ClassTag[T]): Option[T] =
     options.find(ct.runtimeClass.isInstance _).asInstanceOf[Option[T]]
+  def existsColumnOption[T <: ColumnOption[_]](implicit ct: ClassTag[T]): Boolean =
+    findColumnOption[T].nonEmpty
 }
 
 /** An element of a ProductNode (using a 1-based index) */
