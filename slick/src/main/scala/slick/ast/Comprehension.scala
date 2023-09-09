@@ -17,7 +17,7 @@ final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
                                                        offset: Option[Node] = None,
                                                        forUpdate: Boolean = false) extends DefNode {
   type Self = Comprehension[Option[Node]]
-  override def self = this
+  override def self: Self = this
   lazy val children =
     (ConstArray.newBuilder() +
       from +

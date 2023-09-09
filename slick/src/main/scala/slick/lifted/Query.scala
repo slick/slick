@@ -264,7 +264,7 @@ sealed trait QueryBase[T] extends Rep[T]
   /** Change the collection type to build when executing the query. */
   def to[D[_]](implicit ctc: TypedCollectionTypeConstructor[D]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped
-    def toNode = CollectionCast(self.toNode, ctc)
+    def toNode: Node = CollectionCast(self.toNode, ctc)
   }
 
   /** Force a subquery to be created when using this Query as part of a larger Query. This method
@@ -285,7 +285,7 @@ object Query {
   /** The empty Query. */
   def empty: Query[Unit, Unit, Seq] = new Query[Unit, Unit, Seq] {
     val toNode = shaped.toNode
-    def shaped = ShapedValue((), Shape.unitShape[FlatShapeLevel])
+    def shaped: ShapedValue[? <: Unit, Unit] = ShapedValue((), Shape.unitShape[FlatShapeLevel])
   }
 
   @inline implicit def queryShape[
