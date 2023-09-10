@@ -42,7 +42,7 @@ object ResultSetInvoker {
 object ResultSetAction {
   def apply[R](f: JdbcBackend#JdbcSessionDef => ResultSet)(implicit conv: PositionedResult => R): BasicStreamingAction[Vector[R], R, Effect.Read] = new StreamingInvokerAction[Vector[R], R, Effect.Read] {
     protected[this] def createInvoker(sql: Iterable[String]) = ResultSetInvoker(f)(conv)
-    protected[this] def createBuilder = Vector.newBuilder[R]
-    def statements = Nil
+    protected[this] def createBuilder: collection.mutable.Builder[R, Vector[R]] = Vector.newBuilder[R]
+    def statements: Iterable[String] = Nil
   }
 }

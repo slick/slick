@@ -175,12 +175,12 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
           def doc  = "Maps whole row to an option. Useful for outer joins."
           override def enabled = optionEnabled
           def code = option
-          def rawName = ???
+          def rawName: String = ???
         }
         def StarDef = new AbstractDef {
           def doc  = ""
           def code = star
-          def rawName = ???
+          def rawName: String = ???
         }
 
         Seq[Seq[AbstractDef]](

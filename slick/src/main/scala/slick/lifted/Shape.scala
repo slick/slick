@@ -64,10 +64,10 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
   implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]
                                                            ): Shape[Level, T, T, ConstColumn[T]] =
     new Shape[Level, T, T, ConstColumn[T]] {
-      def pack(value: Any) = LiteralColumn(value.asInstanceOf[T])
+      def pack(value: Any): Packed = LiteralColumn(value.asInstanceOf[T])
       def packedShape = RepShape[Level, Packed, Unpacked]
       def buildParams(extract: Any => Unpacked): Packed = new ConstColumn[T](new QueryParameter(extract, tm))(tm)
-      def encodeRef(value: Any, path: Node) =
+      def encodeRef(value: Any, path: Node): Any =
         throw new SlickException("Shape does not have the same Mixed and Packed type")
       def toNode(value: Any): Node = pack(value).toNode
     override def toString = s"PrimitiveShape($tm)"
@@ -97,9 +97,9 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Any) = ()
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
-    def buildParams(extract: Any => Unpacked) = ()
-    def encodeRef(value: Any, path: Node) = ()
-    def toNode(value: Any) = ProductNode(ConstArray.empty)
+    def buildParams(extract: Any => Unpacked): Packed = ()
+    def encodeRef(value: Any, path: Node): Any = ()
+    def toNode(value: Any): Node = ProductNode(ConstArray.empty)
     override def toString = s"UnitShape"
   }
 }
@@ -274,7 +274,7 @@ class CaseClassShape[
   override def toMapped(v: Any): PlainCaseClass = mapPlain(v.asInstanceOf[PlainTuple])
   override def buildValue(elems: IndexedSeq[Any]): LiftedCaseClass =
     mapLifted(TupleSupport.buildTuple(elems).asInstanceOf[LiftedTuple])
-  override def copy(s: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]) =
+  override def copy(s: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]): Shape[FlatShapeLevel, ?, ?, ?] =
     new CaseClassShape(mapLifted, mapPlain) {
       override val shapes = s
     }
