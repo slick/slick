@@ -218,9 +218,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         case (rsm @ ResultSetMapping(_, compiled, CompiledMapping(_, elemType))) :@ (ct: CollectionType) =>
           val sql = findSql(compiled)
           new StreamingInvokerAction[R, Any, Effect] { streamingAction =>
-            protected[this] def createInvoker(sql: Iterable[String]) = createQueryInvoker(rsm, param, sql.head)
+            protected[this] def createInvoker(sql: Iterable[String]): Invoker[Any] = createQueryInvoker(rsm, param, sql.head)
             protected[this] def createBuilder = ct.cons.createBuilder(ct.elementType.classTag).asInstanceOf[Builder[Any, R]]
-            def statements = List(sql)
+            def statements: Iterable[String] = List(sql)
             override def getDumpInfo = super.getDumpInfo.copy(name = "result")
           }
         case First(rsm @ ResultSetMapping(_, compiled, _)) =>

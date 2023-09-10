@@ -83,7 +83,7 @@ class AppliedCompiledFunction[PU, R <: Rep[?], RU](val param: PU,
   def compiledQuery = function.compiledQuery
   def compiledUpdate = function.compiledUpdate
   def compiledDelete = function.compiledDelete
-  def compiledInsert = function.compiledInsert
+  def compiledInsert: Any = function.compiledInsert
 }
 
 abstract class CompiledExecutable[R, RU](val extract: R, val profile: BasicProfile)

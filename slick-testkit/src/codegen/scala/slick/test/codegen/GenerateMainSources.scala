@@ -22,7 +22,7 @@ object GenerateMainSources extends TestCodeGenerator {
     new Config("DB2", StandardTestDBs.DB2, "DB2", Seq("/dbs/db2.sql")),
     new Config("DerbyMem", StandardTestDBs.DerbyMem, "DerbyMem", Seq("/dbs/derby.sql")),
     new Config("CG7", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def entityName = {
           case "COFFEES" => "Coff"
           case other => super.entityName(other)
@@ -34,19 +34,19 @@ object GenerateMainSources extends TestCodeGenerator {
         }
         override def code = "trait AA; trait BB\n" + super.code
         override def Table = new Table(_){
-          override def EntityType = new EntityType{
+          override def EntityType: EntityType = new EntityType{
             override def parents = Seq("AA","BB")
           }
-          override def TableClass = new TableClass{
+          override def TableClass: TableClass = new TableClass{
             override def parents = Seq("AA","BB")
           }
         }
       })
     },
     new Config("CG8", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
-          override def EntityType = new EntityType{
+          override def EntityType: EntityType = new EntityType{
             override def enabled = false
           }
           override def mappingEnabled = true
@@ -71,7 +71,7 @@ import CustomTyping.SimpleA
       })
     },
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def autoIncLast = true
           override def Column = new Column(_){
@@ -82,7 +82,7 @@ import CustomTyping.SimpleA
     },
     new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
     new Config("CG11", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
-      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def Column = new Column(_){
             override def asOption = true
@@ -98,7 +98,7 @@ import CustomTyping.SimpleA
         def blob = column[Blob]("blob")
         def * = (id, ba, blob)
       }
-      override def generator =
+      override def generator: slick.dbio.DBIO[SourceCodeGenerator] =
         TableQuery[A].schema.create >>
         tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
       override def testCode =
@@ -146,7 +146,7 @@ import CustomTyping.SimpleA
         def quote = column[String]("x", O.Default("\"\"")) // column name with double quote
         def * = quote
       }
-      override def generator =
+      override def generator: slick.dbio.DBIO[SourceCodeGenerator] =
         TableQuery[A].schema.create >>
         tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
       override def testCode =
@@ -162,7 +162,7 @@ import CustomTyping.SimpleA
     new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql") ){
       override def generator: DBIO[SourceCodeGenerator] =
         tdb.profile.createModel(ignoreInvalidDefaults=false).map(new SourceCodeGenerator(_){
-          override def parentType = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
+          override def parentType: Option[String] = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
           override def code = {
             val testcode =
               """
@@ -223,7 +223,7 @@ import CustomTyping.SimpleA
   //Unified UUID config
   class UUIDConfig(objectName: String, tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String])
     extends Config(objectName, tdb, tdbName, initScripts) {
-    override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+    override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
       override def Table = new Table(_) {
         override def Column = new Column(_){
           override def defaultCode: Any => String = {

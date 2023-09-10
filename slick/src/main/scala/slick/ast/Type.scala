@@ -263,7 +263,7 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
 trait TypedType[T] extends Type { self =>
   def optionType: OptionTypedType[T] = new OptionTypedType[T] {
     val elementType = self
-    def scalaType = new ScalaOptionType[T](self.scalaType)
+    def scalaType: ScalaType[Option[T]] = new ScalaOptionType[T](self.scalaType)
     def mapChildren(f: Type => Type): Type = {
       val e2 = f(elementType)
       if(e2 eq elementType) this
