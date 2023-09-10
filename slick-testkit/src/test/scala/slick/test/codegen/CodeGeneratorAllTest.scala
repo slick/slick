@@ -49,7 +49,7 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
       // override table generator
       override def Table = new Table(_){
         // disable entity class generation and mapping
-        override def EntityType = new EntityType{
+        override def EntityType: EntityType = new EntityType{
           override def classEnabled = false
         }
 
