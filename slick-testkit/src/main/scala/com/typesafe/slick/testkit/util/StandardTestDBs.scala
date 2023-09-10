@@ -28,7 +28,7 @@ object StandardTestDBs {
   lazy val H2Rownum = new H2TestDB("h2rownum", false) {
     val url = "jdbc:h2:mem:test_rownum"
     override def isPersistent = false
-    override val profile = new H2Profile {
+    override val profile: Profile = new H2Profile {
       override protected def computeQueryCompiler =
         super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
     }
@@ -110,7 +110,7 @@ object StandardTestDBs {
   }
 
   lazy val Postgres = new ExternalJdbcTestDB("postgres") {
-    val profile = PostgresProfile
+    val profile: Profile = PostgresProfile
     override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
       ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "public", null, null))
         .map(_.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted)
@@ -121,7 +121,7 @@ object StandardTestDBs {
   }
 
   lazy val MySQL = new ExternalJdbcTestDB("mysql") {
-    val profile = MySQLProfile
+    val profile: Profile = MySQLProfile
     // Recreating the DB is faster than dropping everything individually
     override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
@@ -138,13 +138,13 @@ object StandardTestDBs {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))
     }
-    def assertTablesExist(tables: String*) = profile.api.SimpleDBIO { ctx =>
+    def assertTablesExist(tables: String*): DBIO[Unit] = profile.api.SimpleDBIO { ctx =>
       val all = ctx.session.database.getTables.map(_.name).toSet
       for(t <- tables) {
         if(!all.contains(t)) Assert.fail("Table "+t+" should exist")
       }
     }
-    def assertNotTablesExist(tables: String*) = profile.api.SimpleDBIO { ctx =>
+    def assertNotTablesExist(tables: String*): DBIO[Unit] = profile.api.SimpleDBIO { ctx =>
       val all = ctx.session.database.getTables.map(_.name).toSet
       for(t <- tables) {
         if(all.contains(t)) Assert.fail("Table "+t+" should not exist")
@@ -153,7 +153,7 @@ object StandardTestDBs {
   }
 
   lazy val DB2 = new ExternalJdbcTestDB("db2") {
-    val profile = DB2Profile
+    val profile: Profile = DB2Profile
     import profile.api.actionBasedSQLInterpolation
 
     override def canGetLocalTables = false
@@ -221,7 +221,7 @@ object StandardTestDBs {
   }
 
   lazy val Oracle = new ExternalJdbcTestDB("oracle") {
-    val profile = OracleProfile
+    val profile: Profile = OracleProfile
     import profile.api.actionBasedSQLInterpolation
 
     override def canGetLocalTables = false
