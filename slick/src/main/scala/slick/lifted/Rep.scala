@@ -50,7 +50,7 @@ object Rep {
 
   def columnPlaceholder[T : TypedType]: Rep[T] = new Rep[T] {
     def encodeRef(path: Node): Rep[T] = Rep.forNode[T](path)
-    def toNode = throw new SlickException("Internal error: Cannot get Node from Rep.columnPlaceholder")
+    def toNode: Node = throw new SlickException("Internal error: Cannot get Node from Rep.columnPlaceholder")
   }
 
   /** Lift a value inside a `Rep` into a `Some` Option value. */
