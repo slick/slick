@@ -377,8 +377,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
     // A Shape that maps Pair to a ProductNode
     final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
-      def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
-      def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
+      def buildValue(elems: IndexedSeq[Any]): Any = Pair(elems(0), elems(1))
+      def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]): Shape[Level, _, _, _] = new PairShape(shapes)
     }
     implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]): PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]] =
       new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))

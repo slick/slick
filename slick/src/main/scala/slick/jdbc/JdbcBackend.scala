@@ -28,7 +28,7 @@ trait JdbcBackend extends RelationalBackend {
   type Context = JdbcActionContext
   type StreamingContext = JdbcStreamingActionContext
 
-  val Database = new DatabaseFactoryDef {}
+  val Database: DatabaseFactory = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
 
   def createDatabase(config: Config, path: String): Database = Database.forConfig(path, config)

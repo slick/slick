@@ -137,7 +137,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
         "This may be an initialization order problem. "+
         "When using a MappedColumnType, you may want to change it from a val to a lazy val or def.")
       new Rep.TypedRep[C] {
-        override def toNode =
+        override def toNode: Node =
           Select(tableTag match {
             case r: RefTag => r.path
             case _ => tableNode
