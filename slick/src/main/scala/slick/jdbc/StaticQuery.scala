@@ -61,13 +61,13 @@ object SQLActionBuilder {
 case class SQLActionBuilder(sql: String, setParameter: SetParameter[Unit]) {
   def as[R](implicit getResult: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
     new StreamingInvokerAction[Vector[R], R, Effect] {
-      def statements = List(sql)
-      protected[this] def createInvoker(statements: Iterable[String]) = new StatementInvoker[R] {
+      def statements: Iterable[String] = List(sql)
+      protected[this] def createInvoker(statements: Iterable[String]): Invoker[R] = new StatementInvoker[R] {
         val getStatement                                    = statements.head
         protected def setParam(st: PreparedStatement)       = setParameter((), new PositionedParameters(st))
         protected def extractValue(rs: PositionedResult): R = getResult(rs)
       }
-      protected[this] def createBuilder = Vector.newBuilder[R]
+      protected[this] def createBuilder: collection.mutable.Builder[R, Vector[R]] = Vector.newBuilder[R]
     }
   }
   def asUpdate = as[Int](GetResult.GetUpdateValue).head

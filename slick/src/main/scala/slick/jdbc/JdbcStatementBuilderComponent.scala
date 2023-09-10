@@ -116,7 +116,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
-    val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
+    val symbolName: SymbolNamer = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new mutable.HashMap[TermSymbol, Join]
     protected var currentUniqueFrom: Option[TermSymbol] = None
 

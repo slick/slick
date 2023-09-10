@@ -185,7 +185,7 @@ object DBIOAction {
             g.foreach(a => b += a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, BasicBackend#BasicActionContext, BasicBackend#BasicStreamingActionContext, E]].run(context))
             b.result()
           }
-          override def nonFusedEquivalentAction = SequenceAction[R, M[R], E](g)
+          override def nonFusedEquivalentAction: DBIOAction[M[R], NoStream, E] = SequenceAction[R, M[R], E](g)
         }
       } else SequenceAction[R, M[R], E](g)
     }
@@ -193,9 +193,9 @@ object DBIOAction {
       if(g.length == 1) {
         if(g.head.isInstanceOf[SynchronousDatabaseAction[_, _, _, _, _]]) { // fuse synchronous group
           new SynchronousDatabaseAction.Fused[Seq[R], NoStream, BasicBackend#BasicActionContext, BasicBackend#BasicStreamingActionContext, E] {
-            def run(context: BasicBackend#BasicActionContext) =
+            def run(context: BasicBackend#BasicActionContext): Seq[R] =
               g.head.asInstanceOf[SynchronousDatabaseAction[R, NoStream, BasicBackend#BasicActionContext, BasicBackend#BasicStreamingActionContext, E]].run(context) :: Nil
-            override def nonFusedEquivalentAction = g.head.map(_ :: Nil)
+            override def nonFusedEquivalentAction: DBIOAction[Seq[R], NoStream, E] = g.head.map(_ :: Nil)
           }
         } else g.head.map(_ :: Nil)
       } else {
@@ -206,7 +206,7 @@ object DBIOAction {
               g.foreach(a => b += a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, BasicBackend#BasicActionContext, BasicBackend#BasicStreamingActionContext, E]].run(context))
               b.toIndexedSeq
             }
-            override def nonFusedEquivalentAction = SequenceAction[R, Seq[R], E](g)
+            override def nonFusedEquivalentAction: DBIOAction[Seq[R], NoStream, E] = SequenceAction[R, Seq[R], E](g)
           }
         } else SequenceAction[R, Seq[R], E](g)
       }
@@ -237,7 +237,7 @@ object DBIOAction {
         def run(context: BasicBackend#BasicActionContext) = {
           g.foreach(_.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, BasicBackend#BasicActionContext, BasicBackend#BasicStreamingActionContext, E]].run(context))
         }
-        override def nonFusedEquivalentAction = AndThenAction[Unit, NoStream, E](g)
+        override def nonFusedEquivalentAction: DBIOAction[Unit, NoStream, E] = AndThenAction[Unit, NoStream, E](g)
       }
     }
     if(actions.isEmpty) DBIO.successful(()) else {
