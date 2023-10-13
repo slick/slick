@@ -38,22 +38,22 @@ class SourceCodeGenerator(model: m.Model)
     // Using defs instead of (caching) lazy vals here to provide consitent interface to the user.
     // Performance should really not be critical in the code generator. Models shouldn't be huge.
     // Also lazy vals don't inherit docs from defs
-    type EntityType     =     AbstractSourceCodeEntityTypeDef
-    def  EntityType     = new EntityType {}
-    type PlainSqlMapper =     AbstractSourceCodePlainSqlMapperDef
-    def  PlainSqlMapper = new PlainSqlMapper {}
-    type TableClass     =     AbstractSourceCodeTableClassDef
-    def  TableClass     = new TableClass {}
-    type TableValue     =     AbstractSourceCodeTableValueDef
-    def  TableValue     = new TableValue {}
-    type Column         =     AbstractSourceCodeColumnDef
-    def  Column         = new Column(_)
-    type PrimaryKey     =     AbstractSourceCodePrimaryKeyDef
-    def  PrimaryKey     = new PrimaryKey(_)
-    type ForeignKey     =     AbstractSourceCodeForeignKeyDef
-    def  ForeignKey     = new ForeignKey(_)
-    type Index          =     AbstractSourceCodeIndexDef
-    def  Index          = new Index(_)
+    type EntityType                     = AbstractSourceCodeEntityTypeDef
+    def  EntityType: EntityType         = new EntityType {}
+    type PlainSqlMapper                 = AbstractSourceCodePlainSqlMapperDef
+    def  PlainSqlMapper: PlainSqlMapper = new PlainSqlMapper {}
+    type TableClass                     = AbstractSourceCodeTableClassDef
+    def  TableClass: TableClass         = new TableClass {}
+    type TableValue                     = AbstractSourceCodeTableValueDef
+    def  TableValue: TableValue         = new TableValue {}
+    type Column                         = AbstractSourceCodeColumnDef
+    def  Column                         = new Column(_)
+    type PrimaryKey                     = AbstractSourceCodePrimaryKeyDef
+    def  PrimaryKey                     = new PrimaryKey(_)
+    type ForeignKey                     = AbstractSourceCodeForeignKeyDef
+    def  ForeignKey                     = new ForeignKey(_)
+    type Index                          = AbstractSourceCodeIndexDef
+    def  Index                          = new Index(_)
   }
 }
 

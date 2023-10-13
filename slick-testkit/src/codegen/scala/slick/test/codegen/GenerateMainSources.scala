@@ -193,8 +193,8 @@ import CustomTyping.SimpleA
                 |  )
               """.stripMargin
             s"""
-               |lazy val tdb = $fullTdbName
-               |def test = {
+               |lazy val tdb: $fullTdbName.type = $fullTdbName
+               |def test: slick.dbio.DBIO[Any] = {
                |  import org.junit.Assert._
                |  import scala.concurrent.ExecutionContext.Implicits.global
                |  $testcode
