@@ -37,12 +37,6 @@ jobs:
 
     - run: sbt clean compile
 
-    - name: Hide old compatibility changes report
-      uses: int128/hide-comment-action@v1.25.0
-      with:
-        authors: 'github-actions[bot]'
-        contains: '## Incompatible changes'
-
     - name: Generate compatibility changes report
       id: createReport
       run: |
