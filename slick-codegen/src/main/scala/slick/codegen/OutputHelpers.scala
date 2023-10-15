@@ -112,8 +112,11 @@ trait ${container}Root {
 package ${pkg}
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
-object ${container} extends ${container} {
-  val profile = $profile
+
+object ${container} extends ${container}Profile with ${container}
+
+trait ${container}Profile {
+  val profile: slick.jdbc.JdbcProfile = $profile
 }
 
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
@@ -140,8 +143,10 @@ trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
 package ${pkg}
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
-object ${container} extends ${container} {
-  val profile = $profile
+object ${container} extends ${container}Profile with ${container}
+
+trait ${container}Profile {
+  val profile: slick.jdbc.JdbcProfile = $profile
 }
 
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.)
