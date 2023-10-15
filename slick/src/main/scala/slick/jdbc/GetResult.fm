@@ -52,7 +52,7 @@ object GetResult {
     const(())
 
   private[jdbc] object GetUpdateValue extends GetResult[Int] {
-    def apply(pr: PositionedResult) =
+    def apply(pr: PositionedResult): Int =
       throw new SlickException("Update statements should not return a ResultSet")
   }
 
