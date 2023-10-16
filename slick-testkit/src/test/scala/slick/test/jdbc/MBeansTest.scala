@@ -36,7 +36,7 @@ class MBeansTest {
       mbeanServer.getMBeanInfo(poolBeanName)
       mbeanServer.getMBeanInfo(poolConfigBeanName)
 
-      Await.result(db.run(sqlu"""create alias sleep for "java.lang.Thread.sleep""""), Duration(10, TimeUnit.SECONDS))
+      Await.result(db.run(sqlu"""create alias sleep for "java.lang.Thread.sleep(long)""""), Duration(10, TimeUnit.SECONDS))
 
       assertEquals(1, mbeanServer.getAttribute(aeBeanName, "MaxThreads"))
       mbeanServer.getAttribute(aeBeanName, "ActiveThreads") // we expect 1, since minThreads == maxThreads
