@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        java: [ 8, 17 ]
+        java: [ 8, 21 ]
         scala: [ 2.12.x, 2.13.x, 3.x ]
 
     services:
