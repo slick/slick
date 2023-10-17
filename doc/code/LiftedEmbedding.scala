@@ -8,6 +8,7 @@ import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
 import slick.jdbc.H2Profile.api.*
+import slick.lifted.ProvenShape
 //#imports
 
 object LiftedEmbedding {
@@ -101,7 +102,7 @@ object LiftedEmbedding {
         extends Table[(String, Int, Double, Int, Int)](tag, Some("MYSCHEMA"), "COFFEES") {
         //...
         //#schemaname
-        def * = ???
+        def * : ProvenShape[(String, Int, Double, Int, Int)] = ???
         def name = column[String]("NAME")
         //#schemaname
       }
@@ -579,8 +580,8 @@ object LiftedEmbedding {
         final class PairShape[Level <: ShapeLevel, M <: Pair[_, _], U <: Pair[_, _] : ClassTag, P <: Pair[_, _]](
                                                                                                                   val shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]])
           extends MappedScalaProductShape[Level, Pair[_, _], M, U, P] {
-          def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
-          def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
+          def buildValue(elems: IndexedSeq[Any]): Any = Pair(elems(0), elems(1))
+          def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]): Shape[Level, _, _, _] = new PairShape(shapes)
         }
 
         implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](
