@@ -7,6 +7,7 @@ import scala.concurrent.duration.Duration
 
 import slick.relational.RelationalProfile
 
+import org.reactivestreams.Publisher
 import org.reactivestreams.tck.*
 import org.scalatestplus.testng.TestNGSuiteLike
 import org.testng.annotations.{AfterClass, BeforeClass}
@@ -41,9 +42,9 @@ abstract class RelationalPublisherTest[P <: RelationalProfile](val profile: P, t
   @AfterClass def tearDownDB(): Unit =
     db.close()
 
-  def createPublisher(elements: Long) =
+  def createPublisher(elements: Long): Publisher[Int] =
     db.stream(data.filter(_.id <= elements.toInt).sortBy(_.id).result)
 
-  def createFailedPublisher =
+  def createFailedPublisher: Publisher[Int] =
     db.stream(dataErr.result)
 }
