@@ -4,7 +4,7 @@ import slick.ast.Library.AggregateFunctionSymbol
 import slick.ast.TypeUtil._
 import slick.ast.Util._
 import slick.ast._
-import slick.util.ConstArray
+import slick.util.{ConstArray, Logging}
 
 /** Rewrite aggregation function calls to Aggregate nodes. */
 class CreateAggregates extends Phase {
@@ -22,10 +22,10 @@ class CreateAggregates extends Phase {
             case _ => Select(Ref(s) :@ elType, els.head._1) :@ els.head._2
           }))(n.nodeType)).infer()
           logger.debug("Converted aggregation function application", a)
-          inlineMap(a)
+          CreateAggregates.inlineMap(a)
 
         case n @ Bind(s1, from1, Pure(sel1, ts1)) if !from1.isInstanceOf[GroupBy] =>
-          val (sel2, temp) = liftAggregates(sel1, s1)
+          val (sel2, temp) = CreateAggregates.liftAggregates(sel1, s1)
           if(temp.isEmpty) n else {
             logger.debug("Lifting aggregates into join in:", n)
             logger.debug("New mapping with temporary refs:", sel2)
@@ -59,7 +59,9 @@ class CreateAggregates extends Phase {
       }, keepType = true, bottomUp = true))
     else state
   }
+}
 
+object CreateAggregates extends Logging {
   /** Recursively inline mapping Bind calls under an Aggregate */
   def inlineMap(a: Aggregate): Aggregate = a.from match {
     case Bind(s1, f1, Pure(StructNode(defs1), ts1)) if !f1.isInstanceOf[GroupBy] => // mergeToComprehensions always needs a Bind around a GroupBy

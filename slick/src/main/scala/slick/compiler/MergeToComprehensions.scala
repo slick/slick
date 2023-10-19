@@ -109,10 +109,26 @@ class MergeToComprehensions extends Phase {
 
     /** Merge GroupBy into an existing Comprehension or create new Comprehension from non-grouping Aggregation */
     def mergeGroupBy(n: Node, buildBase: Boolean): (Comprehension.Base, Replacements) = n match {
-      case Bind(s1, GroupBy(_, f1, b1, _), Pure(str1, ts2)) =>
-        val (c1, replacements1) = mergeFilterWhere(f1, buildBase = true)
+      case Bind(s1, GroupBy(_, f1, b1, _), Pure(str0, ts2)) =>
         logger.debug("Merging GroupBy into Comprehension:", Ellipsis(n, List(0, 0)))
+        val str1 = str0.replace {
+          case a@Aggregate(_, fi@Filter(_, from, where), ap: Apply) =>
+            //replace aggregate filters with Case as it is supported by most dbs
+            logger.debug("Replacing Filter on Aggregate with Case:", a)
+            val thenElse = IfThenElse(ConstArray(where) ++ ap.children :+ LiteralNode(null))
+            val select = ap.withChildren(ConstArray(thenElse))
+            val replaced = a.copy(from = from, select = select).replace {
+              case FwdPath(f :: rest) if f == fi.generator =>
+                FwdPath(a.sym +: rest)
+            } match {
+              case a: Aggregate => a
+            }
+            logger.debug("Replaced Filter on Aggregate with Case:", replaced)
+            val inlined = CreateAggregates.inlineMap(replaced)
+            inlined.infer()
+        }
         val (c1a, replacements1a, b2a) = {
+          val (c1, replacements1) = mergeFilterWhere(f1, buildBase = true)
           val b2 = applyReplacements(b1, replacements1, c1)
           // Check whether groupBy keys containing bind variables are returned for further use
           // and push the current Comprehension into a subquery if this is the case.
