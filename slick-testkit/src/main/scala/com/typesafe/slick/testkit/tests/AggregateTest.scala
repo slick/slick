@@ -313,6 +313,36 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testFilteredGroupBy = {
+    class A(tag: Tag) extends Table[(Int, Int)](tag, "A_FILTEREDGROUPBY") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def value = column[Int]("value")
+      def * = (id, value)
+    }
+    val as = TableQuery[A]
+    val q0 = as.groupBy(_.value).map(_._2.map(x => Case.If(x.id > 1).Then(x.value)).countDistinct)
+    val q1 = as.groupBy(_.value).map(_._2.filter(_.id > 1).length)
+    val q2 = as.groupBy(_.value).map(_._2.filter(_.id > 1).map(_.value + 1).sum)
+    val q3 = as.groupBy(_.value).map(_._2.filter(_.id > 1).map(_.value).countDistinct)
+    val q4 = as.groupBy(_.value).map(_._2.map(_.id).filter(_ > 1).sum)
+    val q5 = as.groupBy(_.value).map(_._2.map(identity).map(_.id).filter(_ > 1).map(_ + 1).sum)
+    val q6 = as.groupBy(_.value).map(_._2.map(x => (x.id + 1, x.id + x.value)).filter(x => x._1 > 2 && x._2 < 25).map(x => x._1 * x._2).sum)
+    val q7 = as.groupBy(_.value).map { x => (x._1, x._2.filter(_.id > 2).length, x._2.filter(_.id < 2).map(_.value).sum) }
+
+    DBIO.seq(
+      as.schema.create,
+      as ++= Seq((1, 10), (2, 20), (3, 20)),
+      mark("q0", q0.result).map(_.toSet shouldBe Set(0, 1)),
+      mark("q1", q1.result).map(_.toSet shouldBe Set(0, 2)),
+      mark("q2", q2.result).map(_.toSet shouldBe Set(None, Some(42))),
+      mark("q3", q3.result).map(_.toSet shouldBe Set(0, 1)),
+      mark("q4", q4.result).map(_.toSet shouldBe Set(None, Some(5))),
+      mark("q5", q5.result).map(_.toSet shouldBe Set(None, Some(7))),
+      mark("q6", q6.result).map(_.toSet shouldBe Set(None, Some(158))),
+      mark("q7", q7.result).map(_.toSet shouldBe Set((20,1,None), (10,0,Some(10)))),
+    )
+  }
+
   def testDistinct = {
     class A(tag: Tag) extends Table[String](tag, "A_DISTINCT") {
       def id = column[Int]("id", O.PrimaryKey)
