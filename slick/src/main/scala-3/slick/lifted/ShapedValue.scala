@@ -17,15 +17,15 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
   def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
   def <>[R : ClassTag, T](f: (U => R), g: (R => T))(implicit tt: ToTuple[T, U]) =
-    new MappedProjection[R, U](shape.toNode(value), MappedScalaType.Mapper(g.andThen(tt.apply).andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
+    new MappedProjection[R](shape.toNode(value), MappedScalaType.Mapper(g.andThen(tt.apply).andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
   @inline def shaped: ShapedValue[T, U] = this
 
-  inline def mapTo[R]: MappedProjection[R, U] = ${ ShapedValue.mapToExpr[R, T, U]('{this}) }
+  inline def mapTo[R]: MappedProjection[R] = ${ ShapedValue.mapToExpr[R, T, U]('{this}) }
   override def toString = s"ShapedValue($value, $shape)"
 }
 
 object ShapedValue {
-  def mapToExpr[R : Type, T : Type, U : Type](sv: Expr[ShapedValue[T, U]])(using Quotes): Expr[MappedProjection[R, U]] = {
+  def mapToExpr[R : Type, T : Type, U : Type](sv: Expr[ShapedValue[T, U]])(using Quotes): Expr[MappedProjection[R]] = {
     import quotes.reflect._
     val rtpe = summon[Type[R]]
     val utpe = summon[Type[U]]
@@ -76,7 +76,7 @@ object ShapedValue {
       report.errorAndAbort(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
     }
 
-    '{ new MappedProjection[R, U]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
+    '{ new MappedProjection[R]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
   }
 
   // Turn ConstColumn into Rep at the top level on Dotty to avoid ClassCastExceptions
