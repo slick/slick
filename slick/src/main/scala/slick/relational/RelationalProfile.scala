@@ -44,8 +44,8 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
 
-    implicit def fastPathExtensionMethods[T, P](mp: MappedProjection[T, P]): FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T, P] =
-      new FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T, P](mp)
+    implicit def fastPathExtensionMethods[T](mp: MappedProjection[T]): FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T] =
+      new FastPathExtensionMethods[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T](mp)
   }
 
   val api: RelationalAPI
@@ -77,11 +77,13 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     * can make it fully asynchronous. */
   def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R
 
-  class FastPathExtensionMethods[R, W, U, T, P](val mp: MappedProjection[T, P]) {
-    def fastPath(fpf: (TypeMappingResultConverter[R, W, U, T, _] => SimpleFastPathResultConverter[R, W, U, T])): MappedProjection[T, P] = mp.genericFastPath {
+  class FastPathExtensionMethods[R, W, U, T](val mp: MappedProjection[T]) {
+    def fastPath(fpf: TypeMappingResultConverter[R, W, U, T, ?] => SimpleFastPathResultConverter[R, W, U, T]
+                ): MappedProjection[T] = mp.genericFastPath {
       case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _, _, _], _, _) =>
-        fpf(tm.asInstanceOf[TypeMappingResultConverter[R, W, U, T, _]])
-      case tm => tm
+        fpf(tm.asInstanceOf[TypeMappingResultConverter[R, W, U, T, ?]])
+      case tm                                                                           =>
+        tm
     }
   }
 }
