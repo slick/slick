@@ -15,10 +15,10 @@ case class ShapedValue[T, U](value: T, shape: Shape[? <: FlatShapeLevel, T, U, ?
   def toNode = shape.toNode(value)
   def packedValue[R](implicit ev: Shape[? <: FlatShapeLevel, T, ?, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, ?]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
-  def <>[R : ClassTag](f: U => R, g: R => Option[U]) = new MappedProjection[R, U](shape.toNode(value), MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
+  def <>[R : ClassTag](f: U => R, g: R => Option[U]) = new MappedProjection[R](shape.toNode(value), MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
   @inline def shaped: ShapedValue[T, U] = this
 
-  def mapTo[R <: Product & Serializable](implicit rCT: ClassTag[R]): MappedProjection[R, U] = macro ShapedValue.mapToImpl[R, U]
+  def mapTo[R <: Product & Serializable](implicit rCT: ClassTag[R]): MappedProjection[R] = macro ShapedValue.mapToImpl[R, U]
   override def toString = s"ShapedValue($value, $shape)"
 }
 
@@ -88,7 +88,7 @@ object ShapedValue {
           }
         case tm => tm
       }
-      new _root_.slick.lifted.MappedProjection[$rTag, $uTag](${c.prefix}.toNode,
+      new _root_.slick.lifted.MappedProjection[$rTag](${c.prefix}.toNode,
         _root_.slick.ast.MappedScalaType.Mapper(gg, ff, _root_.scala.Some(fpMatch)), $rCT)
     """
   }
