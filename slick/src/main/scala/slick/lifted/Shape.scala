@@ -86,13 +86,13 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
   ] =
     RepShape[Level, ShapedValue[T, U], U]
   @inline
-  implicit def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P]: Shape[
+  implicit def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T]: Shape[
     Level,
-    MappedProjection[T, P],
+    MappedProjection[T],
     T,
-    MappedProjection[T, P]
+    MappedProjection[T]
   ] =
-    RepShape[Level, MappedProjection[T, P], T]
+    RepShape[Level, MappedProjection[T], T]
 
   val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Any) = ()
@@ -149,8 +149,8 @@ object RepShape extends Shape[FlatShapeLevel, Rep[?], Any, Rep[?]] {
   def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
   def buildParams(extract: Any => Unpacked): Packed =
     throw new SlickException("Shape does not have the same Mixed and Unpacked type")
-  override def encodeRef(value: Any, path: Node): Rep[?] = value.asInstanceOf[Rep[_]].encodeRef(path)
-  def toNode(value: Any): Node = value.asInstanceOf[Rep[_]].toNode
+  override def encodeRef(value: Any, path: Node): Rep[?] = value.asInstanceOf[Rep[?]].encodeRef(path)
+  def toNode(value: Any): Node = value.asInstanceOf[Rep[?]].toNode
   override def toString = "RepShape"
 }
 
@@ -387,13 +387,13 @@ object ProvenShape {
     }
 }
 
-class MappedProjection[T, P](child: Node, mapper: MappedScalaType.Mapper, classTag: ClassTag[T]) extends Rep[T] {
-  type Self = MappedProjection[?, ?]
+class MappedProjection[T](child: Node, mapper: MappedScalaType.Mapper, classTag: ClassTag[T]) extends Rep[T] {
+  type Self = MappedProjection[?]
   override def toString = "MappedProjection"
   override def toNode: Node = TypeMapping(child, mapper, classTag)
-  def encodeRef(path: Node): MappedProjection[T, P] = new MappedProjection[T, P](child, mapper, classTag) {
+  def encodeRef(path: Node): MappedProjection[T] = new MappedProjection[T](child, mapper, classTag) {
     override def toNode = path
   }
   def genericFastPath(f: Function[Any, Any]) =
-    new MappedProjection[T, P](child, mapper.copy(fastPath = Some(f)), classTag)
+    new MappedProjection[T](child, mapper.copy(fastPath = Some(f)), classTag)
 }
