@@ -212,11 +212,11 @@ final class AnyOptionExtensionMethods[O <: Rep[?], P](val r: O) extends AnyVal {
   }
 
   /** Get the value inside this Option, if it is non-empty, otherwise the supplied default. */
-  def getOrElse[M, P2 <: P](default: M)(implicit shape: Shape[FlatShapeLevel, M, ?, P2], ol: OptionLift[P2, O]): ShapedValue.Unconst[P, P2] = {
+  def getOrElse[M, P2 <: P](default: M)(implicit shape: Shape[FlatShapeLevel, M, ?, P2], ol: OptionLift[P2, O]): ShapedValue.Unconst[P] = {
     // P2 != P can only happen if M contains plain values, which pack to ConstColumn instead of Rep.
     // Both have the same packedShape (RepShape), so we can safely cast here:
     val r = fold[P, P](shape.pack(default): P)(identity)(shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, P, ?, P]])
-    r.asInstanceOf[ShapedValue.Unconst[P, P2]]
+    ShapedValue.Unconst(r)
   }
 
   /** Check if this Option is empty. */

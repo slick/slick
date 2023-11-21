@@ -79,11 +79,12 @@ object ShapedValue {
     '{ new MappedProjection[R]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
   }
 
-  // Turn ConstColumn into Rep at the top level on Dotty to avoid ClassCastExceptions
-  type Unconst[P, P2] = P2 match {
-    case ConstColumn[t] => Rep[t]
-    case _ => P2
+  //avoid inferring Rep subtypes (such as ConstColumn)
+  type Unconst[P] = P match {
+    case Rep[t] => Rep[t]
+    case _ => P
   }
+  def Unconst[P](p: P): Unconst[P] = p.asInstanceOf[Unconst[P]]
 }
 
 @FunctionalInterface
