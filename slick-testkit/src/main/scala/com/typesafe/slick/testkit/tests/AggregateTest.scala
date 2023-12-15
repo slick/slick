@@ -456,4 +456,20 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       mark("qb8c", qb8c.result).map(_.sortBy(a => a.map(_.v)) shouldBe Seq(Some(StrWrapper("v1"))))
     )
   }
+
+  def testGroupMap = {
+    final class EventTable(tag: Tag) extends Table[(BigDecimal, Long)](tag, "groupMap") {
+      def id = column[BigDecimal]("id")
+      def value = column[Long]("value")
+
+      def * = (id, value)
+    }
+    val events = TableQuery[EventTable]
+    val q = events.groupBy(_.id).map { case (x, xs) => x -> xs.map(_.value.asColumnOf[BigDecimal] + x).sum }.sortBy(_._1)
+    DBIO.seq(
+      events.schema.create,
+      events ++= List((1, 10), (1, 20), (3, 30)),
+      mark("q0", q.result).map(_ shouldBe Seq(1 -> Some(32), 3 -> Some(33))),
+    )
+  }
 }
