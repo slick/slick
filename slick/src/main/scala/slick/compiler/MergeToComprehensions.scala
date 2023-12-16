@@ -161,6 +161,7 @@ class MergeToComprehensions extends Phase {
                   case n => n
                 }))(tpe)
             }
+        }.replace {
           case FwdPath(s :: ElementSymbol(1) :: rest) if s == s1 =>
             rest.foldLeft(b2a) { case (n, s) => n.select(s) }.infer()
         }
