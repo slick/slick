@@ -65,7 +65,7 @@ jobs:
       - name: Start MySQL
         run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
-      - uses: ts-graphviz/setup-graphviz@v1
+      - uses: ts-graphviz/setup-graphviz@v2
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -98,7 +98,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: ts-graphviz/setup-graphviz@v1
+      - uses: ts-graphviz/setup-graphviz@v2
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -131,7 +131,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: ts-graphviz/setup-graphviz@v1
+      - uses: ts-graphviz/setup-graphviz@v2
 
       - name: Set up JDK
         uses: actions/setup-java@v4

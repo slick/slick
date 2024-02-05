@@ -20,7 +20,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - uses: ts-graphviz/setup-graphviz@v1
+    - uses: ts-graphviz/setup-graphviz@v2
 
     - name: Set up JDK
       uses: actions/setup-java@v4
