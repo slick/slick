@@ -48,13 +48,19 @@ def scaladocSourceUrl(dir: String) =
     )
   }
 
-val scala2InlineSettings = List(
-  "-opt:l:inline",
-  // Code in slick.compat is private and is also not going to change so its safe to inline within this project. Remove
-  // when Scala 2.12 support is dropped along with slick.compat
-  "-opt-inline-from:slick.compat.**",
-  "-opt-inline-from:<sources>"
-)
+val scala2InlineSettings = Def.setting {
+  if (insideCI.value) {
+    val log = sLog.value
+    log.info(s"Running in CI, enabling Scala2 optimizer for module: ${name.value}")
+    List(
+      "-opt:l:inline",
+      // Code in slick.compat is private and is also not going to change so its safe to inline within this project. Remove
+      // when Scala 2.12 support is dropped along with slick.compat
+      "-opt-inline-from:slick.compat.**",
+      "-opt-inline-from:<sources>"
+    )
+  } else List.empty
+}
 
 def slickScalacOptions = Seq(
   scalacOptions ++=
@@ -65,19 +71,20 @@ def slickScalacOptions = Seq(
       "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
     ) ++ (CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) =>
-        List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3") ++ scala2InlineSettings
+        List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3") ++ scala2InlineSettings.value
       case Some((2, 13)) =>
         List(
           "-Xsource:3",
           "-Wunused:imports",
           "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
           "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
-        ) ++ scala2InlineSettings
+        ) ++ scala2InlineSettings.value
       case Some((3, _)) =>
         List("-source:3.0-migration")
       case _ =>
         Nil
     })
+
 )
 
 def slickGeneralSettings =
@@ -168,7 +175,7 @@ def slickCollectionsCompatSettings = Seq(
   (Compile / packageBin / mappings) ++= (slickCompatCollections / Compile / packageBin / mappings).value,
   (Compile / packageSrc / mappings) ++= (slickCompatCollections / Compile / packageSrc / mappings).value,
   projectDependencies := projectDependencies.value.filterNot(_.name.equalsIgnoreCase("slickcompatcollections")),
-  scalacOptions ++= scala2InlineSettings
+  scalacOptions ++= scala2InlineSettings.value
 )
 
 lazy val slick =
