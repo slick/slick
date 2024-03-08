@@ -25,52 +25,50 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
   }
   lazy val orders = TableQuery[Orders]
 
-  def testMeta = ifCap(tcap.jdbcMeta)(DBIO.seq(
-    (users.schema ++ orders.schema).create.named("DDL used to create tables"),
+  def testMeta = ifCap(tcap.jdbcMeta)(
+    DBIO.seq(
+      (users.schema ++ orders.schema).create.named("DDL used to create tables"),
+      MTypeInfo.getTypeInfo.named("Type info from DatabaseMetaData"),
+      ifCap(tcap.jdbcMetaGetFunctions) {
+        /* Not supported by PostgreSQL, SQLite and H2. */
+        MFunction.getFunctions(MQName.local("%")).flatMap { fs =>
+          DBIO.sequence(fs.map(_.getFunctionColumns()))
+        }
+      }.named("Functions from DatabaseMetaData"),
+      MUDT.getUDTs(MQName.local("%")).named("UDTs from DatabaseMetaData"),
+      MProcedure
+        .getProcedures(MQName.local("%"))
+        .flatMap { ps =>
+          DBIO.sequence(ps.map(_.getProcedureColumns()))
+        }
+        .named("Procedures from DatabaseMetaData"),
+      tdb.profile.defaultTables
+        .flatMap { ts =>
+          DBIO.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
+            DBIO.seq(
+              t.getColumns.flatMap { cs =>
+                val as = cs.map(_.getColumnPrivileges)
+                DBIO.sequence(as)
+              },
+              t.getVersionColumns,
+              t.getPrimaryKeys,
+              t.getImportedKeys,
+              t.getExportedKeys,
+              ifCap(tcap.jdbcMetaGetIndexInfo)(t.getIndexInfo()),
+              t.getTablePrivileges,
+              t.getBestRowIdentifier(MBestRowIdentifierColumn.Scope.Session)
+            )
+          })
+        }
+        .named("Tables from DatabaseMetaData"),
+      MSchema.getSchemas.named("Schemas from DatabaseMetaData"),
+      ifCap(tcap.jdbcMetaGetClientInfoProperties)(MClientInfoProperty.getClientInfoProperties)
+        .named("Client Info Properties from DatabaseMetaData"),
+      tdb.profile.defaultTables
+        .map(_.should(ts => Set("orders_xx", "users_xx") subsetOf ts.map(_.name.name).toSet))
+        .named("Tables before deleting")
 
-    MTypeInfo.getTypeInfo.named("Type info from DatabaseMetaData"),
-
-    ifCap(tcap.jdbcMetaGetFunctions) {
-      /* Not supported by PostgreSQL, SQLite and H2. */
-      MFunction.getFunctions(MQName.local("%")).flatMap { fs =>
-        DBIO.sequence(fs.map(_.getFunctionColumns()))
-      }
-    }.named("Functions from DatabaseMetaData"),
-
-    MUDT.getUDTs(MQName.local("%")).named("UDTs from DatabaseMetaData"),
-
-    MProcedure.getProcedures(MQName.local("%")).flatMap { ps =>
-      DBIO.sequence(ps.map(_.getProcedureColumns()))
-    }.named("Procedures from DatabaseMetaData"),
-
-    tdb.profile.defaultTables.flatMap { ts =>
-      DBIO.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
-        DBIO.seq(
-          t.getColumns.flatMap { cs =>
-            val as = cs.map(_.getColumnPrivileges)
-            DBIO.sequence(as)
-          },
-          t.getVersionColumns,
-          t.getPrimaryKeys,
-          t.getImportedKeys,
-          t.getExportedKeys,
-          ifCap(tcap.jdbcMetaGetIndexInfo)(t.getIndexInfo()),
-          t.getTablePrivileges,
-          t.getBestRowIdentifier(MBestRowIdentifierColumn.Scope.Session)
-        )
-      })
-    }.named("Tables from DatabaseMetaData"),
-
-    MSchema.getSchemas.named("Schemas from DatabaseMetaData"),
-
-    ifCap(tcap.jdbcMetaGetClientInfoProperties)(MClientInfoProperty.getClientInfoProperties)
-      .named("Client Info Properties from DatabaseMetaData"),
-
-    tdb.profile.defaultTables.map(_.should(ts =>
-      Set("orders_xx", "users_xx") subsetOf ts.map(_.name.name).toSet
-    )).named("Tables before deleting")
-
-    /* ,
+      /* ,
     if(tdb.canGetLocalTables) {
 
       for (t <- tdb.getLocalTables.sorted) {
@@ -84,6 +82,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
         (Set("orders_xx", "users_xx") intersect newTables).isEmpty)
 
     } else Action.successful(())
-    */
-  ))
+       */
+    )
+  )
 }

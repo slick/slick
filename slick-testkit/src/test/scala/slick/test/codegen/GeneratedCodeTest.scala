@@ -23,16 +23,19 @@ object GeneratedCodeTest {
       MTable.getTables(Some(""), Some(""), None, None).map { tables =>
         val a = tables.find(_.name.name equals "a").get
         val b = tables.find(_.name.name equals "b").get
-        assertEquals("# of FKs of 'a' should be 1",
-          1, A.baseTableRow.foreignKeys.size)
-        assertEquals("# of FKs of 'b' should be 0",
-          0, B.baseTableRow.foreignKeys.size)
+        assertEquals("# of FKs of 'a' should be 1", 1, A.baseTableRow.foreignKeys.size)
+        assertEquals("# of FKs of 'b' should be 0", 0, B.baseTableRow.foreignKeys.size)
         val aFk = A.baseTableRow.foreignKeys.head
         val srcColumns = convertColumnsToString(aFk.linearizedSourceColumns.toList)
         val trgColumns = convertColumnsToString(aFk.linearizedTargetColumns.toList)
         assertEquals("FKs should have the same source column", List("k1"), srcColumns)
         assertEquals("FKs should have the same target column", List("f1"), trgColumns)
-        assertTrue("FKs should be from 'a' to 'b'", tableName(aFk.sourceTable) == A.baseTableRow.tableName && tableName(aFk.targetTable) == B.baseTableRow.tableName)
+        assertTrue(
+          "FKs should be from 'a' to 'b'",
+          tableName(aFk.sourceTable) == A.baseTableRow.tableName && tableName(
+            aFk.targetTable
+          ) == B.baseTableRow.tableName
+        )
 
         assertEquals("# of FKs of 'c' should be 1", 1, C.baseTableRow.foreignKeys.size)
         assertEquals("# of FKs of 'd' should be 0", 0, D.baseTableRow.foreignKeys.size)
@@ -41,7 +44,12 @@ object GeneratedCodeTest {
         val cTrgColumns = convertColumnsToString(cFk.linearizedTargetColumns.toList)
         assertEquals("FKs should have the same source column", List("k1", "k2"), cSrcColumns)
         assertEquals("FKs should have the same target column", List("f1", "f2"), cTrgColumns)
-        assertTrue("FKs should be from 'c' to 'd'", tableName(cFk.sourceTable) == C.baseTableRow.tableName && tableName(cFk.targetTable) == D.baseTableRow.tableName)
+        assertTrue(
+          "FKs should be from 'c' to 'd'",
+          tableName(cFk.sourceTable) == C.baseTableRow.tableName && tableName(
+            cFk.targetTable
+          ) == D.baseTableRow.tableName
+        )
 
         assertEquals("# of unique indices of 'c' should be 0", 0, C.baseTableRow.indexes.size)
         assertEquals("# of unique indices of 'd' should be 1", 1, D.baseTableRow.indexes.size)
@@ -54,13 +62,13 @@ object GeneratedCodeTest {
         val k1Options = optionsOfColumn(E.baseTableRow.k1)
         val k2Options = optionsOfColumn(E.baseTableRow.k2)
         val sOptions = optionsOfColumn(E.baseTableRow.s)
-        assertTrue("k1 should be AutoInc", k1Options.exists(option => (option equals E.baseTableRow.O.AutoInc)))
+        assertTrue("k1 should be AutoInc", k1Options.exists(option => option equals E.baseTableRow.O.AutoInc))
         assertTrue("k2 should not be AutoInc", k2Options.forall(option => !(option equals E.baseTableRow.O.AutoInc)))
         assertTrue("s should not be AutoInc", sOptions.forall(option => !(option equals E.baseTableRow.O.AutoInc)))
         // test default values
-        assertEquals(None, ERow(1,2).n)
-        assertEquals("test", ERow(1,2).s)
-        assertEquals("asdf", ERow(1,2,"asdf").s)
+        assertEquals(None, ERow(1, 2).n)
+        assertEquals("test", ERow(1, 2).s)
+        assertEquals("asdf", ERow(1, 2, "asdf").s)
       }
     )
   }
@@ -88,12 +96,12 @@ object GeneratedCodeTest {
     val m = Model(Some("key"), Some("1000"), Some("model"), Some("en"), Some("0.0.1"), None)
     val mw = MultiwordType(0, 0, Some(0), Some("varchar"))
     val dt = DecimalType(0, 8.91, 8.91)
-    assertEquals("Int'" , MultiwordTypes.baseTableRow.smallintUnsigned.toNode.nodeType.toString)
-    assertEquals("Int'" , MultiwordTypes.baseTableRow.unsignedSmallint.toNode.nodeType.toString)
-    assertEquals("Option[Int']" , MultiwordTypes.baseTableRow.unsignedBigInt.toNode.nodeType.toString)
-    assertEquals("Option[String']" , MultiwordTypes.baseTableRow.varChar20.toNode.nodeType.toString)
-    assertEquals("Double'" , DecimalTypes.baseTableRow.unitprice.toNode.nodeType.toString)
-    assertEquals("Double'" , DecimalTypes.baseTableRow.total.toNode.nodeType.toString)
+    assertEquals("Int'", MultiwordTypes.baseTableRow.smallintUnsigned.toNode.nodeType.toString)
+    assertEquals("Int'", MultiwordTypes.baseTableRow.unsignedSmallint.toNode.nodeType.toString)
+    assertEquals("Option[Int']", MultiwordTypes.baseTableRow.unsignedBigInt.toNode.nodeType.toString)
+    assertEquals("Option[String']", MultiwordTypes.baseTableRow.varChar20.toNode.nodeType.toString)
+    assertEquals("Double'", DecimalTypes.baseTableRow.unitprice.toNode.nodeType.toString)
+    assertEquals("Double'", DecimalTypes.baseTableRow.total.toNode.nodeType.toString)
     DBIO.seq(
       schema.create,
       Suppliers += s,
@@ -101,12 +109,12 @@ object GeneratedCodeTest {
       MultiwordTypes += mw,
       DecimalTypes += dt,
       Timestamps += new Timestamp(),
-      Timestamps.result.head.map{ r =>
+      Timestamps.result.head.map { r =>
         val c = new Timestamp()
-        val diff = 10*1000 //10 seconds
+        val diff = 10 * 1000 // 10 seconds
         (r.ts, r.ts2, r.ts3, r.ts4, r.ts5, r.ts6, r.ts7) match {
-          case (c.ts, c.ts2, c.ts3, c.ts4, c.ts5, now, c.ts7) =>  assertTrue(c.ts6.compareTo(r.ts6) <= diff)
-          case _ => fail
+          case (c.ts, c.ts2, c.ts3, c.ts4, c.ts5, _, c.ts7) => assertTrue(c.ts6.compareTo(r.ts6) <= diff)
+          case _                                            => fail
         }
       },
       Suppliers.result.map(assertEquals(List(s), _)),
@@ -145,15 +153,15 @@ object GeneratedCodeTest {
     import CG9._
     import profile.api._
     def assertAll(all: Seq[ERow]) = {
-      assertEquals( 3, all.size )
-      assertEquals( Set(1,2,3), all.map(_.k1.get).toSet )
-      assertEquals( all.map(_.k2), all.map(_.k1.get) ) // assert auto inc order, should be tested somewhere else as well
+      assertEquals(3, all.size)
+      assertEquals(Set(1, 2, 3), all.map(_.k1.get).toSet)
+      assertEquals(all.map(_.k2), all.map(_.k1.get)) // assert auto inc order, should be tested somewhere else as well
     }
     DBIO.seq(
       schema.create,
-      E += ERow(1,"foo",Some("bar"),Some(2)),
-      E += ERow(2,"foo",Some("bar")),
-      E += ERow(3,"foo",Some("bar"),None),
+      E += ERow(1, "foo", Some("bar"), Some(2)),
+      E += ERow(2, "foo", Some("bar")),
+      E += ERow(3, "foo", Some("bar"), None),
       E.result.map(assertAll),
       sql"select k1, k2, s, n from e".as[ERow].map(assertAll)
     )
@@ -163,7 +171,7 @@ object GeneratedCodeTest {
     import CG11._
     import profile.api._
     def assertAll(all: Seq[SimpleA]) = {
-      assertEquals( 1, all.size )
+      assertEquals(1, all.size)
       assertEquals(List(SimpleA(Some(1), Some("foo"))), all)
     }
     DBIO.seq(
@@ -185,11 +193,11 @@ object GeneratedCodeTest {
 
   def testEmptyDB = slick.dbio.DBIO.successful(())
 
-  def tableName( node:Node ) : String = {
+  def tableName(node: Node): String = {
     import slick.ast._
     node match {
       case TableExpansion(_, tableNode, _) => tableName(tableNode)
-      case t: TableNode => t.tableName
+      case t: TableNode                    => t.tableName
     }
   }
 

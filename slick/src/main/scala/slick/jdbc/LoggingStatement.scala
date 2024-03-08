@@ -12,8 +12,10 @@ import slick.jdbc.JdbcBackend.{benchmarkLogger, parameterLogger, statementAndPar
 import slick.compat.collection.*
 import slick.util.TableDump
 
-/** A wrapper for `java.sql.Statement` that logs statements and benchmark results
-  * to the appropriate [[JdbcBackend]] loggers. */
+/**
+ * A wrapper for `java.sql.Statement` that logs statements and benchmark results to the appropriate [[JdbcBackend]]
+ * loggers.
+ */
 class LoggingStatement(st: Statement) extends Statement {
   private[this] val doStatement = statementLogger.isDebugEnabled
   private[this] val doBenchmark = benchmarkLogger.isDebugEnabled
@@ -24,18 +26,18 @@ class LoggingStatement(st: Statement) extends Statement {
   private[this] var paramss: ArrayBuffer[ArrayBuffer[(Any, Any)]] = _
 
   /** log a parameter */
-  protected[this] def p(idx: Int, tpe: Any, value: Any): Unit = if(doParameter) {
-    if(params eq null) params = new ArrayBuffer
-    if(params.size == idx) params += ((tpe, value))
+  protected[this] def p(idx: Int, tpe: Any, value: Any): Unit = if (doParameter) {
+    if (params eq null) params = new ArrayBuffer
+    if (params.size == idx) params += ((tpe, value))
     else {
-      while(params.size < idx) params += null
-      params(idx-1) = (tpe, value)
+      while (params.size < idx) params += null
+      params(idx - 1) = (tpe, value)
     }
   }
 
   protected[this] def pushParams(): Unit = if (doParameter) {
-    if(params ne null) {
-      if(paramss eq null) paramss = new ArrayBuffer
+    if (params ne null) {
+      if (paramss eq null) paramss = new ArrayBuffer
       paramss += params
     }
     params = null
@@ -46,18 +48,18 @@ class LoggingStatement(st: Statement) extends Statement {
     params = null
   }
 
-  protected[this] def logged[T](sql: String, what: String = "statement")(f: =>T) = {
+  protected[this] def logged[T](sql: String, what: String = "statement")(f: => T) = {
     if (doStatement && (sql ne null)) statementLogger.debug("Executing " + what + ": " + sql)
     if (doStatementAndParameter && (sql ne null))
       statementAndParameterLogger.debug("Executing " + what + ": " + sql)
-    if(doParameter && (paramss ne null) && paramss.nonEmpty) {
+    if (doParameter && (paramss ne null) && paramss.nonEmpty) {
       // like s.groupBy but only group adjacent elements and keep the ordering
       def groupBy[U](s: IterableOnce[U])(f: U => AnyRef): IndexedSeq[IndexedSeq[U]] = {
         var current: AnyRef = null
         val b = new ArrayBuffer[ArrayBuffer[U]]
         s.iterator.foreach { v =>
           val id = f(v)
-          if(b.isEmpty || current != id) b += ArrayBuffer(v)
+          if (b.isEmpty || current != id) b += ArrayBuffer(v)
           else b.last += v
           current = id
         }
@@ -65,18 +67,21 @@ class LoggingStatement(st: Statement) extends Statement {
       }
       def mkTpStr(tp: Int) = JdbcTypesComponent.typeNames.getOrElse(tp, tp.toString)
       val paramSets = paramss.map { params =>
-        (params.map {
-          case (tp: Int, _) => mkTpStr(tp)
-          case ((tp: Int, scale: Int), _) => mkTpStr(tp)+"("+scale+")"
-          case ((tp: Int, tpStr: String), _) => mkTpStr(tp)+": "+tpStr
-          case (tpe, _) => tpe.toString
-        }, params.map {
-          case (_, null) => "NULL"
-          case (_, ()) => ""
-          case (_, v) =>
-            val s = v.toString
-            if(s eq null) "NULL" else s
-        })
+        (
+          params.map {
+            case (tp: Int, _)                  => mkTpStr(tp)
+            case ((tp: Int, scale: Int), _)    => mkTpStr(tp) + "(" + scale + ")"
+            case ((tp: Int, tpStr: String), _) => mkTpStr(tp) + ": " + tpStr
+            case (tpe, _)                      => tpe.toString
+          },
+          params.map {
+            case (_, null) => "NULL"
+            case (_, ())   => ""
+            case (_, v) =>
+              val s = v.toString
+              if (s eq null) "NULL" else s
+          }
+        )
       }
       val dump = new TableDump(25)
       groupBy(paramSets)(_._1).foreach { matchingSets =>
@@ -86,7 +91,7 @@ class LoggingStatement(st: Statement) extends Statement {
           .foreach(s => parameterLogger.debug(s))
       }
     }
-    val t0 = if(doBenchmark) System.nanoTime() else 0L
+    val t0 = if (doBenchmark) System.nanoTime() else 0L
     val res = f
     if (doBenchmark) benchmarkLogger.debug("Execution of " + what + " took " + formatNS(System.nanoTime() - t0))
     clearParamss()
@@ -94,7 +99,7 @@ class LoggingStatement(st: Statement) extends Statement {
   }
 
   private[this] def formatNS(ns: Long): String = {
-    if(ns < 1000L) s"${ns}ns"
+    if (ns < 1000L) s"${ns}ns"
     else if (ns < 1000000L) s"${ns / 1000L}µs"
     else if (ns < 1000000000L) s"${ns / 1000000L}ms"
     else s"${ns / 1000000000L}s"
@@ -175,8 +180,10 @@ class LoggingStatement(st: Statement) extends Statement {
   override def isCloseOnCompletion: Boolean = st.isCloseOnCompletion
 }
 
-/** A wrapper for `java.sql.PreparedStatement` that logs statements, parameters and benchmark results
-  * to the appropriate [[JdbcBackend]] loggers. */
+/**
+ * A wrapper for `java.sql.PreparedStatement` that logs statements, parameters and benchmark results to the appropriate
+ * [[JdbcBackend]] loggers.
+ */
 class LoggingPreparedStatement(st: PreparedStatement) extends LoggingStatement(st) with PreparedStatement {
 
   override def execute(): Boolean = {

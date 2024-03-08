@@ -4,8 +4,10 @@ import slick.ast._
 import slick.ast.Util._
 import slick.util.ConstArray
 
-/** Specialize the AST for edge cases of query parameters. This is required for
-  * compiling `take(0)` for some databases which do not allow `LIMIT 0`. */
+/**
+ * Specialize the AST for edge cases of query parameters. This is required for compiling `take(0)` for some databases
+ * which do not allow `LIMIT 0`.
+ */
 class SpecializeParameters extends Phase {
   val name = "specializeParameters"
 
@@ -17,7 +19,7 @@ class SpecializeParameters extends Phase {
       n.collect { case c @ Comprehension(_, _, _, _, _, _, _, _, Some(_: QueryParameter), _, _) =>
         c.asInstanceOf[Comprehension[Some[QueryParameter]]]
       }
-    logger.debug("Affected fetch clauses in: "+cs.mkString(", "))
+    logger.debug("Affected fetch clauses in: " + cs.mkString(", "))
     cs.foldLeft(n) { case (n, c @ Comprehension(_, _, _, _, _, _, _, _, Some(fetch: QueryParameter), _, _)) =>
       val compiledFetchParam = QueryParameter(fetch.extractor, ScalaBaseType.longType)
       val guarded =

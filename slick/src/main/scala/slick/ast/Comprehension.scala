@@ -5,17 +5,19 @@ import slick.ast.Util.*
 import slick.util.ConstArray
 
 /** A SQL comprehension */
-final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
-                                                       from: Node,
-                                                       select: Node,
-                                                       where: Option[Node] = None,
-                                                       groupBy: Option[Node] = None,
-                                                       orderBy: ConstArray[(Node, Ordering)] = ConstArray.empty,
-                                                       having: Option[Node] = None,
-                                                       distinct: Option[Node] = None,
-                                                       fetch: Fetch = None,
-                                                       offset: Option[Node] = None,
-                                                       forUpdate: Boolean = false) extends DefNode {
+final case class Comprehension[+Fetch <: Option[Node]](
+    sym: TermSymbol,
+    from: Node,
+    select: Node,
+    where: Option[Node] = None,
+    groupBy: Option[Node] = None,
+    orderBy: ConstArray[(Node, Ordering)] = ConstArray.empty,
+    having: Option[Node] = None,
+    distinct: Option[Node] = None,
+    fetch: Fetch = None,
+    offset: Option[Node] = None,
+    forUpdate: Boolean = false
+) extends DefNode {
   type Self = Comprehension[Option[Node]]
   override def self: Self = this
   lazy val children =
@@ -28,8 +30,7 @@ final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
       having ++
       distinct ++
       fetch ++
-      offset)
-      .result
+      offset).result
   override def childNames: Seq[String] =
     Seq("from " + sym, "select") ++
       where.map(_ => "where") ++
@@ -88,15 +89,16 @@ final case class Comprehension[+Fetch <: Option[Node]](sym: TermSymbol,
     val same = (f2 eq from) && (s2 eq select) && w2.isEmpty && g2.isEmpty && (o2 eq o) && h2.isEmpty &&
       distinct2.isEmpty && fetch2.isEmpty && offset2.isEmpty
     val newType =
-      if(!hasType) CollectionType(f2.nodeType.asCollectionType.cons, s2.nodeType.asCollectionType.elementType)
+      if (!hasType) CollectionType(f2.nodeType.asCollectionType.cons, s2.nodeType.asCollectionType.elementType)
       else nodeType
-    if(same && newType == nodeType) this else {
+    if (same && newType == nodeType) this
+    else {
       copy(
         from = f2,
         select = s2,
         where = w2.orElse(where),
         groupBy = g2.orElse(groupBy),
-        orderBy = if(o2 eq o) orderBy else orderBy.zip(o2).map { case ((_, o), n) => (n, o) },
+        orderBy = if (o2 eq o) orderBy else orderBy.zip(o2).map { case ((_, o), n) => (n, o) },
         having = h2.orElse(having),
         distinct = distinct2.orElse(distinct),
         fetch = fetch2.orElse(fetch),
@@ -116,7 +118,7 @@ final case class RowNumber(by: ConstArray[(Node, Ordering)] = ConstArray.empty) 
   override def buildType: ScalaNumericType[Long] = ScalaBaseType.longType
   lazy val children = by.map(_._1)
   protected[this] def rebuild(ch: ConstArray[Node]) =
-    copy(by = by.zip(ch).map{ case ((_, o), n) => (n, o) })
+    copy(by = by.zip(ch).map { case ((_, o), n) => (n, o) })
   override def childNames: IndexedSeq[String] = by.zipWithIndex.map("by" + _._2).toSeq
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }

@@ -2,7 +2,7 @@ package com.typesafe.slick.docs
 
 import slick.jdbc.H2Profile.api._
 
-object JoinsUnions extends App{
+object JoinsUnions extends App {
 
   class Suppliers(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
     def id = column[Int]("SUP_ID", O.PrimaryKey)
@@ -26,7 +26,7 @@ object JoinsUnions extends App{
   }
   val coffees = TableQuery[Coffees]
 
-  //#implicitCross
+  // #implicitCross
   val monadicCrossJoin = for {
     c <- coffees
     s <- suppliers
@@ -34,10 +34,10 @@ object JoinsUnions extends App{
   // compiles to SQL:
   //   select x2."COF_NAME", x3."SUP_NAME"
   //     from "COFFEES" x2, "SUPPLIERS" x3
-  //#implicitCross
+  // #implicitCross
   println(monadicCrossJoin.result.statements.head)
 
-  //#implicitInner
+  // #implicitInner
   val monadicInnerJoin = for {
     c <- coffees
     s <- suppliers if c.supID === s.id
@@ -46,10 +46,10 @@ object JoinsUnions extends App{
   //   select x2."COF_NAME", x3."SUP_NAME"
   //     from "COFFEES" x2, "SUPPLIERS" x3
   //     where x2."SUP_ID" = x3."SUP_ID"
-  //#implicitInner
+  // #implicitInner
   println(monadicInnerJoin.result.statements.head)
 
-  //#explicit
+  // #explicit
   val crossJoin = for {
     (c, s) <- coffees join suppliers
   } yield (c.name, s.name)
@@ -88,14 +88,14 @@ object JoinsUnions extends App{
   //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
   //     full outer join "SUPPLIERS" x3
   //     on x2."SUP_ID" = x3."SUP_ID"
-  //#explicit
+  // #explicit
   println(crossJoin.result.statements.head)
   println(innerJoin.result.statements.head)
   println(leftOuterJoin.result.statements.head)
   println(rightOuterJoin.result.statements.head)
   println(fullOuterJoin.result.statements.head)
 
-  //#zip
+  // #zip
   val zipJoinQuery = for {
     (c, s) <- coffees zip suppliers
   } yield (c.name, s.name)
@@ -103,18 +103,18 @@ object JoinsUnions extends App{
   val zipWithJoin = for {
     res <- coffees.zipWith(suppliers, (c: Coffees, s: Suppliers) => (c.name, s.name))
   } yield res
-  //#zip
-  //println(zipJoinQuery.result.statements.head)
-  //println(zipWithJoin.result.statements.head)
+  // #zip
+  // println(zipJoinQuery.result.statements.head)
+  // println(zipWithJoin.result.statements.head)
 
-  //#zipWithIndex
+  // #zipWithIndex
   val zipWithIndexJoin = for {
     (c, idx) <- coffees.zipWithIndex
   } yield (c.name, idx)
-  //#zipWithIndex
-  //println(zipWithIndexJoin.result.statements.head)
+  // #zipWithIndex
+  // println(zipWithIndexJoin.result.statements.head)
 
-  //#union
+  // #union
   val q1 = coffees.filter(_.price < 8.0)
   val q2 = coffees.filter(_.price > 9.0)
 
@@ -135,7 +135,7 @@ object JoinsUnions extends App{
   //   union all select x9."COF_NAME", x9."SUP_ID", x9."PRICE", x9."SALES", x9."TOTAL"
   //     from "COFFEES" x9
   //     where x9."PRICE" > 9.0
-  //#union
+  // #union
   println(unionQuery.result.statements.head)
   println(unionAllQuery.result.statements.head)
 }

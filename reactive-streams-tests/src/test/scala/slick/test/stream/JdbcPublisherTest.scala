@@ -6,11 +6,9 @@ import scala.util.control.NonFatal
 
 import slick.jdbc.{H2Profile, JdbcProfile}
 
-
 class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Profile, 1000L) {
 
   import profile.api.*
-
 
   def createDB = {
     val db = Database.forURL("jdbc:h2:mem:DatabasePublisherTest", driver = "org.h2.Driver", keepAliveConnection = true)

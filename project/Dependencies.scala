@@ -56,9 +56,9 @@ object Dependencies {
 
   val paxExamVersion = "4.13.5"
   val paxExam = Seq(
-    "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
-    "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
-    "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
-    "org.apache.felix"       % "org.apache.felix.framework" % "7.0.5"
+    "org.ops4j.pax.exam" % "pax-exam-container-native" % paxExamVersion,
+    "org.ops4j.pax.exam" % "pax-exam-junit4" % paxExamVersion,
+    "org.ops4j.pax.exam" % "pax-exam-link-assembly" % paxExamVersion,
+    "org.apache.felix" % "org.apache.felix.framework" % "7.0.5"
   )
 }

@@ -2,8 +2,6 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 
-
-
 class ThreeWayJoinTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api.*
 
@@ -59,16 +57,13 @@ class ThreeWayJoinTest extends AsyncTest[RelationalTestDB] {
       (as.schema ++ bs.schema ++ cs.schema ++ ds.schema).create,
       as ++= Seq(1),
       ds ++= Seq(3),
-      bs ++= Seq((2,3)),
-      cs ++= Seq((1,2)),
+      bs ++= Seq((2, 3)),
+      cs ++= Seq((1, 2)),
       q1.result.named("q1").map(_.toSet shouldBe Set((1, 2, 3))),
       q2.result.named("q2").map(_.toSet shouldBe Set((1, 2, 3))),
       q3.result.named("q3").map(_.toSet shouldBe Set((1, 2, 3)))
     )
   }
-
-
-
 
   // ******************** Many to many join across two tables **********************
   def testManyToManyJoinTwice = {

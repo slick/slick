@@ -12,12 +12,11 @@ import org.reactivestreams.tck.*
 import org.scalatestplus.testng.TestNGSuiteLike
 import org.testng.annotations.{AfterClass, BeforeClass}
 
-
 abstract class RelationalPublisherTest[P <: RelationalProfile](val profile: P, timeout: Long)
-  extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L) with TestNGSuiteLike {
+    extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L)
+    with TestNGSuiteLike {
 
   import profile.api.*
-
 
   override def maxElementsFromPublisher = 73L
   override def boundedDepthOfOnNextAndRequestRecursion = 1L

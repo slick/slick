@@ -23,9 +23,9 @@ object StreamsStressTest extends App {
       new Thread(new Runnable {
         def run(): Unit = {
           try {
-            for(j <- 1 to repeats) {
+            for (j <- 1 to repeats) {
               run1
-              if(j % 100 == 0) println(s"Thread $i: Stream $j successful")
+              if (j % 100 == 0) println(s"Thread $i: Stream $j successful")
             }
           } catch { case t: Throwable => env.flop(t, t.toString) }
         }

@@ -19,48 +19,33 @@ import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConver
 import slick.util.ConstArray
 import slick.util.QueryInterpolator.queryInterpolator
 
-/** Slick profile for Oracle.
-  *
-  * This profile implements [[slick.jdbc.JdbcProfile]]
-  * ''without'' the following capabilities:
-  *
-  * <ul>
-  *   <li>[[slick.relational.RelationalCapabilities.foreignKeyActions]]:
-  *     Foreign key actions ''Cascade'', ''SetNull'' and ''NoAction'' are
-  *     directly supported for ''onDelete''. ''Restrict'' and ''SetDefault''
-  *     are ignored (i.e. equals to ''NoAction''). No ''onUpdate'' actions are
-  *     supported but specifying ''Cascade'' adds the option INITIALLY DEFERRED
-  *     to the foreign key constraint, thus allowing you to perform the
-  *     cascading update manually before committing the current transaction.
-  *     Other ''onUpdate'' actions are ignored.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
-  *     InsertOrUpdate operations are emulated on the client side if generated
-  *     keys should be returned. Otherwise the operation is performed
-  *     natively on the server side.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]:
-  *     Oracle doesn't have booleans, so Slick maps to CHAR instead and
-  *     that's how it appears in model and generated code.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.distinguishesIntTypes]]:
-  *     Oracle doesn't distinguish integer types and Slick uses NUMBER,
-  *     which is always mapped back to BigDecimal in model and generated code.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
-  *     Oracle does not have a BYTE type.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
-  *      Oracle returns the last generated key only.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.insertMultipleRowsWithSingleStatement]]:
-  *      Oracle doesn't support this feature directly.
-  *      There are several alternative ways, but the library doesn't support them, so far.</li>
-  * </ul>
-  *
-  * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns
-  * which are returned from inserts must not require quoted names (in
-  * particular, they must not contain lower-case characters or be equal to a
-  * reserved word), otherwise a bug in the Oracle JDBC driver triggers an
-  * ORA-00904 error. The same issue arises when trying to update such a column
-  * in a mutable result set.
-  *
-  * Updating Blob values in updatable result sets is not supported.
-  */
+/**
+ * Slick profile for Oracle.
+ *
+ * This profile implements [[slick.jdbc.JdbcProfile]] ''without'' the following capabilities:
+ *
+ * <ul> <li>[[slick.relational.RelationalCapabilities.foreignKeyActions]]: Foreign key actions ''Cascade'', ''SetNull''
+ * and ''NoAction'' are directly supported for ''onDelete''. ''Restrict'' and ''SetDefault'' are ignored (i.e. equals to
+ * ''NoAction''). No ''onUpdate'' actions are supported but specifying ''Cascade'' adds the option INITIALLY DEFERRED to
+ * the foreign key constraint, thus allowing you to perform the cascading update manually before committing the current
+ * transaction. Other ''onUpdate'' actions are ignored.</li> <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
+ * InsertOrUpdate operations are emulated on the client side if generated keys should be returned. Otherwise the
+ * operation is performed natively on the server side.</li> <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]: Oracle
+ * doesn't have booleans, so Slick maps to CHAR instead and that's how it appears in model and generated code.</li>
+ * <li>[[slick.jdbc.JdbcCapabilities.distinguishesIntTypes]]: Oracle doesn't distinguish integer types and Slick uses
+ * NUMBER, which is always mapped back to BigDecimal in model and generated code.</li>
+ * <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]: Oracle does not have a BYTE type.</li>
+ * <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]: Oracle returns the last generated key only.</li>
+ * <li>[[slick.jdbc.JdbcCapabilities.insertMultipleRowsWithSingleStatement]]: Oracle doesn't support this feature
+ * directly. There are several alternative ways, but the library doesn't support them, so far.</li> </ul>
+ *
+ * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns which are returned from inserts must not
+ * require quoted names (in particular, they must not contain lower-case characters or be equal to a reserved word),
+ * otherwise a bug in the Oracle JDBC driver triggers an ORA-00904 error. The same issue arises when trying to update
+ * such a column in a mutable result set.
+ *
+ * Updating Blob values in updatable result sets is not supported.
+ */
 trait OracleProfile extends JdbcProfile {
   override protected def computeCapabilities: Set[Capability] =
     super.computeCapabilities -
@@ -83,23 +68,24 @@ trait OracleProfile extends JdbcProfile {
   override val columnOptions: OracleColumnOptions = new OracleColumnOptions {}
 
   class OracleModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
-    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+      extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
       new OracleColumnBuilder(tableBuilder, meta)
     class OracleColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
       override def tpe = meta.sqlType match {
         case 101 => "Double"
-        case _ => super.tpe
+        case _   => super.tpe
       }
-      override def rawDefault = super.rawDefault.map(_.stripSuffix(" ")).map{
+      override def rawDefault = super.rawDefault.map(_.stripSuffix(" ")).map {
         case "null" => "NULL"
-        case v => v
+        case v      => v
       }
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit
+      ec: ExecutionContext
+  ): JdbcModelBuilder =
     new OracleModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
@@ -129,14 +115,14 @@ trait OracleProfile extends JdbcProfile {
   override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
-      size.fold("VARCHAR2(254)")(l => if(l.varying) s"VARCHAR2(${l.length})" else s"CHAR(${l.length})")
-    case java.sql.Types.INTEGER => "NUMBER(10)"
-    case java.sql.Types.BIGINT => "NUMBER(19)"
+      size.fold("VARCHAR2(254)")(l => if (l.varying) s"VARCHAR2(${l.length})" else s"CHAR(${l.length})")
+    case java.sql.Types.INTEGER  => "NUMBER(10)"
+    case java.sql.Types.BIGINT   => "NUMBER(19)"
     case java.sql.Types.SMALLINT => "NUMBER(5)"
-    case java.sql.Types.TINYINT => "NUMBER(3)"
-    case java.sql.Types.DOUBLE => "BINARY_DOUBLE"
-    case java.sql.Types.FLOAT => "BINARY_FLOAT"
-    case _ => super.defaultSqlTypeName(tmd, sym)
+    case java.sql.Types.TINYINT  => "NUMBER(3)"
+    case java.sql.Types.DOUBLE   => "BINARY_DOUBLE"
+    case java.sql.Types.FLOAT    => "BINARY_FLOAT"
+    case _                       => super.defaultSqlTypeName(tmd, sym)
   }
 
   override val scalarFrom: Some[String] = Some("sys.dual")
@@ -151,15 +137,15 @@ trait OracleProfile extends JdbcProfile {
     override protected val hasRadDegConversion = false
 
     override def expr(c: Node): Unit = c match {
-      case RowNumber(_) => b"rownum"
-      case Library.NextValue(SequenceNode(name)) => b += quoteIdentifier(name) += ".nextval"
+      case RowNumber(_)                             => b"rownum"
+      case Library.NextValue(SequenceNode(name))    => b += quoteIdentifier(name) += ".nextval"
       case Library.CurrentValue(SequenceNode(name)) => b += quoteIdentifier(name) += ".currval"
-      case Library.Database() => b += "ORA_DATABASE_NAME"
-      case Library.Repeat(s, n) => b"RPAD($s, LENGTH($s)*$n, $s)"
-      case Library.==(left: ProductNode, right: ProductNode) => //TODO
+      case Library.Database()                       => b += "ORA_DATABASE_NAME"
+      case Library.Repeat(s, n)                     => b"RPAD($s, LENGTH($s)*$n, $s)"
+      case Library.==(left: ProductNode, right: ProductNode) => // TODO
         b"\("
         val cols = (left.children zip right.children).force
-        b.sep(cols, " and "){ case (l,r) => expr(Library.==.typed[Boolean](l, r), false) }
+        b.sep(cols, " and ") { case (l, r) => expr(Library.==.typed[Boolean](l, r), false) }
         b"\)"
       case Library.==(l, r) if (l.nodeType != UnassignedType) && jdbcTypeFor(l.nodeType).sqlType == Types.BLOB =>
         b"\(dbms_lob.compare($l, $r) = 0\)"
@@ -167,7 +153,7 @@ trait OracleProfile extends JdbcProfile {
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
-      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
+      case c @ Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
         super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
       case _ => super.expr(c)
     }
@@ -182,11 +168,9 @@ trait OracleProfile extends JdbcProfile {
         s"""
            |BEGIN
            |
-           |${
-          (createPhase1 ++ createPhase2)
+           |${(createPhase1 ++ createPhase2)
             .map(s => "execute immediate '" + s.replaceAll("'", "''") + " ';")
-            .mkString("\n")
-        }
+            .mkString("\n")}
            |EXCEPTION
            |    WHEN OTHERS THEN
            |      IF SQLCODE = -955 THEN
@@ -198,14 +182,16 @@ trait OracleProfile extends JdbcProfile {
       )
 
     override def dropIfExistsPhase = {
-      //http://stackoverflow.com/questions/1799128/oracle-if-table-exists
+      // http://stackoverflow.com/questions/1799128/oracle-if-table-exists
       Iterable(
-"""
+        """
 BEGIN
-"""+ dropPhase2.map{s =>
-"execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
-            }.mkString("\n") +
-"""
+""" + dropPhase2
+          .map { s =>
+            "execute immediate '" + s.replaceAll("'", """\\'""") + " ';"
+          }
+          .mkString("\n") +
+          """
 EXCEPTION
    WHEN OTHERS THEN
       IF SQLCODE = -942 THEN
@@ -214,7 +200,8 @@ EXCEPTION
          RAISE;
       END IF;
 END;
-""")
+"""
+      )
     }
 
     def createAutoIncSequences = columns.flatMap { case cb: OracleColumnDDLBuilder =>
@@ -234,13 +221,13 @@ END;
       fk.onDelete match {
         case ForeignKeyAction.Cascade => sb append " on delete cascade"
         case ForeignKeyAction.SetNull => sb append " on delete set null"
-        case _ => // do nothing
+        case _                        => // do nothing
       }
-      if(fk.onUpdate == ForeignKeyAction.Cascade) sb append " initially deferred"
+      if (fk.onUpdate == ForeignKeyAction.Cascade) sb append " initially deferred"
     }
 
     override protected def createIndex(idx: Index) = {
-      if(idx.unique) {
+      if (idx.unique) {
         /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
          * index) because Oracle does not allow a FOREIGN KEY CONSTRAINT to
          * reference columns which have a UNIQUE INDEX but not a nominal UNIQUE
@@ -263,39 +250,41 @@ END;
       sb append qname append ' '
       appendType(sb)
       appendOptions(sb)
-      if(jdbcType.isInstanceOf[JdbcTypes#BooleanJdbcType]) {
+      if (jdbcType.isInstanceOf[JdbcTypes#BooleanJdbcType]) {
         sb append " check (" append qname append " in (0, 1))"
       }
     }
 
     override protected def appendOptions(sb: StringBuilder): Unit = {
-      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-      if(notNull) sb append " NOT NULL"
-      if(primaryKey) sb append " PRIMARY KEY"
-      if( unique ) sb append " UNIQUE"
+      if (defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if (notNull) sb append " NOT NULL"
+      if (primaryKey) sb append " PRIMARY KEY"
+      if (unique) sb append " UNIQUE"
     }
 
     override protected def handleColumnOption(o: ColumnOption[?]): Unit = o match {
       case OracleProfile.ColumnOption.AutoIncSequenceName(s) => sequenceName = s
-      case OracleProfile.ColumnOption.AutoIncTriggerName(s) => triggerName = s
-      case _ => super.handleColumnOption(o)
+      case OracleProfile.ColumnOption.AutoIncTriggerName(s)  => triggerName = s
+      case _                                                 => super.handleColumnOption(o)
     }
 
-    def createSequenceAndTrigger(t: Table[?]): Iterable[String] = if(!autoIncrement) Nil else {
+    def createSequenceAndTrigger(t: Table[?]): Iterable[String] = if (!autoIncrement) Nil
+    else {
       val tab = quoteIdentifier(t.tableName)
-      val seq = quoteIdentifier(if(sequenceName eq null) t.tableName+"__"+column.name+"_seq" else sequenceName)
-      val trg = quoteIdentifier(if(triggerName eq null) t.tableName+"__"+column.name+"_trg" else triggerName)
+      val seq = quoteIdentifier(if (sequenceName eq null) t.tableName + "__" + column.name + "_seq" else sequenceName)
+      val trg = quoteIdentifier(if (triggerName eq null) t.tableName + "__" + column.name + "_trg" else triggerName)
       val col = quoteIdentifier(column.name)
       Seq(
         s"create sequence $seq start with 1 increment by 1",
-        s"create or replace trigger $trg before insert on $tab referencing new as new for each row"+
+        s"create or replace trigger $trg before insert on $tab referencing new as new for each row" +
           s" when (new.$col is null) begin select $seq.nextval into :new.$col from sys.dual; end;"
       )
     }
 
-    def dropTriggerAndSequence(t: Table[?]): Iterable[String] = if(!autoIncrement) Nil else {
-      val seq = quoteIdentifier(if(sequenceName eq null) t.tableName+"__"+column.name+"_seq" else sequenceName)
-      val trg = quoteIdentifier(if(triggerName eq null) t.tableName+"__"+column.name+"_trg" else triggerName)
+    def dropTriggerAndSequence(t: Table[?]): Iterable[String] = if (!autoIncrement) Nil
+    else {
+      val seq = quoteIdentifier(if (sequenceName eq null) t.tableName + "__" + column.name + "_seq" else sequenceName)
+      val trg = quoteIdentifier(if (triggerName eq null) t.tableName + "__" + column.name + "_trg" else triggerName)
       Seq(
         s"drop trigger $trg",
         s"drop sequence $seq"
@@ -310,7 +299,7 @@ END;
       seq._minValue.foreach { b append " minvalue " append _ }
       seq._maxValue.foreach { b append " maxvalue " append _ }
       seq._start.foreach { b append " start with " append _ }
-      if(seq._cycle) b append " cycle nocache"
+      if (seq._cycle) b append " cycle nocache"
       DDL(b.toString, "drop sequence " + quoteIdentifier(seq.name))
     }
   }
@@ -334,7 +323,7 @@ END;
     class OracleBooleanJdbcType extends BooleanJdbcType {
       override def sqlType = java.sql.Types.CHAR
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
-      override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+      override def valueToSQLLiteral(value: Boolean) = if (value) "1" else "0"
     }
 
     class OracleBlobJdbcType extends BlobJdbcType {
@@ -348,16 +337,16 @@ END;
             try {
               val buf = new Array[Byte](blobBufferSize)
               var cont = true
-              while(cont) {
+              while (cont) {
                 val len = in.read(buf)
-                if(len < 0) cont = false
+                if (len < 0) cont = false
                 else out.write(buf, 0, len)
               }
               p.setBlob(idx, ob)
               added = true
             } finally in.close()
           } finally out.close()
-        } finally if(!added) ob.free()
+        } finally if (!added) ob.free()
       }
       override def updateValue(v: Blob, r: ResultSet, idx: Int): Nothing =
         throw new SlickException("OracleProfile does not support updating Blob values")
@@ -374,7 +363,7 @@ END;
        * to distinguish that from a proper NULL. */
       override def getValue(r: ResultSet, idx: Int) = {
         val v = super.getValue(r, idx)
-        if(v eq null) "" else v
+        if (v eq null) "" else v
       }
     }
 
@@ -383,10 +372,10 @@ END;
       override def setValue(v: Time, p: PreparedStatement, idx: Int) = p.setTimestamp(idx, new Timestamp(v.getTime))
       override def getValue(r: ResultSet, idx: Int) = {
         val v = r.getTimestamp(idx)
-        if(v eq null) null else new Time(v.getTime)
+        if (v eq null) null else new Time(v.getTime)
       }
       override def updateValue(v: Time, r: ResultSet, idx: Int) = r.updateTimestamp(idx, new Timestamp(v.getTime))
-      override def valueToSQLLiteral(value: Time) = "{ts '"+ new Timestamp(value.getTime).toString +"'}"
+      override def valueToSQLLiteral(value: Time) = "{ts '" + new Timestamp(value.getTime).toString + "'}"
     }
 
     class OracleUUIDJdbcType extends UUIDJdbcType {
@@ -401,12 +390,12 @@ END;
 
     class OracleLocalDateJdbcType extends LocalDateJdbcType {
       override def hasLiteralForm: Boolean = true
-      override def valueToSQLLiteral(value: LocalDate) : String = {
+      override def valueToSQLLiteral(value: LocalDate): String = {
         s"TO_DATE('${value.toString}', 'SYYYY-MM-DD')"
       }
       override def getValue(r: ResultSet, idx: Int): LocalDate = {
         r.getString(idx) match {
-          case null => null
+          case null    => null
           case dateStr => LocalDate.parse(dateStr.substring(0, 10))
         }
       }
@@ -423,7 +412,7 @@ END;
 
     class OracleInstantJdbcType extends InstantJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
-      private[this] def serializeTime(v: Instant) : String = formatter.format(instantToUTC(v))
+      private[this] def serializeTime(v: Instant): String = formatter.format(instantToUTC(v))
       private[this] def instantToUTC(v: Instant): OffsetDateTime = v.atOffset(ZoneOffset.UTC)
 
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
@@ -435,7 +424,7 @@ END;
       }
       override def getValue(r: ResultSet, idx: Int): Instant = {
         r.getObject(idx) match {
-          case null => null
+          case null        => null
           case timestamptz => Instant.from(TimestamptzConverter.timestamptzToOffsetDateTime(timestamptz))
 
         }
@@ -449,7 +438,7 @@ END;
     // No Oracle time type without date component. Add LocalDate.ofEpochDay(0), but ignore it.
     class OracleOffsetTimeJdbcType extends OffsetTimeJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
-      private[this] def serializeTime(v : OffsetTime) : String = formatter.format(v.atDate(LocalDate.ofEpochDay(0)))
+      private[this] def serializeTime(v: OffsetTime): String = formatter.format(v.atDate(LocalDate.ofEpochDay(0)))
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
       override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
         p.setObject(idx, TimestamptzConverter.offsetTimeToTimestamptz(v), -101)
@@ -468,7 +457,7 @@ END;
 
     class OracleOffsetDateTimeJdbcType extends OffsetDateTimeJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
-      private[this] def serializeTime(v : OffsetDateTime) : String = formatter.format(v)
+      private[this] def serializeTime(v: OffsetDateTime): String = formatter.format(v)
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
       override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int) = {
         p.setObject(idx, TimestamptzConverter.offsetDateTimeToTimestamptz(v), -101)
@@ -487,7 +476,7 @@ END;
 
     class OracleZonedDateTimeJdbcType extends ZonedDateTimeJdbcType {
       private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV")
-      private[this] def serializeTime(v : ZonedDateTime) : String = formatter.format(v)
+      private[this] def serializeTime(v: ZonedDateTime): String = formatter.format(v)
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
       override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int) = {
         p.setObject(idx, TimestamptzConverter.zonedDateTimeToTimestamptz(v), -101)
@@ -512,7 +501,7 @@ END;
   override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
     new OracleSchemaActionExtensionMethodsImpl(schema)
   class OracleSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
-    extends JdbcSchemaActionExtensionMethodsImpl(schema) {
+      extends JdbcSchemaActionExtensionMethodsImpl(schema) {
 
     override def create: ProfileAction[Unit, NoStream, Effect.Schema] =
       new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
@@ -526,8 +515,10 @@ END;
       }
   }
 
-  override def createOptionResultConverter[T](ti: JdbcType[T],
-                                              idx: Int): ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]] =
+  override def createOptionResultConverter[T](
+      ti: JdbcType[T],
+      idx: Int
+  ): ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]] =
     ti.scalaType match {
       case ScalaBaseType.stringType =>
         new OptionResultConverter[String](ti.asInstanceOf[JdbcType[String]], idx) {
@@ -536,17 +527,18 @@ END;
             if ((v eq null) || v.isEmpty) None else Some(v)
           }
         }.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]]]
-      case _                        =>
+      case _ =>
         super.createOptionResultConverter(ti, idx)
     }
 
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new CountingInsertActionComposerImpl[T](compiled)
 
-  override def createReturningInsertActionComposer[U, QR, RU](compiled: JdbcCompiledInsert,
-                                                              keys: Node,
-                                                              mux: (U, QR) => RU
-                                                             ): ReturningInsertActionComposer[U, RU] =
+  override def createReturningInsertActionComposer[U, QR, RU](
+      compiled: JdbcCompiledInsert,
+      keys: Node,
+      mux: (U, QR) => RU
+  ): ReturningInsertActionComposer[U, RU] =
     new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
 
   // Does not work to get around the ORA-00904 issue when returning columns
@@ -563,8 +555,9 @@ END;
     }
   }*/
 
-  /** Remove ORDER BY from comprehensions that are used as arguments to a
-    * scalar function. */
+  /**
+   * Remove ORDER BY from comprehensions that are used as arguments to a scalar function.
+   */
   class RemoveSubqueryOrdering extends Phase {
     val name = "removeSubqueryOrdering"
 
@@ -584,8 +577,10 @@ END;
 }
 
 object OracleProfile extends OracleProfile with JdbcActionComponent.OneRowPerStatementOnly {
+
   /** Extra column options for OracleProfile */
   object ColumnOption {
+
     /** Name of the sequence which is generated for an AutoInc column. */
     case class AutoIncSequenceName(name: String) extends ColumnOption[Nothing]
 
@@ -594,12 +589,10 @@ object OracleProfile extends OracleProfile with JdbcActionComponent.OneRowPerSta
   }
 }
 
-
 /**
-  * Converts between `TIMESTAMPTZ` and java.time times and back.
-  * Oracle jar not on path at compile time (but must be a run time)
-  * Use reflection to get access to `TIMESTAMPTZ` class
-  */
+ * Converts between `TIMESTAMPTZ` and java.time times and back. Oracle jar not on path at compile time (but must be a
+ * run time) Use reflection to get access to `TIMESTAMPTZ` class
+ */
 object TimestamptzConverter {
   val timestampTZClass = Class.forName("oracle.sql.TIMESTAMPTZ")
   val timestampTZCtor = timestampTZClass.getConstructor(classOf[Array[Byte]])
@@ -608,7 +601,7 @@ object TimestamptzConverter {
   val zoneIdGetId = zoneIdClass.getMethod("getID", classOf[String])
   val zoneIdGetRegion = zoneIdClass.getMethod("getRegion", classOf[Int])
 
-  val RegionIdBit = Integer.parseInt("10000000",2)
+  val RegionIdBit = Integer.parseInt("10000000", 2)
 
   // Byte 0: Century, offset is 100 (value - 100 is century)
   // Byte 1: Decade, offset is 100 (value - 100 is decade)
@@ -624,7 +617,7 @@ object TimestamptzConverter {
   // Byte 11: Hour UTC-offset of Timezone, offset is 20 (value-20 is UTC-hour offset)
   // Byte 12: Minute UTC-offset of Timezone, offset is 60 (value-60 is UTC-minute offset)
 
-  def offsetDateTimeToTimestamptz(attribute: OffsetDateTime ) = {
+  def offsetDateTimeToTimestamptz(attribute: OffsetDateTime) = {
     val bytes = newTIMESTAMPTZBuffer()
     val utc = attribute.atZoneSameInstant(java.time.ZoneOffset.UTC)
     writeDateTime(bytes, utc)
@@ -650,7 +643,7 @@ object TimestamptzConverter {
     }
   }
 
-  def offsetTimeToTimestamptz(attribute: OffsetTime ) = {
+  def offsetTimeToTimestamptz(attribute: OffsetTime) = {
     val bytes = newTIMESTAMPTZBuffer()
     val utc = attribute.atDate(LocalDate.ofEpochDay(0)).atZoneSameInstant(java.time.ZoneOffset.UTC)
     writeDateTime(bytes, utc)
@@ -716,10 +709,10 @@ object TimestamptzConverter {
     val hour = bytes(4) - 1
     val minute = bytes(5) - 1
     val second = bytes(6) - 1
-    val nanoOfSecond = ((bytes(7) & 0xFF) << 24) |
-      ((bytes(8) & 0xFF) << 16) |
-      ((bytes(9) & 0xFF) << 8) |
-      bytes(10) & 0xFF
+    val nanoOfSecond = ((bytes(7) & 0xff) << 24) |
+      ((bytes(8) & 0xff) << 16) |
+      ((bytes(9) & 0xff) << 8) |
+      bytes(10) & 0xff
     OffsetDateTime.of(year, month, dayOfMonth, hour, minute, second, nanoOfSecond, java.time.ZoneOffset.UTC)
   }
 
@@ -727,7 +720,7 @@ object TimestamptzConverter {
 
   def newTIMESTAMPTZBuffer() = new Array[Byte](13)
 
-  def writeDateTime(bytes: Array[Byte], utc: ZonedDateTime ): Unit = {
+  def writeDateTime(bytes: Array[Byte], utc: ZonedDateTime): Unit = {
     val year = utc.getYear
     bytes(0) = (year / 100 + 100).toByte
     bytes(1) = (year % 100 + 100).toByte
@@ -740,13 +733,13 @@ object TimestamptzConverter {
 
     val nano = utc.getNano
     val ba = BigInt(nano).toByteArray
-    ba.zipWithIndex.foreach{ case (b,i) => bytes(11-ba.length + i) = b }
+    ba.zipWithIndex.foreach { case (b, i) => bytes(11 - ba.length + i) = b }
   }
 
   val OFFSET_HOUR = 20
   val OFFSET_MINUTE = 60
   def extractOffset(bytes: Array[Byte]) = ZoneOffset.ofHoursMinutes(bytes(11) - OFFSET_HOUR, bytes(12) - OFFSET_MINUTE)
-  def writeZoneOffset(bytes: Array[Byte], offset: ZoneOffset ): Unit = {
+  def writeZoneOffset(bytes: Array[Byte], offset: ZoneOffset): Unit = {
     val totalMinutes = offset.getTotalSeconds / 60
     bytes(11) = ((totalMinutes / 60) + OFFSET_HOUR).toByte
     bytes(12) = ((totalMinutes % 60) + OFFSET_MINUTE).toByte

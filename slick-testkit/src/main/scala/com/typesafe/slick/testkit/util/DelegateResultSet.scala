@@ -6,11 +6,11 @@ import java.util.{Map, Calendar}
 import java.math.BigDecimal
 import java.net.URL
 
-/** An implementation of ResultSet which delegates all calls to another ResultSet.
-  * Individual methods can be overridden in subclasses to implement custom behavior.
-  * Methods from JDK 7 are declared but they throw a NotImplementedException instead
-  * of delegating the call, so that this class can be compiled on both, JDK 6 and
-  * JDK 7. */
+/**
+ * An implementation of ResultSet which delegates all calls to another ResultSet. Individual methods can be overridden
+ * in subclasses to implement custom behavior. Methods from JDK 7 are declared but they throw a NotImplementedException
+ * instead of delegating the call, so that this class can be compiled on both, JDK 6 and JDK 7.
+ */
 class DelegateResultSet(rs: ResultSet) extends ResultSet {
   def next(): Boolean = rs.next()
   def isWrapperFor(iface: Class[_]): Boolean = rs.isWrapperFor(iface)
@@ -35,16 +35,26 @@ class DelegateResultSet(rs: ResultSet) extends ResultSet {
   def updateNClob(columnIndex: Int, reader: Reader, length: Long): Unit = rs.updateNClob(columnIndex, reader, length)
   def updateClob(columnLabel: String, reader: Reader, length: Long): Unit = rs.updateClob(columnLabel, reader, length)
   def updateClob(columnIndex: Int, reader: Reader, length: Long): Unit = rs.updateClob(columnIndex, reader, length)
-  def updateBlob(columnLabel: String, inputStream: InputStream, length: Long): Unit = rs.updateBlob(columnLabel, inputStream, length)
-  def updateBlob(columnIndex: Int, inputStream: InputStream, length: Long): Unit = rs.updateBlob(columnIndex, inputStream, length)
-  def updateCharacterStream(columnLabel: String, reader: Reader, length: Long): Unit = rs.updateCharacterStream(columnLabel, reader, length)
-  def updateBinaryStream(columnLabel: String, x: InputStream, length: Long): Unit = rs.updateBinaryStream(columnLabel, x, length)
-  def updateAsciiStream(columnLabel: String, x: InputStream, length: Long): Unit = rs.updateAsciiStream(columnLabel, x, length)
-  def updateCharacterStream(columnIndex: Int, x: Reader, length: Long): Unit = rs.updateCharacterStream(columnIndex, x, length)
-  def updateBinaryStream(columnIndex: Int, x: InputStream, length: Long): Unit = rs.updateBinaryStream(columnIndex, x, length)
-  def updateAsciiStream(columnIndex: Int, x: InputStream, length: Long): Unit = rs.updateAsciiStream(columnIndex, x, length)
-  def updateNCharacterStream(columnLabel: String, reader: Reader, length: Long): Unit = rs.updateNCharacterStream(columnLabel, reader, length)
-  def updateNCharacterStream(columnIndex: Int, x: Reader, length: Long): Unit = rs.updateNCharacterStream(columnIndex, x, length)
+  def updateBlob(columnLabel: String, inputStream: InputStream, length: Long): Unit = rs
+    .updateBlob(columnLabel, inputStream, length)
+  def updateBlob(columnIndex: Int, inputStream: InputStream, length: Long): Unit = rs
+    .updateBlob(columnIndex, inputStream, length)
+  def updateCharacterStream(columnLabel: String, reader: Reader, length: Long): Unit = rs
+    .updateCharacterStream(columnLabel, reader, length)
+  def updateBinaryStream(columnLabel: String, x: InputStream, length: Long): Unit = rs
+    .updateBinaryStream(columnLabel, x, length)
+  def updateAsciiStream(columnLabel: String, x: InputStream, length: Long): Unit = rs
+    .updateAsciiStream(columnLabel, x, length)
+  def updateCharacterStream(columnIndex: Int, x: Reader, length: Long): Unit = rs
+    .updateCharacterStream(columnIndex, x, length)
+  def updateBinaryStream(columnIndex: Int, x: InputStream, length: Long): Unit = rs
+    .updateBinaryStream(columnIndex, x, length)
+  def updateAsciiStream(columnIndex: Int, x: InputStream, length: Long): Unit = rs
+    .updateAsciiStream(columnIndex, x, length)
+  def updateNCharacterStream(columnLabel: String, reader: Reader, length: Long): Unit = rs
+    .updateNCharacterStream(columnLabel, reader, length)
+  def updateNCharacterStream(columnIndex: Int, x: Reader, length: Long): Unit = rs
+    .updateNCharacterStream(columnIndex, x, length)
   def getNCharacterStream(columnLabel: String): Reader = rs.getNCharacterStream(columnLabel)
   def getNCharacterStream(columnIndex: Int): Reader = rs.getNCharacterStream(columnIndex)
   def getNString(columnLabel: String): String = rs.getNString(columnLabel)
@@ -100,10 +110,14 @@ class DelegateResultSet(rs: ResultSet) extends ResultSet {
   def updateRow(): Unit = rs.updateRow
   def insertRow(): Unit = rs.insertRow
   def updateObject(columnLabel: String, x: scala.Any): Unit = rs.updateObject(columnLabel, x)
-  def updateObject(columnLabel: String, x: scala.Any, scaleOrLength: Int): Unit = rs.updateObject(columnLabel, x, scaleOrLength)
-  def updateCharacterStream(columnLabel: String, reader: Reader, length: Int): Unit = rs.updateCharacterStream(columnLabel, reader, length)
-  def updateBinaryStream(columnLabel: String, x: InputStream, length: Int): Unit = rs.updateBinaryStream(columnLabel, x, length)
-  def updateAsciiStream(columnLabel: String, x: InputStream, length: Int): Unit = rs.updateAsciiStream(columnLabel, x, length)
+  def updateObject(columnLabel: String, x: scala.Any, scaleOrLength: Int): Unit = rs
+    .updateObject(columnLabel, x, scaleOrLength)
+  def updateCharacterStream(columnLabel: String, reader: Reader, length: Int): Unit = rs
+    .updateCharacterStream(columnLabel, reader, length)
+  def updateBinaryStream(columnLabel: String, x: InputStream, length: Int): Unit = rs
+    .updateBinaryStream(columnLabel, x, length)
+  def updateAsciiStream(columnLabel: String, x: InputStream, length: Int): Unit = rs
+    .updateAsciiStream(columnLabel, x, length)
   def updateTimestamp(columnLabel: String, x: Timestamp): Unit = rs.updateTimestamp(columnLabel, x)
   def updateTime(columnLabel: String, x: Time): Unit = rs.updateTime(columnLabel, x)
   def updateDate(columnLabel: String, x: Date): Unit = rs.updateDate(columnLabel, x)
@@ -119,10 +133,14 @@ class DelegateResultSet(rs: ResultSet) extends ResultSet {
   def updateBoolean(columnLabel: String, x: Boolean): Unit = rs.updateBoolean(columnLabel, x)
   def updateNull(columnLabel: String): Unit = rs.updateNull(columnLabel)
   def updateObject(columnIndex: Int, x: scala.Any): Unit = rs.updateObject(columnIndex, x)
-  def updateObject(columnIndex: Int, x: scala.Any, scaleOrLength: Int): Unit = rs.updateObject(columnIndex, x, scaleOrLength)
-  def updateCharacterStream(columnIndex: Int, x: Reader, length: Int): Unit = rs.updateCharacterStream(columnIndex, x, length)
-  def updateBinaryStream(columnIndex: Int, x: InputStream, length: Int): Unit = rs.updateBinaryStream(columnIndex, x, length)
-  def updateAsciiStream(columnIndex: Int, x: InputStream, length: Int): Unit = rs.updateAsciiStream(columnIndex, x, length)
+  def updateObject(columnIndex: Int, x: scala.Any, scaleOrLength: Int): Unit = rs
+    .updateObject(columnIndex, x, scaleOrLength)
+  def updateCharacterStream(columnIndex: Int, x: Reader, length: Int): Unit = rs
+    .updateCharacterStream(columnIndex, x, length)
+  def updateBinaryStream(columnIndex: Int, x: InputStream, length: Int): Unit = rs
+    .updateBinaryStream(columnIndex, x, length)
+  def updateAsciiStream(columnIndex: Int, x: InputStream, length: Int): Unit = rs
+    .updateAsciiStream(columnIndex, x, length)
   def updateTimestamp(columnIndex: Int, x: Timestamp): Unit = rs.updateTimestamp(columnIndex, x)
   def updateTime(columnIndex: Int, x: Time): Unit = rs.updateTime(columnIndex, x)
   def updateDate(columnIndex: Int, x: Date): Unit = rs.updateDate(columnIndex, x)

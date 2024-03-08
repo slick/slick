@@ -6,6 +6,7 @@ import slick.model.ForeignKeyAction
 
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
+
   /** Return a new instance of the AbstractTable carrying this Tag, with a new path */
   def taggedAs(path: Node): AbstractTable[?]
 }
@@ -16,10 +17,13 @@ abstract class RefTag(val path: Node) extends Tag
 /** A Tag marking the base table instance itself */
 trait BaseTag extends Tag
 
-/** The profile-independent superclass of all table row objects.
-  * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
+/**
+ * The profile-independent superclass of all table row objects.
+ * @tparam T
+ *   Row type for this table. Make sure it matches the type of your `*` projection.
+ */
 abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String)
-  extends Rep[T] {
+    extends Rep[T] {
 
   /** The client-side type of the table as defined by its * projection */
   type TableElementType
@@ -30,13 +34,12 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   override def encodeRef(path: Node): AbstractTable[T] = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
-  /** The * projection of the table used as default for queries and inserts.
-    * Should include all columns as a tuple, HList or custom shape and optionally
-    * map them to a custom entity type using the <> operator.
-    * The `ProvenShape` return type ensures that
-    * there is a `Shape` available for translating between the `Column`-based
-    * type in * and the client-side type without `Column` in the table's type
-    * parameter. */
+  /**
+   * The * projection of the table used as default for queries and inserts. Should include all columns as a tuple, HList
+   * or custom shape and optionally map them to a custom entity type using the <> operator. The `ProvenShape` return
+   * type ensures that there is a `Shape` available for translating between the `Column`-based type in * and the
+   * client-side type without `Column` in the table's type parameter.
+   */
   def * : ProvenShape[T]
 
   override def toNode = tableTag match {
@@ -51,43 +54,64 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   protected[this] def collectFieldSymbols(n: Node): Iterable[FieldSymbol] =
     n.collect {
       case Select(in, f: FieldSymbol) if in == tableNode => f
-    }.toSeq.distinct
+    }.toSeq
+      .distinct
 
-  /** Define a foreign key relationship.
+  /**
+   * Define a foreign key relationship.
    *
-   * @param name             The name of the foreign key in the database (only used when
-   *                         you define the database schema with Slick).
-   * @param sourceColumns    A column or a projection of multiple columns from
-   *                         this table defining the source of the foreign key.
-   * @param targetTableQuery The `TableQuery` for the target table.
-   * @param targetColumns    A function that maps from the target table to the
-   *                         column (or columns) to which the foreign key points.
-   * @param onUpdate         A `ForeignKeyAction`, default being `NoAction`.
-   * @param onDelete         A `ForeignKeyAction`, default being `NoAction`.
+   * @param name
+   *   The name of the foreign key in the database (only used when you define the database schema with Slick).
+   * @param sourceColumns
+   *   A column or a projection of multiple columns from this table defining the source of the foreign key.
+   * @param targetTableQuery
+   *   The `TableQuery` for the target table.
+   * @param targetColumns
+   *   A function that maps from the target table to the column (or columns) to which the foreign key points.
+   * @param onUpdate
+   *   A `ForeignKeyAction`, default being `NoAction`.
+   * @param onDelete
+   *   A `ForeignKeyAction`, default being `NoAction`.
    */
-  def foreignKey[P, PU, TT <: AbstractTable[?], U](name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
-                                                  (targetColumns: TT => P,
-                                                   onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-                                                   onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)
-                                                  (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
-                                                   unpackP: Shape[? <: FlatShapeLevel, P, PU, ?]
-                                                  ): ForeignKeyQuery[TT, U] = {
+  def foreignKey[P, PU, TT <: AbstractTable[?], U](name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])(
+      targetColumns: TT => P,
+      onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
+      onDelete: ForeignKeyAction = ForeignKeyAction.NoAction
+  )(implicit
+      unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
+      unpackP: Shape[? <: FlatShapeLevel, P, PU, ?]
+  ): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]
     val generator = new AnonSymbol
     val aliased = q.shaped.encodeRef(Ref(generator))
     val fv = Library.==.typed[Boolean](unpackP.toNode(targetColumns(aliased.value)), unpackP.toNode(sourceColumns))
-    val fk = ForeignKey(name, toNode, q.shaped.asInstanceOf[ShapedValue[TT, ?]],
-      targetTable, unpackP, sourceColumns, targetColumns, onUpdate, onDelete)
-    new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, q.toNode, fv), q.shaped, IndexedSeq(fk), q, generator,
-      aliased.value)
+    val fk = ForeignKey(
+      name,
+      toNode,
+      q.shaped.asInstanceOf[ShapedValue[TT, ?]],
+      targetTable,
+      unpackP,
+      sourceColumns,
+      targetColumns,
+      onUpdate,
+      onDelete
+    )
+    new ForeignKeyQuery[TT, U](
+      Filter.ifRefutable(generator, q.toNode, fv),
+      q.shaped,
+      IndexedSeq(fk),
+      q,
+      generator,
+      aliased.value
+    )
   }
 
-  /** Define the primary key for this table.
-    * It is usually simpler to use the `O.PrimaryKey` option on the primary
-    * key column but this method allows you to define compound primary keys
-    * or give them user-defined names (when defining the database schema
-    * with Slick). */
+  /**
+   * Define the primary key for this table. It is usually simpler to use the `O.PrimaryKey` option on the primary key
+   * column but this method allows you to define compound primary keys or give them user-defined names (when defining
+   * the database schema with Slick).
+   */
   def primaryKey[A](name: String, sourceColumns: A)(implicit shape: Shape[? <: FlatShapeLevel, A, ?, ?]): PrimaryKey =
     PrimaryKey(name, ForeignKey.linearizeFieldRefs(shape.toNode(sourceColumns)))
 
@@ -95,16 +119,16 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     m <- getClass.getMethods.iterator
     if m.getParameterTypes.length == 0 && classOf[Constraint].isAssignableFrom(m.getReturnType)
     q = {
-      if(!m.isAccessible) m.setAccessible(true) // Dotty makes classes nested within in methods private
+      if (!m.isAccessible) m.setAccessible(true) // Dotty makes classes nested within in methods private
       m.invoke(this).asInstanceOf[Constraint]
     }
   } yield q
 
   final def foreignKeys: Iterable[ForeignKey] =
-    tableConstraints.collect{ case q: ForeignKeyQuery[?, ?] => q.fks }.flatten.toIndexedSeq.sortBy(_.name)
+    tableConstraints.collect { case q: ForeignKeyQuery[?, ?] => q.fks }.flatten.toIndexedSeq.sortBy(_.name)
 
   final def primaryKeys: Iterable[PrimaryKey] =
-    tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq.sortBy(_.name)
+    tableConstraints.collect { case k: PrimaryKey => k }.toIndexedSeq.sortBy(_.name)
 
   /** Define an index or a unique constraint. */
   def index[A](name: String, on: A, unique: Boolean = false)(implicit shape: Shape[? <: FlatShapeLevel, A, ?, ?]) =
@@ -114,7 +138,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     m <- getClass.getMethods.iterator
     if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
   } yield {
-    if(!m.isAccessible) m.setAccessible(true) // Dotty makes classes nested within in methods private
+    if (!m.isAccessible) m.setAccessible(true) // Dotty makes classes nested within in methods private
     m.invoke(this).asInstanceOf[Index]
   }).toIndexedSeq.sortBy(_.name)
 }

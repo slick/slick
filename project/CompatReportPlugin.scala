@@ -11,7 +11,6 @@ import sbtversionpolicy.{DependencyCheckReport, Direction, SbtVersionPolicyMima,
 import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVersions
 import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.*
 
-
 object CompatReportPlugin extends AutoPlugin {
   override def requires = SbtVersionPolicyPlugin
 
@@ -19,10 +18,12 @@ object CompatReportPlugin extends AutoPlugin {
 
   val previousRelease = settingKey[Option[String]]("Determine the artifact of the previous release")
 
-  case class ModuleReport(module: String,
-                          sinceVersion: String,
-                          depChanges: Seq[DependencyChangeInfo],
-                          codeChanges: Seq[CodeChangeInfo]) {
+  case class ModuleReport(
+      module: String,
+      sinceVersion: String,
+      depChanges: Seq[DependencyChangeInfo],
+      codeChanges: Seq[CodeChangeInfo]
+  ) {
     lazy val count = depChanges.length + codeChanges.length
   }
 
@@ -37,19 +38,13 @@ object CompatReportPlugin extends AutoPlugin {
 
   import autoImport.*
 
-
   private def markdownTable(headers: String*)(rows: Seq[Seq[String]]) = {
     val escaped = rows.map(_.map(_.replaceAllLiterally("|", "\\|")))
     val widths =
-      (headers.map(_.length) +: escaped.map(_.map(_.length)))
-        .transpose
-        .map(_.max)
+      (headers.map(_.length) +: escaped.map(_.map(_.length))).transpose.map(_.max)
 
     def row(r: Seq[String], pad: Char) =
-      r
-        .zipWithIndex
-        .map { case (s, i) => (pad + s + pad).padTo(widths(i) + 2, ' ') }
-        .mkString("|", "|", "|\n")
+      r.zipWithIndex.map { case (s, i) => (pad + s + pad).padTo(widths(i) + 2, ' ') }.mkString("|", "|", "|\n")
 
     row(headers, ' ') +
       row(widths.map("-" * _), '-') +
@@ -67,10 +62,12 @@ object CompatReportPlugin extends AutoPlugin {
 
   implicit val directionOrdering: Ordering[Direction] = Ordering.by(d => (d.forward, d.backward))
 
-  case class DependencyChangeInfo(direction: Direction,
-                                  organizationId: String,
-                                  moduleName: String,
-                                  status: DependencyCheckReport.ModuleStatus) {
+  case class DependencyChangeInfo(
+      direction: Direction,
+      organizationId: String,
+      moduleName: String,
+      status: DependencyCheckReport.ModuleStatus
+  ) {
     val directionString = renderDirection(direction)
     val artifactString = organizationId + ":" + moduleName
     val (previousVersion, currentVersion, versionScheme) = {
@@ -142,18 +139,16 @@ object CompatReportPlugin extends AutoPlugin {
     val b = backward.toSet
     val f = forward.toSet
     val all = b ++ f
-    all
-      .toSeq
-      .map { a =>
-        val dir =
-          (b.contains(a), f.contains(a)) match {
-            case (true, true)   => Direction.both
-            case (true, false)  => Direction.backward
-            case (false, true)  => Direction.forward
-            case (false, false) => Direction.none
-          }
-        dir -> a
-      }
+    all.toSeq.map { a =>
+      val dir =
+        (b.contains(a), f.contains(a)) match {
+          case (true, true)   => Direction.both
+          case (true, false)  => Direction.backward
+          case (false, true)  => Direction.forward
+          case (false, false) => Direction.none
+        }
+      dir -> a
+    }
   }
 
   private def renderModuleMarkdownSection(moduleReport: ModuleReport) =
@@ -176,7 +171,7 @@ object CompatReportPlugin extends AutoPlugin {
     val projId = Keys.projectID.value
     val sv = Keys.scalaVersion.value
     val sbv = Keys.scalaBinaryVersion.value
-    val name = CrossVersion(projId.crossVersion, sv, sbv).fold(projId.name)(_ (projId.name))
+    val name = CrossVersion(projId.crossVersion, sv, sbv).fold(projId.name)(_(projId.name))
 
     val ivyProps = sbtversionpolicy.internal.Resolvers.defaultIvyProperties(Keys.ivyPaths.value.ivyHome)
     val repos = Keys.resolvers.value.flatMap { res =>
@@ -188,8 +183,9 @@ object CompatReportPlugin extends AutoPlugin {
     // Can't reference Keys.fullResolvers, which is a task.
     // So we're using the usual default repositories from coursier here…
     val fullRepos = coursierapi.Repository.defaults().asScala ++ repos
-    val res = coursierapi.Versions.create()
-      .withRepositories(fullRepos *)
+    val res = coursierapi.Versions
+      .create()
+      .withRepositories(fullRepos*)
       .withModule(coursierapi.Module.of(projId.organization, name))
       .versions()
     res.getMergedListings.getAvailable.asScala
@@ -201,11 +197,13 @@ object CompatReportPlugin extends AutoPlugin {
         val versions = previousVersionsFromRepo.value
         val cur = Version(Keys.version.value)
         val sorted =
-          versions.map(Version(_))
-            .filterNot { version =>
-              version >= cur ||
-                version.items.exists { case t: Version.Tag => t.isPreRelease case _ => false }
+          versions.map(Version(_)).filterNot { version =>
+            version >= cur ||
+            version.items.exists {
+              case t: Version.Tag => t.isPreRelease
+              case _              => false
             }
+          }
         if (sorted.isEmpty) None else Some(sorted.max.repr)
       }
     ) ++
@@ -222,8 +220,7 @@ object CompatReportPlugin extends AutoPlugin {
               val projectDeps = projectDependencies.value
 
               val dependencyIssues =
-                versionPolicyFindDependencyIssues.value.toMap
-                  .map { case (m, report) => m.toString -> report }
+                versionPolicyFindDependencyIssues.value.toMap.map { case (m, report) => m.toString -> report }
 
               val filters = mimaBinaryIssueFilters.value
 
@@ -231,21 +228,21 @@ object CompatReportPlugin extends AutoPlugin {
                 name.stripSuffix("_" + Keys.scalaBinaryVersion.value)
 
               val mimaIssues =
-                mimaFindBinaryIssues.value
-                  .map { case (module, (backwardProblems, forwardProblems)) =>
-                    module.withName(stripModuleNameSuffix(module.name)).toString ->
-                      (backwardProblems.filter(p => filters.forall(f => f(p))),
-                        forwardProblems.filter(p => filters.forall(f => f(p))))
-                  }
+                mimaFindBinaryIssues.value.map { case (module, (backwardProblems, forwardProblems)) =>
+                  module.withName(stripModuleNameSuffix(module.name)).toString ->
+                    (backwardProblems.filter(p => filters.forall(f => f(p))),
+                    forwardProblems.filter(p => filters.forall(f => f(p))))
+                }
 
               for (moduleString <- (dependencyIssues.keySet ++ mimaIssues.keySet).toSeq.sorted) yield {
                 val depChanges =
-                  dependencyIssues.get(moduleString)
+                  dependencyIssues
+                    .get(moduleString)
                     .fold(Seq.empty[DependencyChangeInfo]) { report =>
                       tupleWithDirection(report.forwardStatuses, report.backwardStatuses)
                         .filter { case (_, ((org, name), status)) =>
                           !status.validated &&
-                            !projectDeps.exists(p => p.organization == org && p.name == stripModuleNameSuffix(name))
+                          !projectDeps.exists(p => p.organization == org && p.name == stripModuleNameSuffix(name))
                         }
                         .map { case (direction, ((org, name), status)) =>
                           DependencyChangeInfo(direction, org, name, status)
@@ -254,10 +251,12 @@ object CompatReportPlugin extends AutoPlugin {
                     .sorted
 
                 val codeChanges =
-                  mimaIssues.get(moduleString)
+                  mimaIssues
+                    .get(moduleString)
                     .fold(Seq.empty[CodeChangeInfo]) { case (backward, forward) =>
-                      tupleWithDirection(forward, backward)
-                        .map { case (direction, problem) => CodeChangeInfo(direction, problem) }
+                      tupleWithDirection(forward, backward).map { case (direction, problem) =>
+                        CodeChangeInfo(direction, problem)
+                      }
                     }
                     .sorted
 
@@ -266,9 +265,7 @@ object CompatReportPlugin extends AutoPlugin {
               }
             },
             compatReportMarkdown := {
-              compatReportData.value
-                .flatMap(renderModuleMarkdownSection)
-                .mkString("\n")
+              compatReportData.value.flatMap(renderModuleMarkdownSection).mkString("\n")
             }
           )
       )

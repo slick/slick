@@ -12,12 +12,14 @@ trait ClientSideOp { this: Node =>
 }
 
 object ClientSideOp {
-  /** Perform a computation only on the server side of a tree that may be
-    * wrapped in client-side operations. Types are preserved unless
-    * ``keepType`` is set to false. */
+
+  /**
+   * Perform a computation only on the server side of a tree that may be wrapped in client-side operations. Types are
+   * preserved unless ``keepType`` is set to false.
+   */
   def mapServerSide(n: Node, keepType: Boolean = true)(f: Node => Node): Node = n match {
     case n: ClientSideOp => n.nodeMapServerSide(keepType, ch => mapServerSide(ch, keepType)(f))
-    case n => f(n)
+    case n               => f(n)
   }
   def mapResultSetMapping(n: Node, keepType: Boolean = true)(f: ResultSetMapping => Node): Node = n match {
     case r: ResultSetMapping => f(r)
@@ -35,21 +37,20 @@ final case class First(child: Node) extends UnaryNode with SimplyTypedNode with 
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
 }
 
-/** A client-side projection of type
-  * ``(CollectionType(c, t), u) => CollectionType(c, u)``. Unlike other nodes
-  * which only operate on real collections, a ResultSetMapping may use an
-  * Identity functor as its collection type constructor ``c``, thus giving it
-  * a type of ``(t, u) => u`` where ``t`` and ``u`` are primitive or Option
-  * types. */
+/**
+ * A client-side projection of type ``(CollectionType(c, t), u) => CollectionType(c, u)``. Unlike other nodes which only
+ * operate on real collections, a ResultSetMapping may use an Identity functor as its collection type constructor ``c``,
+ * thus giving it a type of ``(t, u) => u`` where ``t`` and ``u`` are primitive or Option types.
+ */
 final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node)
-  extends BinaryNode
+    extends BinaryNode
     with DefNode
     with ClientSideOp {
   type Self = ResultSetMapping
   override def self = this
   def left = from
   def right = map
-  override def childNames: Seq[String] = Seq("from "+generator, "map")
+  override def childNames: Seq[String] = Seq("from " + generator, "map")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, map = right)
   def generators = ConstArray((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
@@ -65,22 +66,24 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node)
         val map2 = map.infer(scope + (generator -> t), typeChildren)
         (map2, map2.nodeType)
     }
-    withChildren(ConstArray[Node](from2, map2)) :@ (if(!hasType) newType else nodeType)
+    withChildren(ConstArray[Node](from2, map2)) :@ (if (!hasType) newType else nodeType)
   }
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = {
     val this2 = mapScopedChildren {
       case (Some(_), ch) => r(ch)
-      case (None, ch) => ch
+      case (None, ch)    => ch
     }
-    if(keepType && hasType) this2 :@ nodeType
+    if (keepType && hasType) this2 :@ nodeType
     else this2
   }
 }
 
-/** A switch for special-cased parameters that needs to be interpreted in order
-  * to find the correct query string for the query arguments. */
+/**
+ * A switch for special-cased parameters that needs to be interpreted in order to find the correct query string for the
+ * query arguments.
+ */
 final case class ParameterSwitch(cases: ConstArray[(Any => Boolean, Node)], default: Node)
-  extends SimplyTypedNode
+    extends SimplyTypedNode
     with ClientSideOp {
   type Self = ParameterSwitch
   override def self = this
@@ -92,8 +95,8 @@ final case class ParameterSwitch(cases: ConstArray[(Any => Boolean, Node)], defa
   def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
     val ch = children
     val ch2 = ch.endoMap(r)
-    val this2 = if(ch2 eq ch) this else rebuild(ch2)
-    if(keepType && hasType) this2 :@ nodeType
+    val this2 = if (ch2 eq ch) this else rebuild(ch2)
+    if (keepType && hasType) this2 :@ nodeType
     else this2
   }
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")

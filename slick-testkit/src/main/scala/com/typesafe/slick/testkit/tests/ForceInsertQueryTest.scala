@@ -6,10 +6,12 @@ class ForceInsertQueryTest extends AsyncTest[JdbcTestDB] {
 
   import tdb.profile.api._
 
-  case class Person(id: Option[Long] = None,
-                    name: Option[String] = None,
-                    hairColor: Option[String] = None,
-                    eyeColor: Option[String] = None)
+  case class Person(
+      id: Option[Long] = None,
+      name: Option[String] = None,
+      hairColor: Option[String] = None,
+      eyeColor: Option[String] = None
+  )
 
   class People(tag: Tag) extends Table[Person](tag, "people") {
     def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
@@ -25,10 +27,9 @@ class ForceInsertQueryTest extends AsyncTest[JdbcTestDB] {
 
   object peopleTable extends TableQuery(new People(_)) {
     def someForcedInsert(person: Person) = {
-      this.map(p => (p.name, p.hairColor, p.eyeColor))
-        .forceInsertQuery {
-          Query((person.name, person.hairColor, person.eyeColor))
-        }
+      this.map(p => (p.name, p.hairColor, p.eyeColor)).forceInsertQuery {
+        Query((person.name, person.hairColor, person.eyeColor))
+      }
     }
   }
 

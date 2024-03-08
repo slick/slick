@@ -21,13 +21,13 @@ abstract class DBTest {
     tdb.createDB()
   }
 
-  println("[Using test database "+tdb+"]")
+  println("[Using test database " + tdb + "]")
 
   def runBlocking[T](a: DBIO[T]): Unit = Await.result(db.run(a), Duration.Inf)
 
   @Before def beforeDBTest = tdb.cleanUpBefore()
   @After def afterDBTest = {
-    if(dbInitialized) db.close()
+    if (dbInitialized) db.close()
     tdb.cleanUpAfter()
   }
 }
@@ -35,7 +35,7 @@ abstract class DBTest {
 abstract class DBTestObject(dbs: TestDB*) {
   val testClassName = {
     val s = getClass.getName
-    s.substring(0, s.length-1)
+    s.substring(0, s.length - 1)
   }
   @Parameters def parameters: java.util.List[Array[TestDB]] = dbs.filter(_.isEnabled).map(to => Array(to)).asJava
 }

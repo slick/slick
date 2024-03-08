@@ -8,7 +8,6 @@ import scala.jdk.CollectionConverters.*
 import org.junit.runner.{Description, Result}
 import org.junit.runner.notification.{Failure, RunListener}
 
-
 class GitHubActionsRunListener extends RunListener {
   private def error(title: String = null)(value: String): Unit = {
     val titlePart = Option(title).fold("")(" title=" + _)

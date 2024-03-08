@@ -2,10 +2,9 @@ package slick.ast
 
 import slick.util.ConstArray
 
-
 /** Represents an Insert operation. */
 final case class Insert(tableSym: TermSymbol, table: Node, linear: Node, allFields: ConstArray[FieldSymbol])
-  extends BinaryNode
+    extends BinaryNode
     with DefNode {
   type Self = Insert
   override def self = this
@@ -25,7 +24,7 @@ final case class Insert(tableSym: TermSymbol, table: Node, linear: Node, allFiel
 
 /** A column in an Insert operation. */
 final case class InsertColumn(children: ConstArray[Node], fs: FieldSymbol, buildType: Type)
-  extends Node
+    extends Node
     with SimplyTypedNode {
   type Self = InsertColumn
   override def self = this

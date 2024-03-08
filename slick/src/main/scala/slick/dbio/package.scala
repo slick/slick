@@ -1,8 +1,10 @@
 package slick
 
-/** The `dbio` package contains the Database I/O Action implementation.
-  * See [[DBIOAction]] for details. */
+/**
+ * The `dbio` package contains the Database I/O Action implementation. See [[DBIOAction]] for details.
+ */
 package object dbio {
+
   /** Simplified type for a streaming [[DBIOAction]] without effect tracking */
   type StreamingDBIO[+R, +T] = DBIOAction[R, Streaming[T], Effect.All]
 

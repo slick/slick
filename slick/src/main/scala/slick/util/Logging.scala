@@ -6,11 +6,11 @@ import scala.reflect.ClassTag
 
 final class SlickLogger(val slf4jLogger: Slf4jLogger) {
   @inline
-  def debug(msg: => String, n: => Dumpable): Unit = debug(msg+"\n"+SlickLogger.treePrinter.get(n))
+  def debug(msg: => String, n: => Dumpable): Unit = debug(msg + "\n" + SlickLogger.treePrinter.get(n))
 
   @inline
   def debug(msg: => String, n: => Dumpable, mark: (Dumpable => Boolean)): Unit =
-    debug(msg+"\n"+SlickLogger.treePrinter.copy(mark = mark).get(n))
+    debug(msg + "\n" + SlickLogger.treePrinter.copy(mark = mark).get(n))
 
   @inline
   def isDebugEnabled = slf4jLogger.isDebugEnabled()
@@ -28,7 +28,7 @@ final class SlickLogger(val slf4jLogger: Slf4jLogger) {
   def warn(msg: => String, t: Throwable): Unit = { if (slf4jLogger.isWarnEnabled) slf4jLogger.warn(msg, t) }
 
   @inline
-  def warn(msg: => String, n: => Dumpable): Unit = warn(msg+"\n"+SlickLogger.treePrinter.get(n))
+  def warn(msg: => String, n: => Dumpable): Unit = warn(msg + "\n" + SlickLogger.treePrinter.get(n))
 
   @inline
   def info(msg: => String): Unit = { if (slf4jLogger.isInfoEnabled) slf4jLogger.info(msg) }
@@ -51,7 +51,7 @@ final class SlickLogger(val slf4jLogger: Slf4jLogger) {
 
 object SlickLogger {
   private val treePrinter =
-    new TreePrinter(prefix = DumpInfo.highlight(if(GlobalConfig.unicodeDump) "\u2503 " else "| "))
+    new TreePrinter(prefix = DumpInfo.highlight(if (GlobalConfig.unicodeDump) "\u2503 " else "| "))
 
   def apply[T](implicit ct: ClassTag[T]): SlickLogger =
     new SlickLogger(LoggerFactory.getLogger(ct.runtimeClass))
@@ -60,7 +60,7 @@ object SlickLogger {
 trait Logging {
   protected[this] lazy val logger = {
     val n = getClass.getName
-    val cln = if(n endsWith "$") n.substring(0, n.length-1) else n
+    val cln = if (n endsWith "$") n.substring(0, n.length - 1) else n
     new SlickLogger(LoggerFactory.getLogger(cln))
   }
 }

@@ -10,31 +10,31 @@ class TableConstraintsTest {
     import slick.jdbc.H2Profile.api._
 
     class Foo(tag: Tag) extends Table[Long](tag, "foo_table") {
-        def id = column[Long]("id")
-        override def * = id
+      def id = column[Long]("id")
+      override def * = id
     }
     val foos = TableQuery[Foo]
 
     class Bar(tag: Tag) extends Table[Long](tag, "bar_table") {
-        def id = column[Long]("id")
-        override def * = id
+      def id = column[Long]("id")
+      override def * = id
     }
     var bars = TableQuery[Bar]
 
     class T(tag: Tag) extends Table[(Int, String, Long, Long)](tag, "t_table") {
       def id = column[Int]("id")
       def idIndex = index("idx_id", id)
-      
+
       def code = column[String]("code")
       def codeIndex = index("idx_code", code)
-      
+
       def pk1 = primaryKey("pk1_t", (id, code))
-      def pk2 = primaryKey("pk2_t", (id))
+      def pk2 = primaryKey("pk2_t", id)
 
       def fooId = column[Long]("foo_id")
       def foo = foreignKey("fk_foo", fooId, foos)(_.id)
       def fooIdndex = index("idx_foo_id", fooId)
-      
+
       def barId = column[Long]("bar_id")
       def bar = foreignKey("fk_bar", barId, bars)(_.id)
       def barIdIndex = index("idx_bar_id", barId)
