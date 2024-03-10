@@ -282,7 +282,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   class MySQLUpsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
-      val names = syms.filter(!_.existsColumnOption[ColumnOption.AutoInc.type]).map(_.name)
+      val names = syms.filter(!_.existsColumnOption[ColumnOption.AutoInc.type]).map(s => quoteIdentifier(s.name))
       val update =
         if (names.isEmpty) ""
         else s"on duplicate key update ${names.map(n => s"$n=VALUES($n)").mkString(", ")}"
