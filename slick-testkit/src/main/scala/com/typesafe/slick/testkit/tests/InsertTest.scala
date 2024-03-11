@@ -297,13 +297,14 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } else {
       case class A(id1: Int, id2: Int)
       class ATable(tag: Tag) extends Table[A](tag, "ATABLE") {
-        def id1 = column[Int]("id1")
+        // using keyword for checking they are quoted
+        def select = column[Int]("select")
 
-        def id2 = column[Int]("id2")
+        def from = column[Int]("from")
 
-        val pk = primaryKey("pk_for_atable", (id1, id2))
+        val pk = primaryKey("pk_for_atable", (select, from))
 
-        def * = (id1, id2) <> ((A.apply _).tupled, A.unapply)
+        def * = (select, from) <> ((A.apply _).tupled, A.unapply)
       }
       case class B(id1: Int, id2: Int, v: Int)
       class BTable(tag: Tag) extends Table[B](tag, "BTABLE") {
