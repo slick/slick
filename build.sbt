@@ -134,10 +134,6 @@ ThisBuild / scalaVersion := Dependencies.scala213
 
 ThisBuild / versionScheme := Some("pvp")
 
-ThisBuild / versionPolicyIntention := Versioning.BumpMajor
-
-ThisBuild / versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+\\.\\d+-pre\\.\\d+\\.\\w+\\.dirty".r)
-
 val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
 
 val buildCompatReport = taskKey[File]("Build the compatibility report")
