@@ -37,11 +37,13 @@ class MySQLDDLTest(testSchema: Option[String]) {
     val fkEscapedName = s"`$fkName`"
     val t2CreateStatements = ts2.schema.createStatements.toList
     assertTrue("DDL (create) must contain any SQL statements", t2CreateStatements.nonEmpty)
-    t2CreateStatements.foreach(s => assertTrue("DDL (create) uses escaped table name: " + s, s contains table2QualifiedName))
+    t2CreateStatements
+      .foreach(s => assertTrue("DDL (create) uses escaped table name: " + s, s contains table2QualifiedName))
     assertTrue("Fk name must be escaped", t2CreateStatements.exists(_.contains(fkEscapedName)))
 
     val t2DropStatements = ts2.schema.dropStatements.toList
-    t2DropStatements.foreach(s => assertTrue("DDL (drop) uses escaped table name: " + s, s contains table2QualifiedName))
+    t2DropStatements
+      .foreach(s => assertTrue("DDL (drop) uses escaped table name: " + s, s contains table2QualifiedName))
     assertTrue("Fk name must be escaped", t2DropStatements.exists(_.contains(fkEscapedName)))
   }
 }

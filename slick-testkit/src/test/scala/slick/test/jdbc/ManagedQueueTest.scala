@@ -16,13 +16,11 @@ import scala.util.Failure
 
 class ManagedQueueTest {
 
-
   @Test
   def testBrokenConnectionWithStreamingAction() = {
 
     val config =
-      ConfigFactory.parseString(
-        """
+      ConfigFactory.parseString("""
           |dataSource {
           |  profile = "slick.jdbc.H2Profile$"
           |  db {
@@ -37,11 +35,8 @@ class ManagedQueueTest {
           |""".stripMargin)
 
     val dataSource = new JdbcDataSourceWrap(
-      JdbcDataSource.forConfig(
-        config.getConfig("dataSource.db"),
-        driver = null,
-        "test",
-        ClassLoaderUtil.defaultClassLoader)
+      JdbcDataSource
+        .forConfig(config.getConfig("dataSource.db"), driver = null, "test", ClassLoaderUtil.defaultClassLoader)
     )
 
     // only one thread and one connection available
@@ -69,13 +64,11 @@ class ManagedQueueTest {
       // this would consume the single thread we have in AsyncExecutor
       dataSource.failMode()
       val streamResult = db.stream(ts.result).foreach(println)
-      Await
-        .ready(streamResult, 3.seconds)
-        .onComplete {
-          case Failure(ex) =>
-            assertEquals("DB is not available!", ex.getMessage)
-          case _ => fail("This was expect to fail")
-        }
+      Await.ready(streamResult, 3.seconds).onComplete {
+        case Failure(ex) =>
+          assertEquals("DB is not available!", ex.getMessage)
+        case _ => fail("This was expect to fail")
+      }
 
       // before the fix for (https://github.com/slick/slick/issues/1875)
       // this would have hung forever
@@ -105,6 +98,5 @@ class ManagedQueueTest {
     override def close(): Unit = underlying.close()
     override val maxConnections: Option[Int] = underlying.maxConnections
   }
-
 
 }

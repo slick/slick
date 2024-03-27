@@ -1,9 +1,10 @@
 package slick.jdbc
 
-/** A DataSource that wraps the DriverManager API. It can be configured as a Java Bean and used
-  * both stand-alone and as a source for a connection pool. This implementation is design
-  * specifically to handle a non-JDBC Database URL in the format defined by the libpq standard.
-  */
+/**
+ * A DataSource that wraps the DriverManager API. It can be configured as a Java Bean and used both stand-alone and as a
+ * source for a connection pool. This implementation is design specifically to handle a non-JDBC Database URL in the
+ * format defined by the libpq standard.
+ */
 class DatabaseUrlDataSource extends DriverDataSource(null) {
 
   private val PostgresFullUrl = "^(?:postgres|postgresql)://([a-zA-Z0-9_]+)(?::([^@]+))?@([^/]+)/([^\\s]+)$".r
@@ -12,7 +13,7 @@ class DatabaseUrlDataSource extends DriverDataSource(null) {
 
   @volatile private[this] var initialized = false
 
-  override def init(): Unit = if(!initialized) {
+  override def init(): Unit = if (!initialized) {
     val (jdbcUrl, userAndPass) = extractUrl(Some(if (url == null) defaultUrl() else url))
     url = jdbcUrl.orNull
     user = userAndPass.map(_._1).getOrElse(user)
@@ -28,7 +29,10 @@ class DatabaseUrlDataSource extends DriverDataSource(null) {
 
       case Some(url @ MysqlFullUrl(username, password, host, dbname)) =>
         val defaultProperties = "?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci"
-        val addDefaultPropertiesIfNeeded = MysqlCustomProperties.findFirstMatchIn(url).map(_ => "").getOrElse(defaultProperties)
+        val addDefaultPropertiesIfNeeded = MysqlCustomProperties
+          .findFirstMatchIn(url)
+          .map(_ => "")
+          .getOrElse(defaultProperties)
         Some(s"jdbc:mysql://$host/${dbname + addDefaultPropertiesIfNeeded}") -> Some(username -> password)
 
       case Some(url) =>
@@ -39,7 +43,7 @@ class DatabaseUrlDataSource extends DriverDataSource(null) {
     }
   }
 
-  private[this] def defaultUrl():String = {
+  private[this] def defaultUrl(): String = {
     System.getenv("DATABASE_URL")
   }
 }

@@ -7,7 +7,7 @@ case class MClientInfoProperty(name: String, maxLen: Int, defaultValue: String, 
 
 object MClientInfoProperty {
   def getClientInfoProperties = {
-    ResultSetAction[MClientInfoProperty]{ s =>
+    ResultSetAction[MClientInfoProperty] { s =>
       try s.metaData.getClientInfoProperties()
       catch { case _: AbstractMethodError => null }
     } { r =>

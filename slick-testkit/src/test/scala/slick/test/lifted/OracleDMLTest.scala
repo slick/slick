@@ -11,12 +11,18 @@ class OracleDMLTest {
       def id = column[Int]("id")
       def otherId = column[Int]("otherId")
 
-      def pk = primaryKey( "SampleCompositePk", ( id, otherId ) )
+      def pk = primaryKey("SampleCompositePk", (id, otherId))
       def * = (id, otherId)
     }
 
-    assertFalse("When there are only primary keys columns there shouldn't be an update",
-      TableQuery[TableWithOnlyIdColumns].insertOrUpdate((1, 1)).statements.mkString.contains("when matched then update set"))
+    assertFalse(
+      "When there are only primary keys columns there shouldn't be an update",
+      TableQuery[TableWithOnlyIdColumns]
+        .insertOrUpdate((1, 1))
+        .statements
+        .mkString
+        .contains("when matched then update set")
+    )
   }
 
   @Test def testCompositePrimaryKeyAndOtherColumns(): Unit = {
@@ -25,13 +31,18 @@ class OracleDMLTest {
       def otherId = column[Int]("otherId")
       def optionalColumn = column[Option[String]]("optionalColumn")
 
-
-      def pk = primaryKey( "SampleCompositePk", ( id, otherId ) )
+      def pk = primaryKey("SampleCompositePk", (id, otherId))
       def * = (id, otherId, optionalColumn)
     }
 
-    assertTrue("Should update columns besides those on the primary key ",
-      TableQuery[TableWithOnlyIdColumns].insertOrUpdate((1, 1, Some(""))).statements.mkString.contains("when matched then update set t.\"optionalColumn\"=s.\"optionalColumn\""))
+    assertTrue(
+      "Should update columns besides those on the primary key ",
+      TableQuery[TableWithOnlyIdColumns]
+        .insertOrUpdate((1, 1, Some("")))
+        .statements
+        .mkString
+        .contains("when matched then update set t.\"optionalColumn\"=s.\"optionalColumn\"")
+    )
   }
 
   @Test def testOnlyPrimaryKeysSinglePrimaryKey(): Unit = {
@@ -41,8 +52,10 @@ class OracleDMLTest {
       def * = id
     }
 
-    assertFalse("When there are only primary keys columns there shouldn't be an update",
-      TableQuery[TableWithOnlyIdColumns].insertOrUpdate(1).statements.mkString.contains("when matched then update set"))
+    assertFalse(
+      "When there are only primary keys columns there shouldn't be an update",
+      TableQuery[TableWithOnlyIdColumns].insertOrUpdate(1).statements.mkString.contains("when matched then update set")
+    )
   }
 
   @Test def testPrimaryKeyAndOtherColumn(): Unit = {
@@ -50,10 +63,16 @@ class OracleDMLTest {
       def id = column[Int]("id", O.PrimaryKey)
       def optionalColumn = column[Option[String]]("optionalColumn")
 
-      def * = (id,  optionalColumn)
+      def * = (id, optionalColumn)
     }
 
-    assertTrue("Should update columns besides those on the primary key ",
-      TableQuery[TableWithOnlyIdColumns].insertOrUpdate((1, Some(""))).statements.mkString.contains("when matched then update set t.\"optionalColumn\"=s.\"optionalColumn\""))
+    assertTrue(
+      "Should update columns besides those on the primary key ",
+      TableQuery[TableWithOnlyIdColumns]
+        .insertOrUpdate((1, Some("")))
+        .statements
+        .mkString
+        .contains("when matched then update set t.\"optionalColumn\"=s.\"optionalColumn\"")
+    )
   }
 }

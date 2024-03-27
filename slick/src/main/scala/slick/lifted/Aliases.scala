@@ -1,8 +1,10 @@
 package slick
 package lifted
 
-/** Aliases for lifted embedding features. This trait can be mixed into aliasing
-  * objects which simplify the use of the lifted embedding. */
+/**
+ * Aliases for lifted embedding features. This trait can be mixed into aliasing objects which simplify the use of the
+ * lifted embedding.
+ */
 trait Aliases {
   type Query[+E, U, C[_]] = lifted.Query[E, U, C]
   val Query = lifted.Query
@@ -31,9 +33,11 @@ trait Aliases {
   type Tag = lifted.Tag
   type Shape[Level <: ShapeLevel, -M, U, P] = lifted.Shape[Level, M, U, P]
   type MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] = lifted.MappedProductShape[Level, C, M, U, P]
-  type MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C, U <: C, P <: C] = lifted.MappedScalaProductShape[Level, C, M, U, P]
-  type CaseClassShape[P <: Product, LiftedTuple, LiftedCaseClass <: P, PlainTuple, PlainCaseClass <: P] = lifted.CaseClassShape[P, LiftedTuple, LiftedCaseClass, PlainTuple, PlainCaseClass]
-  type ProductClassShape[E <: Product,C <: Product] = lifted.ProductClassShape[E, C]
+  type MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C, U <: C, P <: C] =
+    lifted.MappedScalaProductShape[Level, C, M, U, P]
+  type CaseClassShape[P <: Product, LiftedTuple, LiftedCaseClass <: P, PlainTuple, PlainCaseClass <: P] =
+    lifted.CaseClassShape[P, LiftedTuple, LiftedCaseClass, PlainTuple, PlainCaseClass]
+  type ProductClassShape[E <: Product, C <: Product] = lifted.ProductClassShape[E, C]
   type ShapeLevel = lifted.ShapeLevel
   type NestedShapeLevel = lifted.NestedShapeLevel
   type FlatShapeLevel = lifted.FlatShapeLevel

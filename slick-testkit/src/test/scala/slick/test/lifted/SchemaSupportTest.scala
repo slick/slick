@@ -19,8 +19,8 @@ class SchemaSupportTest {
     println(s1)
     assertTrue("select ... from uses schema name", s1 contains """from "myschema"."mytable"""")
 
-    //val s2 = ts.insertStatement
-    //println(s2)
+    // val s2 = ts.insertStatement
+    // println(s2)
 
     val s3 = ts.filter(_.id < 5).updateStatement
     println(s3)
@@ -47,21 +47,17 @@ class SchemaSupportTest {
     s6.foreach(s => assertTrue("DDL (createIfNotExists) uses schema name", s contains """ "myschema"."mytable""""))
   }
 
-
   @Test def createIfNotExist: Unit = {
 
     import slick.jdbc.PostgresProfile.api._
 
-    case class User1(index: Option[Int],
-                     auto_inc: Int,
-                     id: String,
-                     password: String)
+    case class User1(index: Option[Int], auto_inc: Int, id: String, password: String)
 
     class Users1(tag: Tag) extends Table[User1](tag, "users1") {
-      def index      = column[Int]("idx", O.PrimaryKey, O.AutoInc)
-      def auto_inc      = column[Int]("auto_inc", O.AutoInc)
-      def id         = column[String]("id", O.Unique)
-      def password   = column[String]("pw")
+      def index = column[Int]("idx", O.PrimaryKey, O.AutoInc)
+      def auto_inc = column[Int]("auto_inc", O.AutoInc)
+      def id = column[String]("id", O.Unique)
+      def password = column[String]("pw")
       def * =
         (index.?, auto_inc, id, password) <> ((User1.apply _).tupled, User1.unapply)
     }

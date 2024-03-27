@@ -3,8 +3,7 @@ package slick.util
 import scala.collection.BufferedIterator
 
 /**
- * An iterator on top of a data source which does not offer a hasNext()
- * method without doing a next()
+ * An iterator on top of a data source which does not offer a hasNext() method without doing a next()
  */
 trait ReadAheadIterator[+T] extends BufferedIterator[T] {
 
@@ -21,14 +20,14 @@ trait ReadAheadIterator[+T] extends BufferedIterator[T] {
 
   def head: T = {
     update()
-    if(state == 1) cached
+    if (state == 1) cached
     else throw new NoSuchElementException("head on empty iterator")
   }
 
   private[this] def update(): Unit = {
-    if(state == 0) {
+    if (state == 0) {
       cached = fetchNext()
-      if(state == 0) state = 1
+      if (state == 0) state = 1
     }
   }
 
@@ -39,7 +38,7 @@ trait ReadAheadIterator[+T] extends BufferedIterator[T] {
 
   def next(): T = {
     update()
-    if(state == 1) {
+    if (state == 1) {
       state = 0
       cached
     } else throw new NoSuchElementException("next on empty iterator");

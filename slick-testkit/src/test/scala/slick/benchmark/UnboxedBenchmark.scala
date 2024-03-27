@@ -26,29 +26,31 @@ object UnboxedBenchmark extends App {
   val as = TableQuery[ARow]
 
   // Standard converters
-  val q1 =  as.map(a => a.proj.<>((A.apply _).tupled, A.unapply))
+  val q1 = as.map(a => a.proj.<>((A.apply _).tupled, A.unapply))
 
   // Fast path
-  val q2 =  as.map(a => a.proj.<>((A.apply _).tupled, A.unapply)
-    fastPath(new FastPath[A](_) {
-      val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
-      override def read(r: ResultSet) = new A(a.read(r), b.read(r), c.read(r), d.read(r))
-    })
+  val q2 = as.map(a =>
+    a.proj.<>((A.apply _).tupled, A.unapply)
+      fastPath (new FastPath[A](_) {
+        val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
+        override def read(r: ResultSet) = new A(a.read(r), b.read(r), c.read(r), d.read(r))
+      })
   )
 
   // Allocation-free fast path
   val sharedA = new A(0, 0, 0, 0)
-  val q3 =  as.map(a => a.proj.<>((A.apply _).tupled, A.unapply)
-    fastPath(new FastPath[A](_) {
-      val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
-      override def read(r: ResultSet) = {
-        sharedA.a = a.read(r)
-        sharedA.b = b.read(r)
-        sharedA.c = c.read(r)
-        sharedA.d = d.read(r)
-        sharedA
-      }
-    })
+  val q3 = as.map(a =>
+    a.proj.<>((A.apply _).tupled, A.unapply)
+      fastPath (new FastPath[A](_) {
+        val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
+        override def read(r: ResultSet) = {
+          sharedA.a = a.read(r)
+          sharedA.b = b.read(r)
+          sharedA.c = c.read(r)
+          sharedA.d = d.read(r)
+          sharedA
+        }
+      })
   )
 
   runTest(q1.toNode)
@@ -59,13 +61,17 @@ object UnboxedBenchmark extends App {
     val rsm = profile.queryCompiler.run(n).tree
     TreePrinter.default.print(rsm)
     val ResultSetMapping(_, _, CompiledMapping(converter, _)) = rsm
-    for(i <- 1 to 5) {
-      val pr = createFakePR(10000000, converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, _]])
+    for (_ <- 1 to 5) {
+      val pr =
+        createFakePR(10000000, converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, _]])
       readPR(pr)
     }
   }
 
-  def createFakePR(len: Long, converter: ResultConverter[ResultSet, PreparedStatement, ResultSet, _]): PositionedResultIterator[Any] = {
+  def createFakePR(
+      len: Long,
+      converter: ResultConverter[ResultSet, PreparedStatement, ResultSet, _]
+  ): PositionedResultIterator[Any] = {
     val fakeRS = new DelegateResultSet(null) {
       var count: Long = 0
       var lastIndex: Int = 0
@@ -89,12 +95,12 @@ object UnboxedBenchmark extends App {
     val t0 = System.currentTimeMillis()
     var count: Long = 0
     var lastRow: AnyRef = null
-    while(pr.hasNext) {
+    while (pr.hasNext) {
       lastRow = pr.next().asInstanceOf[AnyRef]
       count += 1
     }
     val time = System.currentTimeMillis() - t0
-    println("Read "+count+" rows in "+time+" ms. Last row was: "+lastRow)
+    println("Read " + count + " rows in " + time + " ms. Last row was: " + lastRow)
     (count, lastRow)
   }
 }
