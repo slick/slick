@@ -370,8 +370,7 @@ lazy val site: Project =
       publish := {},
       publishLocal := {},
       test := {},
-      testOnly := {},
-      versionPolicyPreviousVersions := Nil
+      testOnly := {}
     )
 
 lazy val root =
@@ -385,7 +384,6 @@ lazy val root =
       publishArtifact := false,
       publish := {},
       publishLocal := {},
-      versionPolicyPreviousVersions := Nil,
       PgpKeys.publishSigned := {},
       PgpKeys.publishLocalSigned := {},
       // suppress test status output
