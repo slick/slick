@@ -53,7 +53,7 @@ jobs:
         cp ${{ steps.createReport.outputs.result }} ./compat-report/compat-report.md
         echo ${{ github.event.number }} > ./compat-report/NR.txt
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: compat-report
         path: compat-report/
