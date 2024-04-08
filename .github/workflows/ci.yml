@@ -74,6 +74,10 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: sbt
 
+      - name: Enforce version policy
+        run: sbt versionPolicyCheck
+        if: ${{ matrix.java == 8 }}
+
       - name: Build and test
         run: |
           sbt ++${{ matrix.scala }} coverage testAll coverageReport

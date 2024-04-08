@@ -369,6 +369,7 @@ lazy val site: Project =
       publishArtifact := false,
       publish := {},
       publishLocal := {},
+      versionPolicyCheck / skip := true,
       test := {},
       testOnly := {}
     )
@@ -386,6 +387,7 @@ lazy val root =
       publishLocal := {},
       PgpKeys.publishSigned := {},
       PgpKeys.publishLocalSigned := {},
+      versionPolicyCheck / skip := true,
       // suppress test status output
       test := {},
       testOnly := {},
@@ -397,11 +399,7 @@ lazy val root =
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
-          testkit / Compile / packageDoc,
-          slick / versionPolicyCheck,
-          testkit / versionPolicyCheck,
-          hikaricp / versionPolicyCheck,
-          codegen / versionPolicyCheck
+          testkit / Compile / packageDoc
         ).value
       }
     )
