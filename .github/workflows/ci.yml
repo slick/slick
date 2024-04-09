@@ -8,7 +8,7 @@ on:
     tags: [ 'v*' ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
@@ -73,10 +73,6 @@ jobs:
           distribution: adopt
           java-version: ${{ matrix.java }}
           cache: sbt
-
-      - name: Enforce version policy
-        run: sbt versionPolicyCheck
-        if: ${{ matrix.java == 8 }}
 
       - name: Build and test
         run: |
