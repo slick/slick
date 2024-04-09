@@ -1,0 +1,37 @@
+name: Version Policy Check
+
+on:
+  pull_request:
+    branches: [ '**' ]
+  push:
+    branches: [ 'main' ]
+    tags: [ 'v*' ]
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Check conformance with version policy
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        java: [ 8 ]
+        scala: [ 2.12.x, 2.13.x, 3.x ]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: adopt
+          java-version: ${{ matrix.java }}
+          cache: sbt
+
+      - name: Check version policy
+        run: sbt versionPolicyCheck

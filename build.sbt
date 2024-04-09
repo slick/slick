@@ -134,10 +134,6 @@ ThisBuild / scalaVersion := Dependencies.scala213
 
 ThisBuild / versionScheme := Some("pvp")
 
-ThisBuild / versionPolicyIntention := Versioning.BumpMajor
-
-ThisBuild / versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+\\.\\d+-pre\\.\\d+\\.\\w+\\.dirty".r)
-
 val buildCapabilitiesTable = taskKey[File]("Build the capabilities.csv table for the documentation")
 
 val buildCompatReport = taskKey[File]("Build the compatibility report")
@@ -373,9 +369,9 @@ lazy val site: Project =
       publishArtifact := false,
       publish := {},
       publishLocal := {},
+      versionPolicyCheck / skip := true,
       test := {},
-      testOnly := {},
-      versionPolicyPreviousVersions := Nil
+      testOnly := {}
     )
 
 lazy val root =
@@ -389,9 +385,9 @@ lazy val root =
       publishArtifact := false,
       publish := {},
       publishLocal := {},
-      versionPolicyPreviousVersions := Nil,
       PgpKeys.publishSigned := {},
       PgpKeys.publishLocalSigned := {},
+      versionPolicyCheck / skip := true,
       // suppress test status output
       test := {},
       testOnly := {},
@@ -403,11 +399,7 @@ lazy val root =
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
-          testkit / Compile / packageDoc,
-          slick / versionPolicyCheck,
-          testkit / versionPolicyCheck,
-          hikaricp / versionPolicyCheck,
-          codegen / versionPolicyCheck
+          testkit / Compile / packageDoc
         ).value
       }
     )
