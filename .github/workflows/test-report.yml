@@ -14,7 +14,7 @@ jobs:
           pattern: test-results-*
           merge-multiple: true
           path: test-results
-      - run: ls -R test-results
+      - run: ls -R
       - uses: dorny/test-reporter@v1
         with:
           artifact: test-results                              # artifact name
