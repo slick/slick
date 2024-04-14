@@ -24,6 +24,9 @@ pull_request_rules:
       - "check-success=Build and Test (21, 2.13.x)"
       - "check-success=Build and Test (8, 3.x)"
       - "check-success=Build and Test (21, 3.x)"
+      - "check-success=Check conformance with version policy (8, 2.12.x)"
+      - "check-success=Check conformance with version policy (8, 2.13.x)"
+      - "check-success=Check conformance with version policy (8, 3.x)"
       - "#changes-requested-reviews-by=0"
       - or:
           - "#approved-reviews-by>=1"
