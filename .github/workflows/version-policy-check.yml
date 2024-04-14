@@ -6,6 +6,7 @@ on:
   push:
     branches: [ 'main' ]
     tags: [ 'v*' ]
+  workflow_dispatch:
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -34,4 +35,4 @@ jobs:
           cache: sbt
 
       - name: Check version policy
-        run: sbt versionPolicyCheck
+        run: sbt ++${{ matrix.scala }} versionPolicyCheck
