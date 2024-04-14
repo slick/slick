@@ -114,22 +114,6 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
   def collect[R2](pf: PartialFunction[R,R2])(implicit executor: ExecutionContext): DBIOAction[R2, NoStream, E] =
     map(r1 => pf.applyOrElse(r1,(r:R) => throw new NoSuchElementException(s"DBIOAction.collect partial function is not defined at: $r")))
 
-  /** Replace a result of a successful execution of this action with the unit value.
-    * If this action fails, the resulting action also fails.
-    *
-    * A shortcut for `.map(_ => ())`.
-    */
-  def void: DBIOAction[Unit, NoStream, E] =
-    map(_ => ())(DBIO.sameThreadExecutionContext)
-
-  /** Replace a result of a successful execution of this action with the given value.
-    * If this action fails, the resulting action also fails.
-    *
-    * A shortcut for `.map(_ => a)`.
-    */
-  def as[A](a: => A): DBIOAction[A, NoStream, E] =
-    map(_ => a)(DBIO.sameThreadExecutionContext)
-
   /** Return an action which contains the Throwable with which this action failed as its result.
     * If this action succeeded, the resulting action fails with a NoSuchElementException. */
   def failed: DBIOAction[Throwable, NoStream, E] = FailedAction[E](this)
@@ -158,8 +142,6 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
 }
 
 object DBIOAction {
-  private val UnitAction: DBIOAction[Unit, NoStream, Effect] = SuccessAction(())
-
   /** Convert a `Future` to a [[DBIOAction]]. */
   def from[R](f: Future[R]): DBIOAction[R, NoStream, Effect] = FutureAction[R](f)
 
@@ -168,9 +150,6 @@ object DBIOAction {
 
   /** Create a [[DBIOAction]] that always fails. */
   def failed(t: Throwable): DBIOAction[Nothing, NoStream, Effect] = FailureAction(t)
-
-  /** A no-op [[DBIOAction]]. A cached value of `DBIOAction.successful(())` to avoid allocations. */
-  def unit: DBIOAction[Unit, NoStream, Effect] = UnitAction
 
   private[this] def groupBySynchronicity[R, E <: Effect](in: IterableOnce[DBIOAction[R, NoStream, E]]): Vector[Vector[DBIOAction[R, NoStream, E]]] = {
     var state = 0 // no current = 0, sync = 1, async = 2
