@@ -296,6 +296,14 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override val instantType: PostgresInstantJdbcType = new PostgresInstantJdbcType
     override val localDateTimeType: PostgresLocalDateTimeJdbcType = new PostgresLocalDateTimeJdbcType
 
+    protected val nullCharReplacement: String = ""
+
+    override val stringJdbcType = new StringJdbcType {
+      override def setValue(v: String, p: PreparedStatement, idx: Int) = {
+        super.setValue(v.replace("\u0000", nullCharReplacement), p, idx)
+      }
+    }
+
     class PostgresByteArrayJdbcType extends ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BYTEA"
