@@ -1,4 +1,4 @@
-ThisBuild / versionPolicyIntention := Versioning.BumpMinor
+ThisBuild / versionPolicyIntention := Versioning.BumpMajor
 
 ThisBuild / versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+\\.\\d+-pre\\.\\d+\\.\\w+".r)
 

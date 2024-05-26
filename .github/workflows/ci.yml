@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        java: [ 8, 21 ]
+        java: [ 11, 21 ]
         scala: [ 2.12.x, 2.13.x, 3.x ]
 
     services:
@@ -137,7 +137,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: adopt
-          java-version: 8
+          java-version: 11
           cache: sbt
 
       - name: Publish artifacts to Maven Central
