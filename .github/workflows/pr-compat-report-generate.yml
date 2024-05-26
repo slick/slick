@@ -19,7 +19,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: adopt
-        java-version: 8
+        java-version: 11
         cache: sbt
 
     - name: Get base version
