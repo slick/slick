@@ -4,7 +4,7 @@ import sbt.Keys.scalaVersion
 /** Dependencies for reuse in different parts of the build */
 object Dependencies {
   val scala212 = "2.12.19"
-  val scala213 = "2.13.13"
+  val scala213 = "2.13.14"
   val scala3 = "3.3.1"
 
   val scalaVersions = Seq(scala212, scala213, scala3) // When updating these also update ci.yml and .mergify.yml
@@ -18,7 +18,7 @@ object Dependencies {
   val scalaCollectionCompat = Def.setting {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, n)) if n == 12 =>
-        Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.11.0")
+        Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.12.0")
       case _ =>
         Seq.empty
     }
@@ -30,8 +30,8 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.3"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.3.14"
-  val hikariCP = "com.zaxxer" % "HikariCP" % "4.0.3"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.5.6"
+  val hikariCP = "com.zaxxer" % "HikariCP" % "5.1.0"
 
   val h2 = "com.h2database" % "h2" % "1.4.200"
   val sqlServer = {
@@ -47,10 +47,10 @@ object Dependencies {
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
     "org.xerial" % "sqlite-jdbc" % "3.41.0.0",
-    "org.hsqldb" % "hsqldb" % "2.5.2",
+    "org.hsqldb" % "hsqldb" % "2.7.2",
     "org.postgresql" % "postgresql" % "42.7.3",
     "com.mysql" % "mysql-connector-j" % "8.4.0",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.13.0.0",
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.14.0.0",
     "com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"
   )
 
