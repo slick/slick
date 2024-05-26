@@ -19,7 +19,6 @@ jobs:
 
     strategy:
       matrix:
-        java: [ 8 ]
         scala: [ 2.12.x, 2.13.x, 3.x ]
 
     steps:
@@ -31,7 +30,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: adopt
-          java-version: ${{ matrix.java }}
+          java-version: 11
           cache: sbt
 
       - name: Check version policy

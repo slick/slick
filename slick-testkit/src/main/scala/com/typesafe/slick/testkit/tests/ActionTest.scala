@@ -138,6 +138,25 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     }
   }
 
+  def testTraverse = {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    val aSetup = ts.schema.create
+
+    val inputs = List(1, 2, 3, 4)
+    val dbio = DBIO.traverse(inputs)(number => ts += number)
+
+    for {
+      _ <- aSetup
+      _ <- dbio
+      result <- ts.result
+    } yield result shouldBe inputs
+  }
+
   def testFlatten = {
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")

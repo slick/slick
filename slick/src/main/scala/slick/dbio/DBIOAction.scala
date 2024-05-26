@@ -273,6 +273,17 @@ object DBIOAction {
     }
   }
 
+  /** Transforms an `IterableOnce[A]` into a `DBIO[IterableOnce[B]]` using the provided function `A => DBIO[B]`.
+   */
+  def traverse[A, B, M[+X] <: IterableOnce[X]](in: M[A])(f: A => DBIO[B])(implicit cbf: Factory[B, M[B]]): DBIO[M[B]] = {
+    implicit val ec = DBIO.sameThreadExecutionContext
+    in.iterator
+      .foldLeft(DBIO.successful(cbf.newBuilder): DBIO[mutable.Builder[B, M[B]]]) { (dbio, a) =>
+        dbio.zipWith(f(a))((builder, r) => builder += r)
+      }
+      .map(_.result())
+  }
+
   /** Create a DBIOAction that runs some other actions in sequence and combines their results
     * with the given function. */
   def fold[T, E <: Effect](actions: Seq[DBIOAction[T, NoStream, E]], zero: T)(f: (T, T) => T)(implicit ec: ExecutionContext): DBIOAction[T, NoStream, E] =
