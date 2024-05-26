@@ -1,6 +1,6 @@
 queue_rules:
   - name: default
-    conditions:
+    merge_conditions:
       - "-draft"
 
 pull_request_rules:
@@ -8,9 +8,9 @@ pull_request_rules:
   - name: Label Scala Steward and Renovate PRs with 'build'
     conditions:
       - or:
-        - "author=scala-steward"
-        - "author=slick-scala-steward[bot]"
-        - "author=renovate[bot]"
+          - "author=scala-steward"
+          - "author=slick-scala-steward[bot]"
+          - "author=renovate[bot]"
     actions:
       label:
         add:
@@ -18,15 +18,15 @@ pull_request_rules:
 
   - name: Automatic merge on approval
     conditions:
-      - "check-success=Build and Test (8, 2.12.x)"
-      - "check-success=Build and Test (8, 2.13.x)"
+      - "check-success=Build and Test (11, 2.12.x)"
+      - "check-success=Build and Test (11, 2.13.x)"
       - "check-success=Build and Test (21, 2.12.x)"
       - "check-success=Build and Test (21, 2.13.x)"
-      - "check-success=Build and Test (8, 3.x)"
+      - "check-success=Build and Test (11, 3.x)"
       - "check-success=Build and Test (21, 3.x)"
-      - "check-success=Check conformance with version policy (8, 2.12.x)"
-      - "check-success=Check conformance with version policy (8, 2.13.x)"
-      - "check-success=Check conformance with version policy (8, 3.x)"
+      - "check-success=Check conformance with version policy (2.12.x)"
+      - "check-success=Check conformance with version policy (2.13.x)"
+      - "check-success=Check conformance with version policy (3.x)"
       - "#changes-requested-reviews-by=0"
       - or:
           - "#approved-reviews-by>=1"
@@ -37,5 +37,5 @@ pull_request_rules:
     actions:
       queue:
         name: default
-        method: merge
+        merge_method: merge
         update_method: rebase
