@@ -18,7 +18,6 @@ import slick.lifted.Rep
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.util.DumpInfo
-import slick.compat.collection.*
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier

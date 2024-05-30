@@ -7,7 +7,6 @@ import scala.language.implicitConversions
 
 import slick.dbio.Effect
 import slick.sql.SqlStreamingAction
-import slick.compat.collection.*
 
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLActionBuilder via string interpolation */

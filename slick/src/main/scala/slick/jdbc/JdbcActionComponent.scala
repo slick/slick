@@ -15,7 +15,6 @@ import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
 import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder}
-import slick.compat.collection.*
 
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
