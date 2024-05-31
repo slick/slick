@@ -48,7 +48,7 @@ sealed abstract class HList extends Product {
   @inline final def :: [E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
 
   /** Concatenate 2 HList. */
-  @inline final def ::: (h2: HList): HList = HList.concat(h2, this) // The operator is right to left so this has to be the secodn argoument 
+  @inline final def ::: (h2: HList): HList = HList.concat(h2, this) // The operator is right to left so this has to be the second argument
 
   /** Drop the first `n` elements from this HList. */
   final def drop(i: Int): HList = {
