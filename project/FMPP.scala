@@ -7,7 +7,7 @@ object FMPP {
   def preprocessorSettings = inConfig(Compile)(Seq(sourceGenerators += fmpp.taskValue, fmpp := fmppTask.value)) ++ Seq(
     libraryDependencies ++= Seq(
       ("net.sourceforge.fmpp" % "fmpp" % "0.9.16" % FmppConfig.name).intransitive,
-      "org.freemarker" % "freemarker" % "2.3.32" % FmppConfig.name,
+      "org.freemarker" % "freemarker" % "2.3.33" % FmppConfig.name,
       "oro" % "oro" % "2.0.8" % FmppConfig.name,
       "org.beanshell" % "bsh" % "2.0b5" % FmppConfig.name,
       "xml-resolver" % "xml-resolver" % "1.2" % FmppConfig.name
