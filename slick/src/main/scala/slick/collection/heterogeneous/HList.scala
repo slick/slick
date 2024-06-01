@@ -44,6 +44,19 @@ sealed abstract class HList extends Product {
     i
   }
 
+  def apply(idx: Int): Any = {
+    require(idx >= 0, "Index should be non negative")
+    var i = 0
+    var h = this
+    while(h.nonEmpty && i < idx) {
+      i += 1
+      h = h.tail
+    }
+    if(i < idx) throw new IndexOutOfBoundsException 
+    h.head
+  } 
+
+
   /** Prepend an element to this HList, returning a new HList. */
   @inline final def :: [E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
 

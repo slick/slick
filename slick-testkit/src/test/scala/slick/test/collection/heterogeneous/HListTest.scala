@@ -3,8 +3,7 @@ package slick.test.collection.heterogeneous
 import org.junit.Test
 import org.junit.Assert._
 import slick.collection.heterogeneous.*
-import org.w3c.dom.Text
-
+import scala.util.*
 
 class HListTest {
 
@@ -12,7 +11,7 @@ class HListTest {
   val hl2 = 1 :: "test2" :: HNil
 
   val c = hl1 ::: hl2
- val cc = c ::: c
+  val cc = c ::: c
   
   @Test
   def concatTest: Unit = {
@@ -48,5 +47,28 @@ class HListTest {
     assert(h1.length == c1.length)
 
   }
+
+  @Test
+  def idx: Unit = {
+
+    assert(hl1(0) == hl1.head)
+
+    assert(Try(hl1(-1)).isFailure)
+
+    assert(Try(hl1(1)).isFailure)
+
+    assert(hl2(0) == hl2.head)
+
+    assert(hl2(1) == hl2.tail.head)
+
+    assert(c(0) == c.head)
+
+    assert(c(1) == c.tail.head)
+
+    assert(c(2) == c.tail.tail.head)
+
+    assert(Try(c(3)).isFailure)     
+  }
+
 
 }
