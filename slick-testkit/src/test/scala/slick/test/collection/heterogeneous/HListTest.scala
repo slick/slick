@@ -51,6 +51,8 @@ class HListTest {
   @Test
   def idx: Unit = {
 
+    assert(Try(HNil(0)).isFailure)
+
     assert(hl1(0) == hl1.head)
 
     assert(Try(hl1(-1)).isFailure)
