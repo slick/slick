@@ -6,16 +6,16 @@ import java.util.concurrent.locks.*
 
 import slick.util.AsyncExecutor.*
 
-/** A simplified copy of `java.util.concurrent.ArrayBlockingQueue` with additional logic for
- * temporarily rejecting elements based on the current size. All features of the original
- * ArrayBlockingQueue have been ported, except the mutation methods of the iterator. See
- * `java.util.concurrent.ArrayBlockingQueue` for documentation.
+/**
+ * A simplified copy of `java.util.concurrent.ArrayBlockingQueue` with additional logic for temporarily rejecting
+ * elements based on the current size. All features of the original ArrayBlockingQueue have been ported, except the
+ * mutation methods of the iterator. See `java.util.concurrent.ArrayBlockingQueue` for documentation.
  *
- * Furthermore this implementation has a `pause` feature where it does not pass through
- * low- or mid-priority tasks when paused.
+ * Furthermore this implementation has a `pause` feature where it does not pass through low- or mid-priority tasks when
+ * paused.
  */
 class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean = false)
-  extends util.AbstractQueue[PrioritizedRunnable]
+    extends util.AbstractQueue[PrioritizedRunnable]
     with BlockingQueue[PrioritizedRunnable]
     with Logging { self =>
 
@@ -43,8 +43,9 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
    *
    * Ensures that [[nonHighItemsInUseCount]] accounts for the given [[PrioritizedRunnable]], as appropriate.
    *
-   * @return true if the [[nonHighItemsInUseCount]] was incremented now or in the past for the [[PrioritizedRunnable]],
-   *         false if [[maximumInUse]] would be exceeded.
+   * @return
+   *   true if the [[nonHighItemsInUseCount]] was incremented now or in the past for the [[PrioritizedRunnable]], false
+   *   if [[maximumInUse]] would be exceeded.
    */
   private[util] def attemptPrepare(pr: PrioritizedRunnable): Boolean = locked {
     if (pr.inUseCounterSet)
@@ -67,8 +68,9 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
    *
    * Decrement [[nonHighItemsInUseCount]] for the given [[PrioritizedRunnable]] as appropriate.
    *
-   * @return true if [[PrioritizedRunnable.connectionReleased]] is false or [[nonHighItemsInUseCount]] is decremented,
-   *         false if [[nonHighItemsInUseCount]] was already 0
+   * @return
+   *   true if [[PrioritizedRunnable.connectionReleased]] is false or [[nonHighItemsInUseCount]] is decremented, false
+   *   if [[nonHighItemsInUseCount]] was already 0
    */
   private[util] def attemptCleanUp(pr: PrioritizedRunnable): Boolean =
     if (!pr.connectionReleased)
@@ -130,15 +132,13 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
   }
 
   // implementation of poll, take and poll(timeout, unit)
-  private[this] def extract(): PrioritizedRunnable = {
+  private[this] def extract(): PrioritizedRunnable =
     if (highPriorityItemQueue.count != 0) highPriorityItemQueue.extract
     else if (!paused && itemQueue.count != 0) {
       val item = itemQueue.extract
       require(attemptPrepare(item), "In-use count limit reached")
       item
-    }
-    else null
-  }
+    } else null
 
   def poll: PrioritizedRunnable = locked {
     extract()
@@ -170,19 +170,21 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
 
   // how many items in the queue
   def size: Int = locked(itemQueue.count + highPriorityItemQueue.count) // can't use `counts`
-                                                                    // here, it refers to
-                                                                    // `paused`
+  // here, it refers to
+  // `paused`
 
   // how much normal capacity we have left before put/offer start blocking
   def remainingCapacity: Int = math.max(locked(capacity - itemQueue.count), 0)
 
-  override def remove(o: AnyRef): Boolean = if (o eq null) false else locked {
-    highPriorityItemQueue.remove(o) || {
-      val r = itemQueue.remove(o)
-      if (r && remainingCapacity != 0) itemQueueNotFull.signalAll()
-      r
+  override def remove(o: AnyRef): Boolean = if (o eq null) false
+  else
+    locked {
+      highPriorityItemQueue.remove(o) || {
+        val r = itemQueue.remove(o)
+        if (r && remainingCapacity != 0) itemQueueNotFull.signalAll()
+        r
+      }
     }
-  }
 
   override def contains(o: AnyRef): Boolean = locked {
     itemQueue.contains(o) || highPriorityItemQueue.contains(o)
@@ -230,11 +232,13 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
 
   @inline private[this] def locked[T](f: => T) = {
     lock.lock()
-    try f finally lock.unlock()
+    try f
+    finally lock.unlock()
   }
 
   @inline private[this] def lockedInterruptibly[T](f: => T) = {
     lock.lockInterruptibly()
-    try f finally lock.unlock()
+    try f
+    finally lock.unlock()
   }
 }

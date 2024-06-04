@@ -10,15 +10,13 @@ import sbtdynver.DynVerPlugin.autoImport.{dynver, dynverCurrentDate, dynverGitDe
 import sbtdynver.{DynVer, GitDescribeOutput}
 import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.{Compatibility, versionPolicyIntention}
 
-
 object Versioning extends AutoPlugin {
   val BumpMinor = Compatibility.BinaryAndSourceCompatible
   val BumpMajor = Compatibility.BinaryCompatible
   val BumpEpoch = Compatibility.None
 
   def currentRef(dir: File): String =
-    new DefaultReadableGit(dir, None)
-      .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
+    new DefaultReadableGit(dir, None).withGit(g => g.currentTags.headOption.getOrElse(g.branch))
 
   object VersionInfo {
     sealed trait VersionType
@@ -49,11 +47,11 @@ object Versioning extends AutoPlugin {
 
     private def versionType(version: Version): VersionInfo.VersionType.Tag = version.items match {
       case Seq(x: Version.Numeric, y: Version.Numeric, z: Version.Numeric, t: Version.Tag, _: Version.Numeric)
-        if t.isPreRelease                                                  =>
+          if t.isPreRelease =>
         VersionInfo.VersionType.Tag.Prerelease(x, y, z)
       case Seq(x: Version.Numeric, y: Version.Numeric, z: Version.Numeric) =>
         VersionInfo.VersionType.Tag.Stable(x, y, z)
-      case other                                                           =>
+      case other =>
         sys.error(s"Unhandled version format: $other")
     }
 
@@ -90,12 +88,10 @@ object Versioning extends AutoPlugin {
   val maybeVersionInfo = settingKey[MaybeVersionInfo]("Versioning.VersionInfo instance")
 
   def versionFor(compat: Compatibility, date: Date = new Date): Option[String] =
-    DynVer.getGitDescribeOutput(date)
-      .map(VersionInfo(compat, _).versionString)
+    DynVer.getGitDescribeOutput(date).map(VersionInfo(compat, _).versionString)
 
   def shortVersionFor(compat: Compatibility, date: Date = new Date): Option[String] =
-    DynVer.getGitDescribeOutput(date)
-      .map(VersionInfo(compat, _).shortVersionString)
+    DynVer.getGitDescribeOutput(date).map(VersionInfo(compat, _).shortVersionString)
 
   override def trigger = allRequirements
 

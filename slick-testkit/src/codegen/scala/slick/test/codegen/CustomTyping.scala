@@ -16,11 +16,9 @@ object CustomTyping {
   }
 
   implicit val boolTypeMapper: BaseColumnType[Bool] = MappedColumnType.base[Bool, Int](
-    { b =>
-      if (b == True) 1 else 0
-    }, { i =>
-      if (i == 1) True else False
-    })
+    b => if (b == True) 1 else 0,
+    i => if (i == 1) True else False
+  )
 
   case class SimpleA(_1: Bool, _2: String)
   // We need to use `mapTo` instead of `<>` for Dotty compatibility (because the old `unapply` is gone),

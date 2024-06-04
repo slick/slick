@@ -4,7 +4,6 @@ import org.junit.Test
 import org.junit.Assert._
 import slick.collection.heterogeneous.*
 import scala.util.*
-
 class HListTest {
 
   val hl1 = "test" :: HNil
@@ -12,7 +11,6 @@ class HListTest {
 
   val c = hl1 ::: hl2
   val cc = c ::: c
-  
   @Test
   def concatTest: Unit = {
 
@@ -23,7 +21,7 @@ class HListTest {
     assertTrue(c.tail.tail.head == "test2")
   }
 
-  @Test 
+  @Test
   def concatTest1: Unit = {
 
     assert(cc.toString == HList.concat(c, c).toString)
@@ -32,13 +30,13 @@ class HListTest {
 
     assert(cc.head == "test")
     assert(cc.tail.head == 1)
-    assert(cc.tail.tail.head == "test2")    
+    assert(cc.tail.tail.head == "test2")
     assert(cc.tail.tail.tail.head == "test")
     assert(cc.tail.tail.tail.tail.head == 1)
-    assert(cc.tail.tail.tail.tail.tail.head == "test2")   
+    assert(cc.tail.tail.tail.tail.tail.head == "test2")
   }
 
-  @Test 
+  @Test
   def concatTest3: Unit = {
     val h1 = cc ::: hl2 ::: hl1
     val c1 = HList.concat(cc, HList.concat(hl2, hl1))
@@ -69,8 +67,7 @@ class HListTest {
 
     assert(c(2) == c.tail.tail.head)
 
-    assert(Try(c(3)).isFailure)     
+    assert(Try(c(3)).isFailure)
   }
-
 
 }

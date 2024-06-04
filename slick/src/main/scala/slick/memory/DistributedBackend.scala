@@ -28,20 +28,22 @@ trait DistributedBackend extends RelationalBackend with Logging {
     throw new SlickException("DistributedBackend cannot be configured with an external config file")
 
   class DistributedDatabaseDef(val dbs: Vector[BasicBackend#BasicDatabaseDef], val executionContext: ExecutionContext)
-    extends BasicDatabaseDef {
+      extends BasicDatabaseDef {
 
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new BasicActionContext { val useSameThread = _useSameThread }
 
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T],
-                                                                useSameThread: Boolean): StreamingContext =
+    protected[this] def createStreamingDatabaseActionContext[T](
+        s: Subscriber[_ >: T],
+        useSameThread: Boolean
+    ): StreamingContext =
       new BasicStreamingActionContext(s, useSameThread, this)
 
     def createSession(): Session = {
       val sessions = new ArrayBuffer[BasicBackend#Session]
-      for(db <- dbs)
+      for (db <- dbs)
         sessions += Try(db.createSession()).recoverWith { case ex =>
-          sessions.reverseIterator.foreach { s => Try(s.close()) }
+          sessions.reverseIterator.foreach(s => Try(s.close()))
           Failure(ex)
         }.get
       new DistributedSessionDef(sessions.toVector)
@@ -59,23 +61,24 @@ trait DistributedBackend extends RelationalBackend with Logging {
   }
 
   class DistributedDatabaseFactoryDef {
-    /** Create a new distributed database instance that uses the supplied ExecutionContext for
-      * asynchronous execution of database actions. */
+
+    /**
+     * Create a new distributed database instance that uses the supplied ExecutionContext for asynchronous execution of
+     * database actions.
+     */
     def apply(dbs: IterableOnce[BasicBackend#BasicDatabaseDef], executionContext: ExecutionContext): Database =
       new DistributedDatabaseDef(Vector.from(dbs), executionContext)
   }
 
   class DistributedSessionDef(val sessions: Vector[BasicBackend#Session]) extends BasicSessionDef {
-    def close(): Unit = {
-      sessions.map(s => Try(s.close())).collectFirst{ case Failure(t) => t }.foreach(throw _)
-    }
+    def close(): Unit =
+      sessions.map(s => Try(s.close())).collectFirst { case Failure(t) => t }.foreach(throw _)
 
     def rollback() =
       throw new SlickException("DistributedBackend does not currently support transactions")
 
-    def force(): Unit = {
+    def force(): Unit =
       sessions.foreach(_.force())
-    }
 
     def withTransaction[T](f: => T) =
       throw new SlickException("DistributedBackend does not currently support transactions")

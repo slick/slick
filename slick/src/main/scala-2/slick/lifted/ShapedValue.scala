@@ -10,22 +10,29 @@ import slick.ast.{MappedScalaType, Node}
 case class ShapedValue[T, U](value: T, shape: Shape[? <: FlatShapeLevel, T, U, ?]) extends Rep[U] {
   def encodeRef(path: Node): ShapedValue[T, U] = {
     val fv = shape.encodeRef(value, path).asInstanceOf[T]
-    if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
+    if (fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def toNode = shape.toNode(value)
-  def packedValue[R](implicit ev: Shape[? <: FlatShapeLevel, T, ?, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, ?]])
-  def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
-  def <>[R : ClassTag](f: U => R, g: R => Option[U]) = new MappedProjection[R](shape.toNode(value), MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
+  def packedValue[R](implicit ev: Shape[? <: FlatShapeLevel, T, ?, R]): ShapedValue[R, U] =
+    ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, ?]])
+  def zip[T2, U2](s2: ShapedValue[T2, U2]) =
+    new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
+  def <>[R: ClassTag](f: U => R, g: R => Option[U]) = new MappedProjection[R](
+    shape.toNode(value),
+    MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None),
+    implicitly[ClassTag[R]]
+  )
   @inline def shaped: ShapedValue[T, U] = this
 
-  def mapTo[R <: Product & Serializable](implicit rCT: ClassTag[R]): MappedProjection[R] = macro ShapedValue.mapToImpl[R, U]
+  def mapTo[R <: Product & Serializable](implicit rCT: ClassTag[R]): MappedProjection[R] = macro ShapedValue
+    .mapToImpl[R, U]
   override def toString = s"ShapedValue($value, $shape)"
 }
 
 object ShapedValue {
-  def mapToImpl[R <: Product & Serializable, U](c: blackbox.Context {type PrefixType = ShapedValue[?, U]})
-                                               (rCT: c.Expr[ClassTag[R]])
-                                               (implicit rTag: c.WeakTypeTag[R], uTag: c.WeakTypeTag[U]): c.Tree = {
+  def mapToImpl[R <: Product & Serializable, U](
+      c: blackbox.Context { type PrefixType = ShapedValue[?, U] }
+  )(rCT: c.Expr[ClassTag[R]])(implicit rTag: c.WeakTypeTag[R], uTag: c.WeakTypeTag[U]): c.Tree = {
     import c.universe.*
     val rSym = symbolOf[R]
     if (!rSym.isClass || !rSym.asClass.isCaseClass)
@@ -39,33 +46,33 @@ object ShapedValue {
       case s        => s.info.member(TermName("tupled")) != NoSymbol
     }
     val fields =
-      rTag.tpe.decls
-        .collect {
-          case s: TermSymbol if s.isVal && s.isCaseAccessor =>
-            (TermName(s.name.toString.trim), s.typeSignature, TermName(c.freshName()))
-        }
-        .toIndexedSeq
-    val (f, g) = if(uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
+      rTag.tpe.decls.collect {
+        case s: TermSymbol if s.isVal && s.isCaseAccessor =>
+          (TermName(s.name.toString.trim), s.typeSignature, TermName(c.freshName()))
+      }.toIndexedSeq
+    val (f, g) = if (uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
       val rTypeAsHList = fields.foldRight[Tree](tq"_root_.slick.collection.heterogeneous.HNil.type") {
         case ((_, t, _), z) => tq"_root_.slick.collection.heterogeneous.HCons[$t, $z]"
       }
-      val pat = fields.foldRight[Tree](pq"_root_.slick.collection.heterogeneous.HNil") {
-        case ((_, _, n), z) => pq"_root_.slick.collection.heterogeneous.HCons($n, $z)"
+      val pat = fields.foldRight[Tree](pq"_root_.slick.collection.heterogeneous.HNil") { case ((_, _, n), z) =>
+        pq"_root_.slick.collection.heterogeneous.HCons($n, $z)"
       }
-      val cons = fields.foldRight[Tree](q"_root_.slick.collection.heterogeneous.HNil") {
-        case ((n, _, _), z) => q"v.$n :: $z"
+      val cons = fields.foldRight[Tree](q"_root_.slick.collection.heterogeneous.HNil") { case ((n, _, _), z) =>
+        q"v.$n :: $z"
       }
-      (q"({ case $pat => new $rTag(..${fields.map(_._3)}) } : ($rTypeAsHList => $rTag)): ($uTag => $rTag)",
-        q"{ case v => $cons }: ($rTag => $uTag)")
+      (
+        q"({ case $pat => new $rTag(..${fields.map(_._3)}) } : ($rTypeAsHList => $rTag)): ($uTag => $rTag)",
+        q"{ case v => $cons }: ($rTag => $uTag)"
+      )
     } else if (fields.length == 1) { // Map from single value
-      (q"($rModule.apply _) : ($uTag => $rTag)",
-        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
+      (q"($rModule.apply _) : ($uTag => $rTag)", q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     } else if (rHasTupled) { // Map from tuple
-      (q"($rModule.tupled) : ($uTag => $rTag)",
-        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
+      (q"($rModule.tupled) : ($uTag => $rTag)", q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     } else { // Map from tuple with tupled apply
-      (q"(($rModule.apply _).tupled) : ($uTag => $rTag)",
-        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
+      (
+        q"(($rModule.apply _).tupled) : ($uTag => $rTag)",
+        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)"
+      )
     }
 
     val fpName = Constant("Fast Path of (" + fields.map(_._2).mkString(", ") + ").mapTo[" + rTag.tpe + "]")
@@ -93,7 +100,7 @@ object ShapedValue {
     """
   }
 
-  //stub for scala3 compat
+  // stub for scala3 compat
   type Unconst[P] = P
   def Unconst[P](p: P): Unconst[P] = p
 }

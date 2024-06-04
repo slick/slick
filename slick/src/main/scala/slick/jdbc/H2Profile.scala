@@ -16,30 +16,21 @@ import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
 import slick.util.QueryInterpolator.queryInterpolator
 
-/** Slick profile for H2.
-  *
-  * This profile implements [[slick.jdbc.JdbcProfile]]
-  * ''without'' the following capabilities:
-  *
-  * <ul>
-  *   <li>[[slick.relational.RelationalCapabilities.reverse]]:
-  *     This String function is not available in H2.</li>
-  *   <li>[[slick.sql.SqlCapabilities.sequenceMin]],
-  *     [[slick.sql.SqlCapabilities.sequenceMax]],
-  *     [[slick.sql.SqlCapabilities.sequenceCycle]]:
-  *     H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.returnInsertOther]]:
-  *     When returning columns from an INSERT operation, only a single column
-  *     may be specified which must be the table's AutoInc column.</li>
-  *   <li>[[slick.relational.RelationalCapabilities.joinFull]]:
-  *     Full outer joins are emulated because there is not native support
-  *     for them.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
-  *     InsertOrUpdate operations are emulated on the client side if the
-  *     data to insert contains an `AutoInc` fields. Otherwise the operation
-  *     is performed natively on the server side.</li>
-  * </ul>
-  */
+/**
+ * Slick profile for H2.
+ *
+ * This profile implements [[slick.jdbc.JdbcProfile]] ''without'' the following capabilities:
+ *
+ * <ul> <li>[[slick.relational.RelationalCapabilities.reverse]]: This String function is not available in H2.</li>
+ * <li>[[slick.sql.SqlCapabilities.sequenceMin]], [[slick.sql.SqlCapabilities.sequenceMax]],
+ * [[slick.sql.SqlCapabilities.sequenceCycle]]: H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
+ * <li>[[slick.jdbc.JdbcCapabilities.returnInsertOther]]: When returning columns from an INSERT operation, only a single
+ * column may be specified which must be the table's AutoInc column.</li>
+ * <li>[[slick.relational.RelationalCapabilities.joinFull]]: Full outer joins are emulated because there is not native
+ * support for them.</li> <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]: InsertOrUpdate operations are emulated on
+ * the client side if the data to insert contains an `AutoInc` fields. Otherwise the operation is performed natively on
+ * the server side.</li> </ul>
+ */
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] =
@@ -53,7 +44,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       RelationalCapabilities.reverse
 
   class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
-    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+      extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createTableNamer(mTable: MTable): TableNamer = new H2TableNamer(mTable)
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
@@ -69,12 +60,11 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       override def default =
         rawDefault
           .map((_, tpe))
-          .collect {
-            case (v, "java.util.UUID") =>
-              if (v.matches("^['\"].*['\"]$"))
-                Some(Some(java.util.UUID.fromString(v.replaceAll("['\"]", "")))) // strip quotes
-              else
-                None // The UUID is generated through a function - treat it as if there was no default.
+          .collect { case (v, "java.util.UUID") =>
+            if (v.matches("^['\"].*['\"]$"))
+              Some(Some(java.util.UUID.fromString(v.replaceAll("['\"]", "")))) // strip quotes
+            else
+              None // The UUID is generated through a function - treat it as if there was no default.
           }
           .getOrElse(super.default)
       override def tpe = dbType match {
@@ -84,8 +74,9 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit
+      ec: ExecutionContext
+  ): JdbcModelBuilder =
     new H2ModelBuilder(tables, ignoreInvalidDefaults)
 
   override val columnTypes: H2JdbcTypes = new H2JdbcTypes
@@ -101,7 +92,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
-      size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
+      size.fold("VARCHAR")(l => if (l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
@@ -114,25 +105,25 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     override def expr(n: Node) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval(schema(), '$name')"
-      case RowNumber(_) => b"rownum"
-      case _ => super.expr(n)
+      case RowNumber(_)                             => b"rownum"
+      case _                                        => super.expr(n)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b"\nlimit $t offset $d"
-      case (Some(t), None   ) => b"\nlimit $t"
-      case (None, Some(d)   ) => b"\nlimit -1 offset $d"
-      case _ =>
+      case (Some(t), None)    => b"\nlimit $t"
+      case (None, Some(d))    => b"\nlimit -1 offset $d"
+      case _                  =>
     }
   }
 
   class H2ColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder): Unit = {
-      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-      if(notNull) sb append " NOT NULL"
-      if(primaryKey) sb append " PRIMARY KEY"
-      if(autoIncrement) sb append " AUTO_INCREMENT"
-      if(unique) sb append " UNIQUE"
+      if (defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if (notNull) sb append " NOT NULL"
+      if (primaryKey) sb append " PRIMARY KEY"
+      if (autoIncrement) sb append " AUTO_INCREMENT"
+      if (unique) sb append " UNIQUE"
     }
   }
 
@@ -142,32 +133,28 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
       override def hasLiteralForm = true
     }
-    override val instantType : InstantJdbcType = new InstantJdbcType {
+    override val instantType: InstantJdbcType = new InstantJdbcType {
       // H2 doesn't use ISO-8601 format strings and so can't use Instant.parse and needs its own formatter
       val formatter = new DateTimeFormatterBuilder()
-                      .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                      .optionalStart()
-                      .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-                      .optionalEnd()
-                      .appendOffset("+HH", "")
-                      .toFormatter()
+        .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        .optionalStart()
+        .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+        .optionalEnd()
+        .appendOffset("+HH", "")
+        .toFormatter()
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
 
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int): Unit =
         p.setString(idx, if (v == null) null else v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : Instant = {
+      override def getValue(r: ResultSet, idx: Int): Instant =
         r.getString(idx) match {
-          case null => null
+          case null      => null
           case utcString => LocalDateTime.parse(utcString, formatter).toInstant(ZoneOffset.UTC)
         }
-      }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) =
         r.updateString(idx, if (v == null) null else v.toString)
-      }
-      override def valueToSQLLiteral(value: Instant) : String = {
+      override def valueToSQLLiteral(value: Instant): String =
         s"'${value.toString}'"
-      }
     }
   }
 
@@ -177,7 +164,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
   }
 
   class H2CountingInsertActionComposerImpl[U](compiled: CompiledInsert)
-    extends CountingInsertActionComposerImpl[U](compiled) {
+      extends CountingInsertActionComposerImpl[U](compiled) {
     // H2 cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
     // the same in ReturningInsertInvoker because H2 does not allow returning non-AutoInc keys anyway.
     override protected val useServerSideUpsert =

@@ -10,7 +10,8 @@ import slick.util.SQLBuilder
 
 trait JdbcInvokerComponent { self: JdbcProfile =>
 
-  def createQueryInvoker[R](tree: Node, param: Any, sql: String): QueryInvokerImpl[R] = new QueryInvokerImpl[R](tree, param, sql)
+  def createQueryInvoker[R](tree: Node, param: Any, sql: String): QueryInvokerImpl[R] =
+    new QueryInvokerImpl[R](tree, param, sql)
 
   // Parameters for invokers -- can be overridden by profiles as needed
   protected val invokerMutateConcurrency: ResultSetConcurrency = ResultSetConcurrency.Updatable
@@ -30,10 +31,10 @@ trait JdbcInvokerComponent { self: JdbcProfile =>
     protected[this] def findCompiledStatement(n: Node): CompiledStatement = n match {
       case c: CompiledStatement => c
       case ParameterSwitch(cases, default) =>
-        findCompiledStatement(cases.find { case (f, n) => f(param) }.map(_._2).getOrElse(default))
+        findCompiledStatement(cases.find { case (f, _) => f(param) }.map(_._2).getOrElse(default))
     }
 
-    protected def getStatement = if(overrideSql ne null) overrideSql else sres.sql
+    protected def getStatement = if (overrideSql ne null) overrideSql else sres.sql
     protected def setParam(st: PreparedStatement): Unit = sres.setter(st, 1, param)
     def extractValue(pr: PositionedResult): R = converter.read(pr.rs)
     def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr.rs)

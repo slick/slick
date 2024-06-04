@@ -8,7 +8,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
 
   import tdb.profile.api.*
 
-
   def testSimple = {
     class TestTable(tag: Tag, tname: String) extends Table[(Int, String)](tag, tname) {
       def id = column[Int]("id")
@@ -22,26 +21,28 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val dst2 = TableQuery(new TestTable(_, "dst2_q"))
     val dst3 = TableQuery(new TestTable(_, "dst3_q"))
 
-    val q2 = for(s <- src1 if s.id <= 2) yield s
-    println("Insert 2: "+dst2.forceInsertStatementFor(q2))
+    val q2 = for (s <- src1 if s.id <= 2) yield s
+    println("Insert 2: " + dst2.forceInsertStatementFor(q2))
     val q3 = (42, "X".bind)
-    println("Insert 3: "+dst2.forceInsertStatementFor(q3))
-    val q4comp = Compiled { dst2.filter(_.id < 10) }
-    val dst3comp = Compiled { dst3 }
+    println("Insert 3: " + dst2.forceInsertStatementFor(q3))
+    val q4comp = Compiled(dst2.filter(_.id < 10))
+    val dst3comp = Compiled(dst3)
 
-    DBIO.sequence(Seq(
-      (src1.schema ++ dst1.schema ++ dst2.schema ++ dst3.schema).create,
-      src1 += (1, "A"),
-      src1.map(_.ins) ++= Seq((2, "B"), (3, "C")),
-      dst1.forceInsertQuery(src1),
-      dst1.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"), (3,"C"))),
-      dst2.forceInsertQuery(q2),
-      dst2.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"))),
-      dst2.forceInsertExpr(q3),
-      dst2.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"), (42,"X"))),
-      dst3comp.forceInsertQuery(q4comp),
-      dst3comp.result.map(v => v.toSet shouldBe Set((1,"A"), (2,"B")))
-    ))
+    DBIO.sequence(
+      Seq(
+        (src1.schema ++ dst1.schema ++ dst2.schema ++ dst3.schema).create,
+        src1 += (1, "A"),
+        src1.map(_.ins) ++= Seq((2, "B"), (3, "C")),
+        dst1.forceInsertQuery(src1),
+        dst1.to[Set].result.map(_ shouldBe Set((1, "A"), (2, "B"), (3, "C"))),
+        dst2.forceInsertQuery(q2),
+        dst2.to[Set].result.map(_ shouldBe Set((1, "A"), (2, "B"))),
+        dst2.forceInsertExpr(q3),
+        dst2.to[Set].result.map(_ shouldBe Set((1, "A"), (2, "B"), (42, "X"))),
+        dst3comp.forceInsertQuery(q4comp),
+        dst3comp.result.map(v => v.toSet shouldBe Set((1, "A"), (2, "B")))
+      )
+    )
   }
 
   def testEmptyInsert = {
@@ -87,7 +88,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       as.sortBy(_.id).result.map(_ shouldBe records)
     )
   }
-  def testInsertAllAutoInc = ifCap (jcap.returnInsertKey, jcap.insertMultipleRowsWithSingleStatement) {
+  def testInsertAllAutoInc = ifCap(jcap.returnInsertKey, jcap.insertMultipleRowsWithSingleStatement) {
     class A(tag: Tag) extends Table[(Int, Int)](tag, "insert_all_auto_inc") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
       def v1 = column[Int]("V1")
@@ -117,27 +118,26 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
-
   def testUniqueInsert = {
-    case class ARow(email: String , id: Int = 0)
-    class A(tag: Tag) extends Table[ARow](tag , "A_UNIQUEINSERT"){
-      def id = column[Int]("id" , O.AutoInc , O.PrimaryKey)
-      def email = column[String]("email" , O.Unique , O.Length(254))
+    case class ARow(email: String, id: Int = 0)
+    class A(tag: Tag) extends Table[ARow](tag, "A_UNIQUEINSERT") {
+      def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
+      def email = column[String]("email", O.Unique, O.Length(254))
 
-      def * = (email , id).mapTo[ARow]
+      def * = (email, id).mapTo[ARow]
     }
     val atq = TableQuery[A]
 
     DBIO.seq(
       atq.schema.create,
-      atq ++= Seq( ARow("unique@site.com") , ARow("user@site.com") ),
-      ( atq += ARow("unique@site.com") ).asTry.map{
-        case Failure(e:java.sql.SQLException) if e.getMessage.toLowerCase.contains("unique") => ()
-        case Failure(e:java.sql.BatchUpdateException) if e.getMessage.toLowerCase.contains("unique") => ()
-        case Failure( e ) => throw e
+      atq ++= Seq(ARow("unique@site.com"), ARow("user@site.com")),
+      (atq += ARow("unique@site.com")).asTry.map {
+        case Failure(e: java.sql.SQLException) if e.getMessage.toLowerCase.contains("unique")         => ()
+        case Failure(e: java.sql.BatchUpdateException) if e.getMessage.toLowerCase.contains("unique") => ()
+        case Failure(e)                                                                               => throw e
         case Success(_) => throw new Exception("Should have failed with UNIQUE constraint violation")
       },
-      atq.result.map( _.size shouldBe 2 )
+      atq.result.map(_.size shouldBe 2)
     )
   }
 
@@ -177,8 +177,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def name = column[String]("name")
       def i1 = column[Int]("i1")
       def b = column[Boolean]("b")
-      def s1 = column[String]("s1", O.Length(10,varying=true))
-      def s2 = column[String]("s2", O.Length(10,varying=true))
+      def s1 = column[String]("s1", O.Length(10, varying = true))
+      def s2 = column[String]("s2", O.Length(10, varying = true))
       def i2 = column[Int]("i2")
 
       def * = (id, name, i1, b, s1, s2, i2)
@@ -192,16 +192,18 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       ts += (101, "A", 1, false, "S1", "S2", 0),
       ts.map(_.ins) ++= Seq((102, "B", 1, false, "S1", "S2", 0), (103, "C", 1, false, "S1", "S2", 0)),
       ts.filter(_.id > 100).length.result.map(_ shouldBe 0),
-      ifCap(jcap.forceInsert)(seq(
-        ts.forceInsert(104, "A", 1, false, "S1", "S2", 0),
-        ts.map(_.ins).forceInsertAll(Seq((105, "B", 1, false, "S1", "S2", 0), (106, "C", 1, false, "S1", "S2", 0))),
-        ts.filter(_.id > 100).length.result.map(_ shouldBe 3),
-        ts.map(_.ins).forceInsertAll(Seq((111, "D", 1, false, "S1", "S2", 0))),
-        ts.filter(_.id > 100).length.result.map(_ shouldBe 4),
-        src.forceInsert(90, "X", 1, false, "S1", "S2", 0),
-        mark("forceInsertQuery", ts.forceInsertQuery(src)).map(_ shouldBe 1),
-        ts.filter(_.id.between(90, 99)).result.headOption.map(_ shouldBe Some((90, "X", 1, false, "S1", "S2", 0)))
-      ))
+      ifCap(jcap.forceInsert)(
+        seq(
+          ts.forceInsert(104, "A", 1, false, "S1", "S2", 0),
+          ts.map(_.ins).forceInsertAll(Seq((105, "B", 1, false, "S1", "S2", 0), (106, "C", 1, false, "S1", "S2", 0))),
+          ts.filter(_.id > 100).length.result.map(_ shouldBe 3),
+          ts.map(_.ins).forceInsertAll(Seq((111, "D", 1, false, "S1", "S2", 0))),
+          ts.filter(_.id > 100).length.result.map(_ shouldBe 4),
+          src.forceInsert(90, "X", 1, false, "S1", "S2", 0),
+          mark("forceInsertQuery", ts.forceInsertQuery(src)).map(_ shouldBe 1),
+          ts.filter(_.id.between(90, 99)).result.headOption.map(_ shouldBe Some((90, "X", 1, false, "S1", "S2", 0)))
+        )
+      )
     )
   }
 
@@ -238,15 +240,16 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe 3))
         _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
       } yield ()
-    } else {
-      for {
-        _ <- prepare
-        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d")))
-      } yield ()
-    }.asTry.map {
-      case Failure(exception) => exception.isInstanceOf[SlickException] shouldBe true
-      case _ => throw new RuntimeException("Should insertOrUpdateAll is not supported for this profile.")
-    }
+    } else
+      {
+        for {
+          _ <- prepare
+          _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d")))
+        } yield ()
+      }.asTry.map {
+        case Failure(exception) => exception.isInstanceOf[SlickException] shouldBe true
+        case _ => throw new RuntimeException("Should insertOrUpdateAll is not supported for this profile.")
+      }
   }
 
   def testInsertOrUpdateNoPK = {
@@ -258,19 +261,19 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    val failed = try {
-      ts.insertOrUpdate((3, "c"))
-      false
-    }
-    catch {
-      case _: SlickException => true
-    }
+    val failed =
+      try {
+        ts.insertOrUpdate((3, "c"))
+        false
+      } catch {
+        case _: SlickException => true
+      }
     if (!failed) throw new RuntimeException("Should fail since insertOrUpdate is not supported on a table without PK.")
     DBIO.seq()
   }
 
   def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, NoStream, Effect.All] = {
-    //FIXME remove this after fixed checkInsert issue
+    // FIXME remove this after fixed checkInsert issue
     if (tdb.profile.isInstanceOf[DerbyProfile]) return DBIO.successful(())
 
     class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge3") {
@@ -322,7 +325,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       class ETable(tag: Tag) extends Table[E](tag, "ETABLE") {
         def id = column[Int]("id", O.PrimaryKey)
 
-        def * = id.<>(E.apply, (e : E) => Option(e.id))
+        def * = id.<>(E.apply, (e: E) => Option(e.id))
       }
 
       val a = TableQuery[ATable]
@@ -350,7 +353,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
 
   def testInsertOrUpdateWithInsertedWhen0IsSpecifiedForAutoInc: DBIOAction[Unit, NoStream, Effect.All] =
-    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
+    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(())
+    else {
       case class C(id1: Int, id2: Int)
       class CTable(tag: Tag) extends Table[C](tag, "CTABLE") {
         def id1 = column[Int]("id1", O.AutoInc)
@@ -365,18 +369,18 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       class DTable(tag: Tag) extends Table[D](tag, "DTABLE") {
         def id1 = column[Int]("id1", O.AutoInc)
 
-          def id2 = column[Int]("id2")
+        def id2 = column[Int]("id2")
 
-          def v = column[Int]("v")
+        def v = column[Int]("v")
 
-          val pk = primaryKey("pk_for_dtable", (id1, id2))
+        val pk = primaryKey("pk_for_dtable", (id1, id2))
 
-          def * = (id1, id2, v) <> ((D.apply _).tupled, D.unapply)
+        def * = (id1, id2, v) <> ((D.apply _).tupled, D.unapply)
       }
       case class F(id: Int)
       class FTable(tag: Tag) extends Table[F](tag, "FTABLE") {
         def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
-        def * = (id) <> (F.apply, (f: F) => Option(f.id))
+        def * = id <> (F.apply, (f: F) => Option(f.id))
       }
       val c = TableQuery[CTable]
       val d = TableQuery[DTable]
@@ -404,7 +408,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
 
   def testInertOrUpdateWithAutoIncAndUniqueColumn() =
-    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
+    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(())
+    else {
       case class AnimalRow(id: Int, name: String, location: String)
       class Animals(tag: Tag) extends Table[AnimalRow](tag, "animals") {
         def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -493,11 +498,15 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val books = TableQuery[BooksTable]
     case class BookMeta(id: Long, bookId: Long, tag: Long)
     class BookMetaTable(tag: Tag) extends Table[BookMeta](tag, "book_meta") {
-      def id    = column[Long]("id")
+      def id = column[Long]("id")
       def bookId = column[Long]("book_id")
-      def bookTag  = column[Long]("tag")
+      def bookTag = column[Long]("tag")
       def pk = primaryKey("book_meta_pk", (bookId, id))
-      def book = foreignKey("book_fk", bookId, books)(_.id, onUpdate=ForeignKeyAction.Restrict, onDelete=ForeignKeyAction.Cascade)
+      def book = foreignKey("book_fk", bookId, books)(
+        _.id,
+        onUpdate = ForeignKeyAction.Restrict,
+        onDelete = ForeignKeyAction.Cascade
+      )
       override def * = (bookId, id, bookTag) <> ((BookMeta.apply _).tupled, BookMeta.unapply)
     }
     val meta = TableQuery[BookMetaTable]
@@ -506,7 +515,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     DBIO.seq(
       meta.insertOrUpdate(bookMeta).asTry.map {
         case Success(_) => throw new Exception("Insertion should be failed.")
-        case _ => ()
+        case _          => ()
       }
     )
   }
@@ -525,15 +534,15 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       ts ++= Seq(Test(1, "a")),
       (ts ++= Seq(Test(2, "123"))).asTry.map {
         case Success(_) => throw new Exception("Data is truncated. It shouldn't be succeeded.")
-        case _ => ()
+        case _          => ()
       },
       ts.filter(_.id === 1).map(_.name).update("123").asTry.map {
         case Success(_) => throw new Exception("Data is truncated. It shouldn't be succeeded.")
-        case _ => ()
+        case _          => ()
       },
       ts.insertOrUpdate(Test(1, "123")).asTry.map {
         case Success(_) => throw new Exception("Data is truncated. It shouldn't be succeeded.")
-        case _ => ()
+        case _          => ()
       }
     )
   } else DBIO.seq()

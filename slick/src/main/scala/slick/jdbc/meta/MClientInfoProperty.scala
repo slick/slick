@@ -6,12 +6,11 @@ import slick.jdbc.ResultSetAction
 case class MClientInfoProperty(name: String, maxLen: Int, defaultValue: String, description: String)
 
 object MClientInfoProperty {
-  def getClientInfoProperties = {
-    ResultSetAction[MClientInfoProperty]{ s =>
+  def getClientInfoProperties =
+    ResultSetAction[MClientInfoProperty] { s =>
       try s.metaData.getClientInfoProperties()
       catch { case _: AbstractMethodError => null }
     } { r =>
       MClientInfoProperty(r.<<, r.<<, r.<<, r.<<)
     }
-  }
 }

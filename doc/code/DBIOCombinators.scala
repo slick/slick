@@ -8,9 +8,8 @@ object DBIOCombinators extends App {
     def price = column[Double]("PRICE")
     def * = (name, price)
   }
-  val coffees = TableQuery[Coffees]
-  ;{
-    //#combinators1
+  val coffees = TableQuery[Coffees] {
+    // #combinators1
     val ins1: DBIO[Int] = coffees += ("Colombian", 7.99)
     val ins2: DBIO[Int] = coffees += ("French_Roast", 8.99)
 
@@ -21,7 +20,7 @@ object DBIOCombinators extends App {
     val a3: DBIO[(Int, Int)] = ins1 zip ins2
 
     val a4: DBIO[Vector[Int]] = DBIO.sequence(Vector(ins1, ins2))
-    //#combinators1
+    // #combinators1
 
     ()
   }

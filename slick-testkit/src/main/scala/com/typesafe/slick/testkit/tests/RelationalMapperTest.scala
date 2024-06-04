@@ -13,10 +13,11 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     implicit val boolTypeMapper: BaseColumnType[Bool] = MappedColumnType.base[Bool, Int](
       { b =>
         b shouldNotBe null
-        if(b == True) 1 else 0
-      }, { i =>
+        if (b == True) 1 else 0
+      },
+      { i =>
         i shouldNotBe null
-        if(i == 1) True else False
+        if (i == 1) True else False
       }
     )
 
@@ -32,8 +33,8 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.schema.create,
       ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
       ts.to[Set].result.map(_ shouldBe Set((1, False, None), (2, True, Some(True)))),
-      ts.filter(_.b === (True:Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
-      ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
+      ts.filter(_.b === (True: Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
+      ts.filter(_.b === (False: Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
     )
   }
 
@@ -49,14 +50,15 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
         t match {
           case EnumValue1 => 'A'
           case EnumValue2 => 'B'
-          case _ => 'C'
+          case _          => 'C'
         }
-      }, { c =>
+      },
+      { c =>
         c shouldNotBe null
         c match {
           case 'A' => EnumValue1
           case 'B' => EnumValue2
-          case _ => EnumValue3
+          case _   => EnumValue3
         }
       }
     )
@@ -71,10 +73,21 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
 
     seq(
       ts.schema.create,
-      ts.map(t => (t.b, t.c)) ++= Seq((EnumValue1, None), (EnumValue1, Some(EnumValue2)), (EnumValue2, Some(EnumValue3))),
-      ts.to[Set].result.map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)), (3, EnumValue2, Some(EnumValue3)))),
-      ts.filter(_.b === (EnumValue1:EnumType)).to[Set].result.map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)))),
-      ts.filter(_.b === (EnumValue2:EnumType)).to[Set].result.map(_ shouldBe Set((3, EnumValue2, Some(EnumValue3))))
+      ts.map(t => (t.b, t.c)) ++= Seq(
+        (EnumValue1, None),
+        (EnumValue1, Some(EnumValue2)),
+        (EnumValue2, Some(EnumValue3))
+      ),
+      ts.to[Set]
+        .result
+        .map(
+          _ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)), (3, EnumValue2, Some(EnumValue3)))
+        ),
+      ts.filter(_.b === (EnumValue1: EnumType))
+        .to[Set]
+        .result
+        .map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)))),
+      ts.filter(_.b === (EnumValue2: EnumType)).to[Set].result.map(_ shouldBe Set((3, EnumValue2, Some(EnumValue3))))
     )
   }
 
@@ -86,10 +99,11 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     implicit val boolTypeMapper: BaseColumnType[Bool] = MappedColumnType.base[Bool, String](
       { b =>
         b shouldNotBe null
-        if(b == True) "y" else "n"
-      }, { i =>
+        if (b == True) "y" else "n"
+      },
+      { i =>
         i shouldNotBe null
-        if(i == "y") True else False
+        if (i == "y") True else False
       }
     )
 
@@ -105,8 +119,8 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.schema.create,
       ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
       ts.to[Set].result.map(_ shouldBe Set((1, False, None), (2, True, Some(True)))),
-      ts.filter(_.b === (True:Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
-      ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
+      ts.filter(_.b === (True: Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
+      ts.filter(_.b === (False: Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
     )
   }
 }

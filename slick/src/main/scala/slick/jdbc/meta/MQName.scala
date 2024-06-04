@@ -4,7 +4,9 @@ import slick.jdbc.PositionedResult
 
 /** A qualified name with an optional catalog and schema. */
 case class MQName(catalog: Option[String], schema: Option[String], name: String) {
-  override def toString = "MQName(" + catalog.map(_ + ".").getOrElse("") + schema.map(_ + ".").getOrElse("") + name + ")"
+  override def toString = "MQName(" + catalog.map(_ + ".").getOrElse("") + schema
+    .map(_ + ".")
+    .getOrElse("") + name + ")"
 
   def catalog_? = catalog.orNull
   def schema_? = schema.orNull

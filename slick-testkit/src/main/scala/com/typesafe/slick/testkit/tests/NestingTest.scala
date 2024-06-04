@@ -19,9 +19,15 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val ts = TableQuery[T]
 
     val res1 = List(
-      (1, "1", "a", 5), (2, "2", "a", 5), (3, "3", "a", 5),
-      (1, "1", "b", 5), (2, "2", "b", 5), (3, "3", "b", 5),
-      (1, "1", "c", 5), (2, "2", "c", 5), (3, "3", "c", 5)
+      (1, "1", "a", 5),
+      (2, "2", "a", 5),
+      (3, "3", "a", 5),
+      (1, "1", "b", 5),
+      (2, "2", "b", 5),
+      (3, "3", "b", 5),
+      (1, "1", "c", 5),
+      (2, "2", "c", 5),
+      (3, "3", "c", 5)
     )
     val res1b = res1.map { case (a, b, c, d) => ((a, b), (c, d)) }
 
@@ -44,15 +50,17 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
 
     val q2a = for {
       a ~ b ~ c <- ts.filter(_.a === 1).map(t => (t.a, t.b, 4)) unionAll ts.filter(_.a === 2).map(t => t.a ~ t.b ~ 5)
-    } yield a ~ b ~ (c*2)
+    } yield a ~ b ~ (c * 2)
 
     val q2b = for {
-      (a, b, c) <- ts.filter(_.a === 1).map(t => (t.a, t.b, LiteralColumn(4))) unionAll ts.filter(_.a === 2).map(t => (t.a, t.b, LiteralColumn(5)))
-    } yield a ~ b ~ (c*2)
+      (a, b, c) <- ts.filter(_.a === 1).map(t => (t.a, t.b, LiteralColumn(4))) unionAll ts
+        .filter(_.a === 2)
+        .map(t => (t.a, t.b, LiteralColumn(5)))
+    } yield a ~ b ~ (c * 2)
 
     val q2c = for {
       (a, b, c) <- ts.filter(_.a === 1).map(t => (t.a, t.b, 4)) unionAll ts.filter(_.a === 2).map(t => (t.a, t.b, 5))
-    } yield a ~ b ~ (c*2)
+    } yield a ~ b ~ (c * 2)
 
     seq(
       ts.schema.create,
@@ -171,28 +179,30 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     )
 
     // Use Option.flatMap
-    val q1e1 = q1.map { to => to.flatMap { t => Rep.Some(t.b) }}
-    val q1e2 = q1.map { to => to.flatMap { t => t.c }}
+    val q1e1 = q1.map(to => to.flatMap(t => Rep.Some(t.b)))
+    val q1e2 = q1.map(to => to.flatMap(t => t.c))
     val q1e3 = q1.map(to => Rep.Some(to)).map(_.flatMap(identity))
-    val q2e = q2.map { io => io.flatMap { i => Rep.Some(i) }}
+    val q2e = q2.map(io => io.flatMap(i => Rep.Some(i)))
     val q1e1t: Query[Rep[Option[String]], _, Seq] = q1e1
     val q1e2t: Query[Rep[Option[Int]], _, Seq] = q1e2
     val q2et: Query[Rep[Option[Int]], _, Seq] = q2e
 
     lazy val t5 = seq(
-      mark("q1e1", q1e1.result).map(_ shouldBe r.map(t => Some(t)).map { to => to.flatMap { t => Some(t._2) }}),
-      mark("q1e2", q1e2.result).map(_ shouldBe r.map(t => Some(t)).map { to => to.flatMap { t => t._3 }}),
+      mark("q1e1", q1e1.result).map(_ shouldBe r.map(t => Some(t)).map(to => to.flatMap(t => Some(t._2)))),
+      mark("q1e2", q1e2.result).map(_ shouldBe r.map(t => Some(t)).map(to => to.flatMap(t => t._3))),
       mark("q1e3", q1e3.result).map(_ shouldBe r.map(t => Some(t)).map(to => Some(to)).map(_.flatMap(identity))),
-      mark("q2e", q2e.result).map(_ shouldBe r.map(t => Some(t._1)).map { io => io.flatMap { i => Some(i) }})
+      mark("q2e", q2e.result).map(_ shouldBe r.map(t => Some(t._1)).map(io => io.flatMap(i => Some(i))))
     )
 
     // Use Option.flatten
-    val q1f1 = q1.map { to => Rep.Some(to) }
-    val q1f2 = q1.map { to => Rep.Some(to).flatten: Rep[Option[X]] } //TODO why do q1f2 and q1f3 need type annotations in Dotty?
-    val q1f3 = q1.map { to => Rep.Some(to) }.map(x => x.flatten: Rep[Option[X]])
-    val q2f1 = q2.map { io => Rep.Some(io) }
-    val q2f2 = q2.map { io => Rep.Some(io).flatten }
-    val q2f3 = q2.map { io => Rep.Some(io) }.map(_.flatten)
+    val q1f1 = q1.map(to => Rep.Some(to))
+    val q1f2 = q1.map { to =>
+      Rep.Some(to).flatten: Rep[Option[X]]
+    } // TODO why do q1f2 and q1f3 need type annotations in Dotty?
+    val q1f3 = q1.map(to => Rep.Some(to)).map(x => x.flatten: Rep[Option[X]])
+    val q2f1 = q2.map(io => Rep.Some(io))
+    val q2f2 = q2.map(io => Rep.Some(io).flatten)
+    val q2f3 = q2.map(io => Rep.Some(io)).map(_.flatten)
     val q1f1t: Query[Rep[Option[Option[X]]], _, Seq] = q1f1
     val q1f2t: Query[Rep[Option[X]], _, Seq] = q1f2
     val q1f3t: Query[Rep[Option[X]], _, Seq] = q1f3
@@ -201,12 +211,16 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q2f3t: Query[Rep[Option[Int]], _, Seq] = q2f3
 
     lazy val t6 = seq(
-      q1f1.result.named("q1f1").map(_ shouldBe Vector(Some(Some((1,"1",Some(1)))), Some(Some((2,"2",Some(2)))), Some(Some((3,"3",None))))),
-      q1f2.result.named("q1f2").map(_ shouldBe r.map(t => Some(t)).map { to => Some(to).flatten }),
-      q1f3.result.named("q1f3").map(_ shouldBe r.map(t => Some(t)).map { to => Some(to) }.map(_.flatten)),
-      q2f1.result.named("q2f1").map(_ shouldBe r.map(t => Some(t._1)).map { io => Some(io) }),
-      q2f2.result.named("q2f2").map(_ shouldBe r.map(t => Some(t._1)).map { io => Some(io).flatten }),
-      q2f3.result.named("q2f3").map(_ shouldBe r.map(t => Some(t._1)).map { io => Some(io) }.map(_.flatten))
+      q1f1.result
+        .named("q1f1")
+        .map(
+          _ shouldBe Vector(Some(Some((1, "1", Some(1)))), Some(Some((2, "2", Some(2)))), Some(Some((3, "3", None))))
+        ),
+      q1f2.result.named("q1f2").map(_ shouldBe r.map(t => Some(t)).map(to => Some(to).flatten)),
+      q1f3.result.named("q1f3").map(_ shouldBe r.map(t => Some(t)).map(to => Some(to)).map(_.flatten)),
+      q2f1.result.named("q2f1").map(_ shouldBe r.map(t => Some(t._1)).map(io => Some(io))),
+      q2f2.result.named("q2f2").map(_ shouldBe r.map(t => Some(t._1)).map(io => Some(io).flatten)),
+      q2f3.result.named("q2f3").map(_ shouldBe r.map(t => Some(t._1)).map(io => Some(io)).map(_.flatten))
     )
 
     setup >> t1 >> t2 >> t3 >> t4 >> t5 >> t6
@@ -221,7 +235,14 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
       def * = (name.getOrElse(""), popularOptions.getOrElse(""), id).mapTo[Chord]
     }
     val chords = TableQuery[Chords]
-    val allChords = Set(Chord("maj7", "9 #11"), Chord("m7", "9 11"), Chord("7", "9 13"), Chord("m7b5", "11"), Chord("aug7", "9"), Chord("dim7", ""))
+    val allChords = Set(
+      Chord("maj7", "9 #11"),
+      Chord("m7", "9 11"),
+      Chord("7", "9 13"),
+      Chord("m7b5", "11"),
+      Chord("aug7", "9"),
+      Chord("dim7", "")
+    )
     val minorChords = for {
       chord <- chords if chord.name.startsWith("m7")
     } yield (chord.name.getOrElse(""), chord.popularOptions.getOrElse(""))

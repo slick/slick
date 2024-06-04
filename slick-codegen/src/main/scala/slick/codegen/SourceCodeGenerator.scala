@@ -15,22 +15,19 @@ import slick.util.ConfigExtensionMethods.configExtensionMethods
  *
  * For usage information please see the corresponding part of the Slick documentation.
  *
- * The implementation is structured into a small hierarchy of sub-generators responsible
- * for different fragments of the complete output. The implementation of each
- * sub-generator can be swapped out for a customized one by overriding the corresponding
- * factory method. SourceCodeGenerator contains a factory method Table, which it uses to
- * generate a sub-generator for each table. The sub-generator Table in turn contains
- * sub-generators for Table classes, entity case classes, columns, key, indices, etc.
- * Custom sub-generators can easily be added as well.
+ * The implementation is structured into a small hierarchy of sub-generators responsible for different fragments of the
+ * complete output. The implementation of each sub-generator can be swapped out for a customized one by overriding the
+ * corresponding factory method. SourceCodeGenerator contains a factory method Table, which it uses to generate a
+ * sub-generator for each table. The sub-generator Table in turn contains sub-generators for Table classes, entity case
+ * classes, columns, key, indices, etc. Custom sub-generators can easily be added as well.
  *
- * Within the sub-generators the relevant part of the Slick data `model` can
- * be accessed to drive the code generation.
+ * Within the sub-generators the relevant part of the Slick data `model` can be accessed to drive the code generation.
  *
  * Of coures it makes sense to integrate this into your build process.
- * @param model Slick data model for which code should be generated.
+ * @param model
+ *   Slick data model for which code should be generated.
  */
-class SourceCodeGenerator(model: m.Model)
-                   extends AbstractSourceCodeGenerator(model) with OutputHelpers{
+class SourceCodeGenerator(model: m.Model) extends AbstractSourceCodeGenerator(model) with OutputHelpers {
   // "Tying the knot": making virtual classes concrete
   type Table = SourceCodeTableDef
   def Table = new SourceCodeTableDef(_)
@@ -38,64 +35,101 @@ class SourceCodeGenerator(model: m.Model)
     // Using defs instead of (caching) lazy vals here to provide consitent interface to the user.
     // Performance should really not be critical in the code generator. Models shouldn't be huge.
     // Also lazy vals don't inherit docs from defs
-    type EntityType                     = AbstractSourceCodeEntityTypeDef
-    def  EntityType: EntityType         = new EntityType {}
-    type PlainSqlMapper                 = AbstractSourceCodePlainSqlMapperDef
-    def  PlainSqlMapper: PlainSqlMapper = new PlainSqlMapper {}
-    type TableClass                     = AbstractSourceCodeTableClassDef
-    def  TableClass: TableClass         = new TableClass {}
-    type TableValue                     = AbstractSourceCodeTableValueDef
-    def  TableValue: TableValue         = new TableValue {}
-    type Column                         = AbstractSourceCodeColumnDef
-    def  Column                         = new Column(_)
-    type PrimaryKey                     = AbstractSourceCodePrimaryKeyDef
-    def  PrimaryKey                     = new PrimaryKey(_)
-    type ForeignKey                     = AbstractSourceCodeForeignKeyDef
-    def  ForeignKey                     = new ForeignKey(_)
-    type Index                          = AbstractSourceCodeIndexDef
-    def  Index                          = new Index(_)
+    type EntityType = AbstractSourceCodeEntityTypeDef
+    def EntityType: EntityType = new EntityType {}
+    type PlainSqlMapper = AbstractSourceCodePlainSqlMapperDef
+    def PlainSqlMapper: PlainSqlMapper = new PlainSqlMapper {}
+    type TableClass = AbstractSourceCodeTableClassDef
+    def TableClass: TableClass = new TableClass {}
+    type TableValue = AbstractSourceCodeTableValueDef
+    def TableValue: TableValue = new TableValue {}
+    type Column = AbstractSourceCodeColumnDef
+    def Column = new Column(_)
+    type PrimaryKey = AbstractSourceCodePrimaryKeyDef
+    def PrimaryKey = new PrimaryKey(_)
+    type ForeignKey = AbstractSourceCodeForeignKeyDef
+    def ForeignKey = new ForeignKey(_)
+    type Index = AbstractSourceCodeIndexDef
+    def Index = new Index(_)
   }
 }
 
 /** A runnable class to execute the code generator without further setup */
 object SourceCodeGenerator {
-  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, outputToMultipleFiles: Boolean): Unit =
+  def run(
+      profile: String,
+      jdbcDriver: String,
+      url: String,
+      outputDir: String,
+      pkg: String,
+      user: Option[String],
+      password: Option[String],
+      ignoreInvalidDefaults: Boolean,
+      outputToMultipleFiles: Boolean
+  ): Unit =
     run(profile, jdbcDriver, url, outputDir, pkg, user, password, ignoreInvalidDefaults, None, outputToMultipleFiles)
 
-  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String], outputToMultipleFiles: Boolean): Unit = {
+  def run(
+      profile: String,
+      jdbcDriver: String,
+      url: String,
+      outputDir: String,
+      pkg: String,
+      user: Option[String],
+      password: Option[String],
+      ignoreInvalidDefaults: Boolean,
+      codeGeneratorClass: Option[String],
+      outputToMultipleFiles: Boolean
+  ): Unit = {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
     val dbFactory = profileInstance.api.Database
-    val db = dbFactory.forURL(url, driver = jdbcDriver,
-      user = user.getOrElse(null), password = password.getOrElse(null), keepAliveConnection = true)
+    val db = dbFactory.forURL(
+      url,
+      driver = jdbcDriver,
+      user = user.getOrElse(null),
+      password = password.getOrElse(null),
+      keepAliveConnection = true
+    )
     try {
-      val m = Await.result(db.run(profileInstance.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
+      val m = Await.result(
+        db.run(profileInstance.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession),
+        Duration.Inf
+      )
       val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
       val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[_ <: SourceCodeGenerator]]
       val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
-      if(outputToMultipleFiles)
+      if (outputToMultipleFiles)
         generatorInstance.writeToMultipleFiles(profile, outputDir, pkg)
       else
         generatorInstance.writeToFile(profile, outputDir, pkg)
     } finally db.close
   }
 
-  def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = true, outputToMultipleFiles: Boolean = false): Unit = {
+  def run(
+      uri: URI,
+      outputDir: Option[String],
+      ignoreInvalidDefaults: Boolean = true,
+      outputToMultipleFiles: Boolean = false
+  ): Unit = {
     val dc = DatabaseConfig.forURI[JdbcProfile](uri)
     val pkg = dc.config.getString("codegen.package")
     val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
-    val profile = if(dc.profileIsObject) dc.profileName else "new " + dc.profileName
+    val profile = if (dc.profileIsObject) dc.profileName else "new " + dc.profileName
     try {
-      val m = Await.result(dc.db.run(dc.profile.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
+      val m = Await.result(
+        dc.db.run(dc.profile.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession),
+        Duration.Inf
+      )
       val generator = new SourceCodeGenerator(m)
-      if(outputToMultipleFiles)
+      if (outputToMultipleFiles)
         generator.writeToMultipleFiles(profile, out, pkg)
       else
         generator.writeToFile(profile, out, pkg)
     } finally dc.db.close
   }
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     args.toList match {
       case uri :: Nil =>
         run(new URI(uri), None)
@@ -105,11 +139,33 @@ object SourceCodeGenerator {
         run(profile, jdbcDriver, url, outputDir, pkg, None, None, true, None, false)
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: Nil =>
         run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), true, None, false)
-      case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, None, false)
-      case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: codeGeneratorClass :: outputToMultipleFiles:: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean, Some(codeGeneratorClass), outputToMultipleFiles.toBoolean)
-      case _ => {
+      case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: Nil =>
+        run(
+          profile,
+          jdbcDriver,
+          url,
+          outputDir,
+          pkg,
+          Some(user),
+          Some(password),
+          ignoreInvalidDefaults.toBoolean,
+          None,
+          false
+        )
+      case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: codeGeneratorClass :: outputToMultipleFiles :: Nil =>
+        run(
+          profile,
+          jdbcDriver,
+          url,
+          outputDir,
+          pkg,
+          Some(user),
+          Some(password),
+          ignoreInvalidDefaults.toBoolean,
+          Some(codeGeneratorClass),
+          outputToMultipleFiles.toBoolean
+        )
+      case _ =>
         println("""
             |Usage:
             |  SourceCodeGenerator configURI [outputDir]
@@ -132,7 +188,5 @@ object SourceCodeGenerator {
             |"codegen.outputDir". The latter can be overridden on the command line.
           """.stripMargin.trim)
         System.exit(1)
-      }
     }
-  }
 }

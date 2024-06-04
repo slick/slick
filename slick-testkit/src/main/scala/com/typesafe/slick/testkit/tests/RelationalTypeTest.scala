@@ -15,7 +15,7 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
         def * = (id, data)
       }
       val tbl = TableQuery[Tbl]
-      val data = values.zipWithIndex.map { case (d, i) => (i+1, d) }
+      val data = values.zipWithIndex.map { case (d, i) => (i + 1, d) }
       val q = tbl.sortBy(_.id)
       seq(
         tbl.schema.create,
@@ -27,19 +27,24 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
 
     seq(
       testStore[Int](-1, 0, 1, Int.MinValue, Int.MaxValue),
-      ifCap(rcap.typeLong) { testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue) },
+      ifCap(rcap.typeLong)(testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue)),
       testStore[Short](-1, 0, 1, Short.MinValue, Short.MaxValue),
       testStore[Byte](-1, 0, 1, Byte.MinValue, Byte.MaxValue),
       testStore[Double](-1.0, 0.0, 1.0),
       testStore[Float](-1.0f, 0.0f, 1.0f),
       ifCap(rcap.typeBigDecimal) {
-        testStore[BigDecimal](BigDecimal("-1"), BigDecimal("0"), BigDecimal("1"),
-          BigDecimal(Long.MinValue), BigDecimal(Long.MaxValue))
+        testStore[BigDecimal](
+          BigDecimal("-1"),
+          BigDecimal("0"),
+          BigDecimal("1"),
+          BigDecimal(Long.MinValue),
+          BigDecimal(Long.MaxValue)
+        )
       }
     )
   }
 
-  private def roundtrip[T : BaseColumnType](tn: String, v: T) = {
+  private def roundtrip[T: BaseColumnType](tn: String, v: T) = {
     class T1(tag: Tag) extends Table[(Int, T, Option[T])](tag, tn) {
       def id = column[Int]("id")
       def data = column[T]("data")
@@ -62,10 +67,9 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
-  def testBoolean = {
+  def testBoolean =
     roundtrip[Boolean]("boolean_true", true) >>
-    roundtrip[Boolean]("boolean_false", false)
-  }
+      roundtrip[Boolean]("boolean_false", false)
 
   def testUnit = {
     class T(tag: Tag) extends Table[Int](tag, "unit_t") {

@@ -11,7 +11,7 @@ object Library {
     override def hashCode = name.hashCode
     override def equals(o: Any) = o match {
       case o: JdbcFunction => name == o.name
-      case _ => false
+      case _               => false
     }
   }
   class SqlFunction(name: String) extends FunctionSymbol(name)
@@ -44,7 +44,7 @@ object Library {
   val > = new SqlOperator(">")
   val >= = new SqlOperator(">=")
   val == = new SqlOperator("=")
-  val equal = == //TODO Dotty doesn't see == as a stable symbol
+  val equal = == // TODO Dotty doesn't see == as a stable symbol
 
   // Set membership
   val In = new SqlOperator("in")
@@ -80,9 +80,10 @@ object Library {
   /** A standard cast operation which usually requires code to be generated */
   val Cast = new FunctionSymbol("Cast")
 
-  /** A type assignment describing an inherent type change that does not require any code to be
-    * generated. It is used in SQL-like ASTs for assigning the proper scalar type to aggregating
-    * subqueries which are used in a scalar context. */
+  /**
+   * A type assignment describing an inherent type change that does not require any code to be generated. It is used in
+   * SQL-like ASTs for assigning the proper scalar type to aggregating subqueries which are used in a scalar context.
+   */
   val SilentCast = new FunctionSymbol("SilentCast")
 
   val IfNull = new JdbcFunction("ifnull")
@@ -103,13 +104,13 @@ object Library {
 class FunctionSymbol(val name: String) extends TermSymbol {
 
   /** Match an Apply of this Symbol */
-  def unapplySeq(a: Apply) = if(a.sym eq this) Some(a.children.toSeq) else None
+  def unapplySeq(a: Apply) = if (a.sym eq this) Some(a.children.toSeq) else None
 
   /** Create a typed Apply of this Symbol */
   def typed(tpe: Type, ch: Node*): Apply = Apply(this, ConstArray.from(ch))(tpe)
 
   /** Create a typed Apply of this Symbol */
-  def typed[T : ScalaBaseType](ch: Node*): Apply = Apply(this, ConstArray.from(ch))(implicitly[ScalaBaseType[T]])
+  def typed[T: ScalaBaseType](ch: Node*): Apply = Apply(this, ConstArray.from(ch))(implicitly[ScalaBaseType[T]])
 
-  override def toString = "Function "+name
+  override def toString = "Function " + name
 }

@@ -31,20 +31,26 @@ class OracleExtraTests extends AsyncTest[JdbcTestDB] {
 
   def testSequenceAndTriggerName = {
     class A(tag: Tag) extends Table[(Int, Int)](tag, "A_SEQTRG") {
-      def id = column[Int]("ID", O.PrimaryKey, O.AutoInc, O.AutoIncSequenceName("SEQ_SEQTRG"), O.AutoIncTriggerName("TRG_SEQTRG"))
+      def id = column[Int](
+        "ID",
+        O.PrimaryKey,
+        O.AutoInc,
+        O.AutoIncSequenceName("SEQ_SEQTRG"),
+        O.AutoIncTriggerName("TRG_SEQTRG")
+      )
       def a = column[Int]("A")
       def * = (id, a)
     }
     val as = TableQuery[A]
 
-    //as.schema.createStatements.foreach(println)
+    // as.schema.createStatements.foreach(println)
     as.schema.createStatements.should(_.find(_.contains("sequence \"SEQ_SEQTRG\"")).isDefined)
     as.schema.createStatements.should(_.find(_.contains("trigger \"TRG_SEQTRG\"")).isDefined)
 
     DBIO.seq(
       as.schema.create,
       as.map(_.a) ++= Seq(1, 2, 3),
-      as.to[Set].result.map(_ shouldBe Set((1,1), (2,2), (3,3))),
+      as.to[Set].result.map(_ shouldBe Set((1, 1), (2, 2), (3, 3))),
       as.schema.drop
     )
   }

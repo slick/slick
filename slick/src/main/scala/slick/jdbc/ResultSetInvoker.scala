@@ -6,19 +6,19 @@ import slick.basic.BasicStreamingAction
 import slick.dbio.Effect
 import slick.util.CloseableIterator
 
-/** An invoker which calls a function to retrieve a ResultSet. This can be used
-  * for reading information from a java.sql.DatabaseMetaData object which has
-  * many methods that return ResultSets.
-  *
-  * For convenience, if the function returns null, this is treated like an
-  * empty ResultSet. */
+/**
+ * An invoker which calls a function to retrieve a ResultSet. This can be used for reading information from a
+ * java.sql.DatabaseMetaData object which has many methods that return ResultSets.
+ *
+ * For convenience, if the function returns null, this is treated like an empty ResultSet.
+ */
 abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
 
   protected def createResultSet(session: JdbcBackend#JdbcSessionDef): ResultSet
 
   def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#JdbcSessionDef): CloseableIterator[R] = {
     val resultSet = createResultSet(session)
-    if(resultSet eq null) CloseableIterator.empty
+    if (resultSet eq null) CloseableIterator.empty
     else {
       val pr = new PositionedResult(resultSet) {
         def close() = this.rs.close()
@@ -33,14 +33,17 @@ abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
 }
 
 object ResultSetInvoker {
-  def apply[R](f: JdbcBackend#JdbcSessionDef => ResultSet)(implicit conv: PositionedResult => R): Invoker[R] = new ResultSetInvoker[R] {
-    def createResultSet(session: JdbcBackend#JdbcSessionDef) = f(session)
-    def extractValue(pr: PositionedResult) = conv(pr)
-  }
+  def apply[R](f: JdbcBackend#JdbcSessionDef => ResultSet)(implicit conv: PositionedResult => R): Invoker[R] =
+    new ResultSetInvoker[R] {
+      def createResultSet(session: JdbcBackend#JdbcSessionDef) = f(session)
+      def extractValue(pr: PositionedResult) = conv(pr)
+    }
 }
 
 object ResultSetAction {
-  def apply[R](f: JdbcBackend#JdbcSessionDef => ResultSet)(implicit conv: PositionedResult => R): BasicStreamingAction[Vector[R], R, Effect.Read] = new StreamingInvokerAction[Vector[R], R, Effect.Read] {
+  def apply[R](f: JdbcBackend#JdbcSessionDef => ResultSet)(implicit
+      conv: PositionedResult => R
+  ): BasicStreamingAction[Vector[R], R, Effect.Read] = new StreamingInvokerAction[Vector[R], R, Effect.Read] {
     protected[this] def createInvoker(sql: Iterable[String]) = ResultSetInvoker(f)(conv)
     protected[this] def createBuilder: collection.mutable.Builder[R, Vector[R]] = Vector.newBuilder[R]
     def statements: Iterable[String] = Nil

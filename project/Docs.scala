@@ -7,7 +7,6 @@ import coursier.version.{Version, VersionParse}
 import sbt.Keys._
 import sbt._
 
-
 object Docs extends AutoPlugin {
   object autoImport {
     val preprocessDocs = taskKey[File]("Prepare the documentation directory for Paradox")
@@ -19,7 +18,6 @@ object Docs extends AutoPlugin {
   }
 
   import autoImport._
-
 
   override def requires = ParadoxPlugin
 
@@ -61,12 +59,12 @@ object Docs extends AutoPlugin {
         .toSeq
         .filter {
           case `version` => true
-          case v         =>
+          case v =>
             val (numberParts, otherParts) = v.items.span(Version.isNumeric)
             def isValidTag = {
               val tag = otherParts.collect { case tag: Version.Tag => tag.value }
               numberParts == versionNumberParts &&
-                (tag == Seq("m") || tag == Seq("rc"))
+              (tag == Seq("m") || tag == Seq("rc"))
             }
             otherParts.isEmpty || isValidTag
 
@@ -209,8 +207,7 @@ object Docs extends AutoPlugin {
     },
     checkScaladocLinks := {
       for ((name, dir) <- scaladocDirs.value)
-        new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log)
-          .run()
+        new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log).run()
     },
     addDocsToDocRepo := {
       val dir = (Compile / paradox).value

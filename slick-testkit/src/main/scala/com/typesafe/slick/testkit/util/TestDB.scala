@@ -18,26 +18,39 @@ import slick.util.AsyncExecutor
 
 import com.typesafe.config.Config
 
-
 object TestDB {
   object capabilities {
+
     /** Marks a driver which is specially supported by the test kit for plain SQL queries. */
     val plainSql = new Capability("test.plainSql")
+
     /** Supports JDBC metadata in general */
     val jdbcMeta = new Capability("test.jdbcMeta")
+
     /** Supports JDBC metadata getClientInfoProperties method */
     val jdbcMetaGetClientInfoProperties = new Capability("test.jdbcMetaGetClientInfoProperties")
+
     /** Supports JDBC metadata getFunctions method */
     val jdbcMetaGetFunctions = new Capability("test.jdbcMetaGetFunctions")
+
     /** Supports JDBC metadata getIndexInfo method */
     val jdbcMetaGetIndexInfo = new Capability("test.jdbcMetaGetIndexInfo")
+
     /** Supports all tested transaction isolation levels */
     val transactionIsolation = new Capability("test.transactionIsolation")
+
     /** Supports select for update row locking */
     val selectForUpdateRowLocking = new Capability("test.selectForUpdateRowLocking")
 
-    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo,
-      transactionIsolation, selectForUpdateRowLocking)
+    val all = Set(
+      plainSql,
+      jdbcMeta,
+      jdbcMetaGetClientInfoProperties,
+      jdbcMetaGetFunctions,
+      jdbcMetaGetIndexInfo,
+      transactionIsolation,
+      selectForUpdateRowLocking
+    )
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */
@@ -47,12 +60,12 @@ object TestDB {
     try {
       var in: InputStream = new FileInputStream(src)
       try {
-        if(src.getName.endsWith(".gz")) in = new GZIPInputStream(in)
+        if (src.getName.endsWith(".gz")) in = new GZIPInputStream(in)
         val buf = new Array[Byte](4096)
         var cont = true
-        while(cont) {
+        while (cont) {
           val len = in.read(buf)
-          if(len < 0) cont = false
+          if (len < 0) cont = false
           else out.write(buf, 0, len)
         }
       } finally in.close()
@@ -62,31 +75,29 @@ object TestDB {
   /** Delete files in the testDB directory */
   def deleteDBFiles(prefix: String): Unit = {
     assert(prefix.nonEmpty, "prefix must not be empty")
-    def deleteRec(f: File): Boolean = {
-      if(f.isDirectory) f.listFiles.forall(deleteRec) && f.delete()
+    def deleteRec(f: File): Boolean =
+      if (f.isDirectory) f.listFiles.forall(deleteRec) && f.delete()
       else f.delete()
-    }
     val dir = new File(TestkitConfig.testDir)
-    if(!dir.isDirectory) throw new IOException("Directory "+TestkitConfig.testDir+" not found")
-    for(f <- dir.listFiles if f.getName startsWith prefix) {
-      val p = TestkitConfig.testDir+"/"+f.getName
-      if(deleteRec(f)) println("[Deleted database file "+p+"]")
-      else throw new IOException("Couldn't delete database file "+p)
+    if (!dir.isDirectory) throw new IOException("Directory " + TestkitConfig.testDir + " not found")
+    for (f <- dir.listFiles if f.getName startsWith prefix) {
+      val p = TestkitConfig.testDir + "/" + f.getName
+      if (deleteRec(f)) println("[Deleted database file " + p + "]")
+      else throw new IOException("Couldn't delete database file " + p)
     }
   }
 
   def mapToProps(m: Map[String, String]) = {
     val p = new Properties
-    if(m ne null)
-      for((k,v) <- m) if(k.ne(null) && v.ne(null)) p.setProperty(k, v)
+    if (m ne null)
+      for ((k, v) <- m) if (k.ne(null) && v.ne(null)) p.setProperty(k, v)
     p
   }
 }
 
 /**
- * Describes a database against which you can run TestKit tests. It includes
- * features such as reading the configuration file, setting up a DB connection,
- * removing DB files left over by a test run, etc.
+ * Describes a database against which you can run TestKit tests. It includes features such as reading the configuration
+ * file, setting up a DB connection, removing DB files left over by a test run, etc.
  */
 trait TestDB {
   type Profile <: BasicProfile
@@ -103,8 +114,9 @@ trait TestDB {
   /** This method is called to clean up before running all tests. */
   def cleanUpBefore(): Unit = {}
 
-  /** This method is called to clean up after running all tests. It
-    * defaults to cleanUpBefore(). */
+  /**
+   * This method is called to clean up after running all tests. It defaults to cleanUpBefore().
+   */
   def cleanUpAfter() = cleanUpBefore()
 
   /** The profile for the database */
@@ -113,23 +125,27 @@ trait TestDB {
   /** Indicates whether the database persists after closing the last connection */
   def isPersistent = true
 
-  /** This method is called between individual test methods to remove all
-    * database artifacts that were created by the test. */
+  /**
+   * This method is called between individual test methods to remove all database artifacts that were created by the
+   * test.
+   */
   def dropUserArtifacts(implicit session: profile.backend.Session): Unit
 
   /** Create the Database object for this test database configuration */
   def createDB(): profile.backend.Database
 
-  /** Indicates whether the database's sessions have shared state. When a
-    * database is shared but not persistent, Testkit keeps a session open
-    * to make it persistent. */
+  /**
+   * Indicates whether the database's sessions have shared state. When a database is shared but not persistent, Testkit
+   * keeps a session open to make it persistent.
+   */
   def isShared = true
 
-  /** The capabilities of the Slick profile, possibly modified for this
-    * test configuration. */
+  /**
+   * The capabilities of the Slick profile, possibly modified for this test configuration.
+   */
   def capabilities: Set[Capability] = profile.capabilities ++ TestDB.capabilities.all
 
-  def confOptionalString(path: String) = if(config.hasPath(path)) Some(config.getString(path)) else None
+  def confOptionalString(path: String) = if (config.hasPath(path)) Some(config.getString(path)) else None
   def confString(path: String) = confOptionalString(path).orNull
   def confStrings(path: String) = TestkitConfig.getStrings(config, path).getOrElse(Nil)
 
@@ -157,11 +173,11 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     blockingRunOnSession(ec => localSequences(ec))
   def canGetLocalTables = true
   def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-    ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "", null, null)).map { ts =>
+    ResultSetAction[(String, String, String, String)](_.conn.getMetaData.getTables("", "", null, null)).map { ts =>
       ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
     }
   def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-    ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "", null, null)).map { ts =>
+    ResultSetAction[(String, String, String, String)](_.conn.getMetaData.getTables("", "", null, null)).map { ts =>
       ts.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
   def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession { implicit ec =>
@@ -170,35 +186,44 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
       sequences <- localSequences
       _ <- DBIO.seq(
         (tables.map(t => sqlu"""drop table if exists #${profile.quoteIdentifier(t)} cascade""") ++
-          sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)} cascade""")) *
+          sequences.map(t => sqlu"""drop sequence if exists #${profile.quoteIdentifier(t)} cascade"""))*
       )
     } yield ()
   }
   override def assertTablesExist(tables: String*): DBIOAction[Unit, NoStream, Effect] =
-    DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int]) *)
+    DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int])*)
   override def assertNotTablesExist(tables: String*): DBIOAction[Unit, NoStream, Effect] =
-    DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int].failed) *)
-  def createSingleSessionDatabase(implicit session: profile.backend.Session,
-                                  executor: AsyncExecutor = AsyncExecutor.default()): profile.backend.Database = {
+    DBIO.seq(tables.map(t => sql"""select 1 from #${profile.quoteIdentifier(t)} where 1 < 0""".as[Int].failed)*)
+  def createSingleSessionDatabase(implicit
+      session: profile.backend.Session,
+      executor: AsyncExecutor = AsyncExecutor.default()
+  ): profile.backend.Database = {
     val wrappedConn = new DelegateConnection(session.conn) {
       override def close(): Unit = ()
     }
-    profile.backend.Database.forSource(new JdbcDataSource {
-      def createConnection(): Connection = wrappedConn
-      def close(): Unit = ()
-      val maxConnections: Option[Int] = Some(1)
-    }, executor)
+    profile.backend.Database.forSource(
+      new JdbcDataSource {
+        def createConnection(): Connection = wrappedConn
+        def close(): Unit = ()
+        val maxConnections: Option[Int] = Some(1)
+      },
+      executor
+    )
   }
-  final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])
-                                   (implicit session: profile.backend.Session): R = {
+  final def blockingRunOnSession[R](
+      f: ExecutionContext => DBIOAction[R, NoStream, Nothing]
+  )(implicit session: profile.backend.Session): R = {
     val ec = new ExecutionContext {
       def execute(runnable: Runnable): Unit = runnable.run()
       def reportFailure(t: Throwable): Unit = throw t
     }
-    val db = createSingleSessionDatabase(session, new AsyncExecutor {
-      def executionContext: ExecutionContext = ec
-      def close(): Unit = ()
-    })
+    val db = createSingleSessionDatabase(
+      session,
+      new AsyncExecutor {
+        def executionContext: ExecutionContext = ec
+        def close(): Unit = ()
+      }
+    )
     db.run(f(ec)).value.get.get
   }
   protected[this] def await[T](f: Future[T]): T =
@@ -227,7 +252,8 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   override def isEnabled = super.isEnabled && config.getBoolean("enabled")
 
   override lazy val testClasses: Seq[Class[? <: AsyncTest[? >: Null <: TestDB]]] =
-    TestkitConfig.getStrings(config, "testClasses")
+    TestkitConfig
+      .getStrings(config, "testClasses")
       .map(_.map(n => Class.forName(n).asInstanceOf[Class[? <: AsyncTest[? >: Null <: TestDB]]]))
       .getOrElse(super.testClasses)
 
@@ -236,25 +262,30 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   override def createDB() = databaseFor("testConn")
 
   override def cleanUpBefore(): Unit = {
-    if(drop.nonEmpty || create.nonEmpty) {
-      println("[Creating test database "+this+"]")
-      await(databaseFor("adminConn").run(
-        DBIO.seq((drop ++ create).map(s => sqlu"#$s") *).withPinnedSession
-      ))
+    if (drop.nonEmpty || create.nonEmpty) {
+      println("[Creating test database " + this + "]")
+      await(
+        databaseFor("adminConn").run(
+          DBIO.seq((drop ++ create).map(s => sqlu"#$s")*).withPinnedSession
+        )
+      )
     }
-    if(postCreate.nonEmpty) {
-      await(createDB().run(
-        DBIO.seq(postCreate.map(s => sqlu"#$s") *).withPinnedSession
-      ))
+    if (postCreate.nonEmpty) {
+      await(
+        createDB().run(
+          DBIO.seq(postCreate.map(s => sqlu"#$s")*).withPinnedSession
+        )
+      )
     }
   }
 
-  override def cleanUpAfter(): Unit = {
-    if(drop.nonEmpty) {
-      println("[Dropping test database "+this+"]")
-      await(databaseFor("adminConn").run(
-        DBIO.seq(drop.map(s => sqlu"#$s") *).withPinnedSession
-      ))
+  override def cleanUpAfter(): Unit =
+    if (drop.nonEmpty) {
+      println("[Dropping test database " + this + "]")
+      await(
+        databaseFor("adminConn").run(
+          DBIO.seq(drop.map(s => sqlu"#$s")*).withPinnedSession
+        )
+      )
     }
-  }
 }

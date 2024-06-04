@@ -18,11 +18,11 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     for {
       _ <- db.run {
         ts.schema.create >>
-        (ts ++= Seq(2, 3, 1, 5, 4))
+          (ts ++= Seq(2, 3, 1, 5, 4))
       }
       q1 = ts.sortBy(_.a).map(_.a)
       f1 = db.run(q1.result)
-      r1 <- f1 : Future[Seq[Int]]
+      r1 <- f1: Future[Seq[Int]]
       _ = r1 shouldBe List(1, 2, 3, 4, 5)
     } yield ()
   }
@@ -80,8 +80,8 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
 
     val p1 = db.stream {
       ts.schema.create >>
-      (ts ++= Seq(2, 3, 1, 5, 4)) >>
-      q1.result
+        (ts ++= Seq(2, 3, 1, 5, 4)) >>
+        q1.result
     }
 
     for {
@@ -94,12 +94,15 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
-  def testDeepRecursion = if(tdb == StandardTestDBs.H2Disk) {
+  def testDeepRecursion = if (tdb == StandardTestDBs.H2Disk) {
     val a1 = DBIO.sequence((1 to 5000).toSeq.map(i => LiteralColumn(i).result))
-    val a2 = DBIO.sequence((1 to 20).toSeq.map(i => if(i%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
-    val a3 = DBIO.sequence((1 to 20).toSeq.map(i => if((i/4)%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
-    val a4 = DBIO.seq((1 to 50000).toSeq.map(i => DBIO.successful("a4")): _*)
-    val a5 = (1 to 50000).toSeq.map(i => DBIO.successful("a5")).reduceLeft(_ andThen _)
+    val a2 = DBIO
+      .sequence((1 to 20).toSeq.map(i => if (i % 2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
+    val a3 = DBIO.sequence(
+      (1 to 20).toSeq.map(i => if ((i / 4) % 2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i)))
+    )
+    val a4 = DBIO.seq((1 to 50000).toSeq.map(_ => DBIO.successful("a4")): _*)
+    val a5 = (1 to 50000).toSeq.map(_ => DBIO.successful("a5")).reduceLeft(_ andThen _)
     val a6 = DBIO.fold((1 to 50000).toSeq.map(i => LiteralColumn(i).result), 0)(_ + _)
     val a7 = (1 to 10000).map(_ => DBIO.successful("a7")).reduceLeft((a, b) => a flatMap (_ => b) andThen b)
 
@@ -175,22 +178,22 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testZipWith = {
-      class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
-        def a = column[Int]("a")
-        def * = a
-      }
-      val ts = TableQuery[T]
-
-      for {
-        _ <- db.run {
-          ts.schema.create >>
-            (ts ++= Seq(2, 3, 1, 5, 4))
-        }
-        q1 = ts.sortBy(_.a).map(_.a).take(1)
-        result <- db.run(q1.result.head.zipWith(q1.result.head)({ case (a, b) => a + b }))
-        _ = result shouldBe 2
-      } yield ()
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+      def a = column[Int]("a")
+      def * = a
     }
+    val ts = TableQuery[T]
+
+    for {
+      _ <- db.run {
+        ts.schema.create >>
+          (ts ++= Seq(2, 3, 1, 5, 4))
+      }
+      q1 = ts.sortBy(_.a).map(_.a).take(1)
+      result <- db.run(q1.result.head.zipWith(q1.result.head) { case (a, b) => a + b })
+      _ = result shouldBe 2
+    } yield ()
+  }
 
   def testCollect = {
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
@@ -205,13 +208,13 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
           (ts ++= Seq(2, 3, 1, 5, 4))
       }
       q1 = ts.sortBy(_.a).map(_.a).take(1)
-      result <- db.run(q1.result.headOption.collect {
-        case Some(a) => a
+      result <- db.run(q1.result.headOption.collect { case Some(a) =>
+        a
       })
       _ = result shouldBe 1
       _ = result shouldFail { _ =>
-        val future = db.run(q1.result.headOption.collect {
-          case None => ()
+        val future = db.run(q1.result.headOption.collect { case None =>
+          ()
         })
         import scala.concurrent.duration.Duration
         import scala.concurrent.Await
@@ -221,33 +224,33 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testTruncate = {
-    class T(_tag: Tag) extends Table[Int](_tag , "truncate_test"){
+    class T(_tag: Tag) extends Table[Int](_tag, "truncate_test") {
       def a = column[Int]("a")
       def * = a
     }
 
     val ts = TableQuery[T]
-    for{
+    for {
       _ <- ts.schema.create
       initial <- ts.result
       _ = assert(initial.toSet == Set())
       res <- (ts ++= Seq(2, 3, 1, 5, 4)) >>
-             ts.result
+        ts.result
       _ = assert(res.toSet == Set(2, 3, 1, 5, 4))
       newRes <- ts.schema.truncate >>
-                ts.result
+        ts.result
       _ = assert(newRes.toSet == Set())
     } yield ()
   }
 
   def testCreateIfNotExistsDropIfExists = {
     import scala.util.{Success, Failure}
-    class T(_tag: Tag) extends Table[Int](_tag , "ddl_test"){
+    class T(_tag: Tag) extends Table[Int](_tag, "ddl_test") {
       def a = column[Int]("a")
       def * = a
     }
 
-    class S(_tag: Tag) extends Table[String](_tag, "ddl_test2"){
+    class S(_tag: Tag) extends Table[String](_tag, "ddl_test2") {
       def a = column[String]("a2")
       def * = a
     }
@@ -263,11 +266,11 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     val as = TableQuery[A]
     val ts = TableQuery[T]
     val ts2 = TableQuery[S]
-    val batch = (ts.schema ++ ts2.schema)
+    val batch = ts.schema ++ ts2.schema
 
-    for{
+    for {
       _ <- ts.schema.create
-      _  <- ts2.schema.create
+      _ <- ts2.schema.create
       _ <- ts.schema.createIfNotExists
       _ <- ts2.schema.createIfNotExists
       initial1 <- ts.result
@@ -283,17 +286,17 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       _ <- ts.schema.dropIfExists
       _ <- ts2.schema.dropIfExists
       _ <- ts.schema.createIfNotExists
-      _ <- ts.schema.create.asTry.map{
-        case Failure(e:java.sql.SQLException) => ()
+      _ <- ts.schema.create.asTry.map {
+        case Failure(e: java.sql.SQLException)                                             => ()
         case Failure(e: slick.SlickException) if tdb.profile == slick.memory.MemoryProfile => ()
-        case Failure(e) => throw e
+        case Failure(e)                                                                    => throw e
         case Success(_) => throw new Exception("Should have failed to create new table. Table exists")
       }
       _ <- ts2.schema.createIfNotExists
-      _ <- ts2.schema.create.asTry.map{
-        case Failure(e:java.sql.SQLException) => ()
+      _ <- ts2.schema.create.asTry.map {
+        case Failure(e: java.sql.SQLException)                                             => ()
         case Failure(e: slick.SlickException) if tdb.profile == slick.memory.MemoryProfile => ()
-        case Failure(e) => throw e
+        case Failure(e)                                                                    => throw e
         case Success(_) => throw new Exception("Should have failed to create new table. Table exists")
       }
       initial3 <- ts.result
@@ -301,20 +304,20 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       initial4 <- ts2.result
       _ = assert(initial4.toSet == Set())
       _ <- ts.schema.dropIfExists
-      _ <- ts.schema.drop.asTry.map{
-        case Failure(e:java.sql.SQLException) => ()
+      _ <- ts.schema.drop.asTry.map {
+        case Failure(e: java.sql.SQLException)                                             => ()
         case Failure(e: slick.SlickException) if tdb.profile == slick.memory.MemoryProfile => ()
-        case Failure(e) => throw e
+        case Failure(e)                                                                    => throw e
         case Success(_) => throw new Exception("Should have failed to drop table. Table already dropped")
       }
       _ <- ts2.schema.dropIfExists
-      _ <- ts2.schema.drop.asTry.map{
-        case Failure(e:java.sql.SQLException) => ()
+      _ <- ts2.schema.drop.asTry.map {
+        case Failure(e: java.sql.SQLException)                                             => ()
         case Failure(e: slick.SlickException) if tdb.profile == slick.memory.MemoryProfile => ()
-        case Failure(e) => throw e
+        case Failure(e)                                                                    => throw e
         case Success(_) => throw new Exception("Should have failed to drop table. Table already dropped")
       }
-      //test batch create/drop
+      // test batch create/drop
       _ <- batch.create
       _ <- batch.createIfNotExists
       res <- (ts ++= Seq(2, 3, 1, 5, 4)) >> ts.result
@@ -324,32 +327,33 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       _ <- batch.drop
       _ <- batch.dropIfExists
       _ <- batch.createIfNotExists
-      _ <- batch.create.asTry.map{
-        case Failure(e:java.sql.SQLException) => ()
+      _ <- batch.create.asTry.map {
+        case Failure(e: java.sql.SQLException)                                             => ()
         case Failure(e: slick.SlickException) if tdb.profile == slick.memory.MemoryProfile => ()
-        case Failure(e) => throw e
+        case Failure(e)                                                                    => throw e
         case Success(_) => throw new Exception("Should have failed to create new table. Table exists")
       }
       _ <- batch.dropIfExists
-      _ <- batch.drop.asTry.map{
-        case Failure(e:java.sql.SQLException) => ()
+      _ <- batch.drop.asTry.map {
+        case Failure(e: java.sql.SQLException)                                             => ()
         case Failure(e: slick.SlickException) if tdb.profile == slick.memory.MemoryProfile => ()
-        case Failure(e) => throw e
+        case Failure(e)                                                                    => throw e
         case Success(_) => throw new Exception("Should have failed to drop table. Table already dropped")
       }
-      //test create/drop with constraints
+      // test create/drop with constraints
       _ <- as.schema.createIfNotExists
-      _ <- as ++= Seq((1, 1, "a11"), (1, 2, "a12"), (2, 1, "a21"), (2, 2, "a22") )
+      _ <- as ++= Seq((1, 1, "a11"), (1, 2, "a12"), (2, 1, "a21"), (2, 2, "a22"))
       _ <- (as += (1, 1, "a11-conflict")).failed
       _ <- as.schema.drop
     } yield ()
   }
 
-  /** If an original table already exists and we add an FK to the schema and try to dropIfExists()
-    * it shouldn't fail. */
+  /**
+   * If an original table already exists and we add an FK to the schema and try to dropIfExists() it shouldn't fail.
+   */
   def testDropIfExistsWithFK = {
     // a parent table
-    class T(_tag: Tag) extends Table[Int](_tag , "ddl_test_fk_drop_t"){
+    class T(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_drop_t") {
       def t = column[Int]("a")
       def * = t
     }
@@ -357,7 +361,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     val ts = TableQuery[T]
 
     // a child table---current version
-    class S1(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_drop_s"){
+    class S1(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_drop_s") {
       def s1 = column[Int]("s1")
       def * = s1
     }
@@ -365,7 +369,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     val s1s = TableQuery[S1]
 
     // a child table---new version with a FK added
-    class S2(_tag: Tag) extends Table[(Int, Int)](_tag, "ddl_test_fk_drop_s"){
+    class S2(_tag: Tag) extends Table[(Int, Int)](_tag, "ddl_test_fk_drop_s") {
       def s1 = column[Int]("s1")
       def ref = column[Int]("ref")
       def * = (s1, ref)
@@ -407,7 +411,6 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
-
   def testDropIfExistsWithoutTableCreation = {
     case class D(a: Int, b: Int)
     class T1(tag: Tag) extends Table[D](tag, "t1") {
@@ -433,11 +436,11 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     val t1 = TableQuery[T1]
     val t2 = TableQuery[T2]
     val t3 = TableQuery[T3]
-      for {
-        _ <- t1.schema.dropIfExists
-        _ <- t2.schema.dropIfExists
-        _ <- t3.schema.dropIfExists
-      } yield ()
+    for {
+      _ <- t1.schema.dropIfExists
+      _ <- t2.schema.dropIfExists
+      _ <- t3.schema.dropIfExists
+    } yield ()
   }
 
 }
