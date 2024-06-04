@@ -24,9 +24,9 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
   }
   lazy val employees = TableQuery[Employees]
 
-  def managersQuery = for(m <- managers filter { _.department === "IT" }) yield (m.id, m.name)
+  def managersQuery = for (m <- managers filter { _.department === "IT" }) yield (m.id, m.name)
 
-  def employeesQuery = for(e <- employees filter { _.departmentIs("IT") }) yield (e.id, e.name)
+  def employeesQuery = for (e <- employees filter { _.departmentIs("IT") }) yield (e.id, e.name)
 
   val managersData = Seq(
     (1, "Peter", "HR"),
@@ -56,12 +56,13 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       _ <- (managers.schema ++ employees.schema).create
       _ <- managers ++= managersData
       _ <- employees ++= employeesData
-      _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set((2,"Amy"), (3,"Steve")))
-      _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set((7,"Ben"), (8,"Greg"), (6,"Leonard")))
-      _ <- mark("q3", q3.result).map(_ shouldBe List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")))
+      _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set((2, "Amy"), (3, "Steve")))
+      _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set((7, "Ben"), (8, "Greg"), (6, "Leonard")))
+      _ <- mark("q3", q3.result).map(_ shouldBe List((2, "Amy"), (7, "Ben"), (8, "Greg"), (6, "Leonard"), (3, "Steve")))
       _ <- mark("q4b", q4b.result).map(r => r.toSet shouldBe Set(1, 2, 3))
       _ <- mark("q4c", q4c.result).map(r => r.toSet shouldBe Set(1, 2, 3))
-      _ <- mark("q5", q5.result).map(r => r.toSet shouldBe Set((7,7), (6,6), (2,0), (4,4), (3,0), (8,8), (5,5), (1,0)))
+      _ <- mark("q5", q5.result)
+        .map(r => r.toSet shouldBe Set((7, 7), (6, 6), (2, 0), (4, 4), (3, 0), (8, 8), (5, 5), (1, 0)))
     } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 
@@ -74,12 +75,12 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       _ <- (managers.schema ++ employees.schema).create
       _ <- managers ++= managersData
       _ <- employees ++= employeesData
-      _ <- mark("union", union.result).map(_ shouldBe List((2,"Amy"),(7,"Ben"),(3,"Steve")))
+      _ <- mark("union", union.result).map(_ shouldBe List((2, "Amy"), (7, "Ben"), (3, "Steve")))
     } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 
   def testUnionWithoutProjection = {
-    def f (s: String) = managers filter { _.name === s}
+    def f(s: String) = managers filter { _.name === s }
     val q = f("Peter") union f("Amy")
 
     seq(
@@ -148,22 +149,17 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       def * = (id, mname, mbody).mapTo[Message]
     }
 
-
-    def leftSide = {
+    def leftSide =
       (for {
         d <- TableQuery[Deliveries]
         m <- TableQuery[Messages] if d.messageId === m.id
-      } yield (d, m))
-        .filter { case (d, m) => d.sentAt >= 1400000000L }
-    }
+      } yield (d, m)).filter { case (d, _) => d.sentAt >= 1400000000L }
 
-    def rightSide = {
+    def rightSide =
       (for {
         d <- TableQuery[Deliveries]
         m <- TableQuery[Messages] if d.messageId === m.id
-      } yield (d, m))
-        .filter { case (d, m) => d.sentAt < 1400000000L }
-    }
+      } yield (d, m)).filter { case (d, _) => d.sentAt < 1400000000L }
 
     val query =
       leftSide.union(rightSide).length
@@ -186,13 +182,11 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       def * = (id, dname, sentAt).mapTo[Delivery]
     }
 
-    def leftSide = {
+    def leftSide =
       TableQuery[Deliveries].filter(_.sentAt >= 1400000000L)
-    }
 
-    def rightSide = {
+    def rightSide =
       TableQuery[Deliveries].filter(_.sentAt < 1400000000L)
-    }
 
     val query =
       leftSide.union(rightSide).sortBy(_.id.desc).length
@@ -218,7 +212,7 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     DBIO.seq(
       ts.schema.create,
       ts.map(f => (f.a, f.b, f.c, f.d, f.e)) += (("a", 1, "c", 3, "e")),
-      q1.result.map(_ shouldBe Vector(("a",1,"c",3), ("a",1,"c",3)))
+      q1.result.map(_ shouldBe Vector(("a", 1, "c", 3), ("a", 1, "c", 3)))
     )
   }
 

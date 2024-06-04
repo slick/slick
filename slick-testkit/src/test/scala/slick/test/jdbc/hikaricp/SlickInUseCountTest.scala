@@ -39,7 +39,7 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
   def openDatabase() = {
     System.setProperty("com.zaxxer.hikari.housekeeping.periodMs", "5000")
     database = Database.forConfig("h2mem-inuse")
-    Await.result(database.run(testTable.schema.create), Duration.Inf /*2.seconds*/)
+    Await.result(database.run(testTable.schema.create), Duration.Inf /*2.seconds*/ )
   }
 
   @After
@@ -53,20 +53,18 @@ class SlickInUseCountTest extends AsyncTest[JdbcTestDB] {
     val count = 100
     1 to loops foreach { _ =>
       val tasks = 1 to count map { i =>
-        val action = { testTable += i }
-          .flatMap { _ => testTable.length.result }
-          //.flatMap { _ => DBIO.successful(s"inserted value $i") }
+        val action = { testTable += i }.flatMap(_ => testTable.length.result)
+        // .flatMap { _ => DBIO.successful(s"inserted value $i") }
 
         database.run(action)
       }
       Await.result(Future.sequence(tasks), Duration(10, TimeUnit.SECONDS))
 
     }
-    //we need to wait until there are no more active threads in the thread pool
-    //DBIOAction results might be available before the threads have completely finished their work
-    while (mBeanServer.getAttribute(aeBeanName, "ActiveThreads").asInstanceOf[Int] > 0) {
+    // we need to wait until there are no more active threads in the thread pool
+    // DBIOAction results might be available before the threads have completely finished their work
+    while (mBeanServer.getAttribute(aeBeanName, "ActiveThreads").asInstanceOf[Int] > 0)
       Thread.sleep(100)
-    }
 
     val asyncExecutor = database.executor.asInstanceOf[AsyncExecutor.DefaultAsyncExecutor]
     val queue = asyncExecutor.queue.asInstanceOf[ManagedArrayBlockingQueue]

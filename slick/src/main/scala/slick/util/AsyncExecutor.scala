@@ -13,29 +13,41 @@ import slick.util.AsyncExecutor.Priority
 
 import javax.management.{InstanceNotFoundException, ObjectName}
 
-
-/** A connection pool for asynchronous execution of blocking I/O actions.
- * This is used for the asynchronous query execution API on top of blocking back-ends like JDBC. */
+/**
+ * A connection pool for asynchronous execution of blocking I/O actions. This is used for the asynchronous query
+ * execution API on top of blocking back-ends like JDBC.
+ */
 trait AsyncExecutor extends Closeable {
+
   /** An ExecutionContext for running Futures. */
   def executionContext: ExecutionContext
-  /** Shut the thread pool down and try to stop running computations. The thread pool is
-   * transitioned into a state where it will not accept any new jobs. */
+
+  /**
+   * Shut the thread pool down and try to stop running computations. The thread pool is transitioned into a state where
+   * it will not accept any new jobs.
+   */
   def close(): Unit
 
-  def prioritizedRunnable(priority: => Priority,
-                          run: AsyncExecutor.PrioritizedRunnable.SetConnectionReleased => Unit
-                         ): AsyncExecutor.PrioritizedRunnable =
+  def prioritizedRunnable(
+      priority: => Priority,
+      run: AsyncExecutor.PrioritizedRunnable.SetConnectionReleased => Unit
+  ): AsyncExecutor.PrioritizedRunnable =
     AsyncExecutor.PrioritizedRunnable(priority, run)
 }
 
 object AsyncExecutor extends Logging {
-  /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
-    * I/O. New threads are created as daemon threads.
-    *
-    * @param name A prefix to use for the names of the created threads.
-    * @param numThreads The number of threads in the pool.
-    * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size. */
+
+  /**
+   * Create an [[AsyncExecutor]] with a thread pool suitable for blocking I/O. New threads are created as daemon
+   * threads.
+   *
+   * @param name
+   *   A prefix to use for the names of the created threads.
+   * @param numThreads
+   *   The number of threads in the pool.
+   * @param queueSize
+   *   The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
+   */
   def apply(name: String, numThreads: Int, queueSize: Int): AsyncExecutor =
     apply(
       name = name,
@@ -47,16 +59,23 @@ object AsyncExecutor extends Logging {
       registerMbeans = false
     )
 
-  /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
-    * I/O. New threads are created as daemon threads.
-    *
-    * @param name A prefix to use for the names of the created threads.
-    * @param minThreads The number of core threads in the pool.
-    * @param maxThreads The maximum number of threads in the pool.
-    * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
-    * @param maxConnections The maximum number of configured connections for the connection pool.
-    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in
-    *                        use. It will resume as soon as a connection is released again to the pool */
+  /**
+   * Create an [[AsyncExecutor]] with a thread pool suitable for blocking I/O. New threads are created as daemon
+   * threads.
+   *
+   * @param name
+   *   A prefix to use for the names of the created threads.
+   * @param minThreads
+   *   The number of core threads in the pool.
+   * @param maxThreads
+   *   The maximum number of threads in the pool.
+   * @param queueSize
+   *   The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
+   * @param maxConnections
+   *   The maximum number of configured connections for the connection pool. The underlying ThreadPoolExecutor will not
+   *   pick up any more work when all connections are in use. It will resume as soon as a connection is released again
+   *   to the pool
+   */
   def apply(name: String, minThreads: Int, maxThreads: Int, queueSize: Int, maxConnections: Int): AsyncExecutor =
     apply(
       name,
@@ -68,24 +87,33 @@ object AsyncExecutor extends Logging {
       registerMbeans = false
     )
 
-  /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
-    * I/O. New threads are created as daemon threads.
-    *
-    * @param name A prefix to use for the names of the created threads.
-    * @param minThreads The number of core threads in the pool.
-    * @param maxThreads The maximum number of threads in the pool.
-    * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
-    * @param maxConnections The maximum number of configured connections for the connection pool.
-    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in
-    *                       use. It will resume as soon as a connection is released again to the pool
-    * @param registerMbeans If set to true, register an MXBean that provides insight into the current
-    *        queue and thread pool workload. */
-  def apply(name: String,
-            minThreads: Int,
-            maxThreads: Int,
-            queueSize: Int,
-            maxConnections: Int,
-            registerMbeans: Boolean): AsyncExecutor =
+  /**
+   * Create an [[AsyncExecutor]] with a thread pool suitable for blocking I/O. New threads are created as daemon
+   * threads.
+   *
+   * @param name
+   *   A prefix to use for the names of the created threads.
+   * @param minThreads
+   *   The number of core threads in the pool.
+   * @param maxThreads
+   *   The maximum number of threads in the pool.
+   * @param queueSize
+   *   The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
+   * @param maxConnections
+   *   The maximum number of configured connections for the connection pool. The underlying ThreadPoolExecutor will not
+   *   pick up any more work when all connections are in use. It will resume as soon as a connection is released again
+   *   to the pool
+   * @param registerMbeans
+   *   If set to true, register an MXBean that provides insight into the current queue and thread pool workload.
+   */
+  def apply(
+      name: String,
+      minThreads: Int,
+      maxThreads: Int,
+      queueSize: Int,
+      maxConnections: Int,
+      registerMbeans: Boolean
+  ): AsyncExecutor =
     apply(
       name,
       minThreads = minThreads,
@@ -96,38 +124,48 @@ object AsyncExecutor extends Logging {
       registerMbeans = registerMbeans
     )
 
-  /** Create an [[AsyncExecutor]] with a thread pool suitable for blocking
-    * I/O. New threads are created as daemon threads.
-    *
-    * @param name           A prefix to use for the names of the created threads.
-    * @param minThreads     The number of core threads in the pool.
-    * @param maxThreads     The maximum number of threads in the pool.
-    * @param queueSize      The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
-    * @param maxConnections The maximum number of configured connections for the connection pool.
-    *                       The underlying ThreadPoolExecutor will not pick up any more work when all connections are in
-    *                       use. It will resume as soon as a connection is released again to the pool
-    * @param keepAliveTime  when the number of threads is greater than
-   *                        the core, this is the maximum time that excess idle threads
-   *                        will wait for new tasks before terminating.
-   * @param registerMbeans  If set to true, register an MXBean that provides insight into the current
-   *                        queue and thread pool workload. */
-  def apply(name: String,
-            minThreads: Int,
-            maxThreads: Int,
-            queueSize: Int,
-            maxConnections: Int,
-            keepAliveTime: Duration,
-            registerMbeans: Boolean): AsyncExecutor = {
-    class AsyncExecutorImpl(queue: BlockingQueue[Runnable]) extends DefaultAsyncExecutor(
-      name = name,
-      minThreads = minThreads,
-      maxThreads = maxThreads,
-      queue = queue,
-      queueSize = queueSize,
-      maxConnections = maxConnections,
-      keepAliveTime = keepAliveTime,
-      registerMbeans = registerMbeans
-    )
+  /**
+   * Create an [[AsyncExecutor]] with a thread pool suitable for blocking I/O. New threads are created as daemon
+   * threads.
+   *
+   * @param name
+   *   A prefix to use for the names of the created threads.
+   * @param minThreads
+   *   The number of core threads in the pool.
+   * @param maxThreads
+   *   The maximum number of threads in the pool.
+   * @param queueSize
+   *   The size of the job queue, 0 for direct hand-off or -1 for unlimited size.
+   * @param maxConnections
+   *   The maximum number of configured connections for the connection pool. The underlying ThreadPoolExecutor will not
+   *   pick up any more work when all connections are in use. It will resume as soon as a connection is released again
+   *   to the pool
+   * @param keepAliveTime
+   *   when the number of threads is greater than the core, this is the maximum time that excess idle threads will wait
+   *   for new tasks before terminating.
+   * @param registerMbeans
+   *   If set to true, register an MXBean that provides insight into the current queue and thread pool workload.
+   */
+  def apply(
+      name: String,
+      minThreads: Int,
+      maxThreads: Int,
+      queueSize: Int,
+      maxConnections: Int,
+      keepAliveTime: Duration,
+      registerMbeans: Boolean
+  ): AsyncExecutor = {
+    class AsyncExecutorImpl(queue: BlockingQueue[Runnable])
+        extends DefaultAsyncExecutor(
+          name = name,
+          minThreads = minThreads,
+          maxThreads = maxThreads,
+          queue = queue,
+          queueSize = queueSize,
+          maxConnections = maxConnections,
+          keepAliveTime = keepAliveTime,
+          registerMbeans = registerMbeans
+        )
 
     queueSize match {
       case 0 =>
@@ -177,19 +215,19 @@ object AsyncExecutor extends Logging {
         val managedArrayBlockingQueue = new ManagedArrayBlockingQueue(maxConnections, n)
 
         new AsyncExecutorImpl(managedArrayBlockingQueue.asInstanceOf[BlockingQueue[Runnable]]) {
-          override def prioritizedRunnable(priority0: => Priority,
-                                           run0: PrioritizedRunnable.SetConnectionReleased => Unit
-                                          ): PrioritizedRunnable =
+          override def prioritizedRunnable(
+              priority0: => Priority,
+              run0: PrioritizedRunnable.SetConnectionReleased => Unit
+          ): PrioritizedRunnable =
             new PrioritizedRunnable {
               override def priority() = priority0
 
               private def runAndCleanUp() =
                 try run0(new PrioritizedRunnable.SetConnectionReleased(() => connectionReleased = true))
-                finally {
+                finally
                   // If the runnable/task has released the Jdbc connection we decrease the counter again
                   if (!managedArrayBlockingQueue.attemptCleanUp(this))
                     logger.warn("After executing a task, the in-use count was already 0. This should not happen.")
-                }
 
               override def run() =
                 if (priority() == WithConnection)
@@ -217,15 +255,16 @@ object AsyncExecutor extends Logging {
   def default(name: String = "AsyncExecutor.default"): AsyncExecutor =
     apply(name, 20, 1000)
 
-
-  private[slick] class DefaultAsyncExecutor(name: String,
-                                            minThreads: Int,
-                                            maxThreads: Int,
-                                            private[slick] val queue: BlockingQueue[Runnable],
-                                            queueSize: Int,
-                                            maxConnections: Int,
-                                            keepAliveTime: Duration,
-                                            registerMbeans: Boolean) extends AsyncExecutor {
+  private[slick] class DefaultAsyncExecutor(
+      name: String,
+      minThreads: Int,
+      maxThreads: Int,
+      private[slick] val queue: BlockingQueue[Runnable],
+      queueSize: Int,
+      maxConnections: Int,
+      keepAliveTime: Duration,
+      registerMbeans: Boolean
+  ) extends AsyncExecutor {
 
     @volatile private[this] lazy val mBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name")
 
@@ -257,26 +296,30 @@ object AsyncExecutor extends Logging {
             logger.warn(s"MBean $mBeanName already registered (AsyncExecutor names should be unique)")
           else {
             logger.debug(s"Registering MBean $mBeanName")
-            mBeanServer.registerMBean(new AsyncExecutorMXBean {
-              def getMaxQueueSize = queueSize
-              def getQueueSize = queue.size()
-              def getMaxThreads = maxThreads
-              def getActiveThreads = executor.getActiveCount
-            }, mBeanName)
+            mBeanServer.registerMBean(
+              new AsyncExecutorMXBean {
+                def getMaxQueueSize = queueSize
+                def getQueueSize = queue.size()
+                def getMaxThreads = maxThreads
+                def getActiveThreads = executor.getActiveCount
+              },
+              mBeanName
+            )
           }
         } catch { case NonFatal(ex) => logger.error("Error registering MBean", ex) }
       }
-      if(!state.compareAndSet(1, 2)) {
+      if (!state.compareAndSet(1, 2)) {
         unregisterMbeans()
         executor.shutdownNow()
-        throw
-          new IllegalStateException("Cannot initialize ExecutionContext; AsyncExecutor shut down during initialization")
+        throw new IllegalStateException(
+          "Cannot initialize ExecutionContext; AsyncExecutor shut down during initialization"
+        )
       }
 
       new ExecutionContextExecutor {
         override def reportFailure(t: Throwable): Unit = loggingReporter(t)
 
-        override def execute(command: Runnable): Unit = {
+        override def execute(command: Runnable): Unit =
           if (command.isInstanceOf[PrioritizedRunnable]) {
             executor.execute(command)
           } else {
@@ -285,38 +328,43 @@ object AsyncExecutor extends Logging {
               override def run(): Unit = command.run()
             })
           }
-        }
       }
     }
 
-    private[this] def unregisterMbeans(): Unit = if(registerMbeans) {
+    private[this] def unregisterMbeans(): Unit = if (registerMbeans) {
       try {
         val mBeanServer = ManagementFactory.getPlatformMBeanServer
         logger.debug(s"Unregistering MBean $mBeanName")
-        try mBeanServer.unregisterMBean(mBeanName) catch { case _: InstanceNotFoundException => }
+        try mBeanServer.unregisterMBean(mBeanName)
+        catch { case _: InstanceNotFoundException => }
       } catch { case NonFatal(ex) => logger.error("Error unregistering MBean", ex) }
     }
 
-    def close(): Unit = if(state.getAndSet(3) == 2) {
+    def close(): Unit = if (state.getAndSet(3) == 2) {
       unregisterMbeans()
       executor.shutdownNow()
-      if(!executor.awaitTermination(30, TimeUnit.SECONDS))
+      if (!executor.awaitTermination(30, TimeUnit.SECONDS))
         logger.warn("Abandoning ThreadPoolExecutor (not yet destroyed after 30 seconds)")
     }
   }
 
   sealed trait Priority
+
   /** Fresh is used for database actions that are scheduled/queued for the first time. */
   case object Fresh extends Priority
+
   /** Continuation is used for database actions that are a continuation of some previously executed actions */
   case object Continuation extends Priority
+
   /** WithConnection is used for database actions that already have a JDBC connection associated. */
   case object WithConnection extends Priority
 
   sealed trait PrioritizedRunnable extends Runnable {
     def priority(): Priority
+
     /** true if the JDBC connection was released */
     var connectionReleased = false
+
     /** true if the inUseCounter of the ManagedArrayBlockQueue was incremented */
     var inUseCounterSet = false
   }
@@ -342,14 +390,16 @@ object AsyncExecutor extends Logging {
 
     def newThread(r: Runnable): Thread = {
       val t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement, 0)
-      if(!t.isDaemon) t.setDaemon(true)
-      if(t.getPriority != Thread.NORM_PRIORITY) t.setPriority(Thread.NORM_PRIORITY)
+      if (!t.isDaemon) t.setDaemon(true)
+      if (t.getPriority != Thread.NORM_PRIORITY) t.setPriority(Thread.NORM_PRIORITY)
       t
     }
   }
 
-  /** An Executor which spawns a new daemon thread for each command. It is useful for wrapping
-    * synchronous `close` calls for asynchronous `shutdown` operations. */
+  /**
+   * An Executor which spawns a new daemon thread for each command. It is useful for wrapping synchronous `close` calls
+   * for asynchronous `shutdown` operations.
+   */
   private[slick] val shutdownExecutor: Executor = { (command: Runnable) =>
     val t = new Thread(command)
     t.setName("shutdownExecutor")
@@ -357,19 +407,22 @@ object AsyncExecutor extends Logging {
     t.start()
   }
 
-  private val loggingReporter: Throwable => Unit = (t: Throwable) => {
+  private val loggingReporter: Throwable => Unit = (t: Throwable) =>
     logger.warn("Execution of asynchronous I/O action failed", t)
-  }
 }
 
 /** The information that is exposed by an [[AsyncExecutor]] via JMX. */
 trait AsyncExecutorMXBean {
+
   /** Get the configured maximum queue size (0 for direct hand-off, -1 for unlimited) */
   def getMaxQueueSize: Int
+
   /** Get the current number of DBIOActions in the queue (waiting to be executed) */
   def getQueueSize: Int
+
   /** Get the configured maximum number of database I/O threads */
   def getMaxThreads: Int
+
   /** Get the number of database I/O threads that are currently executing a task */
   def getActiveThreads: Int
 }

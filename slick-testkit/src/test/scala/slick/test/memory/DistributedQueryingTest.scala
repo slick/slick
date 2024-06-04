@@ -39,25 +39,33 @@ class DistributedQueryingTest {
   val uData = Seq((1, 1, "A"), (2, 1, "B"), (3, 2, "C"), (4, 2, "D"), (5, 3, "E"), (6, 3, "F"))
 
   @Test
-  def test1: Unit = {
-    try {
+  def test1: Unit =
+    try
       try {
-        val db = DistributedBackend.Database(Seq(dc1.db, dc2.db), ExecutionContext.global)
-        ;{
+        val db = DistributedBackend.Database(Seq(dc1.db, dc2.db), ExecutionContext.global);
+        {
           import dc1.profile.api._
           Await.result(dc1.db.run(DBIO.seq(ts.schema.create, ts ++= tData)), Duration.Inf)
-        };{
+        }
+        {
           import dc2.profile.api._
           Await.result(dc2.db.run(DBIO.seq(us.schema.create, us ++= uData)), Duration.Inf)
-        };{
+        }
+        {
           import dProfile.api._
-          Await.result(db.run(DBIO.seq(
-            ts.result.map(d => assertEquals(tData.toSet, d.toSet)),
-            us.result.map(d => assertEquals(uData.toSet, d.toSet)),
-            ts.flatMap(t => us.map(u => (t, u))).result.map(d => assertEquals(tData.flatMap(t => uData.map(u => (t, u))).toSet, d.toSet))
-          )), Duration.Inf)
+          Await.result(
+            db.run(
+              DBIO.seq(
+                ts.result.map(d => assertEquals(tData.toSet, d.toSet)),
+                us.result.map(d => assertEquals(uData.toSet, d.toSet)),
+                ts.flatMap(t => us.map(u => (t, u)))
+                  .result
+                  .map(d => assertEquals(tData.flatMap(t => uData.map(u => (t, u))).toSet, d.toSet))
+              )
+            ),
+            Duration.Inf
+          )
         }
       } finally dc2.db.close
-    } finally dc1.db.close
-  }
+    finally dc1.db.close
 }

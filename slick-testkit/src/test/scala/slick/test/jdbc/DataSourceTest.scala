@@ -18,17 +18,17 @@ class DataSourceTest {
   @Test def testDataSourceJdbcDataSource: Unit = {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds1")
     import dc.profile.api._
-    try {
+    try
       assertEquals(1, Await.result(dc.db.run(sql"select lock_mode()".as[Int].head), Duration.Inf))
-    } finally dc.db.close
+    finally dc.db.close
   }
 
   @Test def testDirectDataSource: Unit = {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds2")
     import dc.profile.api._
-    try {
+    try
       assertEquals(2, Await.result(dc.db.run(sql"select lock_mode()".as[Int].head), Duration.Inf))
-    } finally dc.db.close
+    finally dc.db.close
   }
 
   @Test def testDatabaseUrlDataSource: Unit = {
@@ -37,7 +37,8 @@ class DataSourceTest {
     val db = JdbcBackend.Database.forConfig("databaseUrl")
     try {
       assertEquals(Some(20), db.source.maxConnections)
-      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf)
+      catch { case _: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:postgresql://host/dbname", url)
       assertEquals("user", info.getProperty("user"))
@@ -52,7 +53,8 @@ class DataSourceTest {
     val db = JdbcBackend.Database.forConfig("databaseUrlNoPassword")
     try {
       assertEquals(Some(20), db.source.maxConnections)
-      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf)
+      catch { case _: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:postgresql://host/dbname", url)
       assertEquals("user", info.getProperty("user"))
@@ -67,9 +69,13 @@ class DataSourceTest {
     val db = JdbcBackend.Database.forConfig("databaseUrlMySQL")
     try {
       assertEquals(Some(20), db.source.maxConnections)
-      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf)
+      catch { case _: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
-      assertEquals("jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci", url)
+      assertEquals(
+        "jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci",
+        url
+      )
       assertEquals("user", info.getProperty("user"))
       assertEquals("pass", info.getProperty("password"))
       assertEquals("bar", info.getProperty("foo"))
@@ -82,9 +88,13 @@ class DataSourceTest {
     val db = JdbcBackend.Database.forConfig("databaseUrlMySQLNoPassword")
     try {
       assertEquals(Some(20), db.source.maxConnections)
-      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf)
+      catch { case _: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
-      assertEquals("jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci", url)
+      assertEquals(
+        "jdbc:mysql://host/dbname?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci",
+        url
+      )
       assertEquals("user", info.getProperty("user"))
       assertEquals(null, info.getProperty("password"))
       assertEquals("bar", info.getProperty("foo"))
@@ -97,7 +107,8 @@ class DataSourceTest {
     val db = JdbcBackend.Database.forConfig("altDatabaseUrl")
     try {
       assertEquals(Some(20), db.source.maxConnections)
-      try Await.result(db.run(sqlu"dummy"), Duration.Inf) catch { case ex: SQLException => }
+      try Await.result(db.run(sqlu"dummy"), Duration.Inf)
+      catch { case _: SQLException => }
       val (url, info) = MockDriver.getLast.getOrElse(fail("No connection data recorded").asInstanceOf[Nothing])
       assertEquals("jdbc:postgresql://host/dbname", url)
       assertEquals("user", info.getProperty("user"))
@@ -108,49 +119,56 @@ class DataSourceTest {
 
   @Test def testMaxConnections: Unit = {
     MockDriver.reset
-    val db = JdbcBackend.Database.forConfig("databaseUrl", ConfigFactory.parseString(
-      """
+    val db = JdbcBackend.Database.forConfig(
+      "databaseUrl",
+      ConfigFactory.parseString("""
          |databaseUrl {
          |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
          |  maxConnections = 20
          |  url = "postgres://user:pass@host/dbname"
          |}
-         |""".stripMargin))
-    try {
+         |""".stripMargin)
+    )
+    try
       assertEquals("maxConnections should be respected", Some(20), db.source.maxConnections)
-    } finally db.close
+    finally db.close
   }
 
   @Test def testMaxConnectionsNumThreads: Unit = {
     MockDriver.reset
-    val db = JdbcBackend.Database.forConfig("databaseUrl", ConfigFactory.parseString(
-      """
+    val db = JdbcBackend.Database.forConfig(
+      "databaseUrl",
+      ConfigFactory.parseString(
+        """
         |databaseUrl {
         |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
         |  numThreads = 10
         |  url = "postgres://user:pass@host/dbname"
         |}
         |""".stripMargin
-    ))
-    try {
+      )
+    )
+    try
       assertEquals("maxConnections should be numThreads", Some(10), db.source.maxConnections)
-    } finally db.close
+    finally db.close
   }
 
   @Test def testConnectionPoolDisabled: Unit = {
     MockDriver.reset
-    val db = JdbcBackend.Database.forConfig("databaseUrl", ConfigFactory.parseString(
-      """
+    val db = JdbcBackend.Database.forConfig(
+      "databaseUrl",
+      ConfigFactory.parseString("""
         |databaseUrl {
         |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
         |  connectionPool = "disabled"
         |  url = "postgres://user:pass@host/dbname"
         |}
         |
-      """.stripMargin))
-    try {
+      """.stripMargin)
+    )
+    try
       assertEquals("maxConnections should be None when not using a pool", None, db.source.maxConnections)
-    } finally db.close
+    finally db.close
   }
 
 }
@@ -173,4 +191,3 @@ class MockDriver extends Driver {
   }
   def getMajorVersion: Int = 0
 }
-

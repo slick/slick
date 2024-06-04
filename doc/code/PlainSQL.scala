@@ -10,24 +10,26 @@ import slick.jdbc.H2Profile.api.*
 //#imports
 import slick.jdbc.GetResult
 
-/** A simple example that uses plain SQL queries against an in-memory
-  * H2 database. The example data comes from Oracle's JDBC tutorial at
-  * http://docs.oracle.com/javase/tutorial/jdbc/basics/tables.html. */
+/**
+ * A simple example that uses plain SQL queries against an in-memory H2 database. The example data comes from Oracle's
+ * JDBC tutorial at http://docs.oracle.com/javase/tutorial/jdbc/basics/tables.html.
+ */
 object PlainSQL {
   def main(args: Array[String]) = {
     var out = new ArrayBuffer[String]()
     def println(s: String): Unit = out += s
 
-    //#getresult
+    // #getresult
     // Case classes for our data
     case class Supplier(id: Int, name: String, street: String, city: String, state: String, zip: String)
     case class Coffee(name: String, supID: Int, price: Double, sales: Int, total: Int)
 
     // Result set getters
-    implicit val getSupplierResult: GetResult[Supplier] = GetResult(r => Supplier(r.nextInt(), r.nextString(),
-      r.nextString(), r.nextString(), r.nextString(), r.nextString()))
+    implicit val getSupplierResult: GetResult[Supplier] = GetResult(r =>
+      Supplier(r.nextInt(), r.nextString(), r.nextString(), r.nextString(), r.nextString(), r.nextString())
+    )
     implicit val getCoffeeResult: GetResult[Coffee] = GetResult(r => Coffee(r.<<, r.<<, r.<<, r.<<, r.<<))
-    //#getresult
+    // #getresult
 
     val db = Database.forConfig("h2mem1")
     try {
@@ -54,7 +56,7 @@ object PlainSQL {
           },
           coffeesByName(Some("Espresso")).map { s =>
             println(s"Found one coffee: ${s.size}")
-          },
+          }
         )
         db.run(a)
       }
@@ -63,7 +65,7 @@ object PlainSQL {
 
     out.foreach(Console.out.println)
 
-    //#sqlu
+    // #sqlu
     def createCoffees: DBIO[Int] =
       sqlu"""CREATE TABLE coffees(
       name VARCHAR NOT NULL,
@@ -88,17 +90,17 @@ object PlainSQL {
       sqlu"INSERT INTO suppliers VALUES(49, 'Superior Coffee', '1 Party Place', 'Mendocino', 'CA', '95460')",
       sqlu"INSERT INTO suppliers VALUES(150, 'The High Ground', '100 Coffee Lane', 'Meadows', 'CA', '93966')"
     )
-    //#sqlu
+    // #sqlu
 
     def insertCoffees: DBIO[Unit] = {
-      //#bind
+      // #bind
       def insert(c: Coffee): DBIO[Int] =
         sqlu"insert into coffees values (${c.name}, ${c.supID}, ${c.price}, ${c.sales}, ${c.total})"
-      //#bind
+      // #bind
 
       // Insert some coffees. The SQL statement is the same for all calls:
       // "insert into coffees values (?, ?, ?, ?, ?)"
-      //#sequence
+      // #sequence
       val inserts: Seq[DBIO[Int]] = Seq(
         Coffee("Colombian", 101, 7.99, 0, 0),
         Coffee("French_Roast", 49, 8.99, 0, 0),
@@ -109,29 +111,28 @@ object PlainSQL {
 
       val combined: DBIO[Seq[Int]] = DBIO.sequence(inserts)
       combined.map(_.sum)
-      //#sequence
+      // #sequence
     }
 
     def printAll: DBIO[Unit] =
-    // Iterate through all coffees and output them
+      // Iterate through all coffees and output them
       sql"SELECT * FROM coffees".as[Coffee].map { cs =>
         println("Coffees:")
         for (c <- cs)
           println("* " + c.name + "\t" + c.supID + "\t" + c.price + "\t" + c.sales + "\t" + c.total)
       }
 
-    def namesByPrice(price: Double): DBIO[Seq[(String, String)]] = {
-      //#sql
+    def namesByPrice(price: Double): DBIO[Seq[(String, String)]] =
+      // #sql
       sql"""select c.name, s.name
           from coffees c, suppliers s
           where c.price < $price and s.id = c.sup_id""".as[(String, String)]
-      //#sql
-    }
+    // #sql
 
     def supplierById(id: Int): DBIO[Seq[Supplier]] =
       sql"select * from suppliers where id = $id".as[Supplier]
 
-    def printParameterized: DBIO[Unit] = {
+    def printParameterized: DBIO[Unit] =
       // Perform a join to retrieve coffee names and supplier names for
       // all coffees costing less than $9.00
       namesByPrice(9.0).flatMap { l2 =>
@@ -140,20 +141,18 @@ object PlainSQL {
           println("* " + t._1 + " supplied by " + t._2)
         supplierById(49).map(s => println(s"Supplier #49: $s"))
       }
-    }
 
     def coffeeByName(name: String): DBIO[Option[Coffee]] = {
-      //#literal
+      // #literal
       val table = "coffees"
       sql"select * from #$table where name = $name".as[Coffee].headOption
-      //#literal
+      // #literal
     }
 
-    def coffeesByName(name: Option[String]): DBIO[Seq[Coffee]] = {
-      //#concat
+    def coffeesByName(name: Option[String]): DBIO[Seq[Coffee]] =
+      // #concat
       (sql"select * from coffees where " concat name.fold(sql"true")(name => sql"name = $name")).as[Coffee]
-      //#concat
-    }
+    // #concat
 
     def deleteCoffee(name: String): DBIO[Int] =
       sqlu"delete from coffees where name = $name"
@@ -191,4 +190,4 @@ object TypedSQL extends App {
   } finally db.close
 }
 
-*/
+ */

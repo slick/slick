@@ -9,7 +9,6 @@ import sbtversionpolicy.{DependencyCheckReport, IncompatibilityType, SbtVersionP
 import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVersions
 import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.*
 
-
 object CompatReportPlugin extends AutoPlugin {
   override def requires = SbtVersionPolicyPlugin
 
@@ -17,10 +16,12 @@ object CompatReportPlugin extends AutoPlugin {
 
   val previousRelease = settingKey[Option[String]]("Determine the artifact of the previous release")
 
-  case class ModuleReport(module: String,
-                          sinceVersion: String,
-                          depChanges: Seq[DependencyChangeInfo],
-                          codeChanges: Seq[CodeChangeInfo]) {
+  case class ModuleReport(
+      module: String,
+      sinceVersion: String,
+      depChanges: Seq[DependencyChangeInfo],
+      codeChanges: Seq[CodeChangeInfo]
+  ) {
     lazy val count = depChanges.length + codeChanges.length
   }
 
@@ -35,19 +36,13 @@ object CompatReportPlugin extends AutoPlugin {
 
   import autoImport.*
 
-
   private def markdownTable(headers: String*)(rows: Seq[Seq[String]]) = {
     val escaped = rows.map(_.map(_.replaceAllLiterally("|", "\\|")))
     val widths =
-      (headers.map(_.length) +: escaped.map(_.map(_.length)))
-        .transpose
-        .map(_.max)
+      (headers.map(_.length) +: escaped.map(_.map(_.length))).transpose.map(_.max)
 
     def row(r: Seq[String], pad: Char) =
-      r
-        .zipWithIndex
-        .map { case (s, i) => (pad + s + pad).padTo(widths(i) + 2, ' ') }
-        .mkString("|", "|", "|\n")
+      r.zipWithIndex.map { case (s, i) => (pad + s + pad).padTo(widths(i) + 2, ' ') }.mkString("|", "|", "|\n")
 
     row(headers, ' ') +
       row(widths.map("-" * _), '-') +
@@ -63,10 +58,12 @@ object CompatReportPlugin extends AutoPlugin {
   implicit val incompatibilityTypeOrdering: Ordering[IncompatibilityType] =
     Ordering.by(_ == IncompatibilityType.BinaryIncompatibility)
 
-  case class DependencyChangeInfo(incompatibilityType: IncompatibilityType,
-                                  organizationId: String,
-                                  moduleName: String,
-                                  status: DependencyCheckReport.ModuleStatus)
+  case class DependencyChangeInfo(
+      incompatibilityType: IncompatibilityType,
+      organizationId: String,
+      moduleName: String,
+      status: DependencyCheckReport.ModuleStatus
+  )
   object DependencyChangeInfo {
     implicit val ordering: Ordering[DependencyChangeInfo] =
       Ordering.by(info => (info.incompatibilityType, info.organizationId, info.moduleName))
@@ -98,9 +95,9 @@ object CompatReportPlugin extends AutoPlugin {
             (status match {
               case DependencyCheckReport.IncompatibleVersion(version, previousVersion, reconciliation) =>
                 Seq("Incompatible", previousVersion, version, reconciliation.name.capitalize)
-              case DependencyCheckReport.Missing(version)                                              =>
+              case DependencyCheckReport.Missing(version) =>
                 Seq("Missing", version, "", "")
-              case _                                                                                   =>
+              case _ =>
                 Seq("", "", "")
             })
         }
@@ -163,8 +160,9 @@ object CompatReportPlugin extends AutoPlugin {
     // Can't reference Keys.fullResolvers, which is a task.
     // So we're using the usual default repositories from coursier here…
     val fullRepos = coursierapi.Repository.defaults().asScala ++ repos
-    val res = coursierapi.Versions.create()
-      .withRepositories(fullRepos *)
+    val res = coursierapi.Versions
+      .create()
+      .withRepositories(fullRepos*)
       .withModule(coursierapi.Module.of(projId.organization, name))
       .versions()
     res.getMergedListings.getAvailable.asScala
@@ -176,11 +174,13 @@ object CompatReportPlugin extends AutoPlugin {
         val versions = previousVersionsFromRepo.value
         val cur = Version(Keys.version.value)
         val sorted =
-          versions.map(Version(_))
-            .filterNot { version =>
-              version >= cur ||
-                version.items.exists { case t: Version.Tag => t.isPreRelease case _ => false }
+          versions.map(Version(_)).filterNot { version =>
+            version >= cur ||
+            version.items.exists {
+              case t: Version.Tag => t.isPreRelease
+              case _              => false
             }
+          }
         if (sorted.isEmpty) None else Some(sorted.max.repr)
       }
     ) ++
@@ -194,26 +194,23 @@ object CompatReportPlugin extends AutoPlugin {
             versionPolicyIntention := Versioning.BumpMinor,
             compatReportData := {
               for ((moduleId, (DependencyCheckReport(depReports), codeProblems)) <- versionPolicyFindIssues.value)
-                yield
-                  ModuleReport(
-                    module = moduleId.name,
-                    sinceVersion = previousRelease.value.getOrElse("n/a"),
-                    depChanges =
-                      depReports.toSeq.flatMap { case (incompatibilityType, statuses) =>
-                        statuses.collect { case ((org, name), status) if !status.validated =>
-                          DependencyChangeInfo(incompatibilityType, org, name, status)
-                        }
-                      },
-                    codeChanges =
-                      codeProblems.map { case (incompatibilityType, problem) =>
-                        CodeChangeInfo(incompatibilityType, problem)
-                      }
-                  )
+                yield ModuleReport(
+                  module = moduleId.name,
+                  sinceVersion = previousRelease.value.getOrElse("n/a"),
+                  depChanges = depReports.toSeq.flatMap { case (incompatibilityType, statuses) =>
+                    statuses.collect {
+                      case ((org, name), status) if !status.validated =>
+                        DependencyChangeInfo(incompatibilityType, org, name, status)
+                    }
+                  },
+                  codeChanges = codeProblems.map { case (incompatibilityType, problem) =>
+                    CodeChangeInfo(incompatibilityType, problem)
+
+                  }
+                )
             },
             compatReportMarkdown := {
-              compatReportData.value
-                .flatMap(renderModuleMarkdownSection)
-                .mkString("\n")
+              compatReportData.value.flatMap(renderModuleMarkdownSection).mkString("\n")
             }
           )
       )

@@ -43,7 +43,8 @@ class UnionAdditionalTest extends AsyncTest[JdbcTestDB] {
       _ <- employees ++= Seq((4, "Leonard", 2), (5, "Jennifer", 1), (6, "Tom", 1), (7, "Ben", 1), (8, "Greg", 3))
       _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set((2, "Amy"), (3, "Steve")))
       _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set((5, "Jennifer"), (6, "Tom"), (7, "Ben")))
-      _ <- mark("q3", q3.result).map(_ shouldBe Vector((2, "Amy"), (7, "Ben"), (5, "Jennifer"), (3, "Steve"), (6, "Tom")))
+      _ <- mark("q3", q3.result)
+        .map(_ shouldBe Vector((2, "Amy"), (7, "Ben"), (5, "Jennifer"), (3, "Steve"), (6, "Tom")))
     } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 
@@ -56,10 +57,20 @@ class UnionAdditionalTest extends AsyncTest[JdbcTestDB] {
       _ <- managers ++= Seq((1, "Peter", "HR"), (2, "Amy", "IT"), (3, "Steve", "IT"))
       _ <- employees ++= Seq((4, "Leonard", 2), (5, "Jennifer", 1), (6, "Tom", 1), (7, "Ben", 1), (8, "Greg", 3))
       _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set((2, "Amy"), (1, "Peter"), (3, "Steve")))
-      _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set((7, "Ben"), (8, "Greg"), (5, "Jennifer"), (4, "Leonard"), (6, "Tom")))
-      _ <- mark("q3", q3.result).map(_ shouldBe Vector((2, "Amy"), (7, "Ben"), (8, "Greg"),
-        (5, "Jennifer"), (4, "Leonard"), (1, "Peter"), (3, "Steve"), (6, "Tom")
-      ))
+      _ <- mark("q2", q2.result)
+        .map(r => r.toSet shouldBe Set((7, "Ben"), (8, "Greg"), (5, "Jennifer"), (4, "Leonard"), (6, "Tom")))
+      _ <- mark("q3", q3.result).map(
+        _ shouldBe Vector(
+          (2, "Amy"),
+          (7, "Ben"),
+          (8, "Greg"),
+          (5, "Jennifer"),
+          (4, "Leonard"),
+          (1, "Peter"),
+          (3, "Steve"),
+          (6, "Tom")
+        )
+      )
     } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 
@@ -71,9 +82,9 @@ class UnionAdditionalTest extends AsyncTest[JdbcTestDB] {
       _ <- (managers.schema ++ employees.schema).create
       _ <- managers ++= Seq((1, "Peter", "HR"), (2, "Amy", "IT"), (3, "Steve", "IT"))
       _ <- employees ++= Seq((4, "Leonard", 2), (5, "Jennifer", 1), (6, "Tom", 1), (7, "Ben", 1), (8, "Greg", 3))
-      _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set(2,3))
-      _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set(5,6,7))
-      _ <- mark("q3", q3.result).map(_ shouldBe Vector(2,3))
+      _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set(2, 3))
+      _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set(5, 6, 7))
+      _ <- mark("q3", q3.result).map(_ shouldBe Vector(2, 3))
     } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 

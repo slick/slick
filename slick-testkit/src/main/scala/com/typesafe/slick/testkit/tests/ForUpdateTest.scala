@@ -10,7 +10,6 @@ import slick.util.Logging
 import scala.concurrent.Await
 import scala.util.Failure
 
-
 class ForUpdateTest extends AsyncTest[JdbcTestDB] with Logging {
   import tdb.profile.api._
 
@@ -21,31 +20,36 @@ class ForUpdateTest extends AsyncTest[JdbcTestDB] with Logging {
     def * = (id, data)
   }
   val ts = TableQuery[T]
-  def testForUpdate: DBIO[Unit] = {
+  def testForUpdate: DBIO[Unit] =
     ifCap(jcap.forUpdate) {
       val exe = new ThreadPoolExecutor(2, 2, 1L, TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable]())
       @volatile var success = true
       val childStartLatch = new CountDownLatch(1)
       val thread1Latch = new CountDownLatch(1)
       val thread2Latch = new CountDownLatch(1)
-      val rowSelect: (Int) => Query[T, (Int, Option[String]), Seq] = (i: Int) => ts.filter(_.id === i)
+      val rowSelect: Int => Query[T, (Int, Option[String]), Seq] = (i: Int) => ts.filter(_.id === i)
       def runAsyncCommands[T](commands: DBIO[Unit], latch: CountDownLatch): DBIO[Unit] = {
         exe.execute(new Runnable {
-          override def run(): Unit = Await.result({
-            childStartLatch.await()
-            val f = db.run {
-              seq(GetTransactionality.map(_._1 shouldBe 0), // make sure not in transaction yet
-                commands.transactionally)
-            }
-            f.onComplete { t => {
-              latch.countDown()
-              t match {
-                case Failure(e) => success = false
-                case _ =>
+          override def run(): Unit = Await.result(
+            {
+              childStartLatch.await()
+              val f = db.run {
+                seq(
+                  GetTransactionality.map(_._1 shouldBe 0), // make sure not in transaction yet
+                  commands.transactionally
+                )
               }
-            }}
-            f
-          }, TestkitConfig.asyncTimeout)
+              f.onComplete { t =>
+                latch.countDown()
+                t match {
+                  case Failure(_) => success = false
+                  case _          =>
+                }
+              }
+              f
+            },
+            TestkitConfig.asyncTimeout
+          )
         })
         DBIOAction.successful(()) // dummy action to add into pipeline
       }
@@ -60,16 +64,22 @@ class ForUpdateTest extends AsyncTest[JdbcTestDB] with Logging {
               // locking read on row.id 1
               r1 <- rowSelect(1).forUpdate.result
               _ = r1 shouldBe Seq((1, None))
-              _ <- runAsyncCommands(seq(
-                                      // this read is free to continue
-                                      rowSelect(2).forUpdate.result.map(x => x shouldBe Seq((2, None))),
-                                      rowSelect(2).map(_.data).update(Some("Thread 1 update"))
-                                    ), thread1Latch)
-              _ <- runAsyncCommands(seq(
-                                      // this read blocks on main thread txn,so check the main update happened first once running
-                                      rowSelect(1).forUpdate.result.map(_ shouldBe Seq((1, Some("Main thread update")))),
-                                      rowSelect(1).map(_.data).update(Some("Thread 2 update"))
-                                    ), thread2Latch)
+              _ <- runAsyncCommands(
+                seq(
+                  // this read is free to continue
+                  rowSelect(2).forUpdate.result.map(x => x shouldBe Seq((2, None))),
+                  rowSelect(2).map(_.data).update(Some("Thread 1 update"))
+                ),
+                thread1Latch
+              )
+              _ <- runAsyncCommands(
+                seq(
+                  // this read blocks on main thread txn,so check the main update happened first once running
+                  rowSelect(1).forUpdate.result.map(_ shouldBe Seq((1, Some("Main thread update")))),
+                  rowSelect(1).map(_.data).update(Some("Thread 2 update"))
+                ),
+                thread2Latch
+              )
               _ = childStartLatch.countDown() // start child threads
               _ = thread1Latch.await() // wait for thread 1 to finish
               _ <- rowSelect(1).map(_.data).update(Some("Main thread update"))
@@ -90,7 +100,7 @@ class ForUpdateTest extends AsyncTest[JdbcTestDB] with Logging {
             r1 <- rowSelect(1).forUpdate.result
             _ = r1 shouldBe Seq((1, None))
           } yield ()
-        })
+        }
+      )
     }
-  }
 }

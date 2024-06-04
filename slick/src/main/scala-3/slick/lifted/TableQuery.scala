@@ -4,9 +4,10 @@ import scala.quoted.*
 
 import slick.ast.Node
 
-/** Represents a database table. Profiles add extension methods to TableQuery
- * for operations that can be performed on tables but not on arbitrary
- * queries, e.g. getting the table DDL. */
+/**
+ * Represents a database table. Profiles add extension methods to TableQuery for operations that can be performed on
+ * tables but not on arbitrary queries, e.g. getting the table DDL.
+ */
 class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, TableQuery.Extract[E], Seq] {
   lazy val shaped = {
     val baseTable = cons(new BaseTag { base =>
@@ -19,13 +20,15 @@ class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, TableQu
 
   lazy val toNode = shaped.toNode
 
-  /** Get the "raw" table row that represents the table itself, as opposed to
-   * a Path for a variable of the table's type. This method should generally
-   * not be called from user code. */
+  /**
+   * Get the "raw" table row that represents the table itself, as opposed to a Path for a variable of the table's type.
+   * This method should generally not be called from user code.
+   */
   def baseTableRow: E = shaped.value
 }
 
 object TableQuery {
+
   /** Create a TableQuery for a table row class using an arbitrary constructor function. */
   def apply[E <: AbstractTable[_]](cons: Tag => E): TableQuery[E] =
     new TableQuery[E](cons)
@@ -43,12 +46,12 @@ object TableQuery {
     val tagTpe = TypeRepr.of[Tag]
     val mt = MethodType(List("tag"))(_ => List(tagTpe), _ => eTpe)
 
-    val cons = Lambda(Symbol.spliceOwner, mt, { (meth, tag) =>
-      Select.overloaded(New(TypeIdent(eTpe.typeSymbol)), "<init>",
-        List(),
-        List(tag.head.asInstanceOf[Term])
-      )
-    })
+    val cons = Lambda(
+      Symbol.spliceOwner,
+      mt,
+      (meth, tag) =>
+        Select.overloaded(New(TypeIdent(eTpe.typeSymbol)), "<init>", List(), List(tag.head.asInstanceOf[Term]))
+    )
 
     val ctorExpr = cons.asExprOf[Tag => E]
 

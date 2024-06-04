@@ -7,24 +7,31 @@ import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 
 /** A heterogenous list where each element has its own type. */
 sealed abstract class HList extends Product {
+
   /** The type of this HList object */
   type Self <: HList
+
   /** The type of the first element */
   type Head
+
   /** The type of the tail of this HList */
   type Tail <: HList
 
   /** The type of prepending an element of type E to this HList */
-  type :: [E] = HCons[E, Self]
+  type ::[E] = HCons[E, Self]
 
   /** Get the first element, or throw a NoSuchElementException if this HList is empty. */
   def head: Head
+
   /** Get the tail of the list, or throw a NoSuchElementException if this HList is empty. */
   def tail: Tail
+
   /** Return this HList typed as `Self`/ */
   def self: Self
+
   /** Check if this HList is non-empty. */
   def nonEmpty: Boolean
+
   /** Convert this HList to a `List[Any]`. */
   def toList: List[Any]
 
@@ -33,11 +40,12 @@ sealed abstract class HList extends Product {
 
   /** Get the length of this list. */
   @inline final def length: Int = productArity
+
   /** Get the length of this list as an `Int`. */
   final def productArity: Int = {
     var i = 0
     var h = this
-    while(h.nonEmpty) {
+    while (h.nonEmpty) {
       i += 1
       h = h.tail
     }
@@ -48,26 +56,26 @@ sealed abstract class HList extends Product {
     require(idx >= 0, "Index should be non negative")
     var i = 0
     var h = this
-    while(h.nonEmpty && i < idx) {
+    while (h.nonEmpty && i < idx) {
       i += 1
       h = h.tail
     }
-    if(i < idx) throw new IndexOutOfBoundsException 
+    if (i < idx) throw new IndexOutOfBoundsException
     h.head
-  } 
-
+  }
 
   /** Prepend an element to this HList, returning a new HList. */
-  @inline final def :: [E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
+  @inline final def ::[E](elem: E): ::[E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
 
   /** Concatenate 2 HList. */
-  @inline final def ::: (h2: HList): HList = HList.concat(h2, this) // The operator is right to left so this has to be the second argument
+  @inline final def :::(h2: HList): HList =
+    HList.concat(h2, this) // The operator is right to left so this has to be the second argument
 
   /** Drop the first `n` elements from this HList. */
   final def drop(i: Int): HList = {
     var h = this
     var ii = i
-    while(ii > 0) {
+    while (ii > 0) {
       ii -= 1
       h = h.tail
     }
@@ -79,7 +87,7 @@ sealed abstract class HList extends Product {
   /** Evaluate a function for each element of this HList. */
   final def foreach(f: Any => Unit): Unit = {
     var h = this
-    while(h.nonEmpty) {
+    while (h.nonEmpty) {
       f(h.head)
       h = h.tail
     }
@@ -91,17 +99,18 @@ sealed abstract class HList extends Product {
       v match {
         case _: HList =>
           b.append("(").append(v).append(")")
-        case _        =>
+        case _ =>
           b.append(v)
       }
-      b.append(" :: ") }
+      b.append(" :: ")
+    }
     b.append("HNil").toString
   }
 
   override final lazy val hashCode: Int = toList.hashCode
   override final def equals(that: Any) = that match {
     case that: HList => toList == that.toList
-    case _ => false
+    case _           => false
   }
   final def canEqual(that: Any) = that.isInstanceOf[HList]
 }
@@ -110,20 +119,20 @@ object HList {
   import syntax.*
 
   /** Concatenates two HLists. */
-  def concat[L1 <: HList, L2 <: HList](l1: L1, l2: L2): HList = {
+  def concat[L1 <: HList, L2 <: HList](l1: L1, l2: L2): HList =
     (l1, l2) match {
-      case (HNil, _) => l2
-      case (_, HNil) => l1
+      case (HNil, _)     => l2
+      case (_, HNil)     => l1
       case (h1 :: t1, x) => h1 :: concat(t1, x)
     }
-  }
 
   final class HListShape[
-    Level <: ShapeLevel,
-    M <: HList,
-    U <: HList : ClassTag,
-    P <: HList
-  ](val shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
+      Level <: ShapeLevel,
+      M <: HList,
+      U <: HList: ClassTag,
+      P <: HList
+  ](val shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]])
+      extends MappedScalaProductShape[Level, HList, M, U, P] {
     override def buildValue(elems: IndexedSeq[Any]): HList = elems.foldRight(HNil: HList)(_ :: _)
     override def copy(shapes: Seq[Shape[? <: ShapeLevel, ?, ?, ?]]): HListShape[Level, Nothing, U, Nothing] =
       new HListShape(shapes)
@@ -131,15 +140,17 @@ object HList {
   implicit def hnilShape[Level <: ShapeLevel]: HListShape[Level, HNil.type, HNil.type, HNil.type] =
     new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
   implicit def hconsShape[
-    Level <: ShapeLevel,
-    M1,
-    M2 <: HList,
-    U1,
-    U2 <: HList,
-    P1,
-    P2 <: HList
-  ](implicit s1: Shape[? <: Level, M1, U1, P1],
-    s2: HListShape[? <: Level, M2, U2, P2]): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
+      Level <: ShapeLevel,
+      M1,
+      M2 <: HList,
+      U1,
+      U2 <: HList,
+      P1,
+      P2 <: HList
+  ](implicit
+      s1: Shape[? <: Level, M1, U1, P1],
+      s2: HListShape[? <: Level, M2, U2, P2]
+  ): HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2] =
     new HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2](s1 +: s2.shapes)
 }
 

@@ -10,16 +10,16 @@ import org.junit.runner.notification.{Failure, RunNotifier, StoppedByUserExcepti
 import org.junit.runners.model.*
 
 /**
- * A JUnit Runner similar to JUnit's own ParentRunner but simpler, more
- * extensible (in the way we need it), and more Scala-like.
+ * A JUnit Runner similar to JUnit's own ParentRunner but simpler, more extensible (in the way we need it), and more
+ * Scala-like.
  */
 abstract class SimpleParentRunner[T](testClass: Class[?]) extends Runner with Filterable with Sortable {
   private var _children: Seq[T] = _
   protected final def children: Seq[T] = {
-    if(_children == null) _children = getChildren
+    if (_children == null) _children = getChildren
     _children
   }
-  protected final def children_= (s: Seq[T]) = _children = s
+  protected final def children_=(s: Seq[T]) = _children = s
 
   protected def getChildren: Seq[T]
 
@@ -38,8 +38,8 @@ abstract class SimpleParentRunner[T](testClass: Class[?]) extends Runner with Fi
 
   def getDescription = {
     val annotations = testClass.getAnnotations
-    val desc = Description.createSuiteDescription(testClass.getName, annotations *)
-    for(ch <- children) desc.addChild(describeChild(ch))
+    val desc = Description.createSuiteDescription(testClass.getName, annotations*)
+    for (ch <- children) desc.addChild(describeChild(ch))
     desc
   }
 
@@ -50,24 +50,23 @@ abstract class SimpleParentRunner[T](testClass: Class[?]) extends Runner with Fi
     catch {
       case e: StoppedByUserException => throw e
       case e: Throwable              => addFailure(e, notifier, description)
-    }
-    finally notifier.fireTestSuiteFinished(description)
+    } finally notifier.fireTestSuiteFinished(description)
   }
 
   final def filter(filter: Filter): Unit = {
     children = children.filter { ch =>
-      if(!filter.shouldRun(describeChild(ch))) false
-      else try { filter.apply(ch); true } catch { case _: NoTestsRemainException => false }
+      if (!filter.shouldRun(describeChild(ch))) false
+      else
+        try { filter.apply(ch); true }
+        catch { case _: NoTestsRemainException => false }
     }
-    if(children.isEmpty) throw new NoTestsRemainException
+    if (children.isEmpty) throw new NoTestsRemainException
   }
 
   final def sort(sorter: Sorter): Unit = {
     children.foreach(sorter.apply)
-    children =
-      children.sorted(
-        Ordering.comparatorToOrdering(sorter)
-          .on(describeChild)
-      )
+    children = children.sorted(
+      Ordering.comparatorToOrdering(sorter).on(describeChild)
+    )
   }
 }

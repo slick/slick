@@ -1,6 +1,5 @@
 import com.jsuereth.sbtpgp.PgpKeys
 
-
 val testAll = taskKey[Unit]("Run all tests")
 
 val cleanCompileTimeTests =
@@ -84,7 +83,6 @@ def slickScalacOptions = Seq(
       case _ =>
         Nil
     })
-
 )
 
 def slickGeneralSettings =
@@ -96,9 +94,12 @@ def slickGeneralSettings =
     },
     sonatypeProfileName := "com.typesafe.slick",
     Compile / doc / scalacOptions ++= Seq(
-      "-doc-title", name.value,
-      "-doc-version", version.value,
-      "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+      "-doc-title",
+      name.value,
+      "-doc-version",
+      version.value,
+      "-doc-footer",
+      "Slick is developed by Typesafe and EPFL Lausanne.",
       "-implicits",
       "-diagrams", // requires graphviz
       "-groups"
@@ -110,9 +111,9 @@ def slickGeneralSettings =
 def compilerDependencySetting(config: String) =
   libraryDependencies ++=
     (if (sys.props("scala.home.local") == null && scalaVersion.value.startsWith("2."))
-      List("org.scala-lang" % "scala-compiler" % scalaVersion.value % config)
-    else
-      Nil)
+       List("org.scala-lang" % "scala-compiler" % scalaVersion.value % config)
+     else
+       Nil)
 
 def extTarget(extName: String): Seq[Setting[File]] =
   sys.props("slick.build.target") match {
@@ -158,11 +159,11 @@ lazy val slickCompatCollections =
       Compile / unmanagedSourceDirectories ++= {
         val sourceDir = (Compile / sourceDirectory).value
         CrossVersion.partialVersion(scalaVersion.value) match {
-          case Some((3, n)) => Seq(sourceDir / "scala-2.13+")
+          case Some((3, n))            => Seq(sourceDir / "scala-2.13+")
           case Some((2, n)) if n >= 13 => Seq(sourceDir / "scala-2.13+")
-          case _ => Nil
+          case _                       => Nil
         }
-      },
+      }
     )
 
 def slickCollectionsCompatSettings = Seq(
@@ -188,13 +189,15 @@ lazy val slick =
       libraryDependencies ++= Dependencies.mainDependencies,
       scaladocSourceUrl("slick"),
       Compile / doc / scalacOptions ++= Seq(
-        "-doc-root-content", "scaladoc-root.txt"
+        "-doc-root-content",
+        "scaladoc-root.txt"
       ),
 
       // suppress test status output
       test := {},
       testOnly := {}
-    ).dependsOn(slickCompatCollections)
+    )
+    .dependsOn(slickCompatCollections)
 
 lazy val testkit =
   project
@@ -216,26 +219,28 @@ lazy val testkit =
           Some(TestFrameworks.JUnit),
           List("-q", "-v", "-s", "-a", "-Djava.awt.headless=true") ++
             (if (sys.env.get("GITHUB_ACTIONS").contains("true"))
-              Some("--run-listener=com.typesafe.slick.testkit.util.GitHubActionsRunListener")
-            else
-              None)
+               Some("--run-listener=com.typesafe.slick.testkit.util.GitHubActionsRunListener")
+             else
+               None)
         ),
-      //scalacOptions in Compile += "-Yreify-copypaste",
+      // scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
         Dependencies.junit ++:
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
       run / fork := true,
-      //connectInput in run := true,
+      // connectInput in run := true,
       run / javaOptions += "-Dslick.ansiDump=true",
-      //javaOptions in run += "-verbose:gc",
+      // javaOptions in run += "-verbose:gc",
       // Delete classes in "compile" packages after compiling. (Currently only slick.test.compile.NestedShapeTest)
       // These are used for compile-time tests and should be recompiled every time.
       Test / cleanCompileTimeTests := {
-        val products = fileTreeView.value.list(
-          (Test / classDirectory).value.toGlob / ** / "compile" / *
-        ).map(x => x._1.toFile)
+        val products = fileTreeView.value
+          .list(
+            (Test / classDirectory).value.toGlob / ** / "compile" / *
+          )
+          .map(x => x._1.toFile)
         streams.value.log.info(s"Deleting $products")
         IO.delete(products)
       },
@@ -256,12 +261,13 @@ lazy val testkit =
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
-        Run.run(
-          mainClass = "com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
-          classpath = (Compile / fullClasspath).value.map(_.data),
-          options = Seq(file.toString),
-          log = logger
-        )(runner.value)
+        Run
+          .run(
+            mainClass = "com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
+            classpath = (Compile / fullClasspath).value.map(_.data),
+            options = Seq(file.toString),
+            log = logger
+          )(runner.value)
           .map(_ => file)
           .get
       },
@@ -280,7 +286,8 @@ lazy val codegen =
       name := "Slick-CodeGen",
       description := "Code Generator for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-codegen"),
-      test := {}, testOnly := {}, // suppress test status output
+      test := {},
+      testOnly := {}, // suppress test status output
       commonTestResourcesSetting
     )
 
@@ -294,8 +301,9 @@ lazy val hikaricp =
       name := "Slick-HikariCP",
       description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-hikaricp"),
-      test := {}, testOnly := {}, // suppress test status output
-      libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
+      test := {},
+      testOnly := {}, // suppress test status output
+      libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*")
     )
 
 lazy val `reactive-streams-tests` =
@@ -332,17 +340,15 @@ lazy val site: Project =
       ),
       buildCompatReport := {
         val compatReports =
-          (CompatReport / compatReportMarkdown)
-            .all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit)))
-            .value
+          (CompatReport / compatReportMarkdown).all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit))).value
         val file = (buildCompatReport / target).value / "compat-report.md"
         IO.write(
           file,
           "## Incompatible changes\n\n" +
             (if (compatReports.forall(_.trim.isEmpty))
-              "There are no incompatible changes"
-            else
-              compatReports.sorted.mkString("", "\n\n", "\n"))
+               "There are no incompatible changes"
+             else
+               compatReports.sorted.mkString("", "\n\n", "\n"))
         )
         file
       },
@@ -392,14 +398,16 @@ lazy val root =
       test := {},
       testOnly := {},
       testAll := {
-        Def.sequential(
-          testkit / Test / test,
-          testkit / DocTest / test,
-          `reactive-streams-tests` / Test / test,
-          slick / Compile / packageDoc,
-          codegen / Compile / packageDoc,
-          hikaricp / Compile / packageDoc,
-          testkit / Compile / packageDoc
-        ).value
+        Def
+          .sequential(
+            testkit / Test / test,
+            testkit / DocTest / test,
+            `reactive-streams-tests` / Test / test,
+            slick / Compile / packageDoc,
+            codegen / Compile / packageDoc,
+            hikaricp / Compile / packageDoc,
+            testkit / Compile / packageDoc
+          )
+          .value
       }
     )

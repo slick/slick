@@ -6,10 +6,12 @@ import com.typesafe.config.Config
 import slick.jdbc.{JdbcDataSource, JdbcDataSourceFactory}
 import slick.util.ConfigExtensionMethods._
 
-/** A JdbcDataSource for a HikariCP connection pool.
-  * See `slick.jdbc.JdbcBackend#Database.forConfig` for documentation on the config parameters. */
+/**
+ * A JdbcDataSource for a HikariCP connection pool. See `slick.jdbc.JdbcBackend#Database.forConfig` for documentation on
+ * the config parameters.
+ */
 class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig)
-  extends JdbcDataSource {
+    extends JdbcDataSource {
 
   def createConnection(): Connection = ds.getConnection()
 
@@ -63,16 +65,22 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     // will not fail to start if there is a problem when connecting to the database.
     // To keep this behavior, we need to set `initializationFailTimeout` to -1 as
     // documented by HikariCP.
-    hconf.setInitializationFailTimeout(c.getMillisecondsOr("initializationFailTimeout", default = {
-      // `initializationFailFast` is deprecated and should be replaced by
-      // `initializationFailTimeout`. See HikariCP docs for more information:
-      // https://github.com/brettwooldridge/HikariCP#infrequently-used
-      // But for backwards compatibility we check for it if initializationFailTimeout is missing
-      c.getBooleanOpt("initializationFailFast").map { failFast =>
-        if (failFast) 1L
-        else 0L
-      }.getOrElse(-1L)
-    }))
+    hconf.setInitializationFailTimeout(
+      c.getMillisecondsOr(
+        "initializationFailTimeout",
+        default =
+          // `initializationFailFast` is deprecated and should be replaced by
+          // `initializationFailTimeout`. See HikariCP docs for more information:
+          // https://github.com/brettwooldridge/HikariCP#infrequently-used
+          // But for backwards compatibility we check for it if initializationFailTimeout is missing
+          c.getBooleanOpt("initializationFailFast")
+            .map { failFast =>
+              if (failFast) 1L
+              else 0L
+            }
+            .getOrElse(-1L)
+      )
+    )
 
     c.getBooleanOpt("isolateInternalQueries").foreach(hconf.setIsolateInternalQueries)
     c.getBooleanOpt("allowPoolSuspension").foreach(hconf.setAllowPoolSuspension)

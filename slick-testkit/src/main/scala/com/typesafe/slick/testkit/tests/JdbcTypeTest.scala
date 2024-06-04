@@ -17,12 +17,10 @@ import slick.jdbc.PostgresProfile
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import javax.sql.rowset.serial.SerialBlob
 
-
 /** Data type related tests which are specific to JdbcProfile */
 class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
   import tdb.profile.api._
-
 
   def testByteArray = {
     class T(tag: Tag) extends Table[(Int, Array[Byte])](tag, "test_ba") {
@@ -34,13 +32,19 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
     val as1 = for {
       _ <- ts.schema.create
-      _ <- ts += (1, Array[Byte](1,2,3))
-      _ <- ts += (2, Array[Byte](4,5))
-      r1 <- ts.result.map(_.map{ case (id, data) => (id, data.mkString) }.toSet)
-      _ = r1 shouldBe Set((1,"123"), (2,"45"))
+      _ <- ts += (1, Array[Byte](1, 2, 3))
+      _ <- ts += (2, Array[Byte](4, 5))
+      r1 <- ts.result.map(_.map { case (id, data) => (id, data.mkString) }.toSet)
+      _ = r1 shouldBe Set((1, "123"), (2, "45"))
     } yield ()
-    if(implicitly[ColumnType[Array[Byte]]].hasLiteralForm) {
-      as1 >> ts.filter(_.data === Array[Byte](4,5)).map(_.data).to[Set].result.map(_.map(_.mkString)).map(_ shouldBe Set("45"))
+    if (implicitly[ColumnType[Array[Byte]]].hasLiteralForm) {
+      as1 >> ts
+        .filter(_.data === Array[Byte](4, 5))
+        .map(_.data)
+        .to[Set]
+        .result
+        .map(_.map(_.mkString))
+        .map(_ shouldBe Set("45"))
     } else as1
   }
 
@@ -54,10 +58,12 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
     seq(
       ts.schema.create,
-      ts += (1, Some(Array[Byte](6,7))),
+      ts += (1, Some(Array[Byte](6, 7))),
       ifCap(rcap.setByteArrayNull)(ts += (2, None)),
       ifNotCap(rcap.setByteArrayNull)(ts.map(_.id) += 2),
-      ts.result.map(_.map { case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet).map(_ shouldBe Set((1,"67"), (2,"")))
+      ts.result
+        .map(_.map { case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet)
+        .map(_ shouldBe Set((1, "67"), (2, "")))
     )
   }
 
@@ -71,31 +77,36 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
     val a1 = (
       ts.schema.create >>
-      (ts += (1, new SerialBlob(Array[Byte](1,2,3)))) >>
-      (ts += (2, new SerialBlob(Array[Byte](4,5)))) >>
-      ts.result
+        (ts += (1, new SerialBlob(Array[Byte](1, 2, 3)))) >>
+        (ts += (2, new SerialBlob(Array[Byte](4, 5)))) >>
+        ts.result
     ).transactionally
     val p1 = db.stream(a1).mapResult { case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }
-    materialize(p1).map(_.toSet shouldBe Set((1,"123"), (2,"45"))) flatMap { _ =>
-      val f = materializeAsync[(Int, Blob), (Int, String)](db.stream(ts.result.transactionally, bufferNext = false),
-        { case (id, data) => db.io((id, data.getBytes(1, data.length.toInt).mkString)) })
-      f.map(_.toSet shouldBe Set((1,"123"), (2,"45")))
+    materialize(p1).map(_.toSet shouldBe Set((1, "123"), (2, "45"))) flatMap { _ =>
+      val f = materializeAsync[(Int, Blob), (Int, String)](
+        db.stream(ts.result.transactionally, bufferNext = false),
+        { case (id, data) => db.io((id, data.getBytes(1, data.length.toInt).mkString)) }
+      )
+      f.map(_.toSet shouldBe Set((1, "123"), (2, "45")))
     }
   }
 
   def testMappedBlob = ifCap(rcap.typeBlob) {
     case class Serialized[T](value: T)
 
-    implicit def serializedType[T]: BaseColumnType[Serialized[T]] = MappedColumnType.base[Serialized[T], Blob]({ s =>
-      val b = new ByteArrayOutputStream
-      val out = new ObjectOutputStream(b)
-      out.writeObject(s.value)
-      out.flush()
-      new SerialBlob(b.toByteArray)
-    }, { b =>
-      val in = new ObjectInputStream(b.getBinaryStream)
-      Serialized[T](in.readObject().asInstanceOf[T])
-    })
+    implicit def serializedType[T]: BaseColumnType[Serialized[T]] = MappedColumnType.base[Serialized[T], Blob](
+      { s =>
+        val b = new ByteArrayOutputStream
+        val out = new ObjectOutputStream(b)
+        out.writeObject(s.value)
+        out.flush()
+        new SerialBlob(b.toByteArray)
+      },
+      { b =>
+        val in = new ObjectInputStream(b.getBinaryStream)
+        Serialized[T](in.readObject().asInstanceOf[T])
+      }
+    )
 
     class T(tag: Tag) extends Table[(Int, Serialized[List[Int]])](tag, "t") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -106,8 +117,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
     seq(
       ts.schema.create,
-      ts.map(_.b) ++= Seq(Serialized(List(1,2,3)), Serialized(List(4,5))),
-      ts.to[Set].result.map(_ shouldBe Set((1, Serialized(List(1,2,3))), (2, Serialized(List(4,5)))))
+      ts.map(_.b) ++= Seq(Serialized(List(1, 2, 3)), Serialized(List(4, 5))),
+      ts.to[Set].result.map(_ shouldBe Set((1, Serialized(List(1, 2, 3))), (2, Serialized(List(4, 5)))))
     ).transactionally
   }
 
@@ -115,18 +126,23 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     roundTrip[UUID](List(UUID.randomUUID()), UUID.randomUUID)
 
   /**
-    *
-    * @param values List of static values, useful for potentially known problem values
-    * @param dataCreateFn generate random values. If these fail intermittently, don't just re-run. It is highlighting
-    *                     a real issue. These should never fail.
-    * @param dataCompareFn Optional compare function
-    * @tparam T The type to test
-    */
-  private def roundTrip[T: BaseColumnType](values: List[T],
-                                           dataCreateFn: () => T,
-                                           dataCompareFn: (Int, Option[T], Option[T]) => Unit =
-                                           (id: Int, l: Option[T], r: Option[T]) => (id, l) shouldBe(id, r),
-                                           tableNameSuffix: String = "") = {
+   * @param values
+   *   List of static values, useful for potentially known problem values
+   * @param dataCreateFn
+   *   generate random values. If these fail intermittently, don't just re-run. It is highlighting a real issue. These
+   *   should never fail.
+   * @param dataCompareFn
+   *   Optional compare function
+   * @tparam T
+   *   The type to test
+   */
+  private def roundTrip[T: BaseColumnType](
+      values: List[T],
+      dataCreateFn: () => T,
+      dataCompareFn: (Int, Option[T], Option[T]) => Unit = (id: Int, l: Option[T], r: Option[T]) =>
+        (id, l) shouldBe (id, r),
+      tableNameSuffix: String = ""
+  ) = {
     // How many random values to generate and test with
     val testValuesSize = 1000
     val rows = (1 to testValuesSize).map(i => (i, Some(dataCreateFn())))
@@ -143,62 +159,93 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     val dateTable = TableQuery[DataTable]
 
     val staticValues = values.zipWithIndex.map(x => (x._2, Some(x._1)))
-    db.run(seq(
-      dateTable.schema.create,
-      dateTable ++= staticValues,
-      dateTable.sortBy(_.id).result.map(_.zip(staticValues).
-        foreach{case ((lId, lValue), (rId, rValue)) => dataCompareFn(lId, lValue, rValue)}),
-      // select based on value literal
-      dateTable.filter(r => r.data === values.head && r.id === 0).map(_.id).result.headOption.map(_ shouldBe Some(0)),
-      dateTable.filter(r => r.data =!= values.head && r.id === 0).map(_.id).result.headOption.map(_ shouldBe None),
-      // select based on value binding
-      dateTable.filter(r => r.data === values.head.bind && r.id === 0).map(_.id).result.headOption.map(_ shouldBe Some(0)),
-      dateTable.filter(r => r.data =!= values.head.bind && r.id === 0).map(_.id).result.headOption.map(_ shouldBe None)
-    )).flatMap { _ =>
+    db.run(
+      seq(
+        dateTable.schema.create,
+        dateTable ++= staticValues,
+        dateTable
+          .sortBy(_.id)
+          .result
+          .map(_.zip(staticValues).foreach { case ((lId, lValue), (_, rValue)) =>
+            dataCompareFn(lId, lValue, rValue)
+          }),
+        // select based on value literal
+        dateTable.filter(r => r.data === values.head && r.id === 0).map(_.id).result.headOption.map(_ shouldBe Some(0)),
+        dateTable.filter(r => r.data =!= values.head && r.id === 0).map(_.id).result.headOption.map(_ shouldBe None),
+        // select based on value binding
+        dateTable
+          .filter(r => r.data === values.head.bind && r.id === 0)
+          .map(_.id)
+          .result
+          .headOption
+          .map(_ shouldBe Some(0)),
+        dateTable
+          .filter(r => r.data =!= values.head.bind && r.id === 0)
+          .map(_.id)
+          .result
+          .headOption
+          .map(_ shouldBe None)
+      )
+    ).flatMap { _ =>
       // update value
       val newValue = dataCreateFn()
-      db.run(seq(
-        dateTable.filter(_.id === 0).map(_.data).update(Some(newValue)),
-        dateTable.filter(_.id === 0).result.head.map{case (id, v) => dataCompareFn(id, v, Some(newValue))}
-      ))
+      db.run(
+        seq(
+          dateTable.filter(_.id === 0).map(_.data).update(Some(newValue)),
+          dateTable.filter(_.id === 0).result.head.map { case (id, v) => dataCompareFn(id, v, Some(newValue)) }
+        )
+      )
     }.flatMap { _ =>
       // add and select a null value
-      db.run(seq(
-        dateTable += (values.size + 1, None),
-        dateTable.filter(_.id === values.size + 1).map(_.data).result.head.map(_ shouldBe None)
-      ))
+      db.run(
+        seq(
+          dateTable += (values.size + 1, None),
+          dateTable.filter(_.id === values.size + 1).map(_.data).result.head.map(_ shouldBe None)
+        )
+      )
     }.flatMap { _ =>
       // filter on a LiteralColumn value
-      db.run(seq(
-        dateTable += (values.size + 2, Some(defaultValue)),
-        dateTable.filter(_.data === LiteralColumn(defaultValue)).map(_.data).result.head.map(_ shouldBe Some(defaultValue))
-      ))
+      db.run(
+        seq(
+          dateTable += (values.size + 2, Some(defaultValue)),
+          dateTable
+            .filter(_.data === LiteralColumn(defaultValue))
+            .map(_.data)
+            .result
+            .head
+            .map(_ shouldBe Some(defaultValue))
+        )
+      )
     }.flatMap { _ =>
       ifCapF(jcap.mutable) {
-        db.run(seq(dateTable.delete, dateTable ++= rows)).flatMap { _ =>
-          foreach(db.stream(dateTable.mutate.transactionally)) { m =>
-            if (!m.end) {
-              // update value for id 1
-              if (m.row._1 == 1) m.row = m.row.copy(_2 = Some(updateValue))
-              // delete id 2
-              else if (m.row._1 == 2) m.delete
-              //set id 3 value to NULL
-              else if (m.row._1 == 3) m.row = m.row.copy(_2 = None)
-              else if (m.row._1 == 4) {
-                // insert 2 new rows, one with a value and one NULL
-                m += (rows.size + 1, Some(insertValue))
-                m += (rows.size + 2, None)
+        db.run(seq(dateTable.delete, dateTable ++= rows))
+          .flatMap { _ =>
+            foreach(db.stream(dateTable.mutate.transactionally)) { m =>
+              if (!m.end) {
+                // update value for id 1
+                if (m.row._1 == 1) m.row = m.row.copy(_2 = Some(updateValue))
+                // delete id 2
+                else if (m.row._1 == 2) m.delete
+                // set id 3 value to NULL
+                else if (m.row._1 == 3) m.row = m.row.copy(_2 = None)
+                else if (m.row._1 == 4) {
+                  // insert 2 new rows, one with a value and one NULL
+                  m += (rows.size + 1, Some(insertValue))
+                  m += (rows.size + 2, None)
+                }
               }
             }
           }
-        }.flatMap { _ =>
-          db.run(dateTable.sortBy(_.id).result).map(_.zip(
-            Seq((1, Some(updateValue)), (3, None)) ++
-              rows.slice(3, rows.size) ++
-              Seq((testValuesSize + 1, Some(insertValue)), (testValuesSize + 2, None))).
-            foreach { case ((lId, lValue), (rId, rValue)) => dataCompareFn(lId, lValue, rValue) }
-          )
-        }
+          .flatMap { _ =>
+            db.run(dateTable.sortBy(_.id).result)
+              .map(
+                _.zip(
+                  Seq((1, Some(updateValue)), (3, None)) ++
+                    rows.slice(3, rows.size) ++
+                    Seq((testValuesSize + 1, Some(insertValue)), (testValuesSize + 2, None))
+                ).foreach { case ((lId, lValue), (_, rValue)) => dataCompareFn(lId, lValue, rValue) }
+              )
+          }
       }
     }
   }
@@ -206,14 +253,14 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   val random = Random
   private def randomLocalDateTime() = {
     val seconds = 100000000
-    now.plusSeconds(random.nextInt(seconds*2) - seconds)
+    now.plusSeconds(random.nextInt(seconds * 2) - seconds)
   }
   lazy val now = generateTestLocalDateTime()
+
   /**
-   * Generates a [[LocalDateTime]] used for the [[java.time]] type tests.
-   * The generated test [[LocalDateTime]] will adapt to the database system being used.
-   * Older version of MySQL have no millisecond resolution, so set all the ms component
-   * of the LocalDateTime to 000.
+   * Generates a [[LocalDateTime]] used for the [[java.time]] type tests. The generated test [[LocalDateTime]] will
+   * adapt to the database system being used. Older version of MySQL have no millisecond resolution, so set all the ms
+   * component of the LocalDateTime to 000.
    */
   private[this] def generateTestLocalDateTime(): LocalDateTime = {
     val now = Instant.now
@@ -228,7 +275,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         now.`with`(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND))
       }
     LocalDateTime.ofInstant(dbCompatibleInstant, ZoneOffset.UTC)
-  }  
+  }
   val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
   // Test the java.sql.* types
@@ -251,7 +298,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   // All the other time datatypes roundtrip cleanly.
   val hourInMs = 3600000
   def testTimestamp = {
-    def timestampCompare(id: Int, l: Option[Timestamp], r: Option[Timestamp]) = {
+    def timestampCompare(id: Int, l: Option[Timestamp], r: Option[Timestamp]) =
       (l, r) match {
         case (Some(l), Some(r)) =>
           val lTime = l.getTime
@@ -260,10 +307,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
             (id, l) shouldBe (id, r)
         case _ => (id, l) shouldBe (id, r)
       }
-    }
     roundTrip[Timestamp](
-      List(Timestamp.valueOf("2012-12-24 17:53:48.0"),
-        Timestamp.valueOf("2016-10-30 01:12:16.0")),
+      List(Timestamp.valueOf("2012-12-24 17:53:48.0"), Timestamp.valueOf("2016-10-30 01:12:16.0")),
       dataCreateFn = () => Timestamp.from(randomLocalDateTime().toInstant(ZoneOffset.UTC)),
       dataCompareFn = timestampCompare
     )
@@ -271,20 +316,23 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
   // Test the java.time.* types
   def testLocalDateTime = {
-    def localDateTimeCompare(id: Int, l: Option[LocalDateTime], r: Option[LocalDateTime]) = {
+    def localDateTimeCompare(id: Int, l: Option[LocalDateTime], r: Option[LocalDateTime]) =
       (l, r) match {
         case (Some(l), Some(r)) =>
-          if (l != r &&
-            math.abs(ChronoUnit.MILLIS.between(l, r)) != hourInMs)
+          if (
+            l != r &&
+            math.abs(ChronoUnit.MILLIS.between(l, r)) != hourInMs
+          )
             (id, l) shouldBe (id, r)
         case _ => (id, l) shouldBe (id, r)
       }
-    }
 
     roundTrip[LocalDateTime](
-      List(LocalDateTime.parse("2018-03-25T01:37:40", formatter),
+      List(
+        LocalDateTime.parse("2018-03-25T01:37:40", formatter),
         generateTestLocalDateTime().withHour(5),
-        generateTestLocalDateTime().withHour(12)),
+        generateTestLocalDateTime().withHour(12)
+      ),
       dataCreateFn = () => randomLocalDateTime(),
       dataCompareFn = localDateTimeCompare
     )
@@ -298,17 +346,18 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
   def testLocalTime =
     roundTrip[LocalTime](
-      List(generateTestLocalDateTime().toLocalTime.withHour(14),
-        generateTestLocalDateTime().toLocalTime.withHour(5)),
+      List(generateTestLocalDateTime().toLocalTime.withHour(14), generateTestLocalDateTime().toLocalTime.withHour(5)),
       () => randomLocalDateTime().toLocalTime
     )
 
   def testInstant =
     roundTrip[Instant](
-      List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
+      List(
+        LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
         Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
         generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
-        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
+        generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)
+      ),
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
     )
 
@@ -321,85 +370,79 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMPTZ"
       }
       roundTrip[Instant](
-        List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
+        List(
+          LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
           Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
           generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
-          generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
+          generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)
+        ),
         () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
         tableNameSuffix = "_with_time_zone"
       )(withTimeZone)
-    case _                  =>
+    case _ =>
       Future.successful(())
   }
 
   def testPostgresInstantWithInfiniteValues: Future[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[Instant](
-        List(
-          Instant.MIN,
-          Instant.MAX),
+        List(Instant.MIN, Instant.MAX),
         () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
         tableNameSuffix = "_with_infinite_values"
       )
-    case _                  =>
+    case _ =>
       Future.successful(())
   }
 
   def testPostgresLocalDateTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[LocalDateTime](
-        List(
-          LocalDateTime.MIN,
-          LocalDateTime.MAX),
+        List(LocalDateTime.MIN, LocalDateTime.MAX),
         () => randomLocalDateTime(),
         tableNameSuffix = "_with_infinite_values"
       )
-    case _                  =>
+    case _ =>
       Future.successful(())
   }
 
   def testPostgresLocalDateWithInfiniteValues: Future[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[LocalDate](
-        List(
-          LocalDate.MIN,
-          LocalDate.MAX),
+        List(LocalDate.MIN, LocalDate.MAX),
         () => randomLocalDateTime().toLocalDate,
         tableNameSuffix = "_with_infinite_values"
       )
-    case _                  =>
+    case _ =>
       Future.successful(())
   }
 
   def testPostgresLocalTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[LocalTime](
-        List(
-          LocalTime.MIN,
-          LocalTime.MAX),
+        List(LocalTime.MIN, LocalTime.MAX),
         () => randomLocalDateTime().toLocalTime,
         tableNameSuffix = "_with_infinite_values"
       )
-    case _                  =>
+    case _ =>
       Future.successful(())
   }
 
   def testPostgresOffsetTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[OffsetTime](
-        List(
-          OffsetTime.MIN,
-          OffsetTime.MAX),
+        List(OffsetTime.MIN, OffsetTime.MAX),
         () => randomLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime,
-
-        dataCompareFn = (id, original, result) => original match {
-        case Some(original) if original == OffsetTime.MAX => OffsetTime.MAX.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(15, 59))
-        case Some(original) if original == OffsetTime.MIN => OffsetTime.MIN.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(-15, -59))
-        case value => value == result
-      },
-      tableNameSuffix = "_with_infinite_values"
-    )
-  case _                  =>
+        dataCompareFn = (_, original, result) =>
+          original match {
+            case Some(original) if original == OffsetTime.MAX =>
+              OffsetTime.MAX.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(15, 59))
+            case Some(original) if original == OffsetTime.MIN =>
+              OffsetTime.MIN.withOffsetSameLocal(ZoneOffset.ofHoursMinutes(-15, -59))
+            case value => value == result
+          },
+        tableNameSuffix = "_with_infinite_values"
+      )
+    case _ =>
       Future.successful(())
   }
 
@@ -412,14 +455,16 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
   def testOffsetTime =
     roundTrip[OffsetTime](
-      List(OffsetTime.of(0, 0, 1, 746000000, ZoneOffset.ofHours(1)),
+      List(
+        OffsetTime.of(0, 0, 1, 746000000, ZoneOffset.ofHours(1)),
         OffsetTime.of(0, 0, 0, 745000000, ZoneOffset.ofHours(1)),
         generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime.withHour(15),
         generateTestLocalDateTime().atOffset(ZoneOffset.UTC).toOffsetTime.withHour(5),
         generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).toOffsetDateTime.toOffsetTime.withHour(15),
         generateTestLocalDateTime().atZone(ZoneId.of("Antarctica/Rothera")).toOffsetDateTime.toOffsetTime,
         generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.toOffsetTime,
-        generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.toOffsetTime),
+        generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.toOffsetTime
+      ),
       () => randomLocalDateTime().atOffset(randomZoneOffset).toOffsetTime
     )
 
@@ -432,7 +477,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Samoa")).toOffsetDateTime.withHour(15),
         generateTestLocalDateTime().atZone(ZoneId.of("Africa/Addis_Ababa")).toOffsetDateTime.withHour(15),
         generateTestLocalDateTime().atZone(ZoneId.of("Pacific/Wallis")).toOffsetDateTime.withHour(15),
-        generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.withHour(15)),
+        generateTestLocalDateTime().atZone(ZoneId.of("Africa/Johannesburg")).toOffsetDateTime.withHour(15)
+      ),
       () => randomLocalDateTime().atOffset(randomZoneOffset)
     )
 
@@ -467,10 +513,12 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     }
     val baseLocalDateTime = randomLocalDateTime()
     roundTrip[ZonedDateTime](
-      // from the random baseLocalDateTime, generate samples from about 6 months worth 
+      // from the random baseLocalDateTime, generate samples from about 6 months worth
       // of datetimes for each test zoneId
-      (0 to 50).map(offset => baseLocalDateTime.plusMinutes(offset * 5500)).toList.
-        flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
+      (0 to 50)
+        .map(offset => baseLocalDateTime.plusMinutes(offset * 5500))
+        .toList
+        .flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
       generateTestZonedDateTime
     )
   }

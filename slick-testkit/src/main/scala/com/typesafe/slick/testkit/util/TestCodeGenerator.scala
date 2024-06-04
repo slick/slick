@@ -24,20 +24,24 @@ trait TestCodeGenerator {
     new OutputHelpers {
       def indent(code: String): String = code
       def code: String = ""
-      def codePerTable:Map[String,String] = Map()
+      def codePerTable: Map[String, String] = Map()
       def foreignKeysPerTable: Map[String, List[String]] = Map()
-      def codeForContainer:String = ""
+      def codeForContainer: String = ""
     }.writeStringToFile(
       s"""
          |package $packageName
          |object AllTests extends com.typesafe.slick.testkit.util.TestCodeRunner.AllTests {
          |  val classNames = Seq(${classNames.map("\"" + _ + "\"").mkString(", ")})
          |}
-       """.stripMargin, args(0), packageName, "AllTests.scala"
+       """.stripMargin,
+      args(0),
+      packageName,
+      "AllTests.scala"
     )
-  } catch { case ex: Throwable =>
-    ex.printStackTrace(System.err)
-    System.exit(1)
+  } catch {
+    case ex: Throwable =>
+      ex.printStackTrace(System.err)
+      System.exit(1)
   }
 
   class Config(val objectName: String, val tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String]) { self =>
@@ -47,7 +51,7 @@ trait TestCodeGenerator {
 
     def fullTdbName = computeFullTdbName(tdbName)
 
-    def generate(dir: String): Option[String] = if(tdb.isEnabled || tdb.isInstanceOf[InternalJdbcTestDB]) {
+    def generate(dir: String): Option[String] = if (tdb.isEnabled || tdb.isInstanceOf[InternalJdbcTestDB]) {
       tdb.cleanUpBefore()
       try {
         var init: DBIO[Any] = DBIO.successful(())
@@ -55,17 +59,18 @@ trait TestCodeGenerator {
         initScripts.foreach { initScript =>
           import tdb.profile.api.*
           val source = Source.fromURL(self.getClass.getResource(initScript))(Codec.UTF8)
-          try source.getLines().foreach { s =>
-            if (current eq null) current = s else current = current + "\n" + s
-            if (s.trim.endsWith(";")) {
-              if (useSingleLineStatements) {
-                current = current.substring(0, current.length - 1)
-                current = current.replace("\r", "").replace('\n', ' ')
+          try
+            source.getLines().foreach { s =>
+              if (current eq null) current = s else current = current + "\n" + s
+              if (s.trim.endsWith(";")) {
+                if (useSingleLineStatements) {
+                  current = current.substring(0, current.length - 1)
+                  current = current.replace("\r", "").replace('\n', ' ')
+                }
+                init = init >> sqlu"#$current"
+                current = null
               }
-              init = init >> sqlu"#$current"
-              current = null
             }
-          }
           finally source.close()
           if (current ne null) {
             if (useSingleLineStatements) current = current.replace("\r", "").replace('\n', ' ')
@@ -75,26 +80,31 @@ trait TestCodeGenerator {
         val db = tdb.createDB()
         try {
           val m = Await.result(db.run((init >> generator).withPinnedSession), Duration.Inf)
-          m.writeToFile(profile=slickProfile, folder=dir, pkg=packageName, objectName, fileName=objectName+".scala" )
+          m.writeToFile(
+            profile = slickProfile,
+            folder = dir,
+            pkg = packageName,
+            objectName,
+            fileName = objectName + ".scala"
+          )
         } finally db.close
-      }
-      finally tdb.cleanUpAfter()
+      } finally tdb.cleanUpAfter()
       Some(s"$packageName.$objectName")
     } else None
 
     def generator: DBIO[SourceCodeGenerator] =
-      tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+      tdb.profile.createModel(ignoreInvalidDefaults = false).map(new MyGen(_))
 
     def testCode: String = defaultTestCode(this)
 
-    class MyGen(model:Model) extends SourceCodeGenerator(model) {
+    class MyGen(model: Model) extends SourceCodeGenerator(model) {
       override def entityName = { (sqlName: String) =>
         val baseName = super.entityName(sqlName)
         if (baseName.dropRight(3).last == 's') baseName.dropRight(4)
         else baseName
       }
       override def parentType: Some[String] = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
-      override def code = {
+      override def code =
         s"""
            |lazy val tdb: $fullTdbName.type = $fullTdbName
            |def test: slick.dbio.DBIO[Any] = {
@@ -103,17 +113,16 @@ trait TestCodeGenerator {
            |  $testCode
            |}
            |""".stripMargin + super.code
-      }
     }
   }
 }
 
 class TestCodeRunner(tests: TestCodeRunner.AllTests) {
   def run(cln: String): Unit = {
-    val t = Class.forName(cln+"$").getField("MODULE$").get(null).asInstanceOf[TestCodeRunner.TestCase]
+    val t = Class.forName(cln + "$").getField("MODULE$").get(null).asInstanceOf[TestCodeRunner.TestCase]
     val tdb = t.tdb
     println(s"Running test $cln on ${tdb.confName}")
-    if(tdb.isEnabled) {
+    if (tdb.isEnabled) {
       tdb.cleanUpBefore()
       try {
         val a = t.test
@@ -127,10 +136,11 @@ class TestCodeRunner(tests: TestCodeRunner.AllTests) {
 
   @Test def allTests() = tests.classNames.foreach { cln =>
     try run(cln)
-    catch { case e: Throwable =>
-      Console.err.println(s"Test $cln failed: $e")
-      e.printStackTrace(System.err)
-      throw e
+    catch {
+      case e: Throwable =>
+        Console.err.println(s"Test $cln failed: $e")
+        e.printStackTrace(System.err)
+        throw e
     }
   }
 }

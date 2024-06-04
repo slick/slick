@@ -12,7 +12,7 @@ package object collection {
   private[slick] val LazyList = scala.collection.immutable.LazyList
 
   object JavaConverters
-    extends scala.collection.convert.AsJavaExtensions
+      extends scala.collection.convert.AsJavaExtensions
       with scala.collection.convert.AsScalaExtensions
 
 }

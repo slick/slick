@@ -9,12 +9,13 @@ import scala.language.implicitConversions
 
 import com.typesafe.config.*
 
-/** Singleton object with Slick's configuration, loaded from the application config.
-  * This includes configuration for the global profile objects and settings for debug logging.
-  *
-  * In addition to being listed in reference.conf, all essential config options also have their
-  * default values hardcoded here because we cannot rely on getting reference.conf on the classpath
-  * in all cases (e.g. the `tsql` macro). */
+/**
+ * Singleton object with Slick's configuration, loaded from the application config. This includes configuration for the
+ * global profile objects and settings for debug logging.
+ *
+ * In addition to being listed in reference.conf, all essential config options also have their default values hardcoded
+ * here because we cannot rely on getting reference.conf on the classpath in all cases (e.g. the `tsql` macro).
+ */
 object GlobalConfig {
   import ConfigExtensionMethods.*
 
@@ -39,46 +40,47 @@ object GlobalConfig {
   val detectRebuild = config.getBooleanOr("slick.detectRebuild", false)
 
   /** Get a `Config` object for a Slick profile */
-  def profileConfig(path: String): Config = {
-    if(config.hasPath(path)) config.getConfig(path)
+  def profileConfig(path: String): Config =
+    if (config.hasPath(path)) config.getConfig(path)
     else ConfigFactory.empty()
-  }
 }
 
 /** Extension methods to make Typesafe Config easier to use */
 class ConfigExtensionMethods(val c: Config) extends AnyVal {
   import scala.jdk.CollectionConverters.*
 
-  def getBooleanOr(path: String, default: => Boolean = false) = if(c.hasPath(path)) c.getBoolean(path) else default
-  def getIntOr(path: String, default: => Int = 0) = if(c.hasPath(path)) c.getInt(path) else default
-  def getStringOr(path: String, default: => String = null) = if(c.hasPath(path)) c.getString(path) else default
-  def getConfigOr(path: String, default: => Config = ConfigFactory.empty()) = if(c.hasPath(path)) c.getConfig(path) else default
+  def getBooleanOr(path: String, default: => Boolean = false) = if (c.hasPath(path)) c.getBoolean(path) else default
+  def getIntOr(path: String, default: => Int = 0) = if (c.hasPath(path)) c.getInt(path) else default
+  def getStringOr(path: String, default: => String = null) = if (c.hasPath(path)) c.getString(path) else default
+  def getConfigOr(path: String, default: => Config = ConfigFactory.empty()) =
+    if (c.hasPath(path)) c.getConfig(path) else default
 
-  def getMillisecondsOr(path: String, default: => Long = 0L) = if(c.hasPath(path)) c.getDuration(path, TimeUnit.MILLISECONDS) else default
+  def getMillisecondsOr(path: String, default: => Long = 0L) =
+    if (c.hasPath(path)) c.getDuration(path, TimeUnit.MILLISECONDS) else default
   def getDurationOr(path: String, default: => Duration = Duration.Zero) =
-    if(c.hasPath(path)) Duration(c.getDuration(path, TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS) else default
+    if (c.hasPath(path)) Duration(c.getDuration(path, TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS) else default
 
   def getPropertiesOr(path: String, default: => Properties = null): Properties =
-    if(c.hasPath(path)) new ConfigExtensionMethods(c.getConfig(path)).toProperties else default
+    if (c.hasPath(path)) new ConfigExtensionMethods(c.getConfig(path)).toProperties else default
 
   def toProperties: Properties = {
     def toProps(m: mutable.Map[String, ConfigValue]): Properties = {
       val props = new Properties(null)
       m.foreach { case (k, cv) =>
         val v =
-          if(cv.valueType() == ConfigValueType.OBJECT) toProps(cv.asInstanceOf[ConfigObject].asScala)
-          else if(cv.unwrapped eq null) null
+          if (cv.valueType() == ConfigValueType.OBJECT) toProps(cv.asInstanceOf[ConfigObject].asScala)
+          else if (cv.unwrapped eq null) null
           else cv.unwrapped.toString
-        if(v ne null) props.put(k, v)
+        if (v ne null) props.put(k, v)
       }
       props
     }
     toProps(c.root.asScala)
   }
 
-  def getBooleanOpt(path: String): Option[Boolean] = if(c.hasPath(path)) Some(c.getBoolean(path)) else None
-  def getIntOpt(path: String): Option[Int] = if(c.hasPath(path)) Some(c.getInt(path)) else None
-  def getLongOpt(path: String): Option[Long] = if(c.hasPath(path)) Some(c.getLong(path)) else None
+  def getBooleanOpt(path: String): Option[Boolean] = if (c.hasPath(path)) Some(c.getBoolean(path)) else None
+  def getIntOpt(path: String): Option[Int] = if (c.hasPath(path)) Some(c.getInt(path)) else None
+  def getLongOpt(path: String): Option[Long] = if (c.hasPath(path)) Some(c.getLong(path)) else None
   def getStringOpt(path: String) = Option(getStringOr(path))
   def getPropertiesOpt(path: String) = Option(getPropertiesOr(path))
 }

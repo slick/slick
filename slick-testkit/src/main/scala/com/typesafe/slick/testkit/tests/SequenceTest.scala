@@ -16,7 +16,7 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
 
     val mySequence = Sequence[Int]("mysequence") start 200 inc 10
     val ddl = users.schema ++ mySequence.schema
-    val q1 = for(u <- users) yield (mySequence.next, u.id)
+    val q1 = for (u <- users) yield (mySequence.next, u.id)
     q1.result.statements
     ddl.createStatements
 
@@ -38,7 +38,7 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
 
     def values(s: Sequence[Int], count: Int = 5, create: Boolean = true) = {
       val q = Query(s.next)
-      (if(create) s.schema.create else DBIO.successful(())) >>
+      (if (create) s.schema.create else DBIO.successful(())) >>
         DBIO.sequence((1 to count).toList map (_ => q.result.map(_.head)))
     }
 
@@ -46,14 +46,18 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
       values(s1).map(_ shouldBe List(1, 2, 3, 4, 5)),
       values(s2).map(_ shouldBe List(3, 4, 5, 6, 7)),
       values(s3).map(_ shouldBe List(3, 5, 7, 9, 11)),
-      ifCap(scap.sequenceMin, scap.sequenceMax, scap.sequenceCycle)(seq(
-        values(s4).map(_ shouldBe List(3, 4, 5, 2, 3)),
-        values(s5).map(_ shouldBe List(3, 2, 5, 4, 3))
-      )),
-      ifCap(scap.sequenceMin, scap.sequenceMax, scap.sequenceLimited)(seq(
-        values(s6, 3).map(_ shouldBe List(3, 4, 5)),
-        values(s6, 1, false).failed
-      ))
+      ifCap(scap.sequenceMin, scap.sequenceMax, scap.sequenceCycle)(
+        seq(
+          values(s4).map(_ shouldBe List(3, 4, 5, 2, 3)),
+          values(s5).map(_ shouldBe List(3, 2, 5, 4, 3))
+        )
+      ),
+      ifCap(scap.sequenceMin, scap.sequenceMax, scap.sequenceLimited)(
+        seq(
+          values(s6, 3).map(_ shouldBe List(3, 4, 5)),
+          values(s6, 1, false).failed
+        )
+      )
     ).withPinnedSession
   }
 }

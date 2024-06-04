@@ -17,7 +17,6 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
 
     val getTI = SimpleDBIO(_.connection.getTransactionIsolation)
 
-
     ts.schema.create andThen { // failed transaction
       (for {
         _ <- ts += 1
@@ -26,8 +25,8 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
         _ = throw new ExpectedException
       } yield ()).transactionally.failed.map(_ should (_.isInstanceOf[ExpectedException]))
     } andThen {
-       ts.result.map(_ shouldBe Nil) andThen
-         GetTransactionality.map(_ shouldBe (0, true))
+      ts.result.map(_ shouldBe Nil) andThen
+        GetTransactionality.map(_ shouldBe (0, true))
     } andThen { // successful transaction
       (for {
         _ <- ts += 2
@@ -61,17 +60,21 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
     } andThen {
       ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6)) andThen
         GetTransactionality.map(_ shouldBe (0, true))
-    } andThen { ifCap(tcap.transactionIsolation) {
-      (for {
-        ti1 <- getTI
-        _ <- (for {
-          _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
-          _ <- getTI.withTransactionIsolation(TransactionIsolation.Serializable).map(_ should(_ >= TransactionIsolation.Serializable.intValue))
-          _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
-        } yield ()).withTransactionIsolation(TransactionIsolation.ReadUncommitted)
-        _ <- getTI.map(_ shouldBe ti1)
-      } yield ()).withPinnedSession
-    }}
+    } andThen {
+      ifCap(tcap.transactionIsolation) {
+        (for {
+          ti1 <- getTI
+          _ <- (for {
+            _ <- getTI.map(_ should (_ >= TransactionIsolation.ReadUncommitted.intValue))
+            _ <- getTI
+              .withTransactionIsolation(TransactionIsolation.Serializable)
+              .map(_ should (_ >= TransactionIsolation.Serializable.intValue))
+            _ <- getTI.map(_ should (_ >= TransactionIsolation.ReadUncommitted.intValue))
+          } yield ()).withTransactionIsolation(TransactionIsolation.ReadUncommitted)
+          _ <- getTI.map(_ shouldBe ti1)
+        } yield ()).withPinnedSession
+      }
+    }
   }
 }
 

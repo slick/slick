@@ -14,54 +14,70 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
   val mappingCompiler: MappingCompiler = new MappingCompiler
 
   /** Create a (possibly specialized) `ResultConverter` for the given `JdbcType`. */
-  def createBaseResultConverter[T](ti: JdbcType[T],
-                                   name: String,
-                                   idx: Int): ResultConverter[ResultSet, PreparedStatement, ResultSet, T] =
+  def createBaseResultConverter[T](
+      ti: JdbcType[T],
+      name: String,
+      idx: Int
+  ): ResultConverter[ResultSet, PreparedStatement, ResultSet, T] =
     SpecializedJdbcResultConverter.base(ti, name, idx)
 
   /** Create a (possibly specialized) `ResultConverter` for `Option` values of the given `JdbcType`. */
-  def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]] =
+  def createOptionResultConverter[T](
+      ti: JdbcType[T],
+      idx: Int
+  ): ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]] =
     new OptionResultConverter(ti, idx)
 
-  /** A ResultConverterCompiler that builds JDBC-based converters. Instances of
-    * this class use mutable state internally. They are meant to be used for a
-    * single conversion only and must not be shared or reused. */
+  /**
+   * A ResultConverterCompiler that builds JDBC-based converters. Instances of this class use mutable state internally.
+   * They are meant to be used for a single conversion only and must not be shared or reused.
+   */
   class MappingCompiler extends ResultConverterCompiler[ResultSet, PreparedStatement, ResultSet] {
-    def createColumnConverter(n: Node,
-                              idx: Int,
-                              column: Option[FieldSymbol]): ResultConverter[ResultSet, PreparedStatement, ResultSet, ?] = {
+    def createColumnConverter(
+        n: Node,
+        idx: Int,
+        column: Option[FieldSymbol]
+    ): ResultConverter[ResultSet, PreparedStatement, ResultSet, ?] = {
       val JdbcType(ti, option) = n.nodeType.structural
-      if(option) createOptionResultConverter(ti, idx)
+      if (option) createOptionResultConverter(ti, idx)
       else createBaseResultConverter(ti, column.fold("<computed>")(_.name), idx)
     }
 
-    override def createGetOrElseResultConverter[T](rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]],
-                                                   default: () => T) = rc match {
+    override def createGetOrElseResultConverter[T](
+        rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]],
+        default: () => T
+    ) = rc match {
       case rc: OptionResultConverter[T] => rc.getOrElse(default)
       case _                            => super.createGetOrElseResultConverter[T](rc, default)
     }
 
-    override def createIsDefinedResultConverter[T](rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]]) =
+    override def createIsDefinedResultConverter[T](
+        rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Option[T]]
+    ) =
       rc match {
         case rc: OptionResultConverter[?] => rc.isDefined
         case _                            => super.createIsDefinedResultConverter(rc)
       }
 
-    override def createTypeMappingResultConverter(rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Any],
-                                                  mapper: MappedScalaType.Mapper) = {
+    override def createTypeMappingResultConverter(
+        rc: ResultConverter[ResultSet, PreparedStatement, ResultSet, Any],
+        mapper: MappedScalaType.Mapper
+    ) = {
       val tm = TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
       mapper.fastPath match {
         case Some(f) => f(tm).asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, Any]]
-        case None => tm
+        case None    => tm
       }
     }
   }
 
   /** Code generator phase for queries on JdbcProfile. */
   class JdbcCodeGen(f: QueryBuilder => SQLBuilder.Result) extends CodeGen {
-    override def compileServerSideAndMapping(serverSide: Node,
-                                             mapping: Option[Node],
-                                             state: CompilerState): (CompiledStatement, Option[CompiledMapping]) = {
+    override def compileServerSideAndMapping(
+        serverSide: Node,
+        mapping: Option[Node],
+        state: CompilerState
+    ): (CompiledStatement, Option[CompiledMapping]) = {
       val (tree, tpe) = treeAndType(serverSide)
       val sbr = f(self.createQueryBuilder(tree, state))
       (CompiledStatement(sbr.sql, sbr, tpe).infer(), mapping.map(mappingCompiler.compileMapping))
@@ -70,13 +86,17 @@ trait JdbcMappingCompilerComponent { self: JdbcProfile =>
 
   /** Code generator phase for inserts on JdbcProfile. */
   class JdbcInsertCodeGen(f: Insert => InsertBuilder) extends CodeGen {
-    override def compileServerSideAndMapping(serverSide: Node,
-                                             mapping: Option[Node],
-                                             state: CompilerState): (CompiledStatement, Option[CompiledMapping]) = {
+    override def compileServerSideAndMapping(
+        serverSide: Node,
+        mapping: Option[Node],
+        state: CompilerState
+    ): (CompiledStatement, Option[CompiledMapping]) = {
       val ib = f(serverSide.asInstanceOf[Insert])
       val ibr = ib.buildInsert
-      (CompiledStatement(ibr.sql, ibr, serverSide.nodeType).infer(),
-        mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
+      (
+        CompiledStatement(ibr.sql, ibr, serverSide.nodeType).infer(),
+        mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n)))
+      )
     }
   }
 }

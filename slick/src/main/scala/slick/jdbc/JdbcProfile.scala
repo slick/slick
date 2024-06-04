@@ -12,9 +12,15 @@ import slick.relational.{CompiledMapping, RelationalProfile}
 import slick.sql.SqlProfile
 
 /** Abstract profile for accessing SQL databases via JDBC. */
-trait JdbcProfile extends SqlProfile with JdbcActionComponent
-  with JdbcInvokerComponent with JdbcTypesComponent with JdbcModelComponent
-  /* internal: */ with JdbcStatementBuilderComponent with JdbcMappingCompilerComponent {
+trait JdbcProfile
+    extends SqlProfile
+    with JdbcActionComponent
+    with JdbcInvokerComponent
+    with JdbcTypesComponent
+    with JdbcModelComponent
+    /* internal: */
+    with JdbcStatementBuilderComponent
+    with JdbcMappingCompilerComponent {
 
   type ResultConverterReader = ResultSet
   type ResultConverterWriter = PreparedStatement
@@ -82,19 +88,23 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
     type SimpleDBIO[+R] = SimpleJdbcAction[R]
     val SimpleDBIO = SimpleJdbcAction
 
-    implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[? <: RelationalProfile#Table[?], ?, C]
-                                                        ): DeleteActionExtensionMethods =
+    implicit def queryDeleteActionExtensionMethods[C[_]](
+        q: Query[? <: RelationalProfile#Table[?], ?, C]
+    ): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
-    implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](c: RunnableCompiled[? <: Query[?, ?, C], C[RU]]
-                                                                       ): DeleteActionExtensionMethods =
+    implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](
+        c: RunnableCompiled[? <: Query[?, ?, C], C[RU]]
+    ): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(c.compiledDelete, c.param)
 
-    implicit def runnableCompiledUpdateActionExtensionMethods[RU, C[_]](c: RunnableCompiled[? <: Query[?, ?, C], C[RU]]
-                                                                       ): UpdateActionExtensionMethods[RU] =
+    implicit def runnableCompiledUpdateActionExtensionMethods[RU, C[_]](
+        c: RunnableCompiled[? <: Query[?, ?, C], C[RU]]
+    ): UpdateActionExtensionMethods[RU] =
       createUpdateActionExtensionMethods(c.compiledUpdate, c.param)
 
-    implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: DBIOAction[R, S, E]
-                                                                          ): JdbcActionExtensionMethods[E, R, S] =
+    implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](
+        a: DBIOAction[R, S, E]
+    ): JdbcActionExtensionMethods[E, R, S] =
       new JdbcActionExtensionMethods[E, R, S](a)
 
     implicit def actionBasedSQLInterpolation(s: StringContext): ActionBasedSQLInterpolation =
@@ -106,9 +116,9 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: backend.Session): R = tree match {
     case rsm @ ResultSetMapping(_, _, CompiledMapping(_, _)) :@ CollectionType(cons, el) =>
       val b = cons.createBuilder(el.classTag).asInstanceOf[mutable.Builder[Any, R]]
-      createQueryInvoker[Any](rsm, param, null).foreach({ x => b += x })(session)
+      createQueryInvoker[Any](rsm, param, null).foreach(x => b += x)(session)
       b.result()
-    case First(rsm: ResultSetMapping)                                                    =>
+    case First(rsm: ResultSetMapping) =>
       createQueryInvoker[R](rsm, param, null).first
   }
 }

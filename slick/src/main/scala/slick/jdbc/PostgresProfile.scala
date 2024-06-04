@@ -17,39 +17,27 @@ import slick.relational.RelationalProfile
 import slick.util.ConstArray
 import slick.util.QueryInterpolator.queryInterpolator
 
-/** Slick profile for PostgreSQL.
-  *
-  * This profile implements [[slick.jdbc.JdbcProfile]]
-  * ''without'' the following capabilities:
-  *
-  * <ul>
-  *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
-  *     InsertOrUpdate operations are emulated on the server side with a single
-  *     JDBC statement executing multiple server-side statements in a transaction.
-  *     This is faster than a client-side emulation but may still fail due to
-  *     concurrent updates. InsertOrUpdate operations with `returning` are
-  *     emulated on the client side.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.nullableNoDefault]]:
-  *     Nullable columns always have NULL as a default according to the SQL
-  *     standard. Consequently Postgres treats no specifying a default value
-  *     just as specifying NULL and reports NULL as the default value.
-  *     Some other dbms treat queries with no default as NULL default, but
-  *     distinguish NULL from no default value in the meta data.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
-  *     Postgres doesn't have a corresponding type for Byte.
-  *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
-  * </ul>
-  *
-  * Notes:
-  *
-  * <ul>
-  *   <li>[[slick.relational.RelationalCapabilities.typeBlob]]:
-  *   The default implementation of the <code>Blob</code> type uses the
-  *   database type <code>lo</code> and the stored procedure
-  *   <code>lo_manage</code>, both of which are provided by the "lo"
-  *   extension in PostgreSQL.</li>
-  * </ul>
-  */
+/**
+ * Slick profile for PostgreSQL.
+ *
+ * This profile implements [[slick.jdbc.JdbcProfile]] ''without'' the following capabilities:
+ *
+ * <ul> <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]: InsertOrUpdate operations are emulated on the server side
+ * with a single JDBC statement executing multiple server-side statements in a transaction. This is faster than a
+ * client-side emulation but may still fail due to concurrent updates. InsertOrUpdate operations with `returning` are
+ * emulated on the client side.</li> <li>[[slick.jdbc.JdbcCapabilities.nullableNoDefault]]: Nullable columns always have
+ * NULL as a default according to the SQL standard. Consequently Postgres treats no specifying a default value just as
+ * specifying NULL and reports NULL as the default value. Some other dbms treat queries with no default as NULL default,
+ * but distinguish NULL from no default value in the meta data.</li> <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
+ * Postgres doesn't have a corresponding type for Byte. SMALLINT is used instead and mapped to Short in the Slick
+ * model.</li> </ul>
+ *
+ * Notes:
+ *
+ * <ul> <li>[[slick.relational.RelationalCapabilities.typeBlob]]: The default implementation of the <code>Blob</code>
+ * type uses the database type <code>lo</code> and the stored procedure <code>lo_manage</code>, both of which are
+ * provided by the "lo" extension in PostgreSQL.</li> </ul>
+ */
 trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   override protected def computeCapabilities: Set[Capability] =
@@ -60,7 +48,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       JdbcCapabilities.supportsByte
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
-    extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+      extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createTableNamer(mTable: MTable): TableNamer = new PostgresTableNamer(mTable)
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
@@ -99,56 +87,61 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       val NumericPattern = "^['(]?(-?[0-9]+\\.?[0-9]*)[')]?(?:::(?:numeric|bigint|integer))?".r
       val TextPattern = "^'(.*)'::(?:bpchar|character varying|text)".r
       val UUIDPattern = "^'(.*)'::uuid".r
-      override def default = meta.columnDef.map((_, tpe)).collect {
-        case ("true", "Boolean")                          => Some(Some(true))
-        case ("false", "Boolean")                         => Some(Some(false))
-        case (TextPattern(str), "String")                 => Some(Some(str))
-        case ("NULL::bpchar", "String")                   => Some(None)
-        case (TextPattern(str), "Char")                   => str.length match {
-          case 0 => Some(Some(' ')) // Default to one space, as the char will be space padded anyway
-          case 1 => Some(Some(str.head))
-          case _ => None // This is invalid, so let's not supply any default
+      override def default = meta.columnDef
+        .map((_, tpe))
+        .collect {
+          case ("true", "Boolean")          => Some(Some(true))
+          case ("false", "Boolean")         => Some(Some(false))
+          case (TextPattern(str), "String") => Some(Some(str))
+          case ("NULL::bpchar", "String")   => Some(None)
+          case (TextPattern(str), "Char") =>
+            str.length match {
+              case 0 => Some(Some(' ')) // Default to one space, as the char will be space padded anyway
+              case 1 => Some(Some(str.head))
+              case _ => None // This is invalid, so let's not supply any default
+            }
+          case ("NULL::bpchar", "Char")                     => Some(None)
+          case (NumericPattern(v), "Short")                 => Some(Some(v.toShort))
+          case (NumericPattern(v), "Int")                   => Some(Some(v.toInt))
+          case (NumericPattern(v), "Long")                  => Some(Some(v.toLong))
+          case (NumericPattern(v), "Float")                 => Some(Some(v.toFloat))
+          case (NumericPattern(v), "Double")                => Some(Some(v.toDouble))
+          case (NumericPattern(v), "scala.math.BigDecimal") => Some(Some(BigDecimal(s"$v")))
+          case (UUIDPattern(v), "java.util.UUID")           => Some(Some(java.util.UUID.fromString(v)))
+          // The UUID is generated through a function - treat it as if there was no default.
+          case (_, "java.util.UUID") => None
         }
-        case ("NULL::bpchar", "Char")                     => Some(None)
-        case (NumericPattern(v), "Short")                 => Some(Some(v.toShort))
-        case (NumericPattern(v), "Int")                   => Some(Some(v.toInt))
-        case (NumericPattern(v), "Long")                  => Some(Some(v.toLong))
-        case (NumericPattern(v), "Float")                 => Some(Some(v.toFloat))
-        case (NumericPattern(v), "Double")                => Some(Some(v.toDouble))
-        case (NumericPattern(v), "scala.math.BigDecimal") => Some(Some(BigDecimal(s"$v")))
-        case (UUIDPattern(v), "java.util.UUID")           => Some(Some(java.util.UUID.fromString(v)))
-        // The UUID is generated through a function - treat it as if there was no default.
-        case (_, "java.util.UUID") => None
-      }.getOrElse {
-        val d = super.default
-        if (meta.nullable.contains(true) && d.isEmpty) {
-          Some(None)
-        } else d
-      }
+        .getOrElse {
+          val d = super.default
+          if (meta.nullable.contains(true) && d.isEmpty) {
+            Some(None)
+          } else d
+        }
       override def varying: Boolean =
         dbType.contains("citext") || super.varying
       override def length: Option[Int] = {
         val l = super.length
-        if(tpe == "String" && varying && l.contains(2147483647)) None
+        if (tpe == "String" && varying && l.contains(2147483647)) None
         else l
       }
       override def tpe = meta.typeName match {
-        case "bytea" => "Array[Byte]"
+        case "bytea"                                         => "Array[Byte]"
         case "lo" if meta.sqlType == java.sql.Types.DISTINCT => "java.sql.Blob"
-        case "uuid" => "java.util.UUID"
-        case "citext" => "String"
-        case _ => super.tpe
+        case "uuid"                                          => "java.util.UUID"
+        case "citext"                                        => "String"
+        case _                                               => super.tpe
       }
     }
     class PostgresIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo])
-      extends IndexBuilder(tableBuilder, meta) {
+        extends IndexBuilder(tableBuilder, meta) {
       // FIXME: this needs a test
       override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit
+      ec: ExecutionContext
+  ): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
@@ -169,12 +162,12 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
-      size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
-    case java.sql.Types.BLOB => "lo"
+      size.fold("VARCHAR")(l => if (l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
+    case java.sql.Types.BLOB   => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
-    case _ => super.defaultSqlTypeName(tmd, sym)
+    case _                      => super.defaultSqlTypeName(tmd, sym)
   }
 
   class PostgresQueryBuilder(tree: Node, state: CompilerState) extends QueryBuilder(tree, state) {
@@ -185,33 +178,35 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override protected def buildSelectModifiers(c: Comprehension.Base): Unit = (c.distinct, c.select) match {
       case (Some(ProductNode(onNodes)), Pure(ProductNode(selNodes), _)) if onNodes.nonEmpty =>
         def eligible(a: ConstArray[Node]) = a.forall {
-          case _: PathElement => true
-          case _: LiteralNode => true
+          case _: PathElement    => true
+          case _: LiteralNode    => true
           case _: QueryParameter => true
-          case _ => false
+          case _                 => false
         }
-        if(eligible(onNodes) && eligible(selNodes) &&
+        if (
+          eligible(onNodes) && eligible(selNodes) &&
           onNodes.iterator.collect[List[TermSymbol]] { case FwdPath(ss) => ss }.toSet ==
             selNodes.iterator.collect[List[TermSymbol]] { case FwdPath(ss) => ss }.toSet
-        ) b"distinct " else super.buildSelectModifiers(c)
+        ) b"distinct "
+        else super.buildSelectModifiers(c)
       case _ => super.buildSelectModifiers(c)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b"\nlimit $t offset $d"
-      case (Some(t), None   ) => b"\nlimit $t"
-      case (None,    Some(d)) => b"\noffset $d"
-      case _ =>
+      case (Some(t), None)    => b"\nlimit $t"
+      case (None, Some(d))    => b"\noffset $d"
+      case _                  =>
     }
 
     override def expr(n: Node) = n match {
-      case Library.UCase(ch) => b"upper($ch)"
-      case Library.LCase(ch) => b"lower($ch)"
-      case Library.IfNull(ch, d) => b"coalesce($ch, $d)"
-      case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
+      case Library.UCase(ch)                        => b"upper($ch)"
+      case Library.LCase(ch)                        => b"lower($ch)"
+      case Library.IfNull(ch, d)                    => b"coalesce($ch, $d)"
+      case Library.NextValue(SequenceNode(name))    => b"nextval('$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
-      case Library.CurrentDate() => b"current_date"
-      case Library.CurrentTime() => b"current_time"
+      case Library.CurrentDate()                    => b"current_date"
+      case Library.CurrentTime()                    => b"current_time"
       case Union(left, right, all) =>
         b"\{"
         buildFrom(left, None, false)
@@ -244,46 +239,50 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   }
 
   class PostgresTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
-    override def createPhase1 = super.createPhase1 ++ columns.flatMap {
-      case cb: PostgresColumnDDLBuilder => cb.createLobTrigger(table.tableName)
+    override def createPhase1 = super.createPhase1 ++ columns.flatMap { case cb: PostgresColumnDDLBuilder =>
+      cb.createLobTrigger(table.tableName)
     }
     override def dropPhase1 = {
-      val dropLobs = columns.flatMap {
-        case cb: PostgresColumnDDLBuilder => cb.dropLobTrigger(table.tableName)
+      val dropLobs = columns.flatMap { case cb: PostgresColumnDDLBuilder =>
+        cb.dropLobTrigger(table.tableName)
       }
-      if(dropLobs.isEmpty) super.dropPhase1
-      else Seq("delete from "+quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
+      if (dropLobs.isEmpty) super.dropPhase1
+      else Seq("delete from " + quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
     }
   }
 
   class PostgresColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder): Unit = {
-      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-      if(notNull) sb append " NOT NULL"
-      if(primaryKey) sb append " PRIMARY KEY"
-      if(unique) sb append " UNIQUE"
+      if (defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if (notNull) sb append " NOT NULL"
+      if (primaryKey) sb append " PRIMARY KEY"
+      if (unique) sb append " UNIQUE"
     }
     override def appendColumn(sb: StringBuilder): Unit = {
       sb append quoteIdentifier(column.name) append ' '
-      if(autoIncrement && !customSqlType) {
-        sb append (if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL")
+      if (autoIncrement && !customSqlType) {
+        sb append (if (sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL")
       } else appendType(sb)
       appendOptions(sb)
     }
 
     def lobTrigger(name: String) =
-      quoteIdentifier(name+"__"+quoteIdentifier(column.name)+"_lob")
+      quoteIdentifier(name + "__" + quoteIdentifier(column.name) + "_lob")
 
     def createLobTrigger(name: String): Option[String] =
-      if(sqlType == "lo") Some(
-        "create trigger "+lobTrigger(name)+" before update or delete on "+
-        quoteIdentifier(name)+" for each row execute procedure lo_manage("+quoteIdentifier(column.name)+")"
-      ) else None
+      if (sqlType == "lo")
+        Some(
+          "create trigger " + lobTrigger(name) + " before update or delete on " +
+            quoteIdentifier(name) + " for each row execute procedure lo_manage(" + quoteIdentifier(column.name) + ")"
+        )
+      else None
 
     def dropLobTrigger(name: String): Option[String] =
-      if(sqlType == "lo") Some(
-        "drop trigger "+lobTrigger(name)+" on "+quoteIdentifier(name)
-      ) else None
+      if (sqlType == "lo")
+        Some(
+          "drop trigger " + lobTrigger(name) + " on " + quoteIdentifier(name)
+        )
+      else None
   }
 
   class PostgresJdbcTypes extends JdbcTypes {
@@ -292,7 +291,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override val localDateType: PostgresLocalDateJdbcType = new PostgresLocalDateJdbcType
     override val localTimeType: PostgresLocalTimeJdbcType = new PostgresLocalTimeJdbcType
     override val offsetTimeType: PostgresOffsetTimeJdbcType = new PostgresOffsetTimeJdbcType
-    //OffsetDateTime and ZonedDateTime not currently supportable natively by the backend
+    // OffsetDateTime and ZonedDateTime not currently supportable natively by the backend
     override val instantType: PostgresInstantJdbcType = new PostgresInstantJdbcType
     override val localDateTimeType: PostgresLocalDateTimeJdbcType = new PostgresLocalDateTimeJdbcType
 
@@ -301,52 +300,48 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override def sqlTypeName(sym: Option[FieldSymbol]) = "BYTEA"
     }
 
-    trait PostgresTimeJdbcType [T] {
+    trait PostgresTimeJdbcType[T] {
 
-      val min : T
-      val max : T
-      val serializeFiniteTime : T => String
-      val parseFiniteTime : String => T
+      val min: T
+      val max: T
+      val serializeFiniteTime: T => String
+      val parseFiniteTime: String => T
 
-      protected def serializeTime(time : T): String = {
+      protected def serializeTime(time: T): String =
         time match {
           case null => null
-          case _ => serializeFiniteTime(time)
+          case _    => serializeFiniteTime(time)
         }
-      }
 
-      protected def parseTime(time : String): T = {
+      protected def parseTime(time: String): T =
         time match {
           case null => null.asInstanceOf[T]
-          case _ => parseFiniteTime(time)
+          case _    => parseFiniteTime(time)
         }
-      }
     }
 
-    trait PostgresInfinityTimeJdbcType [T] extends PostgresTimeJdbcType[T] {
+    trait PostgresInfinityTimeJdbcType[T] extends PostgresTimeJdbcType[T] {
 
       @inline
       private[this] val negativeInfinite = "-infinity"
       @inline
       private[this] val positiveInfinite = "infinity"
 
-      override protected def serializeTime(time : T): String = {
+      override protected def serializeTime(time: T): String =
         time match {
-          case null => null
+          case null  => null
           case `min` => negativeInfinite
           case `max` => positiveInfinite
-          case _ => serializeFiniteTime(time)
+          case _     => serializeFiniteTime(time)
         }
-      }
 
-      override protected def parseTime(time : String): T = {
+      override protected def parseTime(time: String): T =
         time match {
-          case null => null.asInstanceOf[T]
+          case null               => null.asInstanceOf[T]
           case `negativeInfinite` => min
           case `positiveInfinite` => max
-          case _ => parseFiniteTime(time)
+          case _                  => parseFiniteTime(time)
         }
-      }
     }
 
     import PGUtils.createPGObject
@@ -354,50 +349,46 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
 
       private[this] val formatter = DateTimeFormatter.ISO_LOCAL_DATE
 
-      val min : LocalDate = LocalDate.MIN
-      val max : LocalDate = LocalDate.MAX
-      val serializeFiniteTime : LocalDate => String =  _.format(formatter)
-      val parseFiniteTime : String => LocalDate = LocalDate.parse(_, formatter)
+      val min: LocalDate = LocalDate.MIN
+      val max: LocalDate = LocalDate.MAX
+      val serializeFiniteTime: LocalDate => String = _.format(formatter)
+      val parseFiniteTime: String => LocalDate = LocalDate.parse(_, formatter)
 
       override val sqlType = java.sql.Types.DATE
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATE"
       override def getValue(r: ResultSet, idx: Int): LocalDate = parseTime(r.getString(idx))
-      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) = {
+      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) =
         p.setObject(idx, serializeTime(v), sqlType)
-      }
-      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) = {
+      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) =
         r.updateObject(idx, createPGObject(serializeTime(v), sqlTypeName(None)))
-      }
-      override val hasLiteralForm : Boolean = false
+      override val hasLiteralForm: Boolean = false
     }
 
     class PostgresLocalTimeJdbcType extends LocalTimeJdbcType with PostgresTimeJdbcType[LocalTime] {
 
-      private[this] val formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
+      private[this] val formatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
 
-      val min : LocalTime = LocalTime.MIN
-      val max : LocalTime = LocalTime.MAX
-      val serializeFiniteTime : LocalTime => String =  _.format(formatter)
-      val parseFiniteTime : String => LocalTime = {
+      val min: LocalTime = LocalTime.MIN
+      val max: LocalTime = LocalTime.MAX
+      val serializeFiniteTime: LocalTime => String = _.format(formatter)
+      val parseFiniteTime: String => LocalTime = {
         case "24:00:00" => LocalTime.MAX
         case value      => LocalTime.parse(value, formatter)
       }
 
       override val sqlType = java.sql.Types.OTHER
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME"
-      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) = {
+      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) =
         p.setObject(idx, serializeTime(v), sqlType)
-      }
-      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = {
+      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) =
         r.updateObject(idx, createPGObject(serializeTime(v), sqlTypeName(None)))
-      }
       override def getValue(r: ResultSet, idx: Int): LocalTime = parseTime(r.getString(idx))
-      override val hasLiteralForm : Boolean = false
+      override val hasLiteralForm: Boolean = false
     }
 
     class PostgresOffsetTimeJdbcType extends OffsetTimeJdbcType with PostgresTimeJdbcType[OffsetTime] {
 
-      private[this] val formatter : DateTimeFormatter = {
+      private[this] val formatter: DateTimeFormatter =
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("HH:mm:ss"))
           .optionalStart()
@@ -405,43 +396,40 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
           .optionalEnd()
           .appendOffset("+HH:mm", "+00")
           .toFormatter()
-      }
 
       // Postgres max time zone +1559
-      private[this] val maxPostgresTimeZone : ZoneOffset = ZoneOffset.ofHoursMinutes(15, 59)
+      private[this] val maxPostgresTimeZone: ZoneOffset = ZoneOffset.ofHoursMinutes(15, 59)
 
       // Postgres min time zone -1559
-      private[this] val minPostgresTimeZone : ZoneOffset = ZoneOffset.ofHoursMinutes(-15, -59)
+      private[this] val minPostgresTimeZone: ZoneOffset = ZoneOffset.ofHoursMinutes(-15, -59)
 
-      val min : OffsetTime = OffsetTime.MIN
-      val max : OffsetTime = OffsetTime.MAX
-      val serializeFiniteTime : OffsetTime => String = offsetTime => {
+      val min: OffsetTime = OffsetTime.MIN
+      val max: OffsetTime = OffsetTime.MAX
+      val serializeFiniteTime: OffsetTime => String = offsetTime => {
         val adjusted = offsetTime.getOffset.getTotalSeconds match {
           case offset if offset > maxPostgresTimeZone.getTotalSeconds =>
             offsetTime.withOffsetSameLocal(maxPostgresTimeZone)
           case offset if offset < minPostgresTimeZone.getTotalSeconds =>
             offsetTime.withOffsetSameLocal(minPostgresTimeZone)
-          case _                                                      => offsetTime
+          case _ => offsetTime
         }
 
         adjusted.format(formatter)
       }
-      val parseFiniteTime : String => OffsetTime = OffsetTime.parse(_, formatter)
+      val parseFiniteTime: String => OffsetTime = OffsetTime.parse(_, formatter)
 
       override val sqlType = java.sql.Types.OTHER
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMETZ"
-      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
+      override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) =
         p.setObject(idx, serializeTime(v), sqlType)
-      }
-      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) = {
+      override def updateValue(v: OffsetTime, r: ResultSet, idx: Int) =
         r.updateObject(idx, createPGObject(serializeTime(v), sqlTypeName(None)))
-      }
       override def getValue(r: ResultSet, idx: Int): OffsetTime = parseTime(r.getString(idx))
-      override val hasLiteralForm : Boolean = false
+      override val hasLiteralForm: Boolean = false
     }
 
     class PostgresInstantJdbcType extends InstantJdbcType with PostgresInfinityTimeJdbcType[Instant] {
-      private[this] val formatter = {
+      private[this] val formatter =
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
           .optionalStart()
@@ -451,12 +439,11 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
           .appendOffset("+HH:mm", "+00")
           .optionalEnd()
           .toFormatter()
-      }
 
-      val min : Instant = Instant.MIN
-      val max : Instant = Instant.MAX
-      val serializeFiniteTime : Instant => String =  _.toString
-      val parseFiniteTime : String => Instant = { s =>
+      val min: Instant = Instant.MIN
+      val max: Instant = Instant.MAX
+      val serializeFiniteTime: Instant => String = _.toString
+      val parseFiniteTime: String => Instant = { s =>
         val parsed = formatter.parse(s)
         if (parsed.isSupported(ChronoField.INSTANT_SECONDS)) {
           Instant.from(parsed)
@@ -471,47 +458,42 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
         // Postgres seems to sometimes return strings in the standard UTC time format and so Instant.parse
         // works. So try that if there is an initial ParseException
         val str = r.getString(idx)
-        try {
+        try
           parseTime(str)
-        } catch {
+        catch {
           case _: java.time.format.DateTimeParseException => Instant.parse(str)
         }
       }
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) = {
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) =
         p.setObject(idx, serializeTime(v), sqlType)
-      }
 
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) =
         r.updateObject(idx, createPGObject(serializeTime(v), sqlTypeName(None)))
-      }
-      override val hasLiteralForm : Boolean = false
+      override val hasLiteralForm: Boolean = false
     }
 
     class PostgresLocalDateTimeJdbcType extends LocalDateTimeJdbcType with PostgresInfinityTimeJdbcType[LocalDateTime] {
-      private[this] val formatter = {
+      private[this] val formatter =
         new DateTimeFormatterBuilder()
           .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
           .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND,0,6,true)
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
           .optionalEnd()
           .toFormatter()
-      }
 
-      val min : LocalDateTime = LocalDateTime.MIN
-      val max : LocalDateTime = LocalDateTime.MAX
-      val serializeFiniteTime : LocalDateTime => String =  _.format(formatter)
-      val parseFiniteTime : String => LocalDateTime = LocalDateTime.parse(_, formatter)
+      val min: LocalDateTime = LocalDateTime.MIN
+      val max: LocalDateTime = LocalDateTime.MAX
+      val serializeFiniteTime: LocalDateTime => String = _.format(formatter)
+      val parseFiniteTime: String => LocalDateTime = LocalDateTime.parse(_, formatter)
 
       override val sqlType = java.sql.Types.OTHER
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP"
       override def getValue(r: ResultSet, idx: Int): LocalDateTime = parseTime(r.getString(idx))
-      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) = {
+      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) =
         p.setObject(idx, serializeTime(v), sqlType)
-      }
-      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) = {
+      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) =
         r.updateObject(idx, createPGObject(serializeTime(v), sqlTypeName(None)))
-      }
-      override val hasLiteralForm : Boolean = false
+      override val hasLiteralForm: Boolean = false
     }
 
     class PostgresUUIDJdbcType extends UUIDJdbcType {

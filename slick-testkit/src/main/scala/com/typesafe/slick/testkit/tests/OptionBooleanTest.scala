@@ -24,7 +24,9 @@ class OptionBooleanTest extends AsyncTest[JdbcTestDB] {
         val r1 = a.oi.map(_ === 2)
         val r2 = r1.getOrElse(false)
         r2
-      }.map(_.id).result.map(_ shouldBe Seq(3)),
+      }.map(_.id)
+        .result
+        .map(_ shouldBe Seq(3)),
       as.schema.drop
     )
   }

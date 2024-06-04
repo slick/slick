@@ -3,6 +3,7 @@ package slick.jdbc
 sealed trait RowsPerStatement
 
 object RowsPerStatement {
+
   /** A single statement with all rows should be used */
   case object All extends RowsPerStatement
 
