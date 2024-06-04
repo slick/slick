@@ -45,7 +45,8 @@ object Dependencies {
   val testDBs = Seq(
     h2,
     sqlServer,
-    "org.apache.derby" % "derby" % "10.14.2.0",
+    "org.apache.derby" % "derby" % "10.16.1.1",
+    "org.apache.derby" % "derbytools" % "10.16.1.1",
     "org.xerial" % "sqlite-jdbc" % "3.41.0.0",
     "org.hsqldb" % "hsqldb" % "2.7.3",
     "org.postgresql" % "postgresql" % "42.7.3",
