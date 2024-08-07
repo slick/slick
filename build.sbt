@@ -296,6 +296,7 @@ lazy val hikaricp =
       scaladocSourceUrl("slick-hikaricp"),
       test := {}, testOnly := {}, // suppress test status output
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
+      libraryDependencySchemes += Dependencies.hikariCPModule % "always"
     )
 
 lazy val `reactive-streams-tests` =
