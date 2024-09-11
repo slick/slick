@@ -2,9 +2,10 @@ queue_rules:
   - name: default
     merge_conditions:
       - "-draft"
+    merge_method: merge
+    update_method: rebase
 
 pull_request_rules:
-
   - name: Label Scala Steward and Renovate PRs with 'build'
     conditions:
       - or:
@@ -37,5 +38,3 @@ pull_request_rules:
     actions:
       queue:
         name: default
-        merge_method: merge
-        update_method: rebase
