@@ -46,7 +46,7 @@ object Dependencies {
     h2,
     sqlServer,
     "org.apache.derby" % "derby" % "10.14.2.0",
-    "org.xerial" % "sqlite-jdbc" % "3.41.0.0",
+    "org.xerial" % "sqlite-jdbc" % "3.46.1.3",
     "org.hsqldb" % "hsqldb" % "2.7.3",
     "org.postgresql" % "postgresql" % "42.7.4",
     "com.mysql" % "mysql-connector-j" % "9.0.0",
