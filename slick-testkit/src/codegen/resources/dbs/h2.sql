@@ -4,7 +4,7 @@ create table "SUPPLIERS" ("SUP_ID" INTEGER NOT NULL PRIMARY KEY,"SUP_NAME" VARCH
 create table "COFFEES" ("COF_NAME" VARCHAR NOT NULL PRIMARY KEY,"SUP_ID" INTEGER NOT NULL,"PRICE" DOUBLE NOT NULL,"SALES" INTEGER NOT NULL,"TOTAL" INTEGER NOT NULL);
 
 create table "a" ("k1" INTEGER NOT NULL,"k2" INTEGER NOT NULL,"s" VARCHAR NOT NULL);
-create table "b" ("f1" INTEGER NOT NULL,"f2" INTEGER NOT NULL,"s" VARCHAR NOT NULL);
+create table "b" ("f1" INTEGER NOT NULL PRIMARY KEY,"f2" INTEGER NOT NULL,"s" VARCHAR NOT NULL);
 alter table "a" add constraint "b_fk" foreign key("k1") references "b"("f1") on update NO ACTION on delete CASCADE;
 
 create table "c" ("k1" INTEGER NOT NULL,"k2" INTEGER NOT NULL,"s" VARCHAR NOT NULL);
