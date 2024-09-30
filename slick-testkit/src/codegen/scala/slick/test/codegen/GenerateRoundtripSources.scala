@@ -120,7 +120,7 @@ class Tables(val profile: JdbcProfile){
   val categories = TableQuery[Categories]
 
   class Posts(tag: Tag) extends Table[(Int, String, Option[Int])](tag, "POSTS") {
-    def id = column[Int]("id")
+    def id = column[Int]("id", O.PrimaryKey)
     def title = column[String]("title")
     def category = column[Option[Int]]("category")
     def * = (id, title, category)
