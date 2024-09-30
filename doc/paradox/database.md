@@ -177,7 +177,7 @@ database systems by simply changing a configuration file.
 You can see it in action in `SimpleExample.scala`. First we load the DatabaseConfig and then import the
 Slick API from its profile:
 
-@@snip [SimpleExample.scala](samples/slick-multidb/src/main/scala/databaseconfig/SimpleExample.scala) { #dc }
+@@snip [SimpleExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/databaseconfig/SimpleExample.scala) { #dc }
 
 The `JdbcProfile` type annotation specifies the profile level whose API you get. You have to configure a profile of
 a matching type in the external configuration file. Since we're using the basic `forConfig` method with only a path
@@ -211,7 +211,7 @@ We start with a simple DAO (data access object) class, `DAO.scala`. It contains 
 
 The class is parameterized by a concrete `JdbcProfile` and it imports all API features from this profile's api object:
 
-@@snip [DAO.scala](samples/slick-multidb/src/main/scala/basic/DAO.scala) { #dao }
+@@snip [DAO.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/DAO.scala) { #dao }
 
 Slick has multiple abstract profiles but in most cases you will want to use `JdbcProfile` which contains all the
 features that you also get when importing directly from one of Slick's concrete profiles for JDBC databases.
@@ -223,7 +223,7 @@ from the profile in order to work with queries. This can be seen in `DAOHelper.s
 To gain access to all of the profile's features, we parameterize the `DAOHelper` with the `DAO` and import from its
 profile:
 
-@@snip [DAOHelper.scala](samples/slick-multidb/src/main/scala/basic/DAOHelper.scala) { #daohelper }
+@@snip [DAOHelper.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/DAOHelper.scala) { #daohelper }
 
 Note the use of the type projection `DAO#Props` in the definition of `restrictKey`. This points to the `Props` type
 coming from any `DAO` instance. This is less type-safe than using a path-dependent type like `dao.Props` but
@@ -232,17 +232,17 @@ generally easier to use. You still need to ensure not to mix drivers when you do
 We are using the `DAO` and `DAOHelper` in `MultiDBExample.scala`. The `run` method is parameterized with both,
 a Slick profile and a matching JDBC `Database`:
 
-@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/basic/MultiDBExample.scala) { #run }
+@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/MultiDBExample.scala) { #run }
 
 Since we don't have the convenience of a single profile's `api._` import at this point, we need to import the
 `Database` and `DBIO` types directly:
 
-@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/basic/MultiDBExample.scala) { #imports }
+@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/MultiDBExample.scala) { #imports }
 
 In the body of `MultiDBExample`, we create two `DAO` instances with matching `Database` objects in order to run the
 same code on both, H2 and SQLite:
 
-@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/basic/MultiDBExample.scala) { #create }
+@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/MultiDBExample.scala) { #create }
 
 ### The Cake Pattern
 
@@ -257,26 +257,26 @@ use it together with a matching `Database`.
 The most basic slice of the cake is the `ProfileComponent`. It provides a `JdbcProfile` which is kept abstract at
 this point:
 
-@@snip [ProfileComponent.scala](samples/slick-multidb/src/main/scala/cake/ProfileComponent.scala)
+@@snip [ProfileComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/ProfileComponent.scala)
 
 Through the use of a self-type, the `PictureComponent` requires a `ProfileComponent` to me mixed in, so that it can
 import the query language features from the profile:
 
-@@snip [PictureComponent.scala](samples/slick-multidb/src/main/scala/cake/PictureComponent.scala) { #outline }
+@@snip [PictureComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/PictureComponent.scala) { #outline }
 
 Using the imported features, `PictureComponent` provides definitions and methods for working with `Picture` objects
 in the database. `UserComponent` does the same for `User` entities. In addition to `ProfileComponent` it also
 requires `PictureComponent`:
 
-@@snip [UserComponent.scala](samples/slick-multidb/src/main/scala/cake/UserComponent.scala) { #outline }
+@@snip [UserComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/UserComponent.scala) { #outline }
 
 The `PictureComponent` dependency allows `UserComponent` to insert a new `Picture` when needed:
 
-@@snip [UserComponent.scala](samples/slick-multidb/src/main/scala/cake/UserComponent.scala) { #insert }
+@@snip [UserComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/UserComponent.scala) { #insert }
 
 We put all slices of the cake together in `DAL.scala`. The `DAL` class inherits from all components and adds the
 missing profile through a field in the constructor:
 
-@@snip [DAL.scala](samples/slick-multidb/src/main/scala/cake/DAL.scala)
+@@snip [DAL.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/DAL.scala)
 
 This is also a good place to add functionality that affects all components, like the `create` method.

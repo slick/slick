@@ -26,7 +26,7 @@ Profile
 
 The actual profile implementation can be found under `src/main/scala`:
 
-@@snip [MyPostgresProfile.scala](samples/slick-testkit-example/src/main/scala/MyPostgresProfile.scala) { #outline }
+@@snip [MyPostgresProfile.scala](samples/slick-testkit-example/src/main/scala/slick/examples/testkit/MyPostgresProfile.scala) { #outline }
 
 Test Harness
 ------------
@@ -40,11 +40,11 @@ most of the default implementations can be used out of the box. Only `localTable
 `getLocalSequences` require custom implementations. We also modify the profile's `capabilities`
 to indicate that our profile does not support the JDBC `getFunctions` call:
 
-@@snip [MyPostgresTest.scala](samples/slick-testkit-example/src/test/scala/MyPostgresTest.scala) { #outline }
+@@snip [MyPostgresTest.scala](samples/slick-testkit-example/src/test/scala/slick/examples/testkit/MyPostgresTest.scala) { #outline }
 
 The name of a configuration prefix, in this case `mypostgres`, is passed to `ExternalJdbcTestDB`:
 
-@@snip [MyPostgresTest.scala](samples/slick-testkit-example/src/test/scala/MyPostgresTest.scala) { #tdb }
+@@snip [MyPostgresTest.scala](samples/slick-testkit-example/src/test/scala/slick/examples/testkit/MyPostgresTest.scala) { #tdb }
 
 Database Configuration
 ----------------------
