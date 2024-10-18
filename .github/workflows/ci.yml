@@ -74,6 +74,9 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: sbt
 
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+
       - name: Build and test
         run: |
           sbt ++${{ matrix.scala }} coverage testAll coverageReport
@@ -106,6 +109,9 @@ jobs:
           distribution: adopt
           java-version: 11
           cache: sbt
+      
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
 
       - name: Create deploy key
         run: |
@@ -139,6 +145,9 @@ jobs:
           distribution: adopt
           java-version: 11
           cache: sbt
+
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
 
       - name: Publish artifacts to Maven Central
         env:
