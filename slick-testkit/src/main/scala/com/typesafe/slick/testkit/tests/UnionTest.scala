@@ -238,4 +238,67 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testMoreThan22Fields = {
+    case class Big(
+      f1: Int, f2: Int, f3: Int, f4: Int, f5: Int, f6: Int, f7: Int, f8: Int, f9: Int, f10: Int,
+      f11: Int, f12: Int, f13: Int, f14: Int, f15: Int, f16: Int, f17: Int, f18: Int, f19: Int, f20: Int,
+      f21: Int, f22: Int, f23: Int
+    )
+
+    class BigTable(tag: Tag) extends Table[Big](tag, "big_table") {
+      def f1 = column[Int]("f1")
+      def f2 = column[Int]("f2")
+      def f3 = column[Int]("f3")
+      def f4 = column[Int]("f4")
+      def f5 = column[Int]("f5")
+      def f6 = column[Int]("f6")
+      def f7 = column[Int]("f7")
+      def f8 = column[Int]("f8")
+      def f9 = column[Int]("f9")
+      def f10 = column[Int]("f10")
+      def f11 = column[Int]("f11")
+      def f12 = column[Int]("f12")
+      def f13 = column[Int]("f13")
+      def f14 = column[Int]("f14")
+      def f15 = column[Int]("f15")
+      def f16 = column[Int]("f16")
+      def f17 = column[Int]("f17")
+      def f18 = column[Int]("f18")
+      def f19 = column[Int]("f19")
+      def f20 = column[Int]("f20")
+      def f21 = column[Int]("f21")
+      def f22 = column[Int]("f22")
+      def f23 = column[Int]("f23")
+
+      def * = (
+        f1, f2, f3, f4, f5, f6, f7, f8, f9, f10,
+        f11, f12, f13, f14, f15, f16, f17, f18, f19, f20,
+        f21, f22, f23
+      ).mapTo[Big]
+    }
+
+    val bigTable = TableQuery[BigTable]
+
+    val setup = DBIO.seq(
+      bigTable.schema.create,
+      bigTable += Big(
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+        21, 22, 23
+      )
+    )
+
+    val query = bigTable.result.head
+
+    for {
+      _ <- db.run(setup)
+      result <- db.run(query)
+    } yield {
+      result shouldBe Big(
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+        21, 22, 23
+      )
+    }
+  }
 }
