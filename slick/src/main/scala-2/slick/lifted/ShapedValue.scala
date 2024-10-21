@@ -93,10 +93,7 @@ object ShapedValue {
     """
   }
 
-  //avoid inferring Rep subtypes (such as ConstColumn)
-  type Unconst[P] = P match {
-    case Rep[t] => Rep[t]
-    case _ => P
-  }
-  def Unconst[P](p: P): Unconst[P] = p.asInstanceOf[Unconst[P]]
+  // This is a stub for Scala 3 compatibility
+  type Unconst[P] = P
+  def Unconst[P](p: P): Unconst[P] = p
 }
