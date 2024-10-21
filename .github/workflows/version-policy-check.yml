@@ -33,5 +33,8 @@ jobs:
           java-version: 11
           cache: sbt
 
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+
       - name: Check version policy
         run: sbt ++${{ matrix.scala }} versionPolicyCheck
