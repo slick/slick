@@ -21,6 +21,9 @@ jobs:
         distribution: adopt
         java-version: 11
         cache: sbt
+        
+    - name: Setup SBT
+      uses: sbt/setup-sbt@v1
 
     - name: Get base version
       id: getBaseVer
