@@ -93,7 +93,7 @@ object ShapedValue {
     """
   }
 
-  //stub for scala3 compat
+  // This is a stub for Scala 3 compatibility
   type Unconst[P] = P
   def Unconst[P](p: P): Unconst[P] = p
 }
