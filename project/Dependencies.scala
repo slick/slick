@@ -54,7 +54,7 @@ object Dependencies {
     "com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"
   )
 
-  val paxExamVersion = "4.13.5"
+  val paxExamVersion = "4.14.0"
   val paxExam = Seq(
     "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
     "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
