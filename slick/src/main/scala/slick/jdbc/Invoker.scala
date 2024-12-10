@@ -32,7 +32,7 @@ trait Invoker[+R] { self =>
     val it = iteratorTo(0)
     try {
       if(it.hasNext) it.next()
-      else throw new NoSuchElementException("empty result set" + debuggingId.map(" when invoking " + _))
+      else throw new NoSuchElementException("empty result set" + debuggingId.fold("")(" when invoking " + _))
     } finally it.close()
   }
 
