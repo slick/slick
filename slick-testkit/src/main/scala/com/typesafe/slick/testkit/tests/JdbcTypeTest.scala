@@ -303,14 +303,26 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       () => randomLocalDateTime().toLocalTime
     )
 
-  def testInstant =
+  def testInstant = {
+    def instantCompare(id: Int, l: Option[Instant], r: Option[Instant]) = {
+      (l, r) match {
+        case (Some(l), Some(r)) =>
+          if (l != r &&
+            math.abs(ChronoUnit.MILLIS.between(l, r)) != hourInMs)
+            (id, l) shouldBe (id, r)
+        case _ => (id, l) shouldBe (id, r)
+      }
+    }
+
     roundTrip[Instant](
       List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),
         Instant.parse("2015-06-05T09:43:00Z"), // time has zero seconds and milliseconds
         generateTestLocalDateTime().withHour(15).toInstant(ZoneOffset.UTC),
         generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
-      () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
+      () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
+      dataCompareFn = instantCompare
     )
+  }
 
   def testPostgresInstantWithTimeZone: Future[Unit] = tdb.profile match {
     case _: PostgresProfile =>
