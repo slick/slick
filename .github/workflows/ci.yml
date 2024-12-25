@@ -34,7 +34,9 @@ jobs:
         ports:
           - 5432:5432
       oracle:
-        image: oracleinanutshell/oracle-xe-11g
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: oracle
         ports:
           - 49160:22
           - 49161:1521
@@ -109,7 +111,7 @@ jobs:
           distribution: adopt
           java-version: 11
           cache: sbt
-      
+
       - name: Setup SBT
         uses: sbt/setup-sbt@v1
 
