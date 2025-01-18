@@ -71,7 +71,7 @@ object SourceCodeGenerator {
     try {
       val m = Await.result(db.run(profileInstance.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
       val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
-      val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[_ <: SourceCodeGenerator]]
+      val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[? <: SourceCodeGenerator]]
       val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
       if(outputToMultipleFiles)
         generatorInstance.writeToMultipleFiles(profile, outputDir, pkg)

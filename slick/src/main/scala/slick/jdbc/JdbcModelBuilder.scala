@@ -98,7 +98,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
   class Builders(val tablesByQName: Map[MQName, TableBuilder])
 
   /** Converts from java.sql.Types w/ type name to the corresponding Java class name (with fully qualified path). */
-  def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
+  def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[?] = {
     import java.sql.Types.*
 
     import scala.reflect.classTag
@@ -247,7 +247,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       *
       * If `ignoreInvalidDefaults = true`, Slick catches scala.MatchError and java.lang.NumberFormatException thrown by
       * this method, logs the message and treats it as no default value for convenience. */
-    def defaultColumnOption: Option[RelationalProfile.ColumnOption.Default[_]] = rawDefault.map(v => (v,tpe)).collect {
+    def defaultColumnOption: Option[RelationalProfile.ColumnOption.Default[?]] = rawDefault.map(v => (v,tpe)).collect {
       case (v,_) if Seq("NOW","CURRENT_TIMESTAMP","CURRENT_DATE","CURRENT_TIME").contains(v.stripSuffix("()").toUpperCase) =>
         logger.debug(s"Ignoring"+formatDefault(v))
         None
@@ -260,7 +260,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       )
     }
 
-    private def convenientDefault: Option[RelationalProfile.ColumnOption.Default[_]] =
+    private def convenientDefault: Option[RelationalProfile.ColumnOption.Default[?]] =
       try defaultColumnOption catch {
         case e: java.lang.NumberFormatException if ignoreInvalidDefaults =>
           logger.debug(s"NumberFormatException: Could not parse"+formatDefault(rawDefault))

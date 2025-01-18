@@ -76,6 +76,6 @@ final case class LiteralColumn[T](value: T)(implicit tt: TypedType[T]) extends C
   * representation is necessary so that a non-Option `Rep` value can be retrieved for encoding
   * Option-based operations. This base value is of type `T` if `T <: Rep[_]`, otherwise of
   * type `Rep[T]`. */
-final case class RepOption[T](base: ShapedValue[_, _], toNode: Node) extends Rep[Option[T]] {
+final case class RepOption[T](base: ShapedValue[?, ?], toNode: Node) extends Rep[Option[T]] {
   def encodeRef(path: Node): Rep[Option[T]] = copy(toNode = path)
 }

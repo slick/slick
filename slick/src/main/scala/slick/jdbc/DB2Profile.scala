@@ -60,15 +60,15 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
       Phase.rewriteBooleans
   override val columnTypes: DB2JdbcTypes = new DB2JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new DB2QueryBuilder(n, state)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new DB2TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new DB2TableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder =
     new DB2ColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new DB2SequenceDDLBuilder(seq)
+  override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new DB2SequenceDDLBuilder(seq)
 
   override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(!_.name.schema.exists(_ == "SYSTOOLS")))
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.TINYINT => "SMALLINT" // DB2 has no smaller binary integer type
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
@@ -126,7 +126,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     }
   }
 
-  class DB2TableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class DB2TableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override protected def createIndex(idx: Index) = {
       if(idx.unique) {
         /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
@@ -182,7 +182,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     }
   }
 
-  class DB2SequenceDDLBuilder(seq: Sequence[_]) extends SequenceDDLBuilder(seq) {
+  class DB2SequenceDDLBuilder(seq: Sequence[?]) extends SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       val b = new StringBuilder append "create sequence " append quoteIdentifier(seq.name)
       b append " as " append jdbcTypeFor(seq.tpe).sqlTypeName(None)

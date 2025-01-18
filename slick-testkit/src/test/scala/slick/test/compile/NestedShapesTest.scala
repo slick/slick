@@ -7,14 +7,14 @@ import slick.lifted.Shape
 class NestedShapesTest {
   def legal = {
     // Flat and Nested alike, only Mixed specified
-    implicitly[Shape[FlatShapeLevel, Int, _, _]]
-    implicitly[Shape[FlatShapeLevel, (Int, String), _, _]]
-    implicitly[Shape[FlatShapeLevel, (Rep[Int], Int), _, _]]
-    implicitly[Shape[FlatShapeLevel, (Rep[Int], (Int, Rep[String])), _, _]]
-    implicitly[Shape[NestedShapeLevel, Int, _, _]]
-    implicitly[Shape[NestedShapeLevel, (Int, String), _, _]]
-    implicitly[Shape[NestedShapeLevel, (Rep[Int], Int), _, _]]
-    implicitly[Shape[NestedShapeLevel, (Rep[Int], (Int, Rep[String])), _, _]]
+    implicitly[Shape[FlatShapeLevel, Int, ?, ?]]
+    implicitly[Shape[FlatShapeLevel, (Int, String), ?, ?]]
+    implicitly[Shape[FlatShapeLevel, (Rep[Int], Int), ?, ?]]
+    implicitly[Shape[FlatShapeLevel, (Rep[Int], (Int, Rep[String])), ?, ?]]
+    implicitly[Shape[NestedShapeLevel, Int, ?, ?]]
+    implicitly[Shape[NestedShapeLevel, (Int, String), ?, ?]]
+    implicitly[Shape[NestedShapeLevel, (Rep[Int], Int), ?, ?]]
+    implicitly[Shape[NestedShapeLevel, (Rep[Int], (Int, Rep[String])), ?, ?]]
 
     // Flat and Nested alike, fully specified
     implicitly[Shape[FlatShapeLevel, Int, Int, ConstColumn[Int]]]
@@ -27,10 +27,10 @@ class NestedShapesTest {
     implicitly[Shape[NestedShapeLevel, (Rep[Int], (Int, Rep[String])), (Int, (Int, String)), (Rep[Int], (ConstColumn[Int], Rep[String]))]]
 
     // Only Nested, only Mixed specified
-    implicitly[Shape[NestedShapeLevel, Query[Rep[Int], Int, Seq], _, _]] // 1
-    implicitly[Shape[NestedShapeLevel, Query[(Rep[Int], Rep[String]), (Int, String), Seq], _, _]] // 2
-    implicitly[Shape[NestedShapeLevel, (Rep[Int], Query[(Rep[Int], Rep[String]), (Int, String), Seq]), _, _]] // 3
-    implicitly[Shape[NestedShapeLevel, (Int, Query[(Rep[Int], Rep[String]), (Int, String), Seq]), _, _]] // 4
+    implicitly[Shape[NestedShapeLevel, Query[Rep[Int], Int, Seq], ?, ?]] // 1
+    implicitly[Shape[NestedShapeLevel, Query[(Rep[Int], Rep[String]), (Int, String), Seq], ?, ?]] // 2
+    implicitly[Shape[NestedShapeLevel, (Rep[Int], Query[(Rep[Int], Rep[String]), (Int, String), Seq]), ?, ?]] // 3
+    implicitly[Shape[NestedShapeLevel, (Int, Query[(Rep[Int], Rep[String]), (Int, String), Seq]), ?, ?]] // 4
 
     // Only Nested, fully specified
     implicitly[Shape[NestedShapeLevel, Query[Rep[Int], Int, Seq], Seq[Int], Query[Rep[Int], Int, Seq]]] // 5

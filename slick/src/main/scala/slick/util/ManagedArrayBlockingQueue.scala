@@ -194,7 +194,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
     itemQueueNotFull.signalAll()
   }
 
-  def drainTo(c: util.Collection[_ >: PrioritizedRunnable]): Int = locked {
+  def drainTo(c: util.Collection[? >: PrioritizedRunnable]): Int = locked {
     val n = highPriorityItemQueue.drainTo(c) + itemQueue.drainTo(c)
     if (remainingCapacity != 0) {
       itemQueueNotFull.signalAll()
@@ -202,7 +202,7 @@ class ManagedArrayBlockingQueue(maximumInUse: Int, capacity: Int, fair: Boolean 
     n
   }
 
-  def drainTo(c: util.Collection[_ >: PrioritizedRunnable], maxElements: Int): Int = locked {
+  def drainTo(c: util.Collection[? >: PrioritizedRunnable], maxElements: Int): Int = locked {
     var n = highPriorityItemQueue.drainTo(c, maxElements)
     if (n < maxElements) {
       n += itemQueue.drainTo(c, maxElements - n)

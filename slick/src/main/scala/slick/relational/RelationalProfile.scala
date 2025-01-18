@@ -80,7 +80,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   class FastPathExtensionMethods[R, W, U, T](val mp: MappedProjection[T]) {
     def fastPath(fpf: TypeMappingResultConverter[R, W, U, T, ?] => SimpleFastPathResultConverter[R, W, U, T]
                 ): MappedProjection[T] = mp.genericFastPath {
-      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _, _, _], _, _) =>
+      case tm @ TypeMappingResultConverter(_: ProductResultConverter[?, ?, ?, ?], _, _) =>
         fpf(tm.asInstanceOf[TypeMappingResultConverter[R, W, U, T, ?]])
       case tm                                                                           =>
         tm

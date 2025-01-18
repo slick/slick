@@ -14,7 +14,7 @@ import slick.util.ConstArray
   * missing, the result is also an `Option`.  */
 object Case {
 
-  def If[C <: Rep[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(cond.toNode)
+  def If[C <: Rep[?] : CanBeQueryCondition](cond: C) = new UntypedWhen(cond.toNode)
 
   final class UntypedWhen(cond: Node) {
     def Then[P, B](res: Rep[P])(implicit om: OptionMapperDSL.arg[B, P]#to[B, P], bType: BaseTypedType[B]) =
@@ -28,7 +28,7 @@ object Case {
         else clauses.zipWithIndex.map { case (n, i) => if(i % 2 == 0) n else OptionApply(n) }
       IfThenElse(cl :+ LiteralNode(null))
     }
-    def If[C <: Rep[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond.toNode, clauses)
+    def If[C <: Rep[?] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond.toNode, clauses)
     def Else(res: Rep[T]): Rep[T] = Rep.forNode(IfThenElse(clauses :+ res.toNode))
   }
 

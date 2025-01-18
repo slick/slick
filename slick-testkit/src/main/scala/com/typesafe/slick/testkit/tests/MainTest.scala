@@ -96,7 +96,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
       } yield (u.first, o.orderID)
       q4.result.statements.toSeq.length.should(_ >= 1)
 
-      def maxOfPer[T <: Table[_], C[_]](c: Query[T, _, C])(m: (T => Rep[Int]), p: (T => Rep[Int])) =
+      def maxOfPer[T <: Table[?], C[_]](c: Query[T, ?, C])(m: (T => Rep[Int]), p: (T => Rep[Int])) =
         c filter { o => m(o) === (for { o2 <- c if p(o) === p(o2) } yield m(o2)).max }
 
       val q4b = for (

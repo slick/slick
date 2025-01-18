@@ -12,7 +12,7 @@ abstract class DatabasePublisher[T] extends Publisher[T] { self =>
   /** Create a Publisher that runs a synchronous mapping function on this Publisher. This
     * can be used to materialize LOB values in a convenient way. */
   def mapResult[U](f: T => U): DatabasePublisher[U] = new DatabasePublisher[U] {
-    def subscribe(s: Subscriber[_ >: U]) = self.subscribe(new Subscriber[T] {
+    def subscribe(s: Subscriber[? >: U]) = self.subscribe(new Subscriber[T] {
       def onSubscribe(sn: Subscription): Unit = s.onSubscribe(sn)
       def onComplete(): Unit = s.onComplete()
       def onError(t: Throwable): Unit = s.onError(t)

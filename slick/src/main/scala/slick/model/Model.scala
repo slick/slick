@@ -21,7 +21,7 @@ case class Table(
   primaryKey: Option[PrimaryKey],
   foreignKeys: Seq[ForeignKey],
   indices: Seq[Index],
-  options: Set[TableOption[_]] = Set()
+  options: Set[TableOption[?]] = Set()
 ){
   require( name.table != "", "name cannot be empty string" )
 }
@@ -32,7 +32,7 @@ case class Column(
   table: QualifiedName,
   tpe: String,
   nullable: Boolean,
-  options: Set[ColumnOption[_]] = Set()
+  options: Set[ColumnOption[?]] = Set()
 ){
   require( name != "", "name cannot be empty string" )
 }
@@ -41,7 +41,7 @@ case class PrimaryKey(
   name: Option[String],
   table: QualifiedName,
   columns: Seq[Column],
-  options: Set[PrimaryKeyOption[_]] = Set()
+  options: Set[PrimaryKeyOption[?]] = Set()
 ){
   require( !name.contains(""), "name cannot be empty string" )
 }
@@ -54,7 +54,7 @@ case class ForeignKey(
   referencedColumns: Seq[Column],
   onUpdate: ForeignKeyAction,
   onDelete: ForeignKeyAction,
-  options: Set[ForeignKeyOption[_]] = Set()
+  options: Set[ForeignKeyOption[?]] = Set()
 ){
   require( !name.contains(""), "name cannot be empty string" )
 }
@@ -75,7 +75,7 @@ case class Index(
   table: QualifiedName,
   columns: Seq[Column],
   unique: Boolean,
-  options: Set[IndexOption[_]] = Set()
+  options: Set[IndexOption[?]] = Set()
 ){
   require( !name.contains(""), "name cannot be empty string" )
 }
@@ -88,7 +88,7 @@ case class Index(
  */
 case class Model(
   tables: Seq[Table],
-  options: Set[ModelOption[_]] = Set()
+  options: Set[ModelOption[?]] = Set()
 ){
   lazy val tablesByName = tables.map(t => t.name->t).toMap
   /**
