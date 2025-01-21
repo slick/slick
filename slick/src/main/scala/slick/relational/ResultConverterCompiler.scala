@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
   * to provide profile-specific createColumnConverter implementations. */
 trait ResultConverterCompiler[R, W, U] {
 
-  def compile(n: Node): ResultConverter[R, W, U, _] = n match {
+  def compile(n: Node): ResultConverter[R, W, U, ?] = n match {
     case InsertColumn(paths, fs, _) =>
       val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)).asInstanceOf[ResultConverter[R, W, U, Any]] }
       if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter[R, W, U, Any](1, pathConvs.toSeq: _*)
@@ -40,7 +40,7 @@ trait ResultConverterCompiler[R, W, U] {
     new GetOrElseResultConverter[R, W, U, T](rc, default)
 
   def createIsDefinedResultConverter[T](rc: ResultConverter[R, W, U, Option[T]]): ResultConverter[R, W, U, Boolean] =
-    new IsDefinedResultConverter[R, W, U](rc.asInstanceOf[ResultConverter[R, W, U, Option[_]]])
+    new IsDefinedResultConverter[R, W, U](rc.asInstanceOf[ResultConverter[R, W, U, Option[?]]])
 
   def createTypeMappingResultConverter(rc: ResultConverter[R, W, U, Any], mapper: MappedScalaType.Mapper): ResultConverter[R, W, U, Any] =
     new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
@@ -48,7 +48,7 @@ trait ResultConverterCompiler[R, W, U] {
   def createOptionRebuildingConverter(discriminator: ResultConverter[R, W, U, Boolean], data: ResultConverter[R, W, U, Any]): ResultConverter[R, W, U, Option[Any]] =
     new OptionRebuildingResultConverter(discriminator, data)
 
-  def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[R, W, U, _]
+  def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[R, W, U, ?]
 
   def compileMapping(n: Node): CompiledMapping = {
     val rc = compile(n)
@@ -58,11 +58,11 @@ trait ResultConverterCompiler[R, W, U] {
 }
 
 object ResultConverterCompiler {
-  protected lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[ResultConverterCompiler[_, _, _]]))
+  protected lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[ResultConverterCompiler[?, ?, ?]]))
 }
 
 /** A node that wraps a ResultConverter */
-final case class CompiledMapping(converter: ResultConverter[_, _, _, _], buildType: Type) extends NullaryNode with SimplyTypedNode {
+final case class CompiledMapping(converter: ResultConverter[?, ?, ?, ?], buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = CompiledMapping
   override def self = this
   def rebuild = copy()

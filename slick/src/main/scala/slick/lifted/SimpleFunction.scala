@@ -18,7 +18,7 @@ trait SimpleFunction extends Node {
 }
 
 object SimpleFunction {
-  def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Rep[_]] => Rep[T]) = {
+  def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Rep[?]] => Rep[T]) = {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleFunction {
       override def self: Self = this
       val name = fname
@@ -26,7 +26,7 @@ object SimpleFunction {
       def children = ConstArray.from(params)
       protected[this] def rebuild(ch: ConstArray[Node]): Self = build(ch.toSeq)
     }
-    { (paramsC: Seq[Rep[_]]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
+    { (paramsC: Seq[Rep[?]]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
   }
   def nullary[R : TypedType](fname: String, fn: Boolean = false): Rep[R] =
     apply(fname, fn).apply(Seq())
@@ -50,7 +50,7 @@ trait SimpleBinaryOperator extends BinaryNode {
 }
 
 object SimpleBinaryOperator {
-  def apply[T : TypedType](fname: String): ((Rep[_], Rep[_]) => Rep[T]) = {
+  def apply[T : TypedType](fname: String): ((Rep[?], Rep[?]) => Rep[T]) = {
     def build(leftN: Node, rightN: Node): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleBinaryOperator {
       override def self: Self = this
       val name = fname
@@ -58,7 +58,7 @@ object SimpleBinaryOperator {
       val right = rightN
       protected[this] def rebuild(left: Node, right: Node): Self = build(left, right)
     }
-    { (leftC: Rep[_], rightC: Rep[_]) => Rep.forNode[T](build(leftC.toNode, rightC.toNode)) }
+    { (leftC: Rep[?], rightC: Rep[?]) => Rep.forNode[T](build(leftC.toNode, rightC.toNode)) }
   }
 }
 
@@ -79,14 +79,14 @@ trait SimpleExpression extends Node {
 }
 
 object SimpleExpression {
-  def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Rep[_]] => Rep[T]) = {
+  def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Rep[?]] => Rep[T]) = {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleExpression {
       override def self: Self = this
       def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(children.toSeq, qb)
       def children = ConstArray.from(params)
       protected[this] def rebuild(ch: ConstArray[Node]) = build(ch.toSeq)
     }
-    { (paramsC: Seq[Rep[_]]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
+    { (paramsC: Seq[Rep[?]]) => Rep.forNode(build(paramsC.iterator.map(_.toNode).toIndexedSeq)) }
   }
 
   def nullary[R : TypedType](f: JdbcStatementBuilderComponent#QueryBuilder => Unit): Rep[R] = {

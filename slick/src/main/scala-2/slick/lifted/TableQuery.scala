@@ -9,10 +9,10 @@ import scala.reflect.macros.blackbox.Context
 /** Represents a database table. Profiles add extension methods to TableQuery
  * for operations that can be performed on tables but not on arbitrary
  * queries, e.g. getting the table DDL. */
-class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
-  lazy val shaped: ShapedValue[_ <: E, E#TableElementType] = {
+class TableQuery[E <: AbstractTable[?]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
+  lazy val shaped: ShapedValue[? <: E, E#TableElementType] = {
     val baseTable = cons(new BaseTag { base =>
-      def taggedAs(path: Node): AbstractTable[_] = cons(new RefTag(path) {
+      def taggedAs(path: Node): AbstractTable[?] = cons(new RefTag(path) {
         def taggedAs(path: Node) = base.taggedAs(path)
       })
     })
@@ -29,16 +29,16 @@ class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#Table
 
 object TableQuery {
   /** Create a TableQuery for a table row class using an arbitrary constructor function. */
-  def apply[E <: AbstractTable[_]](cons: Tag => E): TableQuery[E] =
+  def apply[E <: AbstractTable[?]](cons: Tag => E): TableQuery[E] =
     new TableQuery[E](cons)
 
   /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
-  def apply[E <: AbstractTable[_]]: TableQuery[E] = macro TableQueryMacroImpl.apply[E]
+  def apply[E <: AbstractTable[?]]: TableQuery[E] = macro TableQueryMacroImpl.apply[E]
 }
 
 object TableQueryMacroImpl {
 
-  def apply[E <: AbstractTable[_]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
+  def apply[E <: AbstractTable[?]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
     import c.universe._
     val cons = c.Expr[Tag => E](Function(
       List(ValDef(Modifiers(Flag.PARAM), TermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),

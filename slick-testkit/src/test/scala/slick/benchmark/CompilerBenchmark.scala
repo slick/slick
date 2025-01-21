@@ -72,7 +72,7 @@ object CompilerBenchmark {
 
   def allQueries = queriesFromNewComposition ++ queriesFromAdancedFusion ++ queriesFromExpansion ++ queriesFromNewFusion
 
-  def queriesFromNewComposition: Vector[Rep[_]] = {
+  def queriesFromNewComposition: Vector[Rep[?]] = {
     class SuppliersStd(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
       def name = column[String]("SUP_NAME")
@@ -192,7 +192,7 @@ object CompilerBenchmark {
     Vector(qa, qa2, qb, qb2, qc, q0, q1, q1b_0, q1b, q2, q3, q3b, q4, q4b_0, q4b, q5_0, q5, q5b, q6, q7a, q1, q71, q7b, q8, q8b)
   }
 
-  def queriesFromAdancedFusion: Vector[Rep[_]] = {
+  def queriesFromAdancedFusion: Vector[Rep[?]] = {
     class TableA(tag: Tag) extends Table[Int](tag, "TableA") {
       def id = column[Int]("id")
       def * = id
@@ -222,7 +222,7 @@ object CompilerBenchmark {
     Vector(queryErr2)
   }
 
-  def queriesFromExpansion: Vector[Rep[_]] = {
+  def queriesFromExpansion: Vector[Rep[?]] = {
     class A(tag: Tag) extends Table[(Int, String)](tag, "A_refexp") {
       def id = column[Int]("id")
       def a = column[String]("a")
@@ -242,7 +242,7 @@ object CompilerBenchmark {
     Vector(q1, q2a, q2)
   }
 
-  def queriesFromNewFusion: Vector[Rep[_]] = {
+  def queriesFromNewFusion: Vector[Rep[?]] = {
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "A_NEWFUSION") {
       def id = column[Int]("id")
       def a = column[String]("a")
@@ -277,6 +277,6 @@ object CompilerBenchmark {
     val q16 = (as.map(a => a.id.?).filter(_ < 2) unionAll as.map(a => a.id.?).filter(_ > 2)).map(_.getOrElse(-1)).to[Set].filter(_ =!= 42)
     val q17 = as.sortBy(_.id).zipWithIndex.filter(_._2 < 2L).map { case (a, i) => (a.id, i) }
 
-    Vector[Rep[_]](q1, q2, q3, q4, q5a, q5b, q5c, q6, q7, q8, q9a, q9b, q10, q11a, q11b, q11c, q11d, q11e, q11f, q12, q13, q14, /*q15,*/ q16, q17)
+    Vector[Rep[?]](q1, q2, q3, q4, q5a, q5b, q5c, q6, q7, q8, q9a, q9b, q10, q11a, q11b, q11c, q11d, q11e, q11f, q12, q13, q14, /*q15,*/ q16, q17)
   }
 }

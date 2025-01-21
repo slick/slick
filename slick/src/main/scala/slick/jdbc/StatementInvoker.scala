@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
 private[jdbc] object StatementInvoker {
   val maxLogResults = 5
   lazy val tableDump = new TableDump(20)
-  lazy val resultLogger = new SlickLogger(LoggerFactory.getLogger(classOf[StatementInvoker[_]].getName+".result"))
+  lazy val resultLogger = new SlickLogger(LoggerFactory.getLogger(classOf[StatementInvoker[?]].getName+".result"))
 }
 
 /** An invoker which executes an SQL statement through JDBC. */

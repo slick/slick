@@ -13,7 +13,7 @@ import java.net.URL
   * JDK 7. */
 class DelegateResultSet(rs: ResultSet) extends ResultSet {
   def next(): Boolean = rs.next()
-  def isWrapperFor(iface: Class[_]): Boolean = rs.isWrapperFor(iface)
+  def isWrapperFor(iface: Class[?]): Boolean = rs.isWrapperFor(iface)
   def unwrap[T](iface: Class[T]): T = rs.unwrap(iface)
   def getObject[T](columnLabel: String, `type`: Class[T]): T = ??? // rs.getObject[T](columnLabel, `type`)
   def getObject[T](columnIndex: Int, `type`: Class[T]): T = ??? // rs.getObject[T](columnIndex, `type`)
@@ -85,12 +85,12 @@ class DelegateResultSet(rs: ResultSet) extends ResultSet {
   def getClob(columnLabel: String): Clob = rs.getClob(columnLabel)
   def getBlob(columnLabel: String): Blob = rs.getBlob(columnLabel)
   def getRef(columnLabel: String): Ref = rs.getRef(columnLabel)
-  def getObject(columnLabel: String, map: Map[String, Class[_]]): AnyRef = rs.getObject(columnLabel, map)
+  def getObject(columnLabel: String, map: Map[String, Class[?]]): AnyRef = rs.getObject(columnLabel, map)
   def getArray(columnIndex: Int): SQLArray = rs.getArray(columnIndex)
   def getClob(columnIndex: Int): Clob = rs.getClob(columnIndex)
   def getBlob(columnIndex: Int): Blob = rs.getBlob(columnIndex)
   def getRef(columnIndex: Int): Ref = rs.getRef(columnIndex)
-  def getObject(columnIndex: Int, map: Map[String, Class[_]]): AnyRef = rs.getObject(columnIndex, map)
+  def getObject(columnIndex: Int, map: Map[String, Class[?]]): AnyRef = rs.getObject(columnIndex, map)
   def getStatement: Statement = rs.getStatement
   def moveToCurrentRow(): Unit = rs.moveToCurrentRow
   def moveToInsertRow(): Unit = rs.moveToInsertRow

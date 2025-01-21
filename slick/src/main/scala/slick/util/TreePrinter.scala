@@ -83,7 +83,7 @@ case class DumpInfo(name: String, mainInfo: String = "", attrInfo: String = "", 
 }
 
 object DumpInfo {
-  def simpleNameFor(cl: Class[_]): String = cl.getName.replaceFirst(".*\\.", "")
+  def simpleNameFor(cl: Class[?]): String = cl.getName.replaceFirst(".*\\.", "")
 
   def highlight(s: String) = cGreen + s + cNormal
 }

@@ -160,7 +160,7 @@ class LoggingStatement(st: Statement) extends Statement {
   override def setFetchDirection(direction: Int) = st.setFetchDirection(direction)
   override def getFetchDirection: Int = st.getFetchDirection
   override def getResultSetConcurrency: Int = st.getResultSetConcurrency
-  override def isWrapperFor(iface: Class[_]): Boolean = st.isWrapperFor(iface)
+  override def isWrapperFor(iface: Class[?]): Boolean = st.isWrapperFor(iface)
   override def clearBatch() = st.clearBatch()
   override def close() = st.close()
   override def isClosed: Boolean = st.isClosed

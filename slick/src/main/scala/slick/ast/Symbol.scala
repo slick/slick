@@ -18,10 +18,10 @@ trait TypeSymbol extends Symbol
 trait TermSymbol extends Symbol
 
 /** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol {
-  def findColumnOption[T <: ColumnOption[_]](implicit ct: ClassTag[T]): Option[T] =
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[?]], val tpe: Type) extends TermSymbol {
+  def findColumnOption[T <: ColumnOption[?]](implicit ct: ClassTag[T]): Option[T] =
     options.find(ct.runtimeClass.isInstance _).asInstanceOf[Option[T]]
-  def existsColumnOption[T <: ColumnOption[_]](implicit ct: ClassTag[T]): Boolean =
+  def existsColumnOption[T <: ColumnOption[?]](implicit ct: ClassTag[T]): Boolean =
     findColumnOption[T].nonEmpty
 }
 

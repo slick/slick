@@ -24,9 +24,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   def createCheckInsertBuilder(node: Insert): InsertBuilder = new CheckInsertBuilder(node)
   def createUpdateInsertBuilder(node: Insert): InsertBuilder = new UpdateInsertBuilder(node)
-  def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
+  def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new TableDDLBuilder(table)
+  def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
   class JdbcCompiledInsert(source: Node) {
     class Artifacts(val compiled: Node,
@@ -60,7 +60,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     lazy val updateInsert = compile(updateInsertCompiler)
 
     /** Build a list of columns and a matching `ResultConverter` for retrieving keys of inserted rows. */
-    def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[ResultSet, PreparedStatement, ResultSet, _], Boolean) = {
+    def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[ResultSet, PreparedStatement, ResultSet, ?], Boolean) = {
       if(!capabilities.contains(JdbcCapabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(rconv, _)) =
@@ -75,7 +75,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
             "This DBMS allows only a single column to be returned from an INSERT," +
               " and that column must be an AutoInc column."
           )
-      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, _]], returnOther)
+      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, ?]], returnOther)
     }
   }
 
@@ -604,7 +604,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   class UpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
     /* NOTE: pk defined by using method `primaryKey` and pk defined with `PrimaryKey` can only have one,
              here we let table ddl to help us ensure this. */
-    private lazy val funcDefinedPKs = table.profileTable.asInstanceOf[Table[_]].primaryKeys
+    private lazy val funcDefinedPKs = table.profileTable.asInstanceOf[Table[?]].primaryKeys
     protected lazy val (pkSyms, softSyms) = syms.toSeq.partition { sym =>
       sym.options.contains(ColumnOption.PrimaryKey) || funcDefinedPKs.exists(pk => pk.columns.collect {
         case Select(_, f: FieldSymbol) => f
@@ -669,7 +669,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   }
 
   /** Builder for various DDL statements. */
-  class TableDDLBuilder(val table: Table[_]) { self =>
+  class TableDDLBuilder(val table: Table[?]) { self =>
     protected val tableNode = table.toNode.asInstanceOf[TableExpansion].table.asInstanceOf[TableNode]
 
     /** new instance on access to avoid sharing mutable state during createPhase1 or createIfNotExistsPhase */
@@ -817,7 +817,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       } else sqlType = jdbcType.sqlTypeName(Some(column))
     }
 
-    protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
+    protected def handleColumnOption(o: ColumnOption[?]): Unit = o match {
       case SqlProfile.ColumnOption.SqlType(s) => sqlType = s
       case RelationalProfile.ColumnOption.Length(s,v) =>
         size = Some(s)
@@ -848,7 +848,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   }
 
   /** Builder for DDL statements for sequences. */
-  class SequenceDDLBuilder(seq: Sequence[_]) {
+  class SequenceDDLBuilder(seq: Sequence[?]) {
     def buildDDL: DDL = {
       val b = new StringBuilder append "create sequence " append quoteIdentifier(seq.name)
       seq._increment.foreach { b append " increment " append _ }

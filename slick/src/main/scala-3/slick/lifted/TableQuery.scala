@@ -10,7 +10,7 @@ import slick.ast.Node
 class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, TableQuery.Extract[E], Seq] {
   lazy val shaped = {
     val baseTable = cons(new BaseTag { base =>
-      def taggedAs(path: Node): AbstractTable[_] = cons(new RefTag(path) {
+      def taggedAs(path: Node): AbstractTable[?] = cons(new RefTag(path) {
         def taggedAs(path: Node) = base.taggedAs(path)
       })
     })

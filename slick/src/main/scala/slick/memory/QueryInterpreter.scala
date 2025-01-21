@@ -284,7 +284,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
         val (num, opt) = itType match {
-          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
+          case t: ScalaOptionType[?] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
           case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
         }
         reduceOptionIt[Any](it, opt, identity, (a, b) => num.plus(a, b))
@@ -292,7 +292,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
         val (num, opt) = itType match {
-          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
+          case t: ScalaOptionType[?] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
           case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
         }
         reduceOptionIt[(Int, Any)](it, opt, (1, _), { case ((ai, a), (bi, b)) => (ai + bi, num.plus(a, b)) }).map { case (count, sum) =>
@@ -303,7 +303,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
         val (ord, opt) = itType match {
-          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
+          case t: ScalaOptionType[?] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
           case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
         reduceOptionIt[Any](it, opt, identity, (a, b) => if(ord.lt(b, a)) b else a)
@@ -311,7 +311,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
         val (ord, opt) = itType match {
-          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
+          case t: ScalaOptionType[?] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
           case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
         reduceOptionIt[Any](it, opt, identity, (a, b) => if(ord.gt(b, a)) b else a)
@@ -458,7 +458,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   }
 
   def createNullRow(tpe: Type): Any = tpe match {
-    case t: ScalaType[_] => if(t.nullable) None else null
+    case t: ScalaType[?] => if(t.nullable) None else null
     case StructType(el) =>
       new StructValue(el.toSeq.map{ case (_, tpe) => createNullRow(tpe) },
         el.toSeq.zipWithIndex.iterator.map{ case ((sym, _), idx) => (sym, idx) }.toMap)

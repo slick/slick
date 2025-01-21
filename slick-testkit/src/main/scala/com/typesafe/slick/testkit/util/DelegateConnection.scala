@@ -23,7 +23,7 @@ class DelegateConnection(conn: Connection) extends Connection {
   def getSchema: String = conn.getSchema
   def setNetworkTimeout(executor: Executor, milliseconds: Int): Unit = conn.setNetworkTimeout(executor, milliseconds)
   def getMetaData: DatabaseMetaData = conn.getMetaData
-  def getTypeMap: util.Map[String, Class[_]] = conn.getTypeMap
+  def getTypeMap: util.Map[String, Class[?]] = conn.getTypeMap
   def rollback(): Unit = conn.rollback()
   def rollback(savepoint: Savepoint): Unit = conn.rollback(savepoint)
   def createStatement(resultSetType: Int, resultSetConcurrency: Int): Statement = conn.createStatement(resultSetType, resultSetConcurrency)
@@ -33,7 +33,7 @@ class DelegateConnection(conn: Connection) extends Connection {
   def setClientInfo(name: String, value: String): Unit = conn.setClientInfo(name, value)
   def setClientInfo(properties: Properties): Unit = conn.setClientInfo(properties)
   def isReadOnly: Boolean = conn.isReadOnly
-  def setTypeMap(map: util.Map[String, Class[_]]): Unit = conn.setTypeMap(map)
+  def setTypeMap(map: util.Map[String, Class[?]]): Unit = conn.setTypeMap(map)
   def getCatalog: String = conn.getCatalog
   def createClob(): Clob = conn.createClob
   def setTransactionIsolation(level: Int): Unit = conn.setTransactionIsolation(level)
@@ -60,5 +60,5 @@ class DelegateConnection(conn: Connection) extends Connection {
   def setSchema(schema: String): Unit = conn.setSchema(schema)
   def commit(): Unit = conn.commit()
   def unwrap[T](iface: Class[T]): T = conn.unwrap[T](iface)
-  def isWrapperFor(iface: Class[_]): Boolean = conn.isWrapperFor(iface)
+  def isWrapperFor(iface: Class[?]): Boolean = conn.isWrapperFor(iface)
 }

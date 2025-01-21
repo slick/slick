@@ -56,9 +56,9 @@ object TestkitConfig {
   lazy val testDBs = getStrings(testkitConfig, "testDBs")
 
   /** The `testkit.testClasses` setting */
-  lazy val testClasses: Seq[Class[_ <: AsyncTest[_ >: Null <: TestDB]]] =
+  lazy val testClasses: Seq[Class[? <: AsyncTest[? >: Null <: TestDB]]] =
     getStrings(testkitConfig, "testClasses").getOrElse(Nil).
-      map(n => Class.forName(n).asInstanceOf[Class[_ <: AsyncTest[_ >: Null <: TestDB]]])
+      map(n => Class.forName(n).asInstanceOf[Class[? <: AsyncTest[? >: Null <: TestDB]]])
 
   /** The duration after which asynchronous tests should be aborted and failed */
   lazy val asyncTimeout =
@@ -67,7 +67,7 @@ object TestkitConfig {
   def getStrings(config: Config, path: String): Option[Seq[String]] = {
     if(config.hasPath(path)) {
       config.getValue(path).unwrapped() match {
-        case l: java.util.List[_] => Some(l.asScala.iterator.map(_.toString).toSeq)
+        case l: java.util.List[?] => Some(l.asScala.iterator.map(_.toString).toSeq)
         case o => Some(List(o.toString))
       }
     } else None
