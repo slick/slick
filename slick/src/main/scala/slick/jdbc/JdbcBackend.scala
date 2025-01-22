@@ -241,7 +241,7 @@ trait JdbcBackend extends RelationalBackend {
       *         of connections to keep in the pool.</li>
       *       <li>`maximumPoolSize` or `maxConnections` (Int, optional, default: `numThreads`): The maximum number of
       *         connections in the pool.</li>
-     *         <li>`keepAliveTime` (Float, optional, default: 1min): the interval in which connections will be tested
+     *         <li>`keepAliveTime` (Float, optional): the interval in which connections will be tested
      *          for aliveness, thus keeping them alive by the act of checking. Value is in milliseconds </li>
       *     </ul>
       *   </li>
