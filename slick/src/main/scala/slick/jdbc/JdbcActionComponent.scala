@@ -96,7 +96,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       val isolated =
         (new SetTransactionIsolation(ti.intValue)).flatMap(old => a.andFinally(new SetTransactionIsolation(old)))(DBIO.sameThreadExecutionContext)
       val fused =
-        if(a.isInstanceOf[SynchronousDatabaseAction[_, _, _, _, _]]) SynchronousDatabaseAction.fuseUnsafe(isolated)
+        if(a.isInstanceOf[SynchronousDatabaseAction[?, ?, ?, ?, ?]]) SynchronousDatabaseAction.fuseUnsafe(isolated)
         else isolated
       fused.withPinnedSession
     }
@@ -446,22 +446,22 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     type QueryInsertResult
 
     /** Get the SQL statement for inserting a single row from a scalar expression */
-    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String
+    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[? <: FlatShapeLevel, TT, U, ?]): String
 
     /** Get the SQL statement for inserting data produced by another query */
     def forceInsertStatementFor[TT, C[_]](query: Query[TT, U, C]): String
 
     /** Get the SQL statement for inserting data produced by another query */
-    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String
+    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], ?, ?]): String
 
     /** Insert a single row from a scalar expression */
-    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): ProfileAction[QueryInsertResult, NoStream, Effect.Write]
+    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[? <: FlatShapeLevel, TT, U, ?]): ProfileAction[QueryInsertResult, NoStream, Effect.Write]
 
     /** Insert data produced by another query */
     def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): ProfileAction[QueryInsertResult, NoStream, Effect.Write]
 
     /** Insert data produced by another query */
-    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): ProfileAction[QueryInsertResult, NoStream, Effect.Write]
+    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], ?, ?]): ProfileAction[QueryInsertResult, NoStream, Effect.Write]
   }
 
   /** An InsertInvoker that returns the number of affected rows. */
@@ -499,7 +499,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected[this] def buildQueryBasedInsert[TT, C[_]](query: Query[TT, U, C]): SQLBuilder.Result =
       compiled.forceInsert.ibr.buildInsert(queryCompiler.run(query.toNode).tree)
 
-    protected[this] def buildQueryBasedInsert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): SQLBuilder.Result =
+    protected[this] def buildQueryBasedInsert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], ?, ?]): SQLBuilder.Result =
       compiled.forceInsert.ibr.buildInsert(compiledQuery.compiledQuery)
 
     def insertStatement = compiled.standardInsert.sql
@@ -535,22 +535,22 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       else
         new InsertOrUpdateAllAction(values, rowsPerStatement)
 
-    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) =
+    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[? <: FlatShapeLevel, TT, U, ?]) =
       buildQueryBasedInsert(Query(c)(shape)).sql
 
     def forceInsertStatementFor[TT, C[_]](query: Query[TT, U, C]) =
       buildQueryBasedInsert(query).sql
 
-    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) =
+    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], ?, ?]) =
       buildQueryBasedInsert(compiledQuery).sql
 
-    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): ProfileAction[QueryInsertResult, NoStream, Effect.Write] =
+    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[? <: FlatShapeLevel, TT, U, ?]): ProfileAction[QueryInsertResult, NoStream, Effect.Write] =
       new InsertQueryAction(buildQueryBasedInsert((Query(c)(shape))), null)
 
     def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): ProfileAction[QueryInsertResult, NoStream, Effect.Write] =
       new InsertQueryAction(buildQueryBasedInsert(query), null)
 
-    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): ProfileAction[QueryInsertResult, NoStream, Effect.Write] =
+    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], ?, ?]): ProfileAction[QueryInsertResult, NoStream, Effect.Write] =
       new InsertQueryAction(buildQueryBasedInsert(compiledQuery), compiledQuery.param)
 
     protected def useServerSideUpsert = self.useServerSideUpsert
@@ -627,7 +627,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         rowsPerStatement match {
           case RowsPerStatement.One =>
             values match {
-              case seq: IndexedSeq[_] if seq.length < 2 => doUnbatched(ctx, sql)
+              case seq: IndexedSeq[?] if seq.length < 2 => doUnbatched(ctx, sql)
               case _ if !useBatchUpdates(ctx.session)   => doUnbatched(ctx, sql)
               case _                                    => doBatched(ctx, sql)
             }
@@ -642,7 +642,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         List(compiled.upsert, compiled.checkInsert, compiled.updateInsert)
           .filter(_ != null)
           .exists(artifacts =>
-            artifacts.ibr.table.profileTable.asInstanceOf[Table[_]].primaryKeys.nonEmpty
+            artifacts.ibr.table.profileTable.asInstanceOf[Table[?]].primaryKeys.nonEmpty
               || artifacts.ibr.fields.exists(_.options.contains(PrimaryKey))
           )
 

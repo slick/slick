@@ -238,7 +238,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Indicates whether this is an auto increment column */
       final def autoInc = model.options.contains(ColumnOption.AutoInc)
       /** Generates code for a columnOption */
-      def columnOptionCode: ColumnOption[_] => Option[Code]
+      def columnOptionCode: ColumnOption[?] => Option[Code]
       /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
       def options: Iterable[Code] = model.options.filter{
         case _: SqlProfile.ColumnOption.SqlType => dbType

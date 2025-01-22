@@ -24,6 +24,6 @@ class ModelBuilderTest(val tdb: JdbcTestDB) extends DBTest {
       sqlu"""create table BAZ (FOO VARCHAR(255) DEFAULT CURRENT_USER)""" >>
       tdb.profile.createModel(ignoreInvalidDefaults=false).asTry
     val mt = Await.result(db.run(a.withPinnedSession), Duration.Inf)
-    assertTrue(mt.asInstanceOf[Failure[_]].exception.asInstanceOf[SlickException].getMessage.contains("not parse default"))
+    assertTrue(mt.asInstanceOf[Failure[?]].exception.asInstanceOf[SlickException].getMessage.contains("not parse default"))
   }
 }

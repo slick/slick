@@ -14,7 +14,7 @@ class FixRowNumberOrdering extends Phase {
   def fix(n: Node, parent: Option[Comprehension[Option[Node]]] = None): Node = (n, parent) match {
     case (r @ RowNumber(_), Some(c)) if !c.orderBy.isEmpty =>
       RowNumber(c.orderBy) :@ r.nodeType
-    case (c: Comprehension[_], _) => c.mapScopedChildren {
+    case (c: Comprehension[?], _) => c.mapScopedChildren {
       case (Some(_), ch) => fix(ch, None)
       case (None, ch)    => fix(ch, Some(c))
     }.infer()

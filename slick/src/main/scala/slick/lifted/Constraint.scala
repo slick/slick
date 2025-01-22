@@ -24,15 +24,15 @@ final class ForeignKey( //TODO Simplify this mess!
     val linearizedTargetColumns: IndexedSeq[Node],
     val linearizedTargetColumnsForOriginalTargetTable: IndexedSeq[Node],
     val targetTable: TableNode,
-    val columnsShape: Shape[_ <: FlatShapeLevel, _, _, _])
+    val columnsShape: Shape[? <: FlatShapeLevel, ?, ?, ?])
 
 object ForeignKey {
-  def apply[TT <: AbstractTable[_], P](
+  def apply[TT <: AbstractTable[?], P](
       name: String,
       sourceTable: Node,
-      targetTableShaped: ShapedValue[TT, _],
+      targetTableShaped: ShapedValue[TT, ?],
       originalTargetTable: TT,
-      pShape: Shape[_ <: FlatShapeLevel, P, _, _],
+      pShape: Shape[? <: FlatShapeLevel, P, ?, ?],
       originalSourceColumns: P,
       originalTargetColumns: TT => P,
       onUpdate: model.ForeignKeyAction,
@@ -64,9 +64,9 @@ object ForeignKey {
 }
 
 /** A query that selects data linked by a foreign key. */
-class ForeignKeyQuery[E <: AbstractTable[_], U](
+class ForeignKeyQuery[E <: AbstractTable[?], U](
     nodeDelegate: Node,
-    base: ShapedValue[_ <: E, U],
+    base: ShapedValue[? <: E, U],
     val fks: IndexedSeq[ForeignKey],
     targetBaseQuery: Query[E, U, Seq],
     generator: AnonSymbol,
@@ -92,4 +92,4 @@ class ForeignKeyQuery[E <: AbstractTable[_], U](
 case class PrimaryKey(name: String, columns: IndexedSeq[Node]) extends Constraint
 
 /** An index (or foreign key constraint with an implicit index). */
-class Index(val name: String, val table: AbstractTable[_], val on: IndexedSeq[Node], val unique: Boolean)
+class Index(val name: String, val table: AbstractTable[?], val on: IndexedSeq[Node], val unique: Boolean)

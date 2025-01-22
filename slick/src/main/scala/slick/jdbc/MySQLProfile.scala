@@ -119,7 +119,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
     //https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
     import scala.reflect.{classTag, ClassTag}
-    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
+    override def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[?] = {
       import java.sql.Types.*
       jdbcType match{
         case TINYINT if typeName.contains("UNSIGNED")  =>  classTag[Short]
@@ -150,14 +150,14 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new MySQLQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new MySQLUpsertBuilder(node)
-  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new MySQLTableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder =
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new MySQLTableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder =
     new MySQLColumnDDLBuilder(column)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new MySQLSequenceDDLBuilder(seq)
+  override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new MySQLSequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = s"`$id`"
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
       sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length]) match {
         case Some(l) => if(l.varying){
@@ -169,7 +169,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         case None => defaultStringType match {
           case Some(s) => s
           case None =>
-            if(sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Default[_]]).isDefined ||
+            if(sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Default[?]]).isDefined ||
                sym.flatMap(_.findColumnOption[ColumnOption.PrimaryKey.type]).isDefined)
               "VARCHAR(254)" else "TEXT"
         }
@@ -295,7 +295,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class MySQLTableDDLBuilder(table: Table[_]) extends TableDDLBuilder(table) {
+  class MySQLTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
     override protected def dropForeignKey(fk: ForeignKey) = {
       "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
     }

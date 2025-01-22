@@ -93,7 +93,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
     var len = 0
     var i = 0
     while(i < length) {
-      len += a(i).asInstanceOf[ConstArray[_]].length
+      len += a(i).asInstanceOf[ConstArray[?]].length
       i += 1
     }
     if(len == 0) ConstArray.empty
@@ -102,7 +102,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
       i = 0
       var j = 0
       while(i < length) {
-        val r = a(i).asInstanceOf[ConstArray[_]]
+        val r = a(i).asInstanceOf[ConstArray[?]]
         val l = r.length
         r.copySliceTo(ar, 0, j, l)
         j += l
@@ -361,7 +361,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
 
   ///////////////////////////////////////////////////////// Equals
 
-  def canEqual(that: Any): Boolean = that.isInstanceOf[ConstArray[_]]
+  def canEqual(that: Any): Boolean = that.isInstanceOf[ConstArray[?]]
 
   private[this] var _hashCode: Int = 0
 
@@ -375,7 +375,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
   }
 
   override def equals(o: Any): Boolean = o match {
-    case o: ConstArray[_] =>
+    case o: ConstArray[?] =>
       if(length != o.length) false
       else {
         var i = 0
@@ -502,7 +502,7 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
   }
 
   def ++= (vs: IterableOnce[T]): Unit = {
-    if(vs.isInstanceOf[scala.collection.IndexedSeq[_]]) ensure(vs.asInstanceOf[scala.collection.IndexedSeq[_]].size)
+    if(vs.isInstanceOf[scala.collection.IndexedSeq[?]]) ensure(vs.asInstanceOf[scala.collection.IndexedSeq[?]].size)
     vs.iterator.foreach(self += _)
   }
 

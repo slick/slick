@@ -62,7 +62,7 @@ class RewriteBooleans extends Phase {
   /** Check if a type is equivalent to the Scala Boolean type or a (possibly
     * nested) Option of that type. */
   def isBooleanLike(t: Type): Boolean = t match {
-    case t: TypedType[_] if t.scalaType == ScalaBaseType.booleanType => true
+    case t: TypedType[?] if t.scalaType == ScalaBaseType.booleanType => true
     case t: OptionType => isBooleanLike(t.elementType)
     case _ => false
   }

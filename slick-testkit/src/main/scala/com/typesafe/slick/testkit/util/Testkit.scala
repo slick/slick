@@ -29,7 +29,7 @@ import org.slf4j.MDC
 
 
 /** JUnit runner for the Slick driver test kit. */
-class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
+class Testkit(clazz: Class[? <: ProfileTest], runnerBuilder: RunnerBuilder)
   extends SimpleParentRunner[TestMethod](clazz) {
 
   val profileTest: ProfileTest = clazz.getConstructor().newInstance()
@@ -54,10 +54,10 @@ class Testkit(clazz: Class[_ <: ProfileTest], runnerBuilder: RunnerBuilder)
     else {
       tdb.cleanUpBefore()
       try {
-        val is = (children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance().asInstanceOf[AsyncTest[_ >: Null <: TestDB]]))) //TODO why does Dotty require this cast?
+        val is = (children.iterator.map(ch => (ch, ch.cl.getConstructor().newInstance().asInstanceOf[AsyncTest[? >: Null <: TestDB]]))) //TODO why does Dotty require this cast?
           .filter { case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
         val last = is.length - 1
-        var previousTestObject: AsyncTest[_ >: Null <: TestDB] = null
+        var previousTestObject: AsyncTest[? >: Null <: TestDB] = null
         for (((ch, preparedTestObject), idx) <- is) {
           val desc = describeChild(ch)
           notifier.fireTestStarted(desc)
@@ -86,18 +86,18 @@ abstract class ProfileTest(val tdb: TestDB) {
   def tests = tdb.testClasses
 }
 
-case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: AsyncTest[_ >: Null <: TestDB]]) {
+case class TestMethod(name: String, desc: Description, method: Method, cl: Class[? <: AsyncTest[? >: Null <: TestDB]]) {
   private[this] def await[T](f: Future[T]): T =
     try Await.result(f, TestkitConfig.asyncTimeout)
     catch {
       case ex: ExecutionException => throw ex.getCause
     }
 
-  def run(testObject: AsyncTest[_]): Unit = {
+  def run(testObject: AsyncTest[?]): Unit = {
     val r = method.getReturnType
-    if (r == classOf[Future[_]])
+    if (r == classOf[Future[?]])
       await(method.invoke(testObject).asInstanceOf[Future[Any]])
-    else if (r == classOf[DBIOAction[_, _, _]])
+    else if (r == classOf[DBIOAction[?, ?, ?]])
       await(testObject.db.run(method.invoke(testObject).asInstanceOf[DBIO[Any]]))
     else
       throw new RuntimeException(
@@ -165,7 +165,7 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
   final def mark[R, S <: NoStream, E <: Effect](id: String, f: => DBIOAction[R, S, E]): DBIOAction[R, S, E] =
     mark[DBIOAction[R, S, E]](id, f.named(id))
 
-  def assertNesting(q: Rep[_], exp: Int): Unit = {
+  def assertNesting(q: Rep[?], exp: Int): Unit = {
     import slick.ast.*
     import slick.ast.Util.*
     import slick.compiler.QueryCompiler
@@ -239,7 +239,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   def ifNotCapU[T](caps: Capability*)(f: => T): Unit =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f
 
-  def seq[E <: Effect](actions: DBIOAction[_, NoStream, E]*): DBIOAction[Unit, NoStream, E] = DBIO.seq[E](actions: _*)
+  def seq[E <: Effect](actions: DBIOAction[?, NoStream, E]*): DBIOAction[Unit, NoStream, E] = DBIO.seq[E](actions: _*)
 
   /** Synchronously consume a Reactive Stream and materialize it as a Vector. */
   def materialize[T](p: Publisher[T]): Future[Vector[T]] = {
@@ -348,7 +348,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
         throw ex
     }
 
-    def shouldAllMatch(f: PartialFunction[T, _]) = v.iterator.foreach { x =>
+    def shouldAllMatch(f: PartialFunction[T, ?]) = v.iterator.foreach { x =>
       if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
     }
   }

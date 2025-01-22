@@ -141,7 +141,7 @@ class DriverDataSource(
     driver.getParentLogger
   }
 
-  def isWrapperFor(iface: Class[_]): Boolean = iface.isInstance(this)
+  def isWrapperFor(iface: Class[?]): Boolean = iface.isInstance(this)
 
   def unwrap[T](iface: Class[T]): T =
     if(iface.isInstance(this)) this.asInstanceOf[T]

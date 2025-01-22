@@ -53,13 +53,13 @@ trait JdbcBackend extends RelationalBackend {
       * `request()` more data. This allows you to process LOBs asynchronously by requesting only
       * one single element at a time after processing the current one, so that the proper
       * sequencing is preserved even though processing may happen on a different thread. */
-    final def stream[T](a: StreamingDBIO[_, T], bufferNext: Boolean): DatabasePublisher[T] =
+    final def stream[T](a: StreamingDBIO[?, T], bufferNext: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => new JdbcStreamingActionContext(s, false, this, bufferNext))
 
     override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
       new JdbcActionContext { val useSameThread = _useSameThread }
 
-    override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
+    override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T], useSameThread: Boolean): StreamingContext =
       new JdbcStreamingActionContext(s, useSameThread, this, true)
 
     protected[this] def synchronousExecutionContext = executor.executionContext
@@ -591,7 +591,7 @@ trait JdbcBackend extends RelationalBackend {
     def connection: Connection = session.conn
   }
 
-  class JdbcStreamingActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends BasicStreamingActionContext(subscriber, useSameThread, database) with JdbcActionContext
+  class JdbcStreamingActionContext(subscriber: Subscriber[?], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends BasicStreamingActionContext(subscriber, useSameThread, database) with JdbcActionContext
 }
 
 object JdbcBackend extends JdbcBackend {

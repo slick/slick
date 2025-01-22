@@ -105,7 +105,7 @@ private[util] final class InternalArrayQueue[E >: Null <: AnyRef](capacity: Int)
     takeIndex = 0
   }
 
-  private[util] def drainTo(c: util.Collection[_ >: E]): Int = {
+  private[util] def drainTo(c: util.Collection[? >: E]): Int = {
     checkNotNull(c)
     val items = this.items
     var i = takeIndex
@@ -125,7 +125,7 @@ private[util] final class InternalArrayQueue[E >: Null <: AnyRef](capacity: Int)
     n
   }
 
-  private[util] def drainTo(c: util.Collection[_ >: E], maxElements: Int): Int = {
+  private[util] def drainTo(c: util.Collection[? >: E], maxElements: Int): Int = {
     checkNotNull(c)
     if (maxElements <= 0) return 0
     val items = this.items
