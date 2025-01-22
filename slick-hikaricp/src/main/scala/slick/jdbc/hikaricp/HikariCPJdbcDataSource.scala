@@ -56,6 +56,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     hconf.setMaximumPoolSize(c.getIntOpt("maximumPoolSize").orElse(c.getIntOpt("maxConnections")).getOrElse(numThreads))
     hconf.setMinimumIdle(c.getIntOpt("minimumIdle").orElse(c.getIntOpt("minConnections")).getOrElse(numThreads))
     hconf.setPoolName(c.getStringOr("poolName", name))
+    c.getLongOpt("keepAliveTime").foreach(hconf.setKeepaliveTime)
 
     // Infrequently used
 
