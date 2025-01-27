@@ -18,7 +18,7 @@ object Dependencies {
   val scalaCollectionCompat = Def.setting {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, n)) if n == 12 =>
-        Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.12.0")
+        Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.13.0")
       case _ =>
         Seq.empty
     }
