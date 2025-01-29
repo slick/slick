@@ -23,6 +23,15 @@ changes.
 Release candidates have the same compatibility guarantees as the final versions to which they
 lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
 
+Scala 3 Migration Resources
+---------------------------
+
+Slick 3.5.0 supports Scala 3 as well as Scala 2.
+
+Here are some general Scala 3 resources that you may want to follow to migrate your codebase to Scala 3:
+
+- The [Scala 3 Migration Guide](https://docs.scala-lang.org/scala3/guides/migration/compatibility-intro.html)
+- The [Scala 3 Language Reference](https://docs.scala-lang.org/scala3/reference/)
 
 Latest changes
 --------------
