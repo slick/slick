@@ -15,6 +15,7 @@ class DistributedQueryingTest {
   val dc2 = DatabaseConfig.forConfig[JdbcProfile]("distrib2")
   val dProfile = new DistributedProfile(dc1.profile, dc2.profile)
 
+  @annotation.nowarn("cat=scala3-migration")
   val ts = {
     import dc1.profile.api._
     class T(tag: Tag) extends Table[(Int, Int, String)](tag, "tdb1_T") {
