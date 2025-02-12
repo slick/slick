@@ -38,7 +38,7 @@ object StandardTestDBs {
     val url = "jdbc:h2:mem:test1"
   }
 
-  lazy val H2Disk = new H2TestDB("h2disk", false) {
+  object H2Disk extends H2TestDB("h2disk", false) {
     val dbName = "h2-"+confName
     val url = "jdbc:h2:"+TestkitConfig.testDBPath+"/"+dbName
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -49,13 +49,13 @@ object StandardTestDBs {
     }
   }
 
-  lazy val HsqldbMem = new HsqlDB("hsqldbmem") {
+  object HsqldbMem extends HsqlDB("hsqldbmem") {
     val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
     override def isPersistent = false
   }
 
-  lazy val HsqldbDisk = new HsqlDB("hsqldbdisk") {
+  object HsqldbDisk extends HsqlDB("hsqldbdisk") {
     val dbName = "hsqldb-"+confName
     val url = "jdbc:hsqldb:file:"+TestkitConfig.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -86,7 +86,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val DerbyMem = new DerbyDB("derbymem") {
+  object DerbyMem extends DerbyDB("derbymem") {
     val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
@@ -97,7 +97,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val DerbyDisk = new DerbyDB("derbydisk") {
+  object DerbyDisk extends DerbyDB("derbydisk") {
     val dbName = "derby-"+confName
     val url = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
@@ -109,7 +109,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val Postgres = new ExternalJdbcTestDB("postgres") {
+  object Postgres extends ExternalJdbcTestDB("postgres") {
     val profile: Profile = PostgresProfile
     override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
       ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "public", null, null))
@@ -129,7 +129,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val Heap = new RelationalTestDB {
+  object Heap extends RelationalTestDB {
     type Profile = MemoryProfile
     val profile: Profile = MemoryProfile
     val confName: String = "heap"
@@ -152,7 +152,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val DB2 = new ExternalJdbcTestDB("db2") {
+  object DB2 extends ExternalJdbcTestDB("db2") {
     val profile: Profile = DB2Profile
     import profile.api.actionBasedSQLInterpolation
 
