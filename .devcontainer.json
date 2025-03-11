@@ -1,0 +1,7 @@
+{
+  "tasks": {
+    "build": "sbt compile",
+    "test": "sbt test",
+    "launch": "sbt run"
+  }
+}
