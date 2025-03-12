@@ -15,7 +15,7 @@ jobs:
           merge-multiple: true
           path: test-results
       - run: ls -R
-      - uses: dorny/test-reporter@v1
+      - uses: dorny/test-reporter@v2
         with:
           artifact: test-results                              # artifact name
           name: Test Results                                  # Name of the check run which will be created
