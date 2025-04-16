@@ -42,38 +42,51 @@ object ShapedValue {
       case '[ HNil.type ] => Nil
     }
 
+    val targetString = rpm match {
+      case '{ $m: Mirror.ProductOf[R] { type MirroredElemTypes = ts }} =>
+        Type.show(using Type.of[ts].asInstanceOf[Type[? <: Tuple]])
+    }
+
     val targetElemTpes = rpm match {
       case '{ $m: Mirror.ProductOf[R] { type MirroredElemTypes = ts }} =>
         decomposeTuple(Type.of[ts].asInstanceOf[Type[? <: Tuple]])
     }
 
-    val (f, g, elemTpes) = Expr.summon[Mirror.ProductOf[U]] match {
-      case Some(upm @ '{ $m: Mirror.ProductOf[U] { type MirroredElemTypes = elementTypes }}) =>
-        val elemTpes = decomposeTuple(Type.of[elementTypes].asInstanceOf[Type[? <: Tuple]])
-        val f = '{ ((u: U) => $rpm.fromProduct(u.asInstanceOf[Product])).asInstanceOf[Any => Any] }
-        val g = '{ ((r: R) => $upm.fromProduct(r.asInstanceOf[Product])).asInstanceOf[Any => Any] }
-        (f, g, elemTpes)
-      case _ =>
+    val (f, g, elemTpes) =
         utpe match {
+          case utpe @ '[ Tuple ] =>
+            Expr.summon[Mirror.ProductOf[U]] match {
+              case Some(upm @ '{ $m: Mirror.ProductOf[U] { type MirroredElemTypes = elementTypes }}) =>
+                val elemTpes = decomposeTuple(Type.of[elementTypes].asInstanceOf[Type[? <: Tuple]])
+                val f = '{ ((u: U) => $rpm.fromProduct(u.asInstanceOf[Product])).asInstanceOf[Any => Any] }
+                val g = '{ ((r: R) => $upm.fromProduct(r.asInstanceOf[Product])).asInstanceOf[Any => Any] }
+                (f, g, elemTpes)
+              case _ =>
+                report.errorAndAbort(s"Unknown Error - could not decompose tuple type into product")
+            }
           case utpe @ '[ HList ] =>
             val elemTpes = decomposeHList(utpe)
             val f = '{ ((u: U) => $rpm.fromProduct(u.asInstanceOf[Product])).asInstanceOf[Any => Any] }
             val g = '{ ((r: R) => r.asInstanceOf[Product].productIterator.foldRight(HNil: HList) { case (n, z) => new HCons(n, z) }).asInstanceOf[Any => Any] }
             (f, g, elemTpes)
           case _ if targetElemTpes.length == 1 =>
-            val f = '{ ((u: U) => $rpm.fromProduct(Tuple.fromArray(Array(u.asInstanceOf[AnyRef])))).asInstanceOf[Any => Any] }
-            val g = '{ ((r: R) => r.asInstanceOf[Product].productElement(0)).asInstanceOf[Any => Any] }
-            (f, g, targetElemTpes)
+            val f = '{ ((u: U) => $rpm.fromProduct(Tuple1(u.asInstanceOf[AnyRef]))).asInstanceOf[Any => Any] }
+            val g = '{ ((r: R) => r.asInstanceOf[Product]).asInstanceOf[Any => Any] }
+            (f, g, List(utpe))
           case _ =>
             report.errorAndAbort(s"Source type ${Type.show[U]} must be a product, HList or single value")
         }
+
+    val lengthCheck = elemTpes.length == targetElemTpes.length
+
+    // Enforce exact type match in order
+    val typeCheckFailure = elemTpes.zip(targetElemTpes).exists { (a, b) =>
+      !(TypeRepr.of(using a) =:= TypeRepr.of(using b))
     }
 
-    if(elemTpes.length != targetElemTpes.length) {
-      // todo: change
-      val src = elemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
-      val target = targetElemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
-      report.errorAndAbort(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
+    if (!lengthCheck || typeCheckFailure) {
+      val src = Type.show(using summon[Type[U]])
+      report.errorAndAbort(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $targetString")
     }
 
     '{ new MappedProjection[R]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
