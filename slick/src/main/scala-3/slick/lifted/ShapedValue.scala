@@ -26,7 +26,7 @@ case class ShapedValue[T, U](value: T, shape: Shape[? <: FlatShapeLevel, T, U, ?
 
 object ShapedValue {
   def mapToExpr[R : Type, T : Type, U : Type](sv: Expr[ShapedValue[T, U]])(using Quotes): Expr[MappedProjection[R]] = {
-    import quotes.reflect._
+    import quotes.reflect.*
     val rtpe = summon[Type[R]]
     val utpe = summon[Type[U]]
     val rct = Expr.summon[ClassTag[R]].getOrElse(report.errorAndAbort(s"No ClassTag available for ${Type.show[R]}"))
@@ -80,13 +80,24 @@ object ShapedValue {
     val lengthCheck = elemTpes.length == targetElemTpes.length
 
     // Enforce exact type match in order
-    val typeCheckFailure = elemTpes.zip(targetElemTpes).exists { (a, b) =>
-      !(TypeRepr.of(using a) =:= TypeRepr.of(using b))
+    val typeCheckFailures = elemTpes.zip(targetElemTpes).zipWithIndex.flatMap { case ((a, b), idx) =>
+      val at = TypeRepr.of(using a)
+      val atd = at.dealias
+      val bt = TypeRepr.of(using b)
+      val btd = bt.dealias
+      if (!(at =:= bt || atd =:= btd || atd =:= bt || at =:= btd)) {
+        Some(s"Position $idx: ${at.show} != ${bt.show}")
+      }
+      else None
     }
 
-    if (!lengthCheck || typeCheckFailure) {
-      val src = Type.show(using summon[Type[U]])
-      report.errorAndAbort(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $targetString")
+    if (!lengthCheck) {
+      report.errorAndAbort(s"Source and target product decomposition lengths do not match.")
+    }
+
+    if (typeCheckFailures.nonEmpty) {
+      val errs = typeCheckFailures.mkString("\n")
+      report.errorAndAbort(s"Source and target product decomposition do not match.\n$errs")
     }
 
     '{ new MappedProjection[R]($sv.toNode, MappedScalaType.Mapper($g, $f, None), $rct) }
