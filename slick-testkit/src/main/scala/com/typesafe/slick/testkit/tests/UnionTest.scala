@@ -238,4 +238,35 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testSameTableUnion = {
+    case class T(table: String)(tag: Tag) extends Table[(String, String, Int)](tag, table) {
+      def from = column[String]("from")
+      def to = column[String]("to")
+      def data = column[Int]("data")
+      def * = (from, to, data)
+    }
+
+    abstract class TT(table: String)(tag: Tag) extends Table[(String, Int)](tag, table) {
+      def party: Rep[String]
+      def data = column[Int]("data")
+      def * = (party, data)
+    }
+    case class T1(table: String)(tag: Tag) extends TT(table)(tag) {
+      def party = column[String]("from")
+    }
+    case class T2(table: String)(tag: Tag) extends TT(table)(tag) {
+      def party = column[String]("to")
+    }
+
+    val ts = TableQuery(T("t1"))
+    val ts1 = TableQuery(T1("t1"))
+    val ts2 = TableQuery(T2("t1"))
+    val q1 = (ts1 ++ ts2).distinctOn(_.party).sortBy(t => (t.party, t.data))
+    DBIO.seq(
+      ts.schema.createIfNotExists,
+      ts ++= Seq(("from1", "to1", 1), ("from1", "to2", 11)),
+      q1.result.map(_ shouldBe Vector(("from1", 1), ("to1", 1), ("to2", 11)))
+    )
+  }
+
 }

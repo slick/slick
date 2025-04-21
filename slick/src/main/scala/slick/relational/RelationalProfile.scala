@@ -125,7 +125,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
     def tableProvider: RelationalProfile = self
 
-    def tableIdentitySymbol: TableIdentitySymbol = SimpleTableIdentitySymbol(self, schemaName.getOrElse("_"), tableName)
+    def tableIdentitySymbol: TableIdentitySymbol = SimpleTableIdentitySymbol(self, schemaName.getOrElse("_"), tableName, tableTag)
 
     val O: self.columnOptions.type = columnOptions
 
