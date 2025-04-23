@@ -3,6 +3,7 @@ package slick.compiler
 import slick.ast._
 import Util._
 import TypeUtil._
+import slick.compat.collection._
 import slick.util.ConstArray
 
 import scala.collection.mutable
@@ -40,7 +41,7 @@ class ExpandTables extends Phase {
       // structural type under a different identity when we are traversing the tree to modify it.
       val structs: Map[TypeSymbol, Type] = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
         case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => baseIdentity(n.sourceNominalType.sym) -> (sym -> s.nodeType)
-      }.toSeq.groupBy(_._1).transform((_, v) => StructType(ConstArray.from(v.map(_._2).distinct)))
+      }.toSeq.groupBy(_._1).transform((_, v) => StructType(ConstArray.from(v.map(_._2).distinctBy(_._1))))
       logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
 
       val tables = new mutable.HashMap[TableIdentitySymbol, (TermSymbol, Node)]
