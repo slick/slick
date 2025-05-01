@@ -47,9 +47,8 @@ class CompanionObjectTest extends AsyncTest[RelationalTestDB] {
     }
   }
 
-  // This test should simply be able to compile. The mapTo macro should generate code that
-  // doesn't compile when the hand-written tupled method doesn't have the correct signature.
-  def testMapToLocalBadTupled = ShouldNotTypecheck("""
+
+  def testMapToLocalBadTupled = {
     object PersonLocal {
       def tupled(t: (Long, Int)): PersonLocal = ???
     }
@@ -59,12 +58,9 @@ class CompanionObjectTest extends AsyncTest[RelationalTestDB] {
       def name = column[String]("name")
       def * = (id, name).mapTo[PersonLocal]
     }
-    """, "type mismatch.*found   : \\(\\(Long, Int\\)\\) =>.*required: \\(\\(Long, String\\)\\) =>.*")
+  }
 
-  // Because the macro can't locate companion objects of method-local case classes,
-  // it's safer to leave them broken rather than make assumptions about the existence
-  // of user-defined tupled methods.
-  def testMapToLocal = ShouldNotTypecheck("""
+  def testMapToLocal = {
     object PersonLocal {}
     case class PersonLocal(id: Long, name: String)
     class People(tag: Tag) extends Table[PersonLocal](tag, "people") {
@@ -72,5 +68,5 @@ class CompanionObjectTest extends AsyncTest[RelationalTestDB] {
       def name = column[String]("name")
       def * = (id, name).mapTo[PersonLocal]
     }
-  """, "value tupled is not a member of object PersonLocal")
+  }
 }

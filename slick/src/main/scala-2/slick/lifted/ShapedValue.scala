@@ -35,7 +35,7 @@ object ShapedValue {
       case s        => q"$s"
     }
     val rHasTupled = rSym.companion match {
-      case NoSymbol => true
+      case NoSymbol => false
       case s        => s.info.member(TermName("tupled")) != NoSymbol
     }
     val fields =
