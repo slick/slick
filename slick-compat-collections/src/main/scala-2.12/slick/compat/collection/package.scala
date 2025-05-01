@@ -146,4 +146,19 @@ final class MapViewExtensionMethods[K, V, C <: scala.collection.Map[K, V]]
 final class IterableExtensionMethods[A](private val self: Iterable[A]) extends AnyVal {
   def lazyZip[B](that: Iterable[B]): Tuple2Zipped[A, Iterable[A], B, Iterable[B]] =
     (self, that).zipped
+
+  def distinctBy[B](f: A => B): Iterable[A] = {
+    if (self.isEmpty) self
+    else {
+      val bldr = List.newBuilder[A]
+      val seen = scala.collection.mutable.HashSet.empty[B]
+      val it = self.iterator
+      while (it.hasNext) {
+        val next = it.next()
+        if (seen.add(f(next)))
+          bldr += next
+      }
+      bldr.result()
+    }
+  }
 }
