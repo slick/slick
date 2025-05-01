@@ -32,14 +32,14 @@ class RewriteDistinct extends Phase {
     }.toSet
     logger.debug("Referenced fields: " + refFields.mkString(", "))
     val onFlat = ProductNode(ConstArray(dist1.on)).flatten
-    val onNodes = onFlat.children.toSet
+    val onNodes = onFlat.children
     val onFieldPos = onNodes.iterator.zipWithIndex.collect[(TermSymbol, Int)] {
       case (Select(Ref(s), f), idx) if s == dist1.generator => (f, idx)
     }.toMap
     logger.debug("Fields used directly in 'on' clause: " + onFieldPos.keySet.mkString(", "))
     if((refFields -- onFieldPos.keys).isEmpty) {
       // Only distinct fields referenced -> Create subquery and remove 'on' clause
-      val onDefs = ConstArray.from(onNodes).map((new AnonSymbol, _))
+      val onDefs = onNodes.map((new AnonSymbol, _))
       val onLookup = onDefs.iterator.collect[(TermSymbol, AnonSymbol)] {
         case (a, Select(Ref(s), f)) if s == dist1.generator => (f, a)
       }.toMap

@@ -472,4 +472,31 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       mark("q0", q.result).map(_ shouldBe Seq(1 -> Some(32), 3 -> Some(33))),
     )
   }
+
+  def testDistinctManyColumns = {
+    case class AA(from: String, to: String, data: Int)
+    case class T(table: String)(tag: Tag) extends Table[AA](tag, table) {
+      def from = column[String]("from")
+      def to = column[String]("to")
+      def data = column[Int]("data")
+      def * = (from, to, data).mapTo[AA]
+    }
+    val ts = TableQuery(T("t1"))
+    val q2 = ts.distinctOn(t => (t.to, t.from)).sortBy(t => (t.to, t.from, t.data))
+    val values = Seq(
+      AA("from1", "to2", 1),
+      AA("from1", "to1", 1),
+      AA("from1", "to2", 11),
+    )
+    DBIO.seq(
+      ts.schema.createIfNotExists,
+      ts ++= values,
+      q2.result.map(_ shouldBe Vector(
+        AA("from1", "to1", 1),
+        AA("from1", "to2", 1),
+      )),
+//      DBIO.failed(new Exception)
+    )
+  }
+
 }
