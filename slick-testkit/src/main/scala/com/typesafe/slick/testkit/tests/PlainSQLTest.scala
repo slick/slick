@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.{GetResult, SetParameter}
+import slick.jdbc.{GetResult, SetParameter, SqlNullException}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
@@ -155,5 +155,16 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
       sql"select id, name from USERS2 where id = ${w.x._1}".as[Weird].map(_.head shouldBe w)
 
     seq(create, testSet, testGet)
+  }
+
+  def testGetNonNull = ifCap(tcap.plainSql) {
+    implicit val getResultNonNull: GetResult[Int] = GetResult[Int](_.nextIntNonNull())
+
+    val create = sqlu"create table NUMBERS(NUM int not null)".map(_ shouldBe 0)
+
+    val selectMaxFromEmptyFails =
+      sql"select MAX(NUM) from NUMBERS".as[Int].failed.map(_ shouldBe SqlNullException(classOf[Int]))
+
+    seq(create, selectMaxFromEmptyFails)
   }
 }
