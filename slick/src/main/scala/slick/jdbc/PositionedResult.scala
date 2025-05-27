@@ -3,6 +3,7 @@ package slick.jdbc
 import java.io.Closeable
 import java.sql.{Blob, Clob, Date, ResultSet, Time, Timestamp, Array as _}
 
+import slick.SlickException
 import slick.compat.collection.*
 import slick.util.{CloseableIterator, ReadAheadIterator}
 
@@ -66,6 +67,23 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
   final def nextStringOption()     = { val npos = pos + 1; val r = rs getString     npos; val rr = (if(rs.wasNull) None else Some(r)); pos = npos; rr }
   final def nextTimeOption()       = { val npos = pos + 1; val r = rs getTime       npos; val rr = (if(rs.wasNull) None else Some(r)); pos = npos; rr }
   final def nextTimestampOption()  = { val npos = pos + 1; val r = rs getTimestamp  npos; val rr = (if(rs.wasNull) None else Some(r)); pos = npos; rr }
+
+  final def nextBooleanNonNull()    = nextBooleanOption()    getOrElse(throw new SqlNullException(classOf[Boolean]))
+  final def nextBigDecimalNonNull() = nextBigDecimalOption() getOrElse(throw new SqlNullException(classOf[BigDecimal]))
+  final def nextBlobNonNull()       = nextBlobOption()       getOrElse(throw new SqlNullException(classOf[Blob]))
+  final def nextByteNonNull()       = nextByteOption()       getOrElse(throw new SqlNullException(classOf[Byte]))
+  final def nextBytesNonNull()      = nextBytesOption()      getOrElse(throw new SqlNullException(classOf[Array[Byte]]))
+  final def nextClobNonNull()       = nextClobOption()       getOrElse(throw new SqlNullException(classOf[Clob]))
+  final def nextDateNonNull()       = nextDateOption()       getOrElse(throw new SqlNullException(classOf[Date]))
+  final def nextDoubleNonNull()     = nextDoubleOption()     getOrElse(throw new SqlNullException(classOf[Double]))
+  final def nextFloatNonNull()      = nextFloatOption()      getOrElse(throw new SqlNullException(classOf[Float]))
+  final def nextIntNonNull()        = nextIntOption()        getOrElse(throw new SqlNullException(classOf[Int]))
+  final def nextLongNonNull()       = nextLongOption()       getOrElse(throw new SqlNullException(classOf[Long]))
+  final def nextObjectNonNull()     = nextObjectOption()     getOrElse(throw new SqlNullException(classOf[Object]))
+  final def nextShortNonNull()      = nextShortOption()      getOrElse(throw new SqlNullException(classOf[Short]))
+  final def nextStringNonNull()     = nextStringOption()     getOrElse(throw new SqlNullException(classOf[String]))
+  final def nextTimeNonNull()       = nextTimeOption()       getOrElse(throw new SqlNullException(classOf[Time]))
+  final def nextTimestampNonNull()  = nextTimestampOption()  getOrElse(throw new SqlNullException(classOf[Timestamp]))
 
   final def updateBoolean(v: Boolean): Unit =       { val npos = pos + 1; rs.updateBoolean   (npos, v); pos = npos }
   final def updateBlob(v: Blob): Unit =             { val npos = pos + 1; rs.updateBlob      (npos, v); pos = npos }
@@ -192,3 +210,5 @@ abstract class PositionedResultIterator[+T](val pr: PositionedResult, maxRows: I
 
   protected def extractValue(pr: PositionedResult): T
 }
+
+case class SqlNullException(c: Class[_]) extends SlickException(s"Could not read ${c.getSimpleName} from SQL value of NULL")
