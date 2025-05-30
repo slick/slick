@@ -69,10 +69,14 @@ object ShapedValue {
         }
     }
 
-    if(elemTpes.length != targetElemTpes.length) {
+    val notMatchTypes = (elemTpes.length > 1) && (
+      !elemTpes.lazyZip(targetElemTpes).forall((x, y) => TypeRepr.of(using x) =:= TypeRepr.of(using y))
+    )
+
+    if ((elemTpes.length != targetElemTpes.length) || notMatchTypes) {
       // todo: change
-      val src = elemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
-      val target = targetElemTpes.iterator.map(x => Type.show(using summon[Type[U]])).mkString("(", ", ", ")")
+      val src = elemTpes.iterator.map(x => Type.show(using x)).mkString("(", ", ", ")")
+      val target = targetElemTpes.iterator.map(x => Type.show(using x)).mkString("(", ", ", ")")
       report.errorAndAbort(s"Source and target product decomposition do not match.\n  Source: $src\n  Target: $target")
     }
 
