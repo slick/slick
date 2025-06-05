@@ -11,6 +11,8 @@ import slick.util.{CloseableIterator, ReadAheadIterator}
  * A database result positioned at a row and column.
  */
 abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
+  import PositionedResult.SqlNullException
+
   protected[this] var pos = Int.MaxValue
   protected[this] val startPos = 0
 
@@ -211,4 +213,6 @@ abstract class PositionedResultIterator[+T](val pr: PositionedResult, maxRows: I
   protected def extractValue(pr: PositionedResult): T
 }
 
-case class SqlNullException(c: Class[_]) extends SlickException(s"Could not read ${c.getSimpleName} from SQL value of NULL")
+object PositionedResult {
+  case class SqlNullException(c: Class[_]) extends SlickException(s"Could not read ${c.getSimpleName} from SQL value of NULL")
+}

@@ -1,6 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.{GetResult, SetParameter, SqlNullException}
+import slick.jdbc.{GetResult, SetParameter}
+import slick.jdbc.PositionedResult.SqlNullException
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
