@@ -9,7 +9,7 @@ case class MColumn(
   table: MQName, name: String, sqlType: Int, typeName: String,
   size: Option[Int], decimalDigits: Option[Int], numPrecRadix: Int, nullable: Option[Boolean], remarks: Option[String],
   columnDef: Option[String], charOctetLength: Int, ordinalPosition: Int, isNullable: Option[Boolean], scope: Option[MQName],
-  sourceDataType: Option[Any], isAutoInc: Option[Boolean]) {
+  sourceDataType: Option[Any], isAutoInc: Option[Boolean], isGenerated: Option[Boolean]) {
 
   def sqlTypeName = JdbcTypesComponent.typeNames.get(sqlType)
   def getColumnPrivileges = MColumnPrivilege.getColumnPrivileges(table, name)
@@ -25,6 +25,7 @@ object MColumn {
         }, r.<<, r.<<, r.skip.skip.<<, r.<<, DatabaseMeta.yesNoOpt(r),
         if(r.hasMoreColumns) MQName.optionalFrom(r) else None,
         if(r.hasMoreColumns) r.nextObjectOption() else None,
+        if(r.hasMoreColumns) DatabaseMeta.yesNoOpt(r) else None,
         if(r.hasMoreColumns) DatabaseMeta.yesNoOpt(r) else None)
   }
 }
