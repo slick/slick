@@ -186,6 +186,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     def nullable = meta.nullable.getOrElse(true)
     /** Indicates whether this is an auto increment column */
     def autoInc: Boolean = meta.isAutoInc.getOrElse(false)
+    /** Indicates whether this is a generated column */
+    def generated: Boolean = meta.isGenerated.getOrElse(false)
     /** Indicates whether a ColumnOption Primary key should be put into the model.
       * Only valid for single column primary keys. */
     def createPrimaryKeyColumnOption: Boolean =
@@ -276,10 +278,10 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     def model = m.Column(name=name, table=tableBuilder.namer.qualifiedName, tpe=tpe, nullable=nullable,
       options = Set() ++
         dbType.map(str => SqlProfile.ColumnOption.SqlType(str)) ++
-        (if(autoInc) Some(ColumnOption.AutoInc) else None) ++
+        (if(autoInc || generated) Some(ColumnOption.AutoInc) else None) ++
         (if(createPrimaryKeyColumnOption) Some(ColumnOption.PrimaryKey) else None) ++
         length.map(RelationalProfile.ColumnOption.Length.apply(_,varying=varying)) ++
-        (if(!autoInc) convenientDefault else None) )
+        (if(!autoInc && !generated) convenientDefault else None) )
   }
 
   class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]){
