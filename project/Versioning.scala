@@ -13,7 +13,7 @@ import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.{Compatibility, versio
 
 object Versioning extends AutoPlugin {
   val BumpMinor = Compatibility.BinaryAndSourceCompatible
-  val BumpMajor = Compatibility.BinaryCompatible
+  val BumpMajor = Compatibility.None
   val BumpEpoch = Compatibility.None
 
   def currentRef(dir: File): String =
