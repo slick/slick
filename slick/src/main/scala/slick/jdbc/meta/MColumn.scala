@@ -25,6 +25,12 @@ object MColumn {
         }, r.<<, r.<<, r.skip.skip.<<, r.<<, DatabaseMeta.yesNoOpt(r),
         if(r.hasMoreColumns) MQName.optionalFrom(r) else None,
         if(r.hasMoreColumns) r.nextObjectOption() else None,
-        if(r.hasMoreColumns) DatabaseMeta.yesNoOpt(r) else None)
+        { // we combine autoInc and isGen into one property only to keep binary compatibility
+          // it is reasonable to make isGenerated a property of MColumn at the binary-incompatible release
+          val isAutoInc = if(r.hasMoreColumns) DatabaseMeta.yesNoOpt(r) else None
+          val isGenerated = if(r.hasMoreColumns) DatabaseMeta.yesNoOpt(r) else None
+          isAutoInc.orElse(isGenerated)
+        }
+      )
   }
 }
