@@ -16,6 +16,32 @@ object Versioning extends AutoPlugin {
   val BumpMajor = Compatibility.None
   val BumpEpoch = Compatibility.None
 
+  def findIntention(currentVersion: String): Compatibility = {
+    DynVer.getGitDescribeOutput(new Date)
+      .map { g =>
+        val prevVersion = Version(g.ref.value)
+        val nextVersion = Version(currentVersion)
+
+        val (px, py) = prevVersion.items.toList match {
+          case x :: y :: _ => (x, y)
+          case _ => throw new IllegalArgumentException(s"Unexpected previous version format: ${g.ref.value}")
+        }
+        val (nx, ny) = nextVersion.items.toList match {
+          case x :: y :: _ => (x, y)
+          case _ => throw new IllegalArgumentException(s"Unexpected current version format: $currentVersion")
+        }
+
+        val isMajorUpdate = nx > px || ny > py
+
+        if (isMajorUpdate) {
+          Compatibility.None
+        } else {
+          Compatibility.BinaryAndSourceCompatible
+        }
+      }
+      .getOrElse(Compatibility.BinaryAndSourceCompatible)
+  }
+
   def currentRef(dir: File): String =
     new DefaultReadableGit(dir, None)
       .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
