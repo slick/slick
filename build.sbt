@@ -24,7 +24,6 @@ inThisBuild(
   Seq(
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
-    resolvers ++= Resolver.sonatypeOssRepos("snapshots"),
     homepage := Some(url("https://scala-slick.org")),
     startYear := Some(2008),
     licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/main/LICENSE.txt")),
