@@ -112,10 +112,10 @@ object StandardTestDBs {
   lazy val Postgres = new ExternalJdbcTestDB("postgres") {
     val profile: Profile = PostgresProfile
     override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-      ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "public", null, null))
+      ResultSetAction[(String,String,String, String)](ctx => ctx.conn.getMetaData.getTables(ctx.conn.getCatalog, "public", null, null))
         .map(_.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted)
     override def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-      ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables("", "public", null, null))
+      ResultSetAction[(String,String,String, String)](ctx => ctx.conn.getMetaData.getTables(ctx.conn.getCatalog, "public", null, null))
         .map(_.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted)
     override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
   }
