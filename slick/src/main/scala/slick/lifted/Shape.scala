@@ -62,8 +62,8 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
 
 object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits with TupleShapeImplicits {
   implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]
-                                                           ): Shape[Level, T, T, ConstColumn[T]] =
-    new Shape[Level, T, T, ConstColumn[T]] {
+                                                           ): Shape[Level, T, T, Rep.TypedRep[T]] =
+    new Shape[Level, T, T, Rep.TypedRep[T]] {
       def pack(value: Any): Packed = LiteralColumn(value.asInstanceOf[T])
       def packedShape = RepShape[Level, Packed, Unpacked]
       def buildParams(extract: Any => Unpacked): Packed = new ConstColumn[T](new QueryParameter(extract, tm))(tm)
