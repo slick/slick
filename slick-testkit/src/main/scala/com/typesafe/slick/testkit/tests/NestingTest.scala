@@ -159,7 +159,7 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q1dt: Query[Rep[Option[Int]], ?, Seq] = q1d
     val q1d2t: Query[Rep[Option[(Rep[Int], Rep[String], Rep[Option[Int]])]], ?, Seq] = q1d2
     val q2dt: Query[Rep[Option[Int]], ?, Seq] = q2d
-    val q3dt: Query[Rep[Option[(Rep[Int], Rep[Int], ConstColumn[Int])]], ?, Seq] = q3d
+    val q3dt: Query[Rep[Option[(Rep[Int], Rep[Int], Rep[Int])]], ?, Seq] = q3d
     val q4dt: Query[Rep[Option[Int]], ?, Seq] = q4d
 
     lazy val t4 = seq(
