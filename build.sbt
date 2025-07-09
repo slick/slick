@@ -301,6 +301,21 @@ lazy val hikaricp =
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
     )
 
+lazy val tracing =
+  project
+    .in(file("slick-tracing"))
+    .dependsOn(slick)
+    .settings(
+      slickGeneralSettings,
+      extTarget("tracing"),
+      name := "Slick-Tracing",
+      description := "Distributed tracing integration for Slick (Scala Language-Integrated Connection Kit)",
+      scaladocSourceUrl("slick-tracing"),
+      test := {}, testOnly := {}, // suppress test status output
+      libraryDependencies ++= Dependencies.tracingDependencies,
+      commonTestResourcesSetting
+    )
+
 lazy val `reactive-streams-tests` =
   project
     .dependsOn(testkit)
@@ -331,12 +346,13 @@ lazy val site: Project =
         "api" -> (slick / Compile / doc).value,
         "codegen-api" -> (codegen / Compile / doc).value,
         "hikaricp-api" -> (hikaricp / Compile / doc).value,
+        "tracing-api" -> (tracing / Compile / doc).value,
         "testkit-api" -> (testkit / Compile / doc).value
       ),
       buildCompatReport := {
         val compatReports =
           (CompatReport / compatReportMarkdown)
-            .all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit)))
+            .all(ScopeFilter(inProjects(slick, codegen, hikaricp, tracing, testkit)))
             .value
         val file = (buildCompatReport / target).value / "compat-report.md"
         IO.write(
@@ -380,7 +396,7 @@ lazy val site: Project =
 lazy val root =
   project
     .in(file("."))
-    .aggregate(slick, codegen, hikaricp, testkit, site)
+    .aggregate(slick, codegen, hikaricp, tracing, testkit, site)
     .settings(
       name := "slick-root",
       slickGeneralSettings,
@@ -402,6 +418,7 @@ lazy val root =
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
+          tracing / Compile / packageDoc,
           testkit / Compile / packageDoc
         ).value
       }
