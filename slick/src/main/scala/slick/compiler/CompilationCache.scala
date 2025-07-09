@@ -171,7 +171,11 @@ class CompilationCache(config: CacheConfig) {
   
   private def evictLRU(): Unit = {
     // Find the least recently used entry
-    val lruKey = accessOrder.minByOption(_._2).map(_._1)
+    val lruKey = if (accessOrder.nonEmpty) {
+      Some(accessOrder.minBy(_._2)._1)
+    } else {
+      None
+    }
     
     lruKey.foreach { key =>
       cache.remove(key)
