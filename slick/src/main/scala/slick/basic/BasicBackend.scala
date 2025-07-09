@@ -74,8 +74,16 @@ trait BasicBackend { self =>
     /** Run an Action asynchronously and return the result as a Future. */
     final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, useSameThread = false)
 
+    /** Run an Action asynchronously with logging context and return the result as a Future. */
+    final def run[R](a: DBIOAction[R, NoStream, Nothing], context: LoggingContext): Future[R] = 
+      runInternal(a, useSameThread = false, context)
+
     private[slick] final def runInternal[R](a: DBIOAction[R, NoStream, Nothing], useSameThread: Boolean): Future[R] =
       try runInContext(a, createDatabaseActionContext(useSameThread), streaming = false, topLevel = true)
+      catch { case NonFatal(ex) => Future.failed(ex) }
+
+    private[slick] final def runInternal[R](a: DBIOAction[R, NoStream, Nothing], useSameThread: Boolean, context: LoggingContext): Future[R] =
+      try runInContext(a, createDatabaseActionContext(useSameThread, context), streaming = false, topLevel = true)
       catch { case NonFatal(ex) => Future.failed(ex) }
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
@@ -135,6 +143,9 @@ trait BasicBackend { self =>
     /** Create the default DatabaseActionContext for this backend. */
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context
 
+    /** Create the default DatabaseActionContext for this backend with logging context. */
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, loggingContext: LoggingContext): Context
+
     /** Create the default StreamingDatabaseActionContext for this backend. */
     protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T],
                                                                 useSameThread: Boolean): StreamingContext
@@ -181,6 +192,11 @@ trait BasicBackend { self =>
                                             streaming: Boolean,
                                             topLevel: Boolean,
                                             stackLevel: Int): Future[R] = {
+      // Set logging context for the current thread
+      if (ctx.loggingContext.nonEmpty) {
+        setCurrentLoggingContext(ctx.loggingContext)
+      }
+      
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
@@ -256,6 +272,14 @@ trait BasicBackend { self =>
             .onComplete(v => p.success(v.asInstanceOf[R]))(DBIO.sameThreadExecutionContext)
           p.future
         case NamedAction(a, _) =>
+          runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
+        case ContextualAction(a, actionContext) =>
+          // Merge the action's context with the existing context
+          val mergedContext = ctx.loggingContext.merge(actionContext)
+          // Set the merged context for this thread
+          if (mergedContext.nonEmpty) {
+            setCurrentLoggingContext(mergedContext)
+          }
           runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
         case a: SynchronousDatabaseAction[?, ?, ?, ?, ?] =>
           if (streaming) {
@@ -464,6 +488,16 @@ trait BasicBackend { self =>
       * SynchronousDatabaseActions for asynchronous execution. */
     protected[this] def synchronousExecutionContext: ExecutionContext
 
+    /** Set the logging context for the current thread. Override in subclasses to provide backend-specific context storage. */
+    protected def setCurrentLoggingContext(context: LoggingContext): Unit = {
+      // Default implementation - subclasses like JdbcBackend can override
+    }
+
+    /** Clear the logging context for the current thread. Override in subclasses to provide backend-specific context storage. */
+    protected def clearCurrentLoggingContext(): Unit = {
+      // Default implementation - subclasses like JdbcBackend can override
+    }
+
     protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing], ctx: Context): Unit = {
       if(actionLogger.isDebugEnabled && a.isLogged) {
         ctx.sequenceCounter += 1
@@ -474,7 +508,11 @@ trait BasicBackend { self =>
           case o                      => o
         }).get(logA)
         val msg = DumpInfo.highlight("#" + ctx.sequenceCounter) + ": " + dump.substring(0, dump.length-1)
-        actionLogger.debug(msg)
+        if (ctx.loggingContext.nonEmpty) {
+          actionLogger.debug(msg, ctx.loggingContext)
+        } else {
+          actionLogger.debug(msg)
+        }
       }
     }
   }
@@ -494,6 +532,9 @@ trait BasicBackend { self =>
     /** Whether to run all operations on the current thread or schedule them normally on the
       * appropriate ExecutionContext. This is used by the blocking API. */
     protected[BasicBackend] val useSameThread: Boolean
+
+    /** Logging context for this action execution. */
+    val loggingContext: LoggingContext
 
     /** Return the specified ExecutionContext unless running in same-thread mode, in which case
       * `Action.sameThreadExecutionContext` is returned instead. */
@@ -528,7 +569,8 @@ trait BasicBackend { self =>
   /** A special DatabaseActionContext for streaming execution. */
   class BasicStreamingActionContext(subscriber: Subscriber[?],
                                                     override protected[BasicBackend] val useSameThread: Boolean,
-                                                    database: Database)
+                                                    database: Database,
+                                                    override val loggingContext: LoggingContext = LoggingContext.empty)
     extends BasicActionContext with StreamingActionContext with Subscription {
     /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
     private[this] var finished = false

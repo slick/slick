@@ -29,3 +29,4 @@ doc/capabilities.md
 .bloop/
 /.metals/
 metals.sbt
+useReadableConsoleGit.sbt

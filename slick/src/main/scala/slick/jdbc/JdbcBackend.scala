@@ -57,12 +57,31 @@ trait JdbcBackend extends RelationalBackend {
       createPublisher(a, s => new JdbcStreamingActionContext(s, false, this, bufferNext))
 
     override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
-      new JdbcActionContext { val useSameThread = _useSameThread }
+      new JdbcActionContext { 
+        val useSameThread = _useSameThread 
+        val loggingContext = LoggingContext.empty
+      }
+
+    override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _loggingContext: LoggingContext): Context =
+      new JdbcActionContext { 
+        val useSameThread = _useSameThread 
+        val loggingContext = _loggingContext
+      }
 
     override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T], useSameThread: Boolean): StreamingContext =
       new JdbcStreamingActionContext(s, useSameThread, this, true)
 
     protected[this] def synchronousExecutionContext = executor.executionContext
+
+    /** Set the logging context for the current thread */
+    override protected def setCurrentLoggingContext(context: LoggingContext): Unit = {
+      JdbcBackend.setCurrentLoggingContext(context)
+    }
+
+    /** Clear the logging context for the current thread */
+    override protected def clearCurrentLoggingContext(): Unit = {
+      JdbcBackend.clearCurrentLoggingContext()
+    }
 
     /** Run some code on the [[ioExecutionContext]]. */
     final def io[T](thunk: => T): Future[T] = Future(thunk)(ioExecutionContext)
@@ -390,7 +409,11 @@ trait JdbcBackend extends RelationalBackend {
                                defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                                defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default,
                                fetchSizeOverride: Option[Int] = None): PreparedStatement = {
-      JdbcBackend.logStatement("Preparing statement", sql)
+      // Try to get logging context from current action context if available
+      JdbcBackend.getCurrentLoggingContext() match {
+        case Some(context) => JdbcBackend.logStatement("Preparing statement", sql, context)
+        case None => JdbcBackend.logStatement("Preparing statement", sql)
+      }
       val s = loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
           val rsType = resultSetType.withDefault(defaultType).intValue
@@ -599,6 +622,24 @@ object JdbcBackend extends JdbcBackend {
                                  rsHoldability: ResultSetHoldability, statementInit: Statement => Unit, fetchSize: Int)
   val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null, 0)
 
+  // Thread-local storage for logging context during action execution
+  private val currentLoggingContext = new ThreadLocal[LoggingContext]()
+
+  /** Set the logging context for the current thread */
+  private[slick] def setCurrentLoggingContext(context: LoggingContext): Unit = {
+    currentLoggingContext.set(context)
+  }
+
+  /** Clear the logging context for the current thread */
+  private[slick] def clearCurrentLoggingContext(): Unit = {
+    currentLoggingContext.remove()
+  }
+
+  /** Get the current logging context for this thread, if any */
+  def getCurrentLoggingContext(): Option[LoggingContext] = {
+    Option(currentLoggingContext.get()).filter(_.nonEmpty)
+  }
+
   protected[jdbc] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
   protected[jdbc] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))
   protected[jdbc] lazy val parameterLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".parameter"))
@@ -607,5 +648,14 @@ object JdbcBackend extends JdbcBackend {
   protected[jdbc] def logStatement(msg: String, stmt: String) = if(statementLogger.isDebugEnabled) {
     val s = if(GlobalConfig.sqlIndent) msg + ":\n" + LogUtil.multilineBorder(stmt) else msg + ": " + stmt
     statementLogger.debug(s)
+  }
+
+  protected[jdbc] def logStatement(msg: String, stmt: String, context: LoggingContext) = if(statementLogger.isDebugEnabled) {
+    val s = if(GlobalConfig.sqlIndent) msg + ":\n" + LogUtil.multilineBorder(stmt) else msg + ": " + stmt
+    if (context.nonEmpty) {
+      statementLogger.debug(s, context)
+    } else {
+      statementLogger.debug(s)
+    }
   }
 }

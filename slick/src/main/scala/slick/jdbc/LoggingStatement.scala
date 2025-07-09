@@ -47,9 +47,21 @@ class LoggingStatement(st: Statement) extends Statement {
   }
 
   protected[this] def logged[T](sql: String, what: String = "statement")(f: =>T) = {
-    if (doStatement && (sql ne null)) statementLogger.debug("Executing " + what + ": " + sql)
-    if (doStatementAndParameter && (sql ne null))
-      statementAndParameterLogger.debug("Executing " + what + ": " + sql)
+    // Get current logging context if available
+    val context = JdbcBackend.getCurrentLoggingContext()
+    
+    if (doStatement && (sql ne null)) {
+      context match {
+        case Some(ctx) => statementLogger.debug("Executing " + what + ": " + sql, ctx)
+        case None => statementLogger.debug("Executing " + what + ": " + sql)
+      }
+    }
+    if (doStatementAndParameter && (sql ne null)) {
+      context match {
+        case Some(ctx) => statementAndParameterLogger.debug("Executing " + what + ": " + sql, ctx)
+        case None => statementAndParameterLogger.debug("Executing " + what + ": " + sql)
+      }
+    }
     if(doParameter && (paramss ne null) && paramss.nonEmpty) {
       // like s.groupBy but only group adjacent elements and keep the ordering
       def groupBy[U](s: IterableOnce[U])(f: U => AnyRef): IndexedSeq[IndexedSeq[U]] = {
@@ -83,12 +95,20 @@ class LoggingStatement(st: Statement) extends Statement {
         val types = matchingSets.head._1
         val indexes = 1.to(types.length).map(_.toString)
         dump(Vector(indexes, types.toIndexedSeq), matchingSets.map(_._2).map(_.toIndexedSeq))
-          .foreach(s => parameterLogger.debug(s))
+          .foreach(s => context match {
+            case Some(ctx) => parameterLogger.debug(s, ctx)
+            case None => parameterLogger.debug(s)
+          })
       }
     }
     val t0 = if(doBenchmark) System.nanoTime() else 0L
     val res = f
-    if (doBenchmark) benchmarkLogger.debug("Execution of " + what + " took " + formatNS(System.nanoTime() - t0))
+    if (doBenchmark) {
+      context match {
+        case Some(ctx) => benchmarkLogger.debug("Execution of " + what + " took " + formatNS(System.nanoTime() - t0), ctx)
+        case None => benchmarkLogger.debug("Execution of " + what + " took " + formatNS(System.nanoTime() - t0))
+      }
+    }
     clearParamss()
     res
   }
@@ -101,8 +121,18 @@ class LoggingStatement(st: Statement) extends Statement {
   }
 
   override def addBatch(sql: String) = {
-    if (doStatement) statementLogger.debug("Adding to batch: " + sql)
-    if (doStatementAndParameter) statementAndParameterLogger.debug("Adding to batch: " + sql)
+    if (doStatement) {
+      JdbcBackend.getCurrentLoggingContext() match {
+        case Some(ctx) => statementLogger.debug("Adding to batch: " + sql, ctx)
+        case None => statementLogger.debug("Adding to batch: " + sql)
+      }
+    }
+    if (doStatementAndParameter) {
+      JdbcBackend.getCurrentLoggingContext() match {
+        case Some(ctx) => statementAndParameterLogger.debug("Adding to batch: " + sql, ctx)
+        case None => statementAndParameterLogger.debug("Adding to batch: " + sql)
+      }
+    }
     st.addBatch(sql)
   }
   override def execute(sql: String, columnNames: Array[String]): Boolean = logged(sql) {

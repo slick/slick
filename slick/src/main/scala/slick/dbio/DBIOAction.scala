@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 
 import slick.SlickException
 import slick.basic.BasicBackend
-import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
+import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo, LoggingContext}
 import slick.compat.collection.*
 
 import org.reactivestreams.Subscription
@@ -148,6 +148,18 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
   /** Get a wrapping action which has a name that will be included in log output. */
   def named(name: String): DBIOAction[R, S, E] =
     NamedAction[R, S, E](this, name)
+
+  /** Create a contextual DBIOAction that wraps this action with logging context. This context
+    * will be included in all log messages for this action and its nested operations. */
+  def withContext(context: LoggingContext): DBIOAction[R, S, E] = ContextualAction(this, context)
+
+  /** Create a contextual DBIOAction with a single key-value pair of logging context. */
+  def withContext(key: String, value: String): DBIOAction[R, S, E] = 
+    ContextualAction(this, LoggingContext.single(key, value))
+
+  /** Create a contextual DBIOAction with multiple key-value pairs of logging context. */
+  def withContext(kvs: (String, String)*): DBIOAction[R, S, E] = 
+    ContextualAction(this, LoggingContext(kvs: _*))
 
   /** Get the equivalent non-fused action if this action has been fused, otherwise this
     * action is returned. */
@@ -395,6 +407,13 @@ case class AsTryAction[+R, -E <: Effect](a: DBIOAction[R, NoStream, E]) extends 
 /** A DBIOAction that attaches a name for logging purposes to another action. */
 case class NamedAction[+R, +S <: NoStream, -E <: Effect](a: DBIOAction[R, S, E], name: String) extends DBIOAction[R, S, E] {
   def getDumpInfo = DumpInfo("named", mainInfo = DumpInfo.highlight(name))
+  override def isLogged = true
+}
+
+/** A DBIOAction that attaches logging context to another action. The context will be included
+  * in all log messages for this action and its nested operations. */
+case class ContextualAction[+R, +S <: NoStream, -E <: Effect](a: DBIOAction[R, S, E], context: LoggingContext) extends DBIOAction[R, S, E] {
+  def getDumpInfo = DumpInfo("contextual", mainInfo = DumpInfo.highlight(context.formatForLogging.trim))
   override def isLogged = true
 }
 
