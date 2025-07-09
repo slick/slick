@@ -78,6 +78,12 @@ sbt site/buildCompatReport
 
 # Clean compile-time test artifacts
 sbt testkit/cleanCompileTimeTests
+
+# Check current version
+sbt "show version"
+
+# Run lint and type checking (for PR validation)
+# Note: Check build.sbt for specific lint/typecheck commands
 ```
 
 ## Architecture Overview
@@ -222,6 +228,113 @@ docker compose exec postgres pg_isready -U postgres
 - **CI configuration**: Use `test-dbs/testkit.github-actions.conf` for CI-specific database settings
 - **Test concurrency**: Database tests are grouped and run with controlled parallelism
 
+## Build System and Module Structure
+
+### SBT Configuration
+
+- **Multi-module project**: Root project aggregates slick, codegen, hikaricp, testkit, and site modules
+- **Cross-compilation**: Supports Scala 2.12, 2.13, and 3.x with version-specific optimizations
+- **Custom tasks**: `testAll` runs comprehensive test suite across all modules
+- **Dependencies**: Managed in `project/Dependencies.scala` with version centralization
+- **Test concurrency**: Configured with test group tags to limit concurrent database tests
+- **Forked tests**: Database tests run in forked JVMs for isolation
+
+### Module Dependencies
+
+- **slick**: Core library, no dependencies on other modules
+- **slick-testkit**: Depends on slick, codegen, hikaricp for comprehensive testing
+- **slick-codegen**: Depends on slick for database schema code generation
+- **slick-hikaricp**: Depends on slick for connection pooling integration
+- **reactive-streams-tests**: Depends on testkit for streaming compliance tests
+
+### Version Management
+
+The project uses a custom versioning system:
+
+- **Custom Versioning**: `project/Versioning.scala` controls version format (e.g., `3.7.0-pre.32.abc123.dirty`)
+- **SBT Integration**: Custom plugin overrides sbt-ci-release to use the custom versioning scheme
+- **Version Policy**: Uses sbt-version-policy for compatibility checking across versions
+- **Pattern Matching**: Internal dependency version changes are filtered using regex patterns in `versionPolicy.sbt`
+
+
+## Compatibility Checking System
+
+### CompatReportPlugin
+
+Slick uses a custom `CompatReportPlugin` that integrates with sbt-version-policy and MiMa for binary compatibility checking:
+
+- **Binary Compatibility**: Uses MiMa to detect breaking changes in public APIs
+- **Source Compatibility**: Tracks changes that break source compatibility
+- **Dependency Tracking**: Monitors internal module dependencies for version consistency
+- **GitHub Integration**: Automatically posts compatibility reports on PRs via GitHub Actions
+
+### Version Policy Configuration
+
+- **Internal Dependencies**: Filtered using `versionPolicyIgnoredInternalDependencyVersions` to avoid noise
+- **MiMa Filters**: Exclusions defined in `slick/src/main/mima-filters/` for legitimate breaking changes
+- **Compatibility Reports**: Generated via `sbt site/buildCompatReport` and posted to PRs automatically
+
+### Common Compatibility Commands
+
+```bash
+# Generate compatibility report manually
+sbt site/buildCompatReport
+
+# Check version policy compliance
+sbt versionPolicyCheck
+
+# Test with specific previous version
+sbt 'set every CompatReportPlugin.previousRelease := Some("3.6.1-pre.123.abc")' site/buildCompatReport
+
+# Show current version policy settings
+sbt "show versionPolicyIgnored"
+sbt "show versionPolicyIgnoredInternalDependencyVersions"
+```
+
+## Compiler Pipeline Architecture
+
+### Query Compilation Phases
+
+The `QueryCompiler` uses an immutable, configurable pipeline:
+
+1. **AssignUniqueSymbols**: Symbol resolution and uniqueness
+2. **InferTypes**: Type inference and validation
+3. **ExpandTables**: Table expansion and normalization
+4. **RewriteJoins**: Join transformation and optimization
+5. **MergeToComprehensions**: Query optimization and flattening
+6. **ResolveZipJoins**: Zip join resolution
+7. **Database-specific phases**: SQL generation for the target database
+
+### Compilation Customization
+
+- **Profile-specific compilers**: Each database profile has customized compilation
+- **Phase modification**: Phases can be added, removed, or replaced
+- **Debug support**: Compilation logging and AST dumping capabilities
+- **Type system integration**: Comprehensive type annotations throughout compilation
+
+## Advanced Development Patterns
+
+### AST Manipulation
+
+- **Immutable nodes**: All AST nodes are immutable with structural sharing
+- **Type system**: Comprehensive type annotations with `TypedType[T]` throughout the AST
+- **Node transformation**: Pattern matching and tree rewriting for optimizations
+- **Symbol management**: Unique symbol generation and resolution
+
+### Database Profile System
+
+- **Capability-based**: Each profile declares supported database features
+- **SQL generation**: Profile-specific SQL builders and formatters
+- **Type mapping**: Database-specific type conversions and encodings
+- **Feature detection**: Runtime capability checking for database features
+
+### Performance Considerations
+
+- **Streaming support**: Reactive Streams integration for large result sets
+- **Connection pooling**: HikariCP integration with monitoring support
+- **Async operations**: Future-based API with proper resource management
+- **Compilation caching**: Prepared statement caching and reuse
+
 ## Development Guidelines
 
 ### Code Style
@@ -300,73 +413,17 @@ docker compose exec postgres pg_isready -U postgres
 - `test-dbs/testkit.github-actions.conf`: CI-specific database configurations
 - `docker-compose.yml`: Local database setup for testing
 
+### Build and Version Management
+
+- `project/Versioning.scala`: Custom versioning logic with sbt-ci-release integration
+- `project/CompatReportPlugin.scala`: Custom compatibility checking plugin
+- `versionPolicy.sbt`: Version policy configuration and internal dependency filtering
+- `project/Dependencies.scala`: Centralized dependency management with version coordination
+
 ### Scala 3 Compatibility
 
 - `slick/src/main/scala-3/slick/lifted/ShapedValue.scala`: Scala 3-specific implementations
 - `slick/src/main/scala/slick/lifted/Rep.scala`: Core representation types
-
-## Build System and Module Structure
-
-### SBT Configuration
-
-- **Multi-module project**: Root project aggregates slick, codegen, hikaricp, testkit, and site modules
-- **Cross-compilation**: Supports Scala 2.12, 2.13, and 3.x with version-specific optimizations
-- **Custom tasks**: `testAll` runs comprehensive test suite across all modules
-- **Dependencies**: Managed in `project/Dependencies.scala` with version centralization
-- **Test concurrency**: Configured with test group tags to limit concurrent database tests
-- **Forked tests**: Database tests run in forked JVMs for isolation
-
-### Module Dependencies
-
-- **slick**: Core library, no dependencies on other modules
-- **slick-testkit**: Depends on slick, codegen, hikaricp for comprehensive testing
-- **slick-codegen**: Depends on slick for database schema code generation
-- **slick-hikaricp**: Depends on slick for connection pooling integration
-- **reactive-streams-tests**: Depends on testkit for streaming compliance tests
-
-## Compiler Pipeline Architecture
-
-### Query Compilation Phases
-
-The `QueryCompiler` uses an immutable, configurable pipeline:
-
-1. **AssignUniqueSymbols**: Symbol resolution and uniqueness
-2. **InferTypes**: Type inference and validation
-3. **ExpandTables**: Table expansion and normalization
-4. **RewriteJoins**: Join transformation and optimization
-5. **MergeToComprehensions**: Query optimization and flattening
-6. **ResolveZipJoins**: Zip join resolution
-7. **Database-specific phases**: SQL generation for the target database
-
-### Compilation Customization
-
-- **Profile-specific compilers**: Each database profile has customized compilation
-- **Phase modification**: Phases can be added, removed, or replaced
-- **Debug support**: Compilation logging and AST dumping capabilities
-- **Type system integration**: Comprehensive type annotations throughout compilation
-
-## Advanced Development Patterns
-
-### AST Manipulation
-
-- **Immutable nodes**: All AST nodes are immutable with structural sharing
-- **Type system**: Comprehensive type annotations with `TypedType[T]` throughout the AST
-- **Node transformation**: Pattern matching and tree rewriting for optimizations
-- **Symbol management**: Unique symbol generation and resolution
-
-### Database Profile System
-
-- **Capability-based**: Each profile declares supported database features
-- **SQL generation**: Profile-specific SQL builders and formatters
-- **Type mapping**: Database-specific type conversions and encodings
-- **Feature detection**: Runtime capability checking for database features
-
-### Performance Considerations
-
-- **Streaming support**: Reactive Streams integration for large result sets
-- **Connection pooling**: HikariCP integration with monitoring support
-- **Async operations**: Future-based API with proper resource management
-- **Compilation caching**: Prepared statement caching and reuse
 
 ## Critical Development Notes
 
@@ -390,3 +447,10 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Test with real databases**: Use PostgreSQL/MySQL for production-like testing
 - **Database cleanup**: Ensure proper cleanup between tests to avoid "relation exists" errors
 - **Test grouping**: Respect database-specific test groups for concurrency control
+
+### Version Management Notes
+
+- **Custom versioning precedence**: The `Versioning` plugin requires `CiReleasePlugin` to ensure proper load order
+- **Version format**: Follows pattern `X.Y.Z-pre.N.SHA[.dirty]` for development builds
+- **Compatibility filtering**: Internal dependency changes are filtered using regex patterns to avoid CI noise
+- **MiMa integration**: Binary compatibility is checked using MiMa with custom exclusion filters
