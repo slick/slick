@@ -26,7 +26,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   def createUpdateInsertBuilder(node: Insert): InsertBuilder = new UpdateInsertBuilder(node)
   def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new TableDDLBuilder(table)
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
+  def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new SequenceDDLBuilder.BuiltInSupport(seq)
 
   class JdbcCompiledInsert(source: Node) {
     class Artifacts(val compiled: Node,
@@ -848,15 +848,52 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
   }
 
   /** Builder for DDL statements for sequences. */
-  class SequenceDDLBuilder(seq: Sequence[?]) {
-    def buildDDL: DDL = {
-      val b = new StringBuilder append "create sequence " append quoteIdentifier(seq.name)
-      seq._increment.foreach { b append " increment " append _ }
-      seq._minValue.foreach { b append " minvalue " append _ }
-      seq._maxValue.foreach { b append " maxvalue " append _ }
-      seq._start.foreach { b append " start " append _ }
-      if(seq._cycle) b append " cycle"
-      DDL(b.toString, "drop sequence " + quoteIdentifier(seq.name))
+  trait SequenceDDLBuilder {
+    def buildDDL: DDL
+  }
+  object SequenceDDLBuilder {
+    class BuiltInSupport(seq: Sequence[?]) extends SequenceDDLBuilder {
+      protected def asClause = ""
+
+      protected def incrementClause(increment: Any): String = s"increment $increment"
+
+      protected def actualStart(start: Option[Any]): Option[Any] = start
+
+      protected def startClause(start: Any): String = s" start $start"
+
+      protected def cycleClause = "cycle"
+
+      def buildDDL: DDL = {
+        val createSql =
+          "create sequence " +
+            quoteIdentifier(seq.name) +
+            asClause +
+            seq._increment.fold("")(v => s" ${incrementClause(v)}") +
+            seq._minValue.fold("")(v => s" minvalue $v") +
+            seq._maxValue.fold("")(v => s" maxvalue $v") +
+            actualStart(seq._start).fold("")(startClause) +
+            (if (seq._cycle) s" $cycleClause" else "")
+
+        val dropSql =
+          s"drop sequence ${quoteIdentifier(seq.name)}"
+
+        DDL(createSql, dropSql)
+      }
+    }
+    object BuiltInSupport {
+      class OverrideActualStart[T](seq: Sequence[T]) extends BuiltInSupport(seq) {
+        override protected def actualStart(start: Option[Any]): Option[Any] =
+          start.orElse {
+            import seq.integral.*
+            Some(if (seq._increment.exists(_ < zero)) -1 else 1)
+          }
+      }
+      trait IncrementBy extends BuiltInSupport {
+        override protected def incrementClause(increment: Any): String = s"increment by $increment"
+      }
+      trait StartWith extends BuiltInSupport {
+        override protected def startClause(start: Any): String = s" start with $start"
+      }
     }
   }
 }
