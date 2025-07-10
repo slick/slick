@@ -182,9 +182,10 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
         assert(
           Seq(
             "VARCHAR",
-            "VARCHAR2" // oracle
+            "VARCHAR2", // oracle
+            "CHARACTER VARYING" // H2 v2.0 SQL standard name
           ) contains tpe("some_string").toUpperCase,
-          tpe("title")
+          tpe("some_string")
         )
         assertEquals(
           (99,false),

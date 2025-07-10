@@ -9,7 +9,7 @@ alter table "a" add constraint "b_fk" foreign key("k1") references "b"("f1") on 
 
 create table "c" ("k1" INTEGER NOT NULL,"k2" INTEGER NOT NULL,"s" VARCHAR NOT NULL);
 create table "d" ("f1" INTEGER NOT NULL,"f2" INTEGER NOT NULL,"s" VARCHAR NOT NULL);
-create unique index "d_idx1" on "d" ("f1","f2");
+alter table "d" add constraint "d_unique" unique ("f1","f2");
 alter table "c" add constraint "d_fk" foreign key("k1","k2") references "d"("f1","f2") on update NO ACTION on delete CASCADE;
 
 create table "E" (
