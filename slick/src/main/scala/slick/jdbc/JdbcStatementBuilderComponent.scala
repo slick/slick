@@ -772,6 +772,12 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected def addIndexColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "index")
 
+    protected def addIndexColumnList(columns: IndexedSeq[Node], requiredTableName: String) = {
+      val sb = new StringBuilder
+      addColumnList(columns, sb, requiredTableName, "index")
+      sb.toString
+    }
+
     protected def addForeignKeyColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "foreign key constraint")
 
@@ -792,6 +798,17 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
             throw new SlickException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
         case _ => throw new SlickException("Cannot use column "+c+" in "+typeInfo+" (only named columns are allowed)")
       }
+    }
+  }
+  object TableDDLBuilder {
+    trait UniqueIndexAsConstraint extends TableDDLBuilder {
+      override protected def createIndex(idx: Index) =
+        if (idx.unique)
+          s"""ALTER TABLE ${quoteIdentifier(table.tableName)}
+             |ADD CONSTRAINT ${quoteIdentifier(idx.name)}
+             |UNIQUE(${addIndexColumnList(idx.on, idx.table.tableName)})""".stripMargin
+        else
+          super.createIndex(idx)
     }
   }
 

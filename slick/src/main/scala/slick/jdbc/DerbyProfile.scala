@@ -13,7 +13,6 @@ import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio.*
 import slick.jdbc.meta.MTable
-import slick.lifted.*
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.util.QueryInterpolator.queryInterpolator
@@ -234,23 +233,10 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class DerbyTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
-    override protected def createIndex(idx: Index) = {
-      if(idx.unique) {
-        /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
-         * index) because Derby does not allow a FOREIGN KEY CONSTRAINT to
-         * reference columns which have a UNIQUE INDEX but not a nominal UNIQUE
-         * CONSTRAINT. */
-        val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
-        sb append "CONSTRAINT " append quoteIdentifier(idx.name) append " UNIQUE("
-        addIndexColumnList(idx.on, sb, idx.table.tableName)
-        sb append ")"
-        sb.toString
-      } else super.createIndex(idx)
-    }
-
+  class DerbyTableDDLBuilder(table: Table[?])
+    extends TableDDLBuilder(table)
+      with TableDDLBuilder.UniqueIndexAsConstraint {
     override def dropIfExistsPhase = dropPhase2 // Derby does not support "DROP IF EXISTS"
-
     override def createIfNotExistsPhase = createPhase1 ++ createPhase2
   }
 

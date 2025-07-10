@@ -173,7 +173,9 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  class OracleTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
+  class OracleTableDDLBuilder(table: Table[?])
+    extends TableDDLBuilder(table)
+      with TableDDLBuilder.UniqueIndexAsConstraint {
     override val createPhase1 = super.createPhase1 ++ createAutoIncSequences
     override val dropPhase2 = dropAutoIncSequences ++ super.dropPhase2
 
@@ -200,12 +202,12 @@ trait OracleProfile extends JdbcProfile {
     override def dropIfExistsPhase = {
       //http://stackoverflow.com/questions/1799128/oracle-if-table-exists
       Iterable(
-"""
+        """
 BEGIN
-"""+ dropPhase2.map{s =>
-"execute immediate '"+ s.replaceAll("'", """\\'""") + " ';"
-            }.mkString("\n") +
-"""
+""" + dropPhase2.map { s =>
+          "execute immediate '" + s.replaceAll("'", """\\'""") + " ';"
+        }.mkString("\n") +
+          """
 EXCEPTION
    WHEN OTHERS THEN
       IF SQLCODE = -942 THEN
@@ -236,21 +238,7 @@ END;
         case ForeignKeyAction.SetNull => sb append " on delete set null"
         case _ => // do nothing
       }
-      if(fk.onUpdate == ForeignKeyAction.Cascade) sb append " initially deferred"
-    }
-
-    override protected def createIndex(idx: Index) = {
-      if(idx.unique) {
-        /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
-         * index) because Oracle does not allow a FOREIGN KEY CONSTRAINT to
-         * reference columns which have a UNIQUE INDEX but not a nominal UNIQUE
-         * CONSTRAINT. */
-        val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
-        sb append "CONSTRAINT " append quoteIdentifier(idx.name) append " UNIQUE("
-        addIndexColumnList(idx.on, sb, idx.table.tableName)
-        sb append ")"
-        sb.toString
-      } else super.createIndex(idx)
+      if (fk.onUpdate == ForeignKeyAction.Cascade) sb append " initially deferred"
     }
   }
 
