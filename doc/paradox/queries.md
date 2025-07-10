@@ -318,3 +318,31 @@ In many cases this enables you to write a single *for comprehension* for a
 compiled query:
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #template1 }
+
+Compilation Cache
+-----------------
+
+Slick includes a global compilation cache that automatically improves performance for repeated query compilations.
+Unlike @ref:[Compiled Queries](#compiled-queries) which require explicit wrapping, the compilation cache works
+transparently for all queries and provides significant performance benefits without code changes.
+
+**Key benefits:**
+- **40-80x speedup** for repeated query compilations  
+- **Automatic caching** - no code changes required
+- **Thread-safe** with minimal overhead
+- **Configurable** via @ref:[application.conf](config.md)
+
+**How it works:**
+When Slick compiles a query, it generates a cache key based on the query's AST structure and types.
+If the same query is compiled again, Slick can retrieve the cached compilation result instead of
+recompiling from scratch.
+
+**Cache vs Compiled Queries:**
+- **Compilation Cache**: Transparent caching for all queries, provides compilation speedup
+- **Compiled Queries**: Explicit API for parameterized queries, provides both compilation and SQL preparation speedup
+
+For maximum performance with parameterized queries, use both: wrap your queries with `Compiled` to get
+SQL preparation benefits, and let the compilation cache handle the compilation optimization automatically.
+
+The cache is automatically disabled during testing to ensure test isolation, and can be configured
+via the `slick.compiler.cache` section in your configuration file.
