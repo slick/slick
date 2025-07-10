@@ -304,15 +304,18 @@ lazy val hikaricp =
 lazy val tracing =
   project
     .in(file("slick-tracing"))
-    .dependsOn(slick)
+    .dependsOn(slick % "compile->compile;test->test")
     .settings(
       slickGeneralSettings,
       extTarget("tracing"),
       name := "Slick-Tracing",
       description := "Distributed tracing integration for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-tracing"),
-      test := {}, testOnly := {}, // suppress test status output
+      // Enable tests for tracing module
       libraryDependencies ++= Dependencies.tracingDependencies,
+      libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      libraryDependencies += "io.opentelemetry" % "opentelemetry-sdk-testing" % Dependencies.opentelemetryVersion % Test,
+      libraryDependencies += "com.h2database" % "h2" % "2.2.224" % Test,
       commonTestResourcesSetting
     )
 
