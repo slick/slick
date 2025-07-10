@@ -42,7 +42,10 @@ object CacheKey {
       val normalizedMainInfo = normalizeMainInfo(dumpInfo.mainInfo)
       val contentHash = normalizedMainInfo.hashCode()
       
-      MurmurHash3.orderedHash(Seq(nodeClassHash, nodeStructuralHash, contentHash) ++ childHashes, 0x3c5fbc5a)
+      // Handle literal values specially by examining the node directly
+      val literalHash = extractLiteralValue(n).hashCode()
+      
+      MurmurHash3.orderedHash(Seq(nodeClassHash, nodeStructuralHash, contentHash, literalHash) ++ childHashes, 0x3c5fbc5a)
     }
     hashNode(node)
   }
@@ -53,6 +56,33 @@ object CacheKey {
       .replaceAll("@[0-9a-fA-F]+", "@SYMBOL") // Remove object identity hashes
       .replaceAll("Symbol\\([^)]*\\)", "Symbol(NORMALIZED)") // Normalize symbol representations
       .replaceAll("\\$[0-9]+", "$N") // Normalize generated names
+  }
+  
+  private def extractLiteralValue(node: Node): String = {
+    // Try to extract literal values using reflection since LiteralNode is package private
+    try {
+      val className = node.getClass.getSimpleName
+      if (className.contains("LiteralNode") || className.contains("Literal")) {
+        // Use toString as fallback for literal nodes, which should include the value
+        val nodeStr = node.toString
+        if (nodeStr.contains("LiteralNode(") || nodeStr.contains("value=")) {
+          nodeStr
+        } else {
+          // Try to get value field via reflection
+          val valueField = node.getClass.getDeclaredFields.find(_.getName == "value")
+          valueField match {
+            case Some(field) =>
+              field.setAccessible(true)
+              field.get(node).toString
+            case None => ""
+          }
+        }
+      } else {
+        ""
+      }
+    } catch {
+      case _: Exception => ""
+    }
   }
   
   private def computeTypeHash(node: Node): Int = {
