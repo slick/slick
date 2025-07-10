@@ -182,17 +182,11 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     }
   }
 
-  class DB2SequenceDDLBuilder(seq: Sequence[?]) extends SequenceDDLBuilder(seq) {
-    override def buildDDL: DDL = {
-      val b = new StringBuilder append "create sequence " append quoteIdentifier(seq.name)
-      b append " as " append jdbcTypeFor(seq.tpe).sqlTypeName(None)
-      seq._start.foreach { b append " start with " append _ }
-      seq._increment.foreach { b append " increment by " append _ }
-      seq._minValue.foreach { b append " minvalue " append _ }
-      seq._maxValue.foreach { b append " maxvalue " append _ }
-      if(seq._cycle) b append " cycle"
-      DDL(b.toString, "drop sequence " + quoteIdentifier(seq.name))
-    }
+  class DB2SequenceDDLBuilder(seq: Sequence[?])
+    extends SequenceDDLBuilder.BuiltInSupport(seq)
+      with SequenceDDLBuilder.BuiltInSupport.IncrementBy
+      with SequenceDDLBuilder.BuiltInSupport.StartWith {
+    override protected def asClause = s" as ${jdbcTypeFor(seq.tpe).sqlTypeName(None)}"
   }
 
   class DB2JdbcTypes extends JdbcTypes {

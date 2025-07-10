@@ -114,7 +114,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     //Reference: https://github.com/slick/slick/issues/1419
     class MySQLTableNamer(meta: MTable) extends TableNamer(meta){
       override def schema = meta.name.catalog
-      override def catalog = meta.name.schema 
+      override def catalog = meta.name.schema
     }
 
     //https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
@@ -162,7 +162,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length]) match {
         case Some(l) => if(l.varying){
             //http://dev.mysql.com/doc/refman/5.7/en/string-type-overview.html
-            if(l.length <= 65535 ) s"VARCHAR(${l.length})" 
+            if(l.length <= 65535 ) s"VARCHAR(${l.length})"
             else if(l.length <= 16777215 ) "MEDIUMTEXT"
             else "LONGTEXT"
           } else s"CHAR(${l.length})"
@@ -315,7 +315,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder(seq) {
+  class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends SequenceDDLBuilder {
     override def buildDDL: DDL = {
       import seq.integral.*
       val sqlType = profile.jdbcTypeFor(seq.tpe).sqlTypeName(None)
