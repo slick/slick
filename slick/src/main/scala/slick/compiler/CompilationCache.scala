@@ -33,11 +33,26 @@ object CacheKey {
     def hashNode(n: Node): Int = {
       val childHashes = n.children.toSeq.map(hashNode)
       val nodeClassHash = n.getClass.getName.hashCode()
-      // Use structural properties instead of toString to avoid object identity issues
-      val nodeStructuralHash = n.getDumpInfo.name.hashCode()
-      MurmurHash3.orderedHash(Seq(nodeClassHash, nodeStructuralHash) ++ childHashes, 0x3c5fbc5a)
+      
+      // Extract structural information, avoiding object identity
+      val dumpInfo = n.getDumpInfo
+      val nodeStructuralHash = dumpInfo.name.hashCode()
+      
+      // Create a normalized representation that ignores symbol object identity
+      val normalizedMainInfo = normalizeMainInfo(dumpInfo.mainInfo)
+      val contentHash = normalizedMainInfo.hashCode()
+      
+      MurmurHash3.orderedHash(Seq(nodeClassHash, nodeStructuralHash, contentHash) ++ childHashes, 0x3c5fbc5a)
     }
     hashNode(node)
+  }
+  
+  private def normalizeMainInfo(mainInfo: String): String = {
+    // Remove symbol object identities and other variable parts
+    mainInfo
+      .replaceAll("@[0-9a-fA-F]+", "@SYMBOL") // Remove object identity hashes
+      .replaceAll("Symbol\\([^)]*\\)", "Symbol(NORMALIZED)") // Normalize symbol representations
+      .replaceAll("\\$[0-9]+", "$N") // Normalize generated names
   }
   
   private def computeTypeHash(node: Node): Int = {
