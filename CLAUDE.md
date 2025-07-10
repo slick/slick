@@ -62,6 +62,9 @@ sbt -Dslick.ansiDump=true testkit/test
 # Cross-version testing
 sbt ++2.13.16 testkit/test
 sbt ++3.3.4! testkit/test
+
+# Codegen tests (requires cleaning managed sources first)
+rm -rf slick-testkit/target/scala-2.13/src_managed && sbt 'testOnly slick.test.codegen.*'
 ```
 
 ### Development Build Tasks
@@ -203,6 +206,31 @@ sbt -Dslick.ansiDump=true testkit/test
 sbt -Dslick.ansiDump=true testkit/test
 ```
 
+### Cross-Database Testing Configuration
+
+**IMPORTANT**: When running tests against multiple databases (PostgreSQL, MySQL, Oracle, DB2, SQL Server), you **must** use the GitHub Actions configuration to ensure proper database connectivity:
+
+```bash
+# Required environment variable for multi-database testing
+env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt [test-command]
+
+# Example: Test specific database with proper configuration
+env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt \
+  -Ddb2.enabled=false -Dmysql.enabled=false -Doracle.enabled=false \
+  -Dsqlserver-sqljdbc.enabled=false -Dpostgres.enabled=true \
+  "testkit/testOnly slick.test.profile.PostgresTest"
+
+# Example: Test specific functionality across multiple databases
+env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt \
+  'project testkit' \
+  '+testOnly -- -z com.typesafe.slick.testkit.tests.AggregateTest.testGroupBy*'
+```
+
+The `SLICK_TESTKIT_CONFIG` environment variable is required because:
+- Default configuration only enables H2, Derby, HSQLDB, and SQLite
+- Production databases (PostgreSQL, MySQL, Oracle, DB2, SQL Server) require explicit configuration
+- The `test-dbs/testkit.github-actions.conf` file contains the necessary database connection settings
+
 ### Local Database Testing with Docker
 
 ```bash
@@ -210,15 +238,10 @@ sbt -Dslick.ansiDump=true testkit/test
 docker compose up -d postgres
 docker compose up -d mysql
 
-# Test specific database with proper configuration
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt \
-  -Ddb2.enabled=false -Dmysql.enabled=false -Doracle.enabled=false \
-  -Dsqlserver-sqljdbc.enabled=false -Dpostgres.enabled=true \
-  "testkit/testOnly slick.test.profile.PostgresTest"
-
 # Wait for database readiness
 docker compose exec postgres pg_isready -U postgres
 ```
+
 
 ### Test Development Patterns
 
@@ -350,6 +373,7 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - Use capability system to handle database-specific features
 - Test against multiple database profiles
 - Handle database-specific SQL generation in profiles
+- **Aggregate Functions**: When modifying aggregate functions (like AVG), be aware that different databases return different types (INTEGER vs DECIMAL vs DOUBLE). Consider using `Option[Double]` for consistency and add database-specific rounding logic in test suites
 
 ### Performance Considerations
 
@@ -376,6 +400,13 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   `conn.getCatalog` instead of empty strings in `DatabaseMetaData.getTables()` calls
 - **"Relation already exists" errors**: Usually indicates database cleanup issues between tests. Check
   `dropUserArtifacts` implementations in test database configurations
+
+### Code Generation (Codegen) Issues
+
+- **H2 VARCHAR Length Problems**: H2 reports default VARCHAR length as 1000000000, which can cause issues with other databases during round-trip testing. This is handled in `H2ColumnBuilder.length` by filtering out large default values
+- **Derby VARCHAR Limits**: Derby has a VARCHAR length limit of 32,672 characters. Codegen tests use H2 for generation but Derby for execution, requiring careful length handling
+- **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of capability differences (e.g., H2's features vs Derby's limitations)
+- **Codegen Test Cleanup**: Always delete `slick-testkit/target/scala-2.13/src_managed` before running codegen tests to ensure clean regeneration
 
 ### Performance Issues
 
