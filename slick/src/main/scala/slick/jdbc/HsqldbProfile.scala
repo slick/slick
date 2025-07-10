@@ -1,4 +1,3 @@
-
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet, Types}
@@ -15,7 +14,6 @@ import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
 import slick.dbio.*
 import slick.jdbc.meta.MTable
-import slick.lifted.*
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.ConstArray
@@ -301,21 +299,9 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  class HsqldbTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
-    override protected def createIndex(idx: Index) = {
-      if(idx.unique) {
-        /* Create a UNIQUE CONSTRAINT (with an automatically generated backing
-         * index) because Hsqldb does not allow a FOREIGN KEY CONSTRAINT to
-         * reference columns which have a UNIQUE INDEX but not a nominal UNIQUE
-         * CONSTRAINT. */
-        val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
-        sb append "CONSTRAINT " append quoteIdentifier(idx.name) append " UNIQUE("
-        addIndexColumnList(idx.on, sb, idx.table.tableName)
-        sb append ")"
-        sb.toString
-      } else super.createIndex(idx)
-    }
-  }
+  class HsqldbTableDDLBuilder(table: Table[?])
+    extends TableDDLBuilder(table)
+      with TableDDLBuilder.UniqueIndexAsConstraint
 
   class HsqldbSequenceDDLBuilder[T](seq: Sequence[T])
     extends SequenceDDLBuilder.BuiltInSupport.OverrideActualStart(seq)
