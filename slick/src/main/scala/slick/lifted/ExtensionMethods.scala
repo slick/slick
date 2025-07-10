@@ -154,7 +154,15 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
   def asColumnOfType[U : TypedType](typeName: String) = Library.Cast.column[U](n, LiteralNode(typeName))
 }
 
-/** Extension methods for Queries of a single column */
+/**
+ * Extension methods for Queries of a single column
+ *
+ * @tparam B1 The base type of the column.
+ * @tparam P1 The actual type of the column. This is either `B1` or `Option[B1]`.
+ * @tparam C  The collection type of the Query
+ * @param q The single-column [[Query]]
+ *
+ */
 final class SingleColumnQueryExtensionMethods[B1, P1, C[_]](val q: Query[Rep[P1], ?, C]) extends AnyVal {
   type OptionTM =  TypedType[Option[B1]]
 
@@ -165,7 +173,7 @@ final class SingleColumnQueryExtensionMethods[B1, P1, C[_]](val q: Query[Rep[P1]
   def max(implicit tm: OptionTM) = Library.Max.column[Option[B1]](q.toNode)
 
   /** Compute the average of a single-column Query, or `None` if the Query is empty */
-  def avg(implicit tm: OptionTM) = Library.Avg.column[Option[B1]](q.toNode)
+  def avg(implicit tm: TypedType[Option[Double]]) = Library.Avg.column[Option[Double]](q.toNode)
 
   /** Compute the sum of a single-column Query, or `None` if the Query is empty */
   def sum(implicit tm: OptionTM) = Library.Sum.column[Option[B1]](q.toNode)
@@ -243,8 +251,33 @@ trait ExtensionMethodConversions {
   implicit def anyOptionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): AnyExtensionMethods = new AnyExtensionMethods(c.toNode)
   implicit def anyValueExtensionMethods[B1 : BaseTypedType](v: B1): AnyExtensionMethods = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[B1]], v))
   implicit def anyOptionValueExtensionMethods[B1 : BaseTypedType](v: Option[B1]): AnyExtensionMethods = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[Option[B1]]], v))
-  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[B1], ?, C]): SingleColumnQueryExtensionMethods[B1, B1, C] = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
-  implicit def singleOptionColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Rep[Option[B1]], ?, C]): SingleColumnQueryExtensionMethods[B1, Option[B1], C] = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
+
+  /**
+   * Implicitly converts a Query representing a single column to an instance of SingleColumnQueryExtensionMethods.
+   *
+   * @tparam B1 The type of the column.
+   * @tparam C The collection type of the query.
+   * @param q The query object representing a single column.
+   */
+  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[
+    Rep[B1],
+    ?,
+    C
+  ]): SingleColumnQueryExtensionMethods[B1, B1, C] = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
+
+  /**
+   * Implicitly converts a Query of Option type to an instance of SingleColumnQueryExtensionMethods.
+   *
+   * @tparam B1 The type of the column.
+   * @param q The Query representing a column of Option type.
+   * @return An instance of SingleColumnQueryExtensionMethods providing additional query extensions for the Option
+   *         column.
+   */
+  implicit def singleOptionColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[
+    Rep[Option[B1]],
+    ?,
+    C
+  ]): SingleColumnQueryExtensionMethods[B1, Option[B1], C] = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
 
   implicit def anyOptionExtensionMethods[T, P](v: Rep[Option[T]])(implicit ol: OptionLift[P, Rep[Option[T]]]): AnyOptionExtensionMethods[Rep[Option[T]], P] = {
     new AnyOptionExtensionMethods[Rep[Option[T]], P](v)

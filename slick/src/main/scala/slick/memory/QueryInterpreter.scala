@@ -291,14 +291,15 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Library.Avg(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
-        val (num, opt) = itType match {
-          case t: ScalaOptionType[?] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
-          case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
-        }
-        reduceOptionIt[(Int, Any)](it, opt, (1, _), { case ((ai, a), (bi, b)) => (ai + bi, num.plus(a, b)) }).map { case (count, sum) =>
-          if(num.isInstanceOf[Fractional[?]]) num.asInstanceOf[Fractional[Any]].div(sum, num.fromInt(count))
-          else num.fromInt(num.toInt(sum) / count)
-        }
+        reduceOptionIt[(Int, Double)](
+          it = it,
+          opt = itType.isInstanceOf[ScalaOptionType[?]],
+          map = x => (1, x.asInstanceOf[Integer].toDouble),
+          reduce = {
+            case ((ai, a), (bi, b)) =>
+              (ai + bi, a + b)
+          }
+        ).map { case (count, sum) => sum / count.toDouble }
       case Library.Min(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
@@ -421,7 +422,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
     case Library.User => ""
-    case Library.Substring if args.size == 2 => 
+    case Library.Substring if args.size == 2 =>
       args(0)._2.asInstanceOf[String].substring(args(1)._2.asInstanceOf[Int])
     case Library.Repeat if args.size == 2
       => args(0)._2.asInstanceOf[String] * args(1)._2.asInstanceOf[Int]
@@ -435,13 +436,30 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.EndsWith => args(0)._2.asInstanceOf[String].endsWith(args(1)._2.asInstanceOf[String])
   }
 
-  def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
-    case ProductType(ConstArray(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
-    case StructType(ConstArray((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
-    case t => (coll.iterator, t)
-  }
+  /**
+   * Unwraps a single column from an iterator of values based on the provided type.
+   *
+   * @param coll The input collection containing elements to unwrap.
+   * @param tpe  The [[Type]] of the elements in the collection, which is expected to be a collection type.
+   * @return An iterator over unwrapped values and the corresponding element type of the collection.
+   */
+  private def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) =
+    tpe.asCollectionType.elementType match {
+      case ProductType(ConstArray(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
+      case StructType(ConstArray((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
+      case t => (coll.iterator, t)
+    }
 
-  def reduceOptionIt[T](it: Iterator[Any], opt: Boolean, map: Any => T, reduce: (T, T) => T): Option[T] = {
+  /**
+   * Reduces an iterator of values to a single value wrapped in an Option.
+   *
+   * @param it     The input iterator over any type of elements.
+   * @param opt    Whether to filter out non-Option elements. If false, all elements are considered.
+   * @param map    A function that maps each element from the iterator to the desired type T.
+   * @param reduce A binary operation that is used to combine two values of type T into a single value.
+   * @return The result of the reduction wrapped in an Option if a valid reduction was performed, otherwise None.
+   */
+  private def reduceOptionIt[T](it: Iterator[Any], opt: Boolean, map: Any => T, reduce: (T, T) => T): Option[T] = {
     if(!it.hasNext) None
     else {
       val it2 = if(opt) it.collect { case Some(b) => b} else it
@@ -451,7 +469,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         if(first) {
           first = false
           res = map(b)
-        } else res = reduce(res, map(b))
+        } else
+          res = reduce(res, map(b))
       }
       if(first) None else Some(res)
     }
