@@ -1,0 +1,27 @@
+{
+  "name": "scala",
+  "argv": [
+    "/home/naftoli/.cache/coursier/arc/https/github.com/scala/scala3/releases/download/3.7.1/scala3-3.7.1-x86_64-pc-linux.tar.gz/scala3-3.7.1-x86_64-pc-linux/libexec/scala-cli",
+    "--cli-default-scala-version",
+    "3.7.1",
+    "--repository",
+    "file:///home/naftoli/.cache/coursier/arc/https/github.com/scala/scala3/releases/download/3.7.1/scala3-3.7.1-x86_64-pc-linux.tar.gz/scala3-3.7.1-x86_64-pc-linux/maven2",
+    "--prog-name",
+    "scala",
+    "--skip-cli-updates",
+    "bsp",
+    "--json-options",
+    "/home/naftoli/repositories/github.com/slick/slick2/custom-logging/doc/code/.scala-build/ide-options-v2.json",
+    "--json-launcher-options",
+    "/home/naftoli/repositories/github.com/slick/slick2/custom-logging/doc/code/.scala-build/ide-launcher-options.json",
+    "--envs-file",
+    "/home/naftoli/repositories/github.com/slick/slick2/custom-logging/doc/code/.scala-build/ide-envs.json",
+    "/home/naftoli/repositories/github.com/slick/slick2/custom-logging/doc/code/DBIOCombinators.scala"
+  ],
+  "version": "1.8.0",
+  "bspVersion": "2.1.1",
+  "languages": [
+    "scala",
+    "java"
+  ]
+}

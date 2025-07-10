@@ -73,15 +73,6 @@ trait JdbcBackend extends RelationalBackend {
 
     protected[this] def synchronousExecutionContext = executor.executionContext
 
-    /** Set the logging context for the current thread */
-    override protected def setCurrentLoggingContext(context: LoggingContext): Unit = {
-      JdbcBackend.setCurrentLoggingContext(context)
-    }
-
-    /** Clear the logging context for the current thread */
-    override protected def clearCurrentLoggingContext(): Unit = {
-      JdbcBackend.clearCurrentLoggingContext()
-    }
 
     /** Run some code on the [[ioExecutionContext]]. */
     final def io[T](thunk: => T): Future[T] = Future(thunk)(ioExecutionContext)
@@ -408,11 +399,13 @@ trait JdbcBackend extends RelationalBackend {
                                defaultType: ResultSetType = ResultSetType.ForwardOnly,
                                defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                                defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default,
-                               fetchSizeOverride: Option[Int] = None): PreparedStatement = {
-      // Try to get logging context from current action context if available
-      JdbcBackend.getCurrentLoggingContext() match {
-        case Some(context) => JdbcBackend.logStatement("Preparing statement", sql, context)
-        case None => JdbcBackend.logStatement("Preparing statement", sql)
+                               fetchSizeOverride: Option[Int] = None,
+                               loggingContext: LoggingContext = LoggingContext.empty): PreparedStatement = {
+      // Use the explicit logging context parameter
+      if (loggingContext.nonEmpty) {
+        JdbcBackend.logStatement("Preparing statement", sql, loggingContext)
+      } else {
+        JdbcBackend.logStatement("Preparing statement", sql)
       }
       val s = loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
@@ -426,24 +419,38 @@ trait JdbcBackend extends RelationalBackend {
           conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
             resultSetConcurrency.withDefault(defaultConcurrency).intValue,
             h.intValue)
-      }))
+      }), loggingContext)
       val computedFetchSize = fetchSizeOverride.getOrElse(fetchSize)
       if(computedFetchSize != 0) s.setFetchSize(computedFetchSize)
       s
     }
 
-    final def prepareInsertStatement(sql: String, columnNames: Array[String] = new Array[String](0)): PreparedStatement = {
-      if(JdbcBackend.statementLogger.isDebugEnabled)
-        JdbcBackend.logStatement("Preparing insert statement (returning: "+columnNames.mkString(",")+")", sql)
-      val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnNames)))
+    final def prepareInsertStatement(sql: String, 
+                                     columnNames: Array[String] = new Array[String](0),
+                                     loggingContext: LoggingContext = LoggingContext.empty): PreparedStatement = {
+      if(JdbcBackend.statementLogger.isDebugEnabled) {
+        if (loggingContext.nonEmpty) {
+          JdbcBackend.logStatement("Preparing insert statement (returning: "+columnNames.mkString(",")+")", sql, loggingContext)
+        } else {
+          JdbcBackend.logStatement("Preparing insert statement (returning: "+columnNames.mkString(",")+")", sql)
+        }
+      }
+      val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnNames)), loggingContext)
       if(fetchSize != 0) s.setFetchSize(fetchSize)
       s
     }
 
-    final def prepareInsertStatement(sql: String, columnIndexes: Array[Int]): PreparedStatement = {
-      if(JdbcBackend.statementLogger.isDebugEnabled)
-        JdbcBackend.logStatement("Preparing insert statement (returning indexes: "+columnIndexes.mkString(",")+")", sql)
-      val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnIndexes)))
+    final def prepareInsertStatement(sql: String, 
+                                     columnIndexes: Array[Int],
+                                     loggingContext: LoggingContext): PreparedStatement = {
+      if(JdbcBackend.statementLogger.isDebugEnabled) {
+        if (loggingContext.nonEmpty) {
+          JdbcBackend.logStatement("Preparing insert statement (returning indexes: "+columnIndexes.mkString(",")+")", sql, loggingContext)
+        } else {
+          JdbcBackend.logStatement("Preparing insert statement (returning indexes: "+columnIndexes.mkString(",")+")", sql)
+        }
+      }
+      val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnIndexes)), loggingContext)
       if(fetchSize != 0) s.setFetchSize(fetchSize)
       s
     }
@@ -483,7 +490,7 @@ trait JdbcBackend extends RelationalBackend {
     /** A wrapper around the JDBC Connection's prepareInsertStatement method, that automatically closes the statement. */
     final def withPreparedInsertStatement[T](sql: String,
                                              columnIndexes: Array[Int])(f: (PreparedStatement => T)): T = {
-      val st = prepareInsertStatement(sql, columnIndexes)
+      val st = prepareInsertStatement(sql, columnIndexes, LoggingContext.empty)
       try f(st) finally st.close()
     }
 
@@ -518,15 +525,15 @@ trait JdbcBackend extends RelationalBackend {
       private[slick] def endInTransaction(f: => Unit): Unit = self.endInTransaction(f)
     }
 
-    protected def loggingStatement(st: Statement): Statement =
+    protected def loggingStatement(st: Statement, context: LoggingContext = LoggingContext.empty): Statement =
       if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled ||
         JdbcBackend.statementAndParameterLogger.isDebugEnabled)
-        new LoggingStatement(st) else st
+        new LoggingStatement(st, context) else st
 
-    protected def loggingPreparedStatement(st: PreparedStatement): PreparedStatement =
+    protected def loggingPreparedStatement(st: PreparedStatement, context: LoggingContext = LoggingContext.empty): PreparedStatement =
       if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled ||
         JdbcBackend.parameterLogger.isDebugEnabled || JdbcBackend.statementAndParameterLogger.isDebugEnabled)
-        new LoggingPreparedStatement(st) else st
+        new LoggingPreparedStatement(st, context) else st
 
     /** Start a `transactionally` block */
     private[slick] def startInTransaction: Unit
@@ -610,6 +617,25 @@ trait JdbcBackend extends RelationalBackend {
         super.session.internalForParameters(p.rsType, p.rsConcurrency, p.rsHoldability, p.statementInit, p.fetchSize)
       }
 
+    /** Prepare a statement with logging context from this action context */
+    def prepareStatementWithContext(sql: String,
+                                    defaultType: ResultSetType = ResultSetType.ForwardOnly,
+                                    defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
+                                    defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default,
+                                    fetchSizeOverride: Option[Int] = None): PreparedStatement = {
+      session.prepareStatement(sql, defaultType, defaultConcurrency, defaultHoldability, fetchSizeOverride, loggingContext)
+    }
+
+    /** Prepare an insert statement with logging context from this action context */
+    def prepareInsertStatementWithContext(sql: String, columnNames: Array[String] = new Array[String](0)): PreparedStatement = {
+      session.prepareInsertStatement(sql, columnNames, loggingContext)
+    }
+
+    /** Prepare an insert statement with logging context from this action context */
+    def prepareInsertStatementWithContext(sql: String, columnIndexes: Array[Int]): PreparedStatement = {
+      session.prepareInsertStatement(sql, columnIndexes, loggingContext)
+    }
+
     /** The current JDBC Connection */
     def connection: Connection = session.conn
   }
@@ -622,23 +648,6 @@ object JdbcBackend extends JdbcBackend {
                                  rsHoldability: ResultSetHoldability, statementInit: Statement => Unit, fetchSize: Int)
   val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null, 0)
 
-  // Thread-local storage for logging context during action execution
-  private val currentLoggingContext = new ThreadLocal[LoggingContext]()
-
-  /** Set the logging context for the current thread */
-  private[slick] def setCurrentLoggingContext(context: LoggingContext): Unit = {
-    currentLoggingContext.set(context)
-  }
-
-  /** Clear the logging context for the current thread */
-  private[slick] def clearCurrentLoggingContext(): Unit = {
-    currentLoggingContext.remove()
-  }
-
-  /** Get the current logging context for this thread, if any */
-  def getCurrentLoggingContext(): Option[LoggingContext] = {
-    Option(currentLoggingContext.get()).filter(_.nonEmpty)
-  }
 
   protected[jdbc] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
   protected[jdbc] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))

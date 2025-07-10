@@ -192,11 +192,6 @@ trait BasicBackend { self =>
                                             streaming: Boolean,
                                             topLevel: Boolean,
                                             stackLevel: Int): Future[R] = {
-      // Set logging context for the current thread
-      if (ctx.loggingContext.nonEmpty) {
-        setCurrentLoggingContext(ctx.loggingContext)
-      }
-      
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
@@ -274,13 +269,10 @@ trait BasicBackend { self =>
         case NamedAction(a, _) =>
           runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
         case ContextualAction(a, actionContext) =>
-          // Merge the action's context with the existing context
+          // Merge the action's context with the existing context and create new context
           val mergedContext = ctx.loggingContext.merge(actionContext)
-          // Set the merged context for this thread
-          if (mergedContext.nonEmpty) {
-            setCurrentLoggingContext(mergedContext)
-          }
-          runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
+          val newCtx = createDatabaseActionContext(ctx.useSameThread, mergedContext)
+          runInContextSafe(a, newCtx, streaming, topLevel, stackLevel)
         case a: SynchronousDatabaseAction[?, ?, ?, ?, ?] =>
           if (streaming) {
             if (a.supportsStreaming)
@@ -488,15 +480,6 @@ trait BasicBackend { self =>
       * SynchronousDatabaseActions for asynchronous execution. */
     protected[this] def synchronousExecutionContext: ExecutionContext
 
-    /** Set the logging context for the current thread. Override in subclasses to provide backend-specific context storage. */
-    protected def setCurrentLoggingContext(context: LoggingContext): Unit = {
-      // Default implementation - subclasses like JdbcBackend can override
-    }
-
-    /** Clear the logging context for the current thread. Override in subclasses to provide backend-specific context storage. */
-    protected def clearCurrentLoggingContext(): Unit = {
-      // Default implementation - subclasses like JdbcBackend can override
-    }
 
     protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing], ctx: Context): Unit = {
       if(actionLogger.isDebugEnabled && a.isLogged) {
