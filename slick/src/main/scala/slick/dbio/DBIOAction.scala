@@ -157,6 +157,19 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
   def withContext(key: String, value: String): DBIOAction[R, S, E] = 
     ContextualAction(this, LoggingContext.single(key, value))
 
+  /** Create a contextual DBIOAction that wraps this action with logging context. This context
+    * will be included in all log messages for this action and its nested operations. 
+    * This is an alias for withContext(context). */
+  def withLoggingContext(context: LoggingContext): DBIOAction[R, S, E] = withContext(context)
+
+  /** Create a contextual DBIOAction with a single key-value pair of logging context.
+    * This is a convenience method for adding single tags to actions. */
+  def tagged(key: String, value: String): DBIOAction[R, S, E] = withContext(key, value)
+
+  /** Create a contextual DBIOAction with a single key-value pair of logging context.
+    * This is a convenience method for adding single tags to actions. */
+  def tagged(kv: (String, String)): DBIOAction[R, S, E] = withContext(kv._1, kv._2)
+
   /** Create a contextual DBIOAction with multiple key-value pairs of logging context. */
   def withContext(kvs: (String, String)*): DBIOAction[R, S, E] = 
     ContextualAction(this, LoggingContext(kvs: _*))

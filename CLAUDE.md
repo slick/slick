@@ -114,6 +114,13 @@ Slick supports multiple databases through profile-based architecture:
 - **In-memory testing**: Heap-based database for unit tests
 - **Profile hierarchy**: BasicProfile → RelationalProfile → SqlProfile → JdbcProfile → Specific profiles
 
+### Custom Logging Support (nafg/custom-logging branch)
+
+- **LoggingContext**: Key-value context information that can be attached to database operations
+- **Context Propagation**: Logging context is threaded through the entire execution stack from DBIOAction to SQL logging
+- **Enhanced SQL Logging**: SQL statements are logged with associated context information for better traceability
+- **Convenience APIs**: Simple methods to attach context to database actions via `withLoggingContext()` and `tagged()` methods
+
 ## Code Organization
 
 ### Main Source Structure
@@ -425,6 +432,15 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - `slick/src/main/scala-3/slick/lifted/ShapedValue.scala`: Scala 3-specific implementations
 - `slick/src/main/scala/slick/lifted/Rep.scala`: Core representation types
 
+### Custom Logging Infrastructure (nafg/custom-logging branch)
+
+- `slick/util/LoggingContext.scala`: Context information that can be propagated through database operations
+- `slick/util/Logging.scala`: Enhanced SlickLogger with context support in log messages
+- `slick/basic/BasicBackend.scala`: Backend support for threading logging context through operations
+- `slick/jdbc/JdbcBackend.scala`: JDBC-specific context propagation and statement creation
+- `slick/jdbc/LoggingStatement.scala`: Statement wrapper that includes context in SQL logs
+- `slick/dbio/DBIOAction.scala`: Convenience methods for attaching context to database actions
+
 ## Critical Development Notes
 
 ### Database Driver Compatibility
@@ -454,3 +470,11 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Version format**: Follows pattern `X.Y.Z-pre.N.SHA[.dirty]` for development builds
 - **Compatibility filtering**: Internal dependency changes are filtered using regex patterns to avoid CI noise
 - **MiMa integration**: Binary compatibility is checked using MiMa with custom exclusion filters
+
+### Custom Logging Development Notes
+
+- **Context Threading**: LoggingContext must be properly threaded through all backend operations for consistent logging
+- **Backward Compatibility**: All new logging APIs maintain backward compatibility with existing code
+- **Performance**: LoggingContext operations are designed to be lightweight with minimal allocation overhead
+- **Testing**: Custom logging features should be tested across all supported database profiles
+- **Usage Pattern**: Attach context early in the operation chain using `action.withLoggingContext()` or `action.tagged()`
