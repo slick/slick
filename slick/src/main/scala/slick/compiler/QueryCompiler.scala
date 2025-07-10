@@ -46,6 +46,24 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
     val state = new CompilerState(this, tree)
     run(state)
   }
+  
+  /** Compile an AST with a new `CompilerState`, with optional cache support. */
+  def run(tree: Node, profileName: String): CompilerState = {
+    if (CompilationCache.isEnabled) {
+      val cacheKey = CacheKey(tree, this, profileName)
+      CompilationCache.get(cacheKey) match {
+        case Some(cached) => cached
+        case None =>
+          val state = new CompilerState(this, tree)
+          val result = run(state)
+          CompilationCache.put(cacheKey, result)
+          result
+      }
+    } else {
+      val state = new CompilerState(this, tree)
+      run(state)
+    }
+  }
 
   /** Compile an AST in an existing `CompilerState`. This can be used for triggering
     * compilation of subtrees within the current `CompilerState`. */

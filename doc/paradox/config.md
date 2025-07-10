@@ -33,6 +33,9 @@ The following loggers are particularly interesting:
 - `slick.compiler.QueryCompiler`:
    Shows a dump of the AST after every phase of the query compiler when compiling a query.
 
+- `slick.compiler.CompilationCache`:
+   Shows compilation cache operations including hits, misses, and evictions when `logCacheOperations` is enabled.
+
 - `slick.jdbc.DriverDataSource`:
    Shows information about @extref[JDBC](jdbc:) drivers being loaded by @scaladoc[DriverDataSource](slick.jdbc.DriverDataSource). Does not
    apply when using a connection pool unless you explicitly use a DriverDataSource as the source for the connection
