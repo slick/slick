@@ -20,7 +20,7 @@ package slick
  * 
  * // Create tracing profile
  * val openTelemetry: OpenTelemetry = // ... initialize OpenTelemetry
- * val profile = TracingJdbcProfile.withOpenTelemetry(openTelemetry)
+ * val profile = new TracedH2Profile(openTelemetry)
  * 
  * // Use the profile
  * import profile.api._
@@ -36,10 +36,8 @@ package slick
  * // Queries are automatically traced
  * val query = users.filter(_.name === "Alice").result
  * 
- * // Add custom tracing information
- * val tracedQuery = users.filter(_.name === "Alice")
- *   .withTracing(Map("operation" -> "user-lookup", "component" -> "user-service"))
- *   .result
+ * // Add custom tracing information using the profile's tracing support
+ * val tracedQuery = profile.withTracing("user-lookup", users.filter(_.name === "Alice").result)
  * }}}
  * 
  * == Configuration ==
@@ -135,51 +133,22 @@ package object tracing {
     /**
      * Creates a PostgreSQL profile with tracing.
      */
-    def postgres(
-      config: TracingConfig = TracingConfig.fromConfig(),
-      context: TracingContext = NoOpTracingContext
-    ): TracingProfiles.PostgresTracingProfile = {
-      new TracingProfiles.PostgresTracingProfile(config, context)
+    def postgres(openTelemetry: io.opentelemetry.api.OpenTelemetry): TracedPostgresProfile = {
+      new TracedPostgresProfile(openTelemetry)
     }
     
     /**
      * Creates a MySQL profile with tracing.
      */
-    def mysql(
-      config: TracingConfig = TracingConfig.fromConfig(),
-      context: TracingContext = NoOpTracingContext
-    ): TracingProfiles.MySQLTracingProfile = {
-      new TracingProfiles.MySQLTracingProfile(config, context)
+    def mysql(openTelemetry: io.opentelemetry.api.OpenTelemetry): TracedMySQLProfile = {
+      new TracedMySQLProfile(openTelemetry)
     }
     
     /**
      * Creates an H2 profile with tracing.
      */
-    def h2(
-      config: TracingConfig = TracingConfig.fromConfig(),
-      context: TracingContext = NoOpTracingContext
-    ): TracingProfiles.H2TracingProfile = {
-      new TracingProfiles.H2TracingProfile(config, context)
-    }
-    
-    /**
-     * Creates an Oracle profile with tracing.
-     */
-    def oracle(
-      config: TracingConfig = TracingConfig.fromConfig(),
-      context: TracingContext = NoOpTracingContext
-    ): TracingProfiles.OracleTracingProfile = {
-      new TracingProfiles.OracleTracingProfile(config, context)
-    }
-    
-    /**
-     * Creates a SQL Server profile with tracing.
-     */
-    def sqlserver(
-      config: TracingConfig = TracingConfig.fromConfig(),
-      context: TracingContext = NoOpTracingContext
-    ): TracingProfiles.SQLServerTracingProfile = {
-      new TracingProfiles.SQLServerTracingProfile(config, context)
+    def h2(openTelemetry: io.opentelemetry.api.OpenTelemetry): TracedH2Profile = {
+      new TracedH2Profile(openTelemetry)
     }
   }
   

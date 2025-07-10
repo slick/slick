@@ -3,9 +3,7 @@ package slick.tracing
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.{Span, SpanBuilder, SpanKind, StatusCode, Tracer}
 import io.opentelemetry.context.Context
-import io.opentelemetry.semconv.SchemaUrls
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /**
  * Context for distributed tracing in Slick operations.
@@ -191,11 +189,7 @@ class DefaultTracingContext(
   
   override val currentContext: Context = Context.current()
   
-  override val tracer: Tracer = openTelemetry.getTracer(
-    "slick",
-    BuildInfo.version,
-    SchemaUrls.V1_25_0
-  )
+  override val tracer: Tracer = openTelemetry.getTracer("slick")
 }
 
 /**
