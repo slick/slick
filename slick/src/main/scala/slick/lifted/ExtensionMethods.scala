@@ -173,7 +173,7 @@ final class SingleColumnQueryExtensionMethods[B1, P1, C[_]](val q: Query[Rep[P1]
   def max(implicit tm: OptionTM) = Library.Max.column[Option[B1]](q.toNode)
 
   /** Compute the average of a single-column Query, or `None` if the Query is empty */
-  def avg(implicit tm: OptionTM) = Library.Avg.column[Option[B1]](q.toNode)
+  def avg(implicit tm: TypedType[Option[Double]]) = Library.Avg.column[Option[Double]](q.toNode)
 
   /** Compute the sum of a single-column Query, or `None` if the Query is empty */
   def sum(implicit tm: OptionTM) = Library.Sum.column[Option[B1]](q.toNode)
