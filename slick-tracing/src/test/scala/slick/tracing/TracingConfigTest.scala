@@ -154,7 +154,12 @@ class TracingConfigTest extends AnyWordSpec with Matchers {
 
     "handle invalid SQL comment format" in {
       val configStr = """
-        slick.tracing.sql-comments.format = "invalid-format"
+        slick.tracing {
+          enabled = true
+          sql-comments {
+            format = "invalid-format"
+          }
+        }
       """
 
       val typesafeConfig = ConfigFactory.parseString(configStr)

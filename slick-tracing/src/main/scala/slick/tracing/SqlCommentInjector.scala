@@ -214,9 +214,9 @@ class SqlCommentInjector(config: TracingConfig) {
       // Insert at the beginning
       s"$comment $trimmedSql"
     } else {
-      // Insert after the initial keyword
+      // Insert after the initial keyword with proper spacing
       val (prefix, suffix) = trimmedSql.splitAt(insertPosition)
-      s"$prefix $comment$suffix"
+      s"$prefix$comment $suffix"
     }
   }
   
@@ -232,10 +232,8 @@ class SqlCommentInjector(config: TracingConfig) {
     
     sqlKeywords.find(upperSql.startsWith) match {
       case Some(keyword) =>
-        // Find the end of the keyword (accounting for whitespace)
-        val keywordEnd = keyword.length
-        val afterKeyword = sql.drop(keywordEnd).dropWhile(_.isWhitespace)
-        keywordEnd + (sql.length - afterKeyword.length - keywordEnd)
+        // Return position right after the keyword
+        keyword.length
       case None =>
         0 // Insert at the beginning if no recognized keyword is found
     }

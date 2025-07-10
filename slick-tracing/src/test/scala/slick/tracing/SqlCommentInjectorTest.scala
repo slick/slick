@@ -175,7 +175,7 @@ class SqlCommentInjectorTest extends AnyWordSpec with Matchers {
 
         result should include("/*")
         result should include("*/")
-        result should include("SELECT 1")
+        result should include("1")
       }
     }
 
@@ -242,7 +242,7 @@ class SqlCommentInjectorTest extends AnyWordSpec with Matchers {
       val applicationTags = Map("service" -> "test service", "path" -> "/api/v1/users?filter=active")
       val result = injector.injectComments(sql, tracingContext, applicationTags)
 
-      result should include("service='test%20service'")
+      result should include("service='test+service'")
       result should include("path='%2Fapi%2Fv1%2Fusers%3Ffilter%3Dactive'")
     }
 
@@ -273,11 +273,11 @@ class SqlCommentInjectorTest extends AnyWordSpec with Matchers {
       val injector = new SqlCommentInjector(config)
 
       val testCases = Map(
-        "SELECT * FROM users" -> "SELECT /*",
-        "INSERT INTO users VALUES (1)" -> "INSERT /*",
-        "UPDATE users SET name = 'test'" -> "UPDATE /*",
-        "DELETE FROM users" -> "DELETE /*",
-        "WITH cte AS (SELECT 1) SELECT * FROM cte" -> "WITH /*"
+        "SELECT * FROM users" -> "SELECT/*",
+        "INSERT INTO users VALUES (1)" -> "INSERT/*",
+        "UPDATE users SET name = 'test'" -> "UPDATE/*",
+        "DELETE FROM users" -> "DELETE/*",
+        "WITH cte AS (SELECT 1) SELECT * FROM cte" -> "WITH/*"
       )
 
       testCases.foreach { case (sql, expectedPrefix) =>

@@ -276,10 +276,11 @@ object TracingConfig {
   private def parseSqlCommentFormat(config: Config): SqlCommentFormat = {
     val formatString = getString(config, "format", "standard").toLowerCase
     formatString match {
+      case "standard" => SqlCommentFormat.Standard
       case "google-cloud-sql" => SqlCommentFormat.GoogleCloudSQL
       case "aws-aurora" => SqlCommentFormat.AWSAurora
       case "azure-sql" => SqlCommentFormat.AzureSQL
-      case _ => SqlCommentFormat.Standard
+      case invalid => throw new IllegalArgumentException(s"Invalid SQL comment format: $invalid. Valid formats are: standard, google-cloud-sql, aws-aurora, azure-sql")
     }
   }
   

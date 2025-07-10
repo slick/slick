@@ -171,6 +171,7 @@ class TracingContextTest extends AnyWordSpec with Matchers with ScalaFutures {
     }
 
     "sanitize SQL statements" in {
+      clearSpans()
       val context = new DefaultTracingContext(openTelemetry, isTracingEnabled = true)
 
       val spanBuilder = context.createDatabaseSpan(
