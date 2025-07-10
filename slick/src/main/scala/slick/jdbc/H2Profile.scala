@@ -64,7 +64,8 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     }
 
     class H2ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
-      override def length = super.length.filter(_ < 1000000000) // H2's max length is equivalent to no limit
+      override def length =
+        super.length.filter(l => l != Int.MaxValue && l != 1000000000) // H2 sometimes show these values, but doesn't accept them back in the DBType
       override def default =
         rawDefault
           .map((_, tpe))
