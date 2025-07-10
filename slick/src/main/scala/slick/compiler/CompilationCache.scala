@@ -55,7 +55,7 @@ object CacheKey {
     mainInfo
       .replaceAll("@[0-9a-fA-F]+", "@SYMBOL") // Remove object identity hashes
       .replaceAll("Symbol\\([^)]*\\)", "Symbol(NORMALIZED)") // Normalize symbol representations
-      .replaceAll("\\$[0-9]+", "$N") // Normalize generated names
+      .replaceAll("\\$[0-9]+", "DOLLAR_N") // Normalize generated names (avoid $ in replacement)
   }
   
   private def extractLiteralValue(node: Node): String = {
