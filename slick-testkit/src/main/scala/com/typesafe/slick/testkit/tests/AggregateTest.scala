@@ -27,15 +27,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
 
   private def roundAvg(avgResult: BigDecimal) =
     tdb.confName match {
-      case "db2" |
-           "derbydisk" |
-           "derbymem" |
-           "h2disk" |
-           "h2mem" |
-           "h2rownum" |
-           "hsqldbdisk" |
-           "hsqldbmem" |
-           "sqlserver-sqljdbc" =>
+      case "db2" | "derbydisk" | "derbymem" | "hsqldbdisk" | "hsqldbmem" | "sqlserver-sqljdbc" =>
         avgResult.setScale(0, BigDecimal.RoundingMode.DOWN).toDouble
       case "mysql" =>
         avgResult.setScale(4, BigDecimal.RoundingMode.HALF_UP).toDouble

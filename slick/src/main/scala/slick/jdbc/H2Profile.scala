@@ -64,8 +64,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     }
 
     class H2ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
-      override def length =
-        super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
+      override def length = super.length.filter(_ < 1000000000) // H2's max length is equivalent to no limit
       override def default =
         rawDefault
           .map((_, tpe))
@@ -95,6 +94,10 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
   override def createUpsertBuilder(node: Insert): InsertBuilder = new H2UpsertBuilder(node)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder =
     new H2ColumnDDLBuilder(column)
+  override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder =
+    new H2TableDDLBuilder(table)
+  override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder =
+    new H2SequenceDDLBuilder(seq)
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new H2CountingInsertActionComposerImpl[T](compiled)
 
@@ -117,13 +120,6 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       case RowNumber(_) => b"rownum"
       case _ => super.expr(n)
     }
-
-    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b"\nlimit $t offset $d"
-      case (Some(t), None   ) => b"\nlimit $t"
-      case (None, Some(d)   ) => b"\nlimit -1 offset $d"
-      case _ =>
-    }
   }
 
   class H2ColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
@@ -135,6 +131,13 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       if(unique) sb append " UNIQUE"
     }
   }
+
+  class H2TableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) with TableDDLBuilder.UniqueIndexAsConstraint
+
+  class H2SequenceDDLBuilder(seq: Sequence[?])
+    extends SequenceDDLBuilder.BuiltInSupport(seq)
+      with SequenceDDLBuilder.BuiltInSupport.IncrementBy
+      with SequenceDDLBuilder.BuiltInSupport.StartWith
 
   class H2JdbcTypes extends JdbcTypes {
     override val uuidJdbcType = new UUIDJdbcType {
