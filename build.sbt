@@ -247,7 +247,7 @@ lazy val testkit =
             case _        => "other"
           })
           .map { case (name, tests) =>
-            new Tests.Group(name, tests, Tests.SubProcess(ForkOptions()), Seq(Tags.Tag(s"test-group-$name") -> 1))
+            new Tests.Group(name, tests, Tests.SubProcess(ForkOptions().withRunJVMOptions(Vector("-Dslick.testRun=true"))), Seq(Tags.Tag(s"test-group-$name") -> 1))
           }
           .toSeq
           .sortBy(_.name)

@@ -224,7 +224,15 @@ object CompilationCache {
   
   private lazy val config = try {
     import com.typesafe.config.ConfigFactory
-    CacheConfig.fromConfig(ConfigFactory.load())
+    val baseConfig = CacheConfig.fromConfig(ConfigFactory.load())
+    
+    // Disable cache during testing if system property is set
+    val isTestRun = sys.props.get("slick.testRun").exists(_.toLowerCase == "true")
+    if (isTestRun) {
+      baseConfig.copy(enabled = false)
+    } else {
+      baseConfig
+    }
   } catch {
     case _: Exception => CacheConfig() // Use default config if none available
   }
