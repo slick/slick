@@ -29,7 +29,7 @@ import slick.tracing._
 val openTelemetry: OpenTelemetry = // ... your OpenTelemetry setup
 
 // Create tracing profile
-val profile = TracingJdbcProfile.withOpenTelemetry(openTelemetry)
+val profile = new TracedH2Profile(openTelemetry)
 ```
 
 ### 3. Use Tracing Profile
@@ -160,10 +160,7 @@ val tracingContext = new DefaultTracingContext(
 )
 
 // Create profile with custom context
-val profile = new DefaultTracingJdbcProfile(
-  tracingConfig = TracingConfig.fromConfig(),
-  tracingContext = tracingContext
-)
+val profile = new TracedPostgresProfile(tracingContext.openTelemetry)
 ```
 
 ### Database-Specific Profiles
