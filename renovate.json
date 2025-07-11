@@ -7,7 +7,7 @@
       "matchPackagePatterns": [
         "^com\\.microsoft\\.sqlserver:.*"
       ],
-      "allowedVersions": ".*jre11",
+      "versionPattern": ".*jre11$",
       "baseBranch": "java17"
     },
     {
