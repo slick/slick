@@ -1,20 +1,5 @@
 {
   "extends": [
     "config:base"
-  ],
-  "packageRules": [
-    {
-      "matchPackagePatterns": [
-        "^com\\.microsoft\\.sqlserver:.*"
-      ],
-      "allowedVersions": "/.*jre11$/",
-      "baseBranch": "java17"
-    },
-    {
-      "matchPackagePatterns": [
-        "^org\\.apache\\.derby:.*"
-      ],
-      "allowedVersions": "<10.15.0"
-    }
   ]
 }
