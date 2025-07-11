@@ -71,8 +71,6 @@ jobs:
       - name: Start MySQL
         run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
 
-      - uses: ts-graphviz/setup-graphviz@v2
-
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -89,6 +87,7 @@ jobs:
         env:
           SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
           TZ: Asia/Kamchatka
+          SLICK_SKIP_DIAGRAMS: "true"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
