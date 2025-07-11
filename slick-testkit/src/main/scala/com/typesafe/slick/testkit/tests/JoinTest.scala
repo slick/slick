@@ -347,4 +347,52 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       q2.result.map(_.toSet shouldBe Set(Some(4), Some(5)))
     )
   }
+
+  def testH2NestedJoinParentheses = ifCap(rcap.other) {
+    // Test for issue #1756: H2 inner join not wrapped in parentheses
+    // This test creates a complex join that would fail with SQL syntax errors 
+    // if H2 doesn't properly parenthesize nested joins
+    class SpaceAssignment(tag: Tag) extends Table[(String, String)](tag, "space_assignment_h2test") {
+      def id = column[String]("id", O.PrimaryKey)
+      def spaceId = column[String]("space_id")
+      def * = (id, spaceId)
+    }
+    val spaceAssignments = TableQuery[SpaceAssignment]
+    
+    class Space(tag: Tag) extends Table[(String, String)](tag, "space_h2test") {
+      def id = column[String]("id", O.PrimaryKey)
+      def spaceProfileId = column[String]("space_profile_id") 
+      def * = (id, spaceProfileId)
+    }
+    val spaces = TableQuery[Space]
+    
+    class SpaceProfile(tag: Tag) extends Table[(String, String)](tag, "space_profile_h2test") {
+      def id = column[String]("id", O.PrimaryKey)
+      def title = column[String]("title")
+      def * = (id, title)
+    }
+    val spaceProfiles = TableQuery[SpaceProfile]
+    
+    class SpaceAssignmentCategory(tag: Tag) extends Table[(String, String)](tag, "space_assignment_category_h2test") {
+      def spaceAssignmentId = column[String]("space_assignment_id")
+      def categoryId = column[String]("category_id")
+      def * = (spaceAssignmentId, categoryId)
+    }
+    val spaceAssignmentCategories = TableQuery[SpaceAssignmentCategory]
+    
+    // Create the join that should generate parentheses for H2
+    // This creates a complex nested join structure that requires proper parenthesization
+    val join = for {
+      (spaceAssignment, spaceAssignmentCategory) <- spaceAssignments joinLeft spaceAssignmentCategories on (_.id === _.spaceAssignmentId)
+      space <- spaces if space.id === spaceAssignment.spaceId
+      spaceProfile <- spaceProfiles if spaceProfile.id === space.spaceProfileId
+    } yield (spaceAssignment, space, spaceProfile, spaceAssignmentCategory)
+    
+    for {
+      _ <- (spaceAssignments.schema ++ spaces.schema ++ spaceProfiles.schema ++ spaceAssignmentCategories.schema).create
+      // If the SQL is malformed due to missing parentheses, this query execution would fail
+      // The fix ensures H2 generates proper parentheses around nested joins
+      _ <- join.result.map(_ => ())
+    } yield ()
+  }
 }
