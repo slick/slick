@@ -41,9 +41,9 @@ object Compiled {
 
 trait CompilersMixin { this: Compiled[?] =>
   def toNode: Node
-  lazy val compiledQuery = profile.queryCompiler.run(toNode, profile.getClass.getName).tree
-  lazy val compiledUpdate = profile.updateCompiler.run(toNode, profile.getClass.getName).tree
-  lazy val compiledDelete = profile.deleteCompiler.run(toNode, profile.getClass.getName).tree
+  lazy val compiledQuery = profile.queryCompiler.run(toNode, profile.getClass.getSimpleName).tree
+  lazy val compiledUpdate = profile.updateCompiler.run(toNode, profile.getClass.getSimpleName).tree
+  lazy val compiledDelete = profile.deleteCompiler.run(toNode, profile.getClass.getSimpleName).tree
   lazy val compiledInsert = profile.compileInsert(toNode)
 }
 

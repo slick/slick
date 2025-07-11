@@ -115,7 +115,6 @@ case class CacheStats(
 case class CacheConfig(
   enabled: Boolean = true,
   maxSize: Int = 1000,
-  initialSize: Int = 64,
   recordStats: Boolean = true,
   ttlSeconds: Long = 3600, // 1 hour
   logCacheOperations: Boolean = false
@@ -129,7 +128,6 @@ object CacheConfig {
       CacheConfig(
         enabled = if (cacheConfig.hasPath("enabled")) cacheConfig.getBoolean("enabled") else true,
         maxSize = if (cacheConfig.hasPath("maxSize")) cacheConfig.getInt("maxSize") else 1000,
-        initialSize = if (cacheConfig.hasPath("initialSize")) cacheConfig.getInt("initialSize") else 64,
         recordStats = if (cacheConfig.hasPath("recordStats")) cacheConfig.getBoolean("recordStats") else true,
         ttlSeconds = if (cacheConfig.hasPath("ttlSeconds")) cacheConfig.getLong("ttlSeconds") else 3600,
         logCacheOperations = if (cacheConfig.hasPath("logCacheOperations")) cacheConfig.getBoolean("logCacheOperations") else false
@@ -157,7 +155,7 @@ class CompilationCache(config: CacheConfig) {
   private val accessOrder = new TrieMap[CacheKey, Long]()
   private val accessCounter = new java.util.concurrent.atomic.AtomicLong(0)
   
-  @volatile private var stats = CacheStats()
+  @volatile private var stats = new java.util.concurrent.atomic.AtomicReference(CacheStats())
   
   private val ttlMs = config.ttlSeconds * 1000
   
@@ -168,7 +166,9 @@ class CompilationCache(config: CacheConfig) {
       case Some(entry) if !entry.isExpired(ttlMs) =>
         // Update access order for LRU
         accessOrder.put(key, accessCounter.incrementAndGet())
-        stats = stats.recordHit
+        if (config.recordStats) {
+          stats.updateAndGet(_.recordHit)
+        }
         
         if (config.logCacheOperations) {
           logger.debug(s"Cache hit for key: ${key.structureHash}")
@@ -179,7 +179,9 @@ class CompilationCache(config: CacheConfig) {
         // Entry expired, remove it
         cache.remove(key)
         accessOrder.remove(key)
-        stats = stats.recordMiss.recordEviction.updateSize(cache.size)
+        if (config.recordStats) {
+          stats.updateAndGet(_.recordMiss.recordEviction.updateSize(cache.size))
+        }
         
         if (config.logCacheOperations) {
           logger.debug(s"Cache miss (expired) for key: ${key.structureHash}")
@@ -187,7 +189,9 @@ class CompilationCache(config: CacheConfig) {
         None
         
       case None =>
-        stats = stats.recordMiss
+        if (config.recordStats) {
+          stats.updateAndGet(_.recordMiss)
+        }
         
         if (config.logCacheOperations) {
           logger.debug(s"Cache miss for key: ${key.structureHash}")
@@ -207,7 +211,9 @@ class CompilationCache(config: CacheConfig) {
     val entry = CacheEntry(result)
     cache.put(key, entry)
     accessOrder.put(key, accessCounter.incrementAndGet())
-    stats = stats.updateSize(cache.size)
+    if (config.recordStats) {
+      stats.updateAndGet(_.updateSize(cache.size))
+    }
     
     if (config.logCacheOperations) {
       logger.debug(s"Cache put for key: ${key.structureHash}")
@@ -225,7 +231,9 @@ class CompilationCache(config: CacheConfig) {
     lruKey.foreach { key =>
       cache.remove(key)
       accessOrder.remove(key)
-      stats = stats.recordEviction.updateSize(cache.size)
+      if (config.recordStats) {
+        stats.updateAndGet(_.recordEviction.updateSize(cache.size))
+      }
       
       if (config.logCacheOperations) {
         logger.debug(s"Evicted LRU entry for key: ${key.structureHash}")
@@ -236,12 +244,18 @@ class CompilationCache(config: CacheConfig) {
   def clear(): Unit = {
     cache.clear()
     accessOrder.clear()
-    stats = CacheStats()
+    stats.set(CacheStats())
   }
   
   def size: Int = cache.size
   
-  def getStats: CacheStats = stats.updateSize(cache.size)
+  def getStats: CacheStats = {
+    if (config.recordStats) {
+      stats.updateAndGet(_.updateSize(cache.size))
+    } else {
+      CacheStats().updateSize(cache.size)
+    }
+  }
   
   def cleanupExpired(): Unit = {
     if (!config.enabled) return
@@ -252,10 +266,14 @@ class CompilationCache(config: CacheConfig) {
     expiredKeys.foreach { key =>
       cache.remove(key)
       accessOrder.remove(key)
-      stats = stats.recordEviction
+      if (config.recordStats) {
+        stats.updateAndGet(_.recordEviction)
+      }
     }
     
-    stats = stats.updateSize(cache.size)
+    if (config.recordStats) {
+      stats.updateAndGet(_.updateSize(cache.size))
+    }
     
     if (config.logCacheOperations && expiredKeys.nonEmpty) {
       logger.debug(s"Cleaned up ${expiredKeys.size} expired cache entries")

@@ -58,7 +58,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
       new ShapedValue[T, U](value, shape)
 
     implicit def streamableQueryActionExtensionMethods[U, C[_]](q: Query[?,U, C]): StreamingQueryActionExtensionMethods[C[U], U] =
-      createStreamingQueryActionExtensionMethods[C[U], U](queryCompiler.run(q.toNode, self.getClass.getName).tree, ())
+      createStreamingQueryActionExtensionMethods[C[U], U](queryCompiler.run(q.toNode, self.getClass.getSimpleName).tree, ())
     implicit def runnableCompiledQueryActionExtensionMethods[RU](c: RunnableCompiled[?, RU]): QueryActionExtensionMethods[RU, NoStream] =
       createQueryActionExtensionMethods[RU, NoStream](c.compiledQuery, c.param)
     implicit def streamableCompiledQueryActionExtensionMethods[RU, EU](c: StreamableCompiled[?, RU, EU]): StreamingQueryActionExtensionMethods[RU, EU] =
@@ -67,7 +67,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
     implicit def streamableAppliedCompiledFunctionActionExtensionMethods[R, RU, EU, C[_]](c: AppliedCompiledFunction[?, Query[R, EU, C], RU]): StreamingQueryActionExtensionMethods[RU, EU] =
       createStreamingQueryActionExtensionMethods[RU, EU](c.compiledQuery, c.param)
     implicit def recordQueryActionExtensionMethods[M, R](q: M)(implicit shape: Shape[? <: FlatShapeLevel, M, R, ?]): QueryActionExtensionMethods[R, NoStream] =
-      createQueryActionExtensionMethods[R, NoStream](queryCompiler.run(shape.toNode(q), self.getClass.getName).tree, ())
+      createQueryActionExtensionMethods[R, NoStream](queryCompiler.run(shape.toNode(q), self.getClass.getSimpleName).tree, ())
   }
 
   /** The API for using the query language with a single import

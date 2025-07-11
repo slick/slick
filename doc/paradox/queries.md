@@ -327,7 +327,7 @@ Unlike @ref:[Compiled Queries](#compiled-queries) which require explicit wrappin
 transparently for all queries and provides significant performance benefits without code changes.
 
 **Key benefits:**
-- **40-80x speedup** for repeated query compilations  
+- **80x+ speedup** for repeated query compilations  
 - **Automatic caching** - no code changes required
 - **Thread-safe** with minimal overhead
 - **Configurable** via @ref:[application.conf](config.md)
