@@ -11,6 +11,10 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
+env:
+  # language=json
+  JAVA_VERSIONS: '{ "javaMin": "11", "javaLatest": "23" }'
+
 jobs:
   build:
     name: Build and Test
@@ -18,7 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        java: [ 11, 23 ]
+        java: [ javaMin, javaLatest ]
         scala: [ 2.12.x, 2.13.x, 3.x ]
 
     services:
@@ -73,7 +77,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: adopt
-          java-version: ${{ matrix.java }}
+          java-version: ${{ fromJson(env.JAVA_VERSIONS)[matrix.java] }}
           cache: sbt
 
       - name: Setup SBT
@@ -88,9 +92,9 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()    # run this step even if previous step failed
+        if: always()    # run this step even if a previous step failed
         with:
-          name: test-results-java${{ matrix.java }}-scala${{ matrix.scala }}
+          name: test-results-${{ matrix.java }}-scala${{ matrix.scala }}
           path: '**/target/test-reports/TEST-*.xml'
 
   deploy_docs:
@@ -109,7 +113,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: adopt
-          java-version: 11
+          java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMin'] }}
           cache: sbt
 
       - name: Setup SBT
@@ -145,7 +149,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: adopt
-          java-version: 11
+          java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMin'] }}
           cache: sbt
 
       - name: Setup SBT
