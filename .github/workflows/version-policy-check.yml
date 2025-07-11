@@ -12,6 +12,9 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
+env:
+  JAVA_VERSION: "11"
+
 jobs:
   build:
     name: Check conformance with version policy
@@ -30,7 +33,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: adopt
-          java-version: 11
+          java-version: ${{ env.JAVA_VERSION }}
           cache: sbt
 
       - name: Setup SBT
