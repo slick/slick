@@ -7,19 +7,14 @@
       "matchPackagePatterns": [
         "^com\\.microsoft\\.sqlserver:.*"
       ],
-      "excludePackagePatterns": [
-        "^.*jre11.*"
-      ],
-      "branchName": "renovate/sqlserver-java17",
+      "allowedVersions": ".*jre11",
       "baseBranch": "java17"
     },
     {
       "matchPackagePatterns": [
         "^org\\.apache\\.derby:.*"
       ],
-      "allowedVersions": ">=10.15.0",
-      "branchName": "renovate/derby-java17",
-      "baseBranch": "java17"
+      "allowedVersions": "<10.15.0"
     }
   ]
 }
