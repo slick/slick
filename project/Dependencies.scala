@@ -34,12 +34,13 @@ object Dependencies {
   val hikariCP = "com.zaxxer" % "HikariCP" % "6.3.0"
 
   val h2 = "com.h2database" % "h2" % "2.3.232"
-  val sqlServer = "com.microsoft.sqlserver" % "mssql-jdbc" % "7.4.1.jre11"
+  val sqlServer = "com.microsoft.sqlserver" % "mssql-jdbc" % "7.4.1.jre12"
 
   val testDBs = Seq(
     h2,
     sqlServer,
-    "org.apache.derby" % "derby" % "10.14.2.0",
+    "org.apache.derby" % "derby" % "10.16.1.1",
+    "org.apache.derby" % "derbytools" % "10.16.1.1",
     "org.xerial" % "sqlite-jdbc" % "3.50.2.0",
     "org.hsqldb" % "hsqldb" % "2.7.4",
     "org.postgresql" % "postgresql" % "42.7.7",
