@@ -1,5 +1,25 @@
 {
   "extends": [
     "config:base"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": [
+        "sbt"
+      ],
+      "matchPackagePatterns": [
+        "^com\\.microsoft\\.sqlserver:.*"
+      ],
+      "allowedVersions": "^.*jre11.*"
+    },
+    {
+      "matchManagers": [
+        "sbt"
+      ],
+      "matchPackagePatterns": [
+        "^org\\.apache\\.derby:.*"
+      ],
+      "allowedVersions": "^10\\.14\\."
+    }
   ]
 }
