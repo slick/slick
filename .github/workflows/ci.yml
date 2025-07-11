@@ -13,7 +13,7 @@ concurrency:
 
 env:
   # language=json
-  JAVA_VERSIONS: '{ "javaMin": "11", "javaLatest": "23" }'
+  JAVA_VERSIONS: '{ "javaMin": "17", "javaLatest": "23" }'
 
 jobs:
   build:
