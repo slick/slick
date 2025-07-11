@@ -1,6 +1,7 @@
 package slick.lifted
 
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 import slick.ast.*
 import slick.ast.ScalaBaseType.*
@@ -237,6 +238,36 @@ final class AnyOptionExtensionMethods[O <: Rep[?], P](val r: O) extends AnyVal {
   def nonEmpty = isDefined
 }
 
+/**
+ * Extension methods for Queries with tuple results that allow mapping to composite types
+ *
+ * @tparam R The first element type of the tuple in lifted representation
+ * @tparam P The second element type of the tuple in lifted representation  
+ * @tparam A The first element type of the tuple in unpacked representation
+ * @tparam B The second element type of the tuple in unpacked representation
+ * @param q The tuple-result [[Query]]
+ */
+final class TupleQueryExtensionMethods[R, P, A, B](val q: Query[(R, P), (A, B), Seq]) extends AnyVal {
+  /**
+   * Map the results of a tuple query to a composite type using a combine function.
+   * This method is useful for transforming joined query results into domain objects.
+   *
+   * @param combine Function to combine the tuple elements into the target type
+   * @param columnShapes Implicit shape for the tuple elements
+   * @param classTag Implicit class tag for the result type (required for runtime type safety)
+   * @tparam C The target composite type (must extend Product)
+   * @return A new query that produces results of type C
+   */
+  def mapResult[C <: Product: ClassTag](
+    combine: (A, B) => C
+  )(implicit columnShapes: Shape[FlatShapeLevel, (R, P), (A, B), (R, P)]
+  ) = {
+    q.map(identity)(
+      new CaseClassShape[Product, (R, P), (R, P), (A, B), C](identity, combine.tupled)
+    )
+  }
+}
+
 trait ExtensionMethodConversions {
   implicit def columnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]): BaseColumnExtensionMethods[B1] = new BaseColumnExtensionMethods[B1](c)
   implicit def optionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): OptionColumnExtensionMethods[B1] = new OptionColumnExtensionMethods[B1](c)
@@ -282,4 +313,10 @@ trait ExtensionMethodConversions {
   implicit def anyOptionExtensionMethods[T, P](v: Rep[Option[T]])(implicit ol: OptionLift[P, Rep[Option[T]]]): AnyOptionExtensionMethods[Rep[Option[T]], P] = {
     new AnyOptionExtensionMethods[Rep[Option[T]], P](v)
   }
+
+  /**
+   * Extension methods for Queries with tuple results that allow mapping to composite types
+   */
+  implicit def tupleQueryExtensionMethods[R, P, A, B](q: Query[(R, P), (A, B), Seq]): TupleQueryExtensionMethods[R, P, A, B] = 
+    new TupleQueryExtensionMethods[R, P, A, B](q)
 }

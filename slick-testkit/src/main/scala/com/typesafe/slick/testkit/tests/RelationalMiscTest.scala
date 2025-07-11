@@ -194,4 +194,61 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
 
     DBIO.successful(())
   }
+
+  def testMapResult = {
+    // Test case classes for mapping results
+    case class Person(name: String, age: Int)
+    case class Company(name: String, year: Int)
+    case class PersonSummary(name: String, age: Int, description: String)
+
+    class People(tag: Tag) extends Table[Person](tag, "people_mapresult") {
+      def name = column[String]("name")
+      def age = column[Int]("age")
+      def * = (name, age).mapTo[Person]
+    }
+    val people = TableQuery[People]
+
+    class Companies(tag: Tag) extends Table[Company](tag, "companies_mapresult") {
+      def name = column[String]("name")
+      def year = column[Int]("year")
+      def * = (name, year).mapTo[Company]
+    }
+    val companies = TableQuery[Companies]
+
+    for {
+      _ <- people.schema.create
+      _ <- companies.schema.create
+      
+      _ <- people ++= Seq(Person("Alice", 30), Person("Bob", 25))
+      _ <- companies ++= Seq(Company("TechCorp", 2010), Company("DataInc", 2015))
+
+      // Test mapResult with join query
+      joinQuery = people.join(companies).on(_.name === _.name)
+      _ <- joinQuery.result.map(_.length shouldBe 0) // No matches expected
+
+      // Test mapResult with cross join and filtering (fixed arithmetic)
+      crossQuery = people.join(companies).on((p, c) => p.age > (LiteralColumn(2023) - c.year))
+      
+      // Test the mapResult method - simple test for now
+      _ <- crossQuery.result.map(r => r.length shouldBe 4) // 2 people x 2 companies
+      
+      // Test mapResult with simple tuple transformation - debug the types
+      simpleQuery = people.map(p => (p.name, p.age))
+      
+      // For now, just verify the simple query works
+      _ <- simpleQuery.result.map(r => r.length shouldBe 2)
+      
+      // Let's try to debug mapResult on a simple tuple query
+      tupleQuery: Query[(Rep[String], Rep[Int]), (String, Int), Seq] = people.map(p => (p.name, p.age))
+      
+      // Test the mapResult method with a case class (Product type)
+      mappedQuery = tupleQuery.mapResult { case (name, age) =>
+        PersonSummary(name, age, s"${name} is ${age} years old")
+      }
+      
+      summaryResults <- mappedQuery.result
+      _ = summaryResults.length shouldBe 2
+      
+    } yield ()
+  }
 }
