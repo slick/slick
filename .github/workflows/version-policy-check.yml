@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  JAVA_VERSION: "11"
+  JAVA_VERSION: "17"
 
 jobs:
   build:
