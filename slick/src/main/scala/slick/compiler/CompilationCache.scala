@@ -335,6 +335,6 @@ object CompilationCache {
   
   // JVM shutdown hook to clean up
   Runtime.getRuntime.addShutdownHook(new Thread(() => {
-    cleanupThread.interrupt()
+    cleanupThread.foreach(_.interrupt())
   }))
 }
