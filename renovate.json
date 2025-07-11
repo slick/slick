@@ -4,22 +4,22 @@
   ],
   "packageRules": [
     {
-      "matchManagers": [
-        "sbt"
-      ],
       "matchPackagePatterns": [
         "^com\\.microsoft\\.sqlserver:.*"
       ],
-      "allowedVersions": "^.*jre11.*"
+      "excludePackagePatterns": [
+        "^.*jre11.*"
+      ],
+      "branchName": "renovate/sqlserver-java17",
+      "baseBranch": "java17"
     },
     {
-      "matchManagers": [
-        "sbt"
-      ],
       "matchPackagePatterns": [
         "^org\\.apache\\.derby:.*"
       ],
-      "allowedVersions": "^10\\.14\\."
+      "allowedVersions": ">=10.15.0",
+      "branchName": "renovate/derby-java17",
+      "baseBranch": "java17"
     }
   ]
 }
