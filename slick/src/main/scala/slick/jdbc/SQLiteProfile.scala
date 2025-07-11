@@ -106,19 +106,6 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
     class SQLiteColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
 
-      // Regex matcher to extract name and length out of a db type name with length ascription
-      final val TypePattern = "^([A-Z\\s]+)(?:\\(\\s*([0-9]+)\\s*,?\\s*(?:[0-9]+)?\\s*\\))?$".r
-
-      def extractTypeProps(typeName: String): (String, Option[Int]) =
-        typeName match {
-          case TypePattern(name, length) => (name, Option(length).map(_.toInt))
-          case "" => ("TEXT", None)
-        }
-
-      private val (extractedType, extractedLength) = extractTypeProps(meta.typeName)
-
-      override def dbType: Some[String] = Some(extractedType)
-      override def length = extractedLength
       override def varying = dbType.contains("VARCHAR")
       override def default: Option[Option[Any]] = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
