@@ -302,25 +302,29 @@ object CompilationCache {
   private lazy val globalCache = new CompilationCache(config)
   
   // Cleanup thread for expired entries
-  private val cleanupThread = new Thread(new Runnable {
-    def run(): Unit = {
-      while (true) {
-        try {
-          Thread.sleep(config.ttlSeconds * 1000 / 4) // Cleanup every quarter of TTL
-          globalCache.cleanupExpired()
-        } catch {
-          case _: InterruptedException => 
-            Thread.currentThread().interrupt()
-            return
-          case ex: Exception => logger.warn("Error during cache cleanup", ex)
+  private val cleanupThread: Option[Thread] = if (config.enabled) {
+    val thread = new Thread(new Runnable {
+      def run(): Unit = {
+        while (true) {
+          try {
+            Thread.sleep(config.ttlSeconds * 1000 / 4) // Cleanup every quarter of TTL
+            globalCache.cleanupExpired()
+          } catch {
+            case _: InterruptedException => 
+              Thread.currentThread().interrupt()
+              return
+            case ex: Exception => logger.warn("Error during cache cleanup", ex)
+          }
         }
       }
-    }
-  })
-  
-  cleanupThread.setDaemon(true)
-  cleanupThread.setName("slick-compilation-cache-cleanup")
-  cleanupThread.start()
+    })
+    thread.setDaemon(true)
+    thread.setName("slick-compilation-cache-cleanup")
+    thread.start()
+    Some(thread)
+  } else {
+    None
+  }
   
   def get(key: CacheKey): Option[CompilerState] = globalCache.get(key)
   def put(key: CacheKey, result: CompilerState): Unit = globalCache.put(key, result)
