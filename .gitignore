@@ -29,3 +29,7 @@ doc/capabilities.md
 .bloop/
 /.metals/
 metals.sbt
+# Build tools and installers
+cs
+sbt-*.tgz
+sbt/
