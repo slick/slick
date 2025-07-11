@@ -5,7 +5,7 @@ on:
    branches: ['**']
 
 env:
-  JAVA_VERSION: "11"
+  JAVA_VERSION: "17"
 
 jobs:
   generate-report:
