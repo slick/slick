@@ -348,8 +348,10 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
-  def testH2NestedJoinParentheses = ifCap(scap.relationalDB) {
+  def testH2NestedJoinParentheses = ifCap(rcap.other) {
     // Test for issue #1756: H2 inner join not wrapped in parentheses
+    // This test creates a complex join that would fail with SQL syntax errors 
+    // if H2 doesn't properly parenthesize nested joins
     class SpaceAssignment(tag: Tag) extends Table[(String, String)](tag, "space_assignment_h2test") {
       def id = column[String]("id", O.PrimaryKey)
       def spaceId = column[String]("space_id")
@@ -379,6 +381,7 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     val spaceAssignmentCategories = TableQuery[SpaceAssignmentCategory]
     
     // Create the join that should generate parentheses for H2
+    // This creates a complex nested join structure that requires proper parenthesization
     val join = for {
       (spaceAssignment, spaceAssignmentCategory) <- spaceAssignments joinLeft spaceAssignmentCategories on (_.id === _.spaceAssignmentId)
       space <- spaces if space.id === spaceAssignment.spaceId
@@ -387,23 +390,9 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     
     for {
       _ <- (spaceAssignments.schema ++ spaces.schema ++ spaceProfiles.schema ++ spaceAssignmentCategories.schema).create
-      _ <- {
-        // For H2 database, check that the SQL contains parentheses around nested joins
-        val sql = join.result.statements.head
-        val isH2 = tdb.profile match {
-          case _: slick.jdbc.H2Profile => true
-          case _ => false
-        }
-        if (isH2) {
-          // H2 should have parentheses around the right-hand side of nested joins
-          // Look for pattern like: inner join (...) on ...
-          val hasNestedJoinParens = sql.matches(".*inner join \\([^)]*inner join[^)]*\\) on.*")
-          if (!hasNestedJoinParens) {
-            println(s"Warning: H2 SQL should contain parentheses around nested joins, but got: $sql")
-          }
-        }
-        DBIO.successful(())
-      }
+      // If the SQL is malformed due to missing parentheses, this query execution would fail
+      // The fix ensures H2 generates proper parentheses around nested joins
+      _ <- join.result.map(_ => ())
     } yield ()
   }
 }
