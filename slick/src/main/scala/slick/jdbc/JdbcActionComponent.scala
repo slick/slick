@@ -151,11 +151,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def unsafeReleaseSavepoint(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
     new SimpleJdbcProfileAction[Unit]("unsafeReleaseSavepoint", Vector.empty) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        if (capabilities.contains(JdbcCapabilities.savepointRelease)) {
-          ctx.session.conn.releaseSavepoint(savepoint)
-        }
-        // Oracle and SQL Server don't support releaseSavepoint - savepoints are automatically
-        // released when the transaction commits or rolls back
+        ctx.session.conn.releaseSavepoint(savepoint)
     }
 
   protected object CreateSavepoint {
@@ -244,11 +240,20 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       CreateSavepoint(name).flatMap { savepoint =>
         a.cleanUp { errorOpt =>
           if (errorOpt.isDefined) {
-            // On error: rollback to savepoint, then release it
-            RollbackToSavepoint(savepoint).andThen(ReleaseSavepoint(savepoint).asTry.map(_ => ())(DBIO.sameThreadExecutionContext))
+            // On error: rollback to savepoint, then release it if supported
+            val releaseAction = if (capabilities.contains(JdbcCapabilities.savepointRelease)) {
+              ReleaseSavepoint(savepoint).asTry.map(_ => ())(DBIO.sameThreadExecutionContext)
+            } else {
+              DBIO.successful(()) // Oracle/SQL Server auto-release on rollback
+            }
+            RollbackToSavepoint(savepoint).andThen(releaseAction)
           } else {
-            // On success: just release the savepoint
-            ReleaseSavepoint(savepoint)
+            // On success: release the savepoint if supported
+            if (capabilities.contains(JdbcCapabilities.savepointRelease)) {
+              ReleaseSavepoint(savepoint)
+            } else {
+              DBIO.successful(()) // Oracle/SQL Server auto-release on commit
+            }
           }
         }(DBIO.sameThreadExecutionContext)
       }(DBIO.sameThreadExecutionContext).asInstanceOf[DBIOAction[R, S, E with Effect.Transactional]]
