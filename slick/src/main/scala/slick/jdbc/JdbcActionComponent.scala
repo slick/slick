@@ -151,21 +151,27 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def unsafeReleaseSavepoint(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
     new SimpleJdbcProfileAction[Unit]("unsafeReleaseSavepoint", Vector.empty) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        ctx.session.conn.releaseSavepoint(savepoint)
+        try {
+          ctx.session.conn.releaseSavepoint(savepoint)
+        } catch {
+          case _: java.sql.SQLFeatureNotSupportedException | _: UnsupportedOperationException =>
+            // Some databases don't support releasing savepoints - this is optional per JDBC spec
+            ()
+        }
     }
 
   protected object CreateSavepoint {
-    def apply(name: String): DBIOAction[java.sql.Savepoint, NoStream, Effect.Transactional] = 
+    def apply(name: String): DBIOAction[java.sql.Savepoint, NoStream, Effect.Transactional] =
       unsafeCreateSavepoint(name)
   }
-  
+
   protected object RollbackToSavepoint {
-    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] = 
+    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
       unsafeRollbackToSavepoint(savepoint)
   }
-  
+
   protected object ReleaseSavepoint {
-    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] = 
+    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
       unsafeReleaseSavepoint(savepoint)
   }
 
@@ -226,13 +232,13 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         andThen(a).andFinally(PopStatementParameters)
 
     /** Run this Action with a named savepoint for rollback control within a transaction.
-      * 
+      *
       * If the wrapped Action succeeds, the savepoint is released (cleaned up).
       * If the wrapped Action fails, the transaction is rolled back to the savepoint,
       * allowing partial rollback within a larger transaction.
-      * 
+      *
       * This must be used within an existing transaction (created by `transactionally`).
-      * 
+      *
       * @param name The name for the savepoint (must be unique within the transaction)
       * @return The action wrapped with savepoint management
       */

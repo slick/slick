@@ -73,8 +73,6 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     in the meta data.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
   *     SQLite returns the last generated key only.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.savepoint]]:
-  *     SQLite's savepoint implementation has limitations with JDBC driver compatibility.</li>
   * </ul>
   */
 trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
@@ -96,8 +94,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       JdbcCapabilities.supportsByte -
       JdbcCapabilities.distinguishesIntTypes -
       JdbcCapabilities.forUpdate -
-      JdbcCapabilities.returnMultipleInsertKey -
-      JdbcCapabilities.savepoint
+      JdbcCapabilities.returnMultipleInsertKey
 
   class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
