@@ -151,13 +151,11 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def unsafeReleaseSavepoint(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
     new SimpleJdbcProfileAction[Unit]("unsafeReleaseSavepoint", Vector.empty) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        try {
+        if (capabilities.contains(JdbcCapabilities.savepointRelease)) {
           ctx.session.conn.releaseSavepoint(savepoint)
-        } catch {
-          case _: java.sql.SQLFeatureNotSupportedException | _: UnsupportedOperationException =>
-            // Some databases don't support releasing savepoints - this is optional per JDBC spec
-            ()
         }
+        // Oracle and SQL Server don't support releaseSavepoint - savepoints are automatically
+        // released when the transaction commits or rolls back
     }
 
   protected object CreateSavepoint {
