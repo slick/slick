@@ -147,4 +147,68 @@ object Connection extends App {
   //#simpleaction
   val getAutoCommit = SimpleDBIO[Boolean](_.connection.getAutoCommit)
   //#simpleaction
+
+  // Advanced transaction control examples
+  if (false) {
+    val db = Database.forConfig("mydb")
+    
+    //#manual-transaction
+    // Manual transaction management
+    val manualTransaction = for {
+      _ <- H2Profile.unsafeBeginTransaction  // Start transaction, pin session
+      _ <- coffees.schema.create
+      inTx <- H2Profile.isInTransaction     // Check transaction state
+      _ <- if (true) H2Profile.unsafeCommitTransaction
+           else H2Profile.unsafeRollbackTransaction
+    } yield inTx
+
+    db.run(manualTransaction)
+    //#manual-transaction
+
+    //#session-pinning
+    // Manual session pinning for performance optimization
+    val batchedOperations = for {
+      _ <- H2Profile.unsafePinSession       // Pin session
+      _ <- coffees.schema.create            // Operations reuse same connection
+      _ <- coffees += ("Colombian", new SerialBlob("image".getBytes))
+      pinned <- H2Profile.isSessionPinned   // Check pinning state  
+      _ <- H2Profile.unsafeUnpinSession     // Unpin session
+    } yield pinned
+
+    db.run(batchedOperations)
+    //#session-pinning
+
+    //#manual-savepoint
+    // Manual savepoint management
+    val savepointExample = (for {
+      _ <- coffees.schema.create
+      _ <- coffees += ("House Blend", new SerialBlob("image1".getBytes))
+      sp <- H2Profile.unsafeCreateSavepoint("coffee_save")
+      _ <- coffees += ("French Roast", new SerialBlob("image2".getBytes))  // This might fail
+      _ <- H2Profile.unsafeReleaseSavepoint(sp)  // Success - clean up savepoint
+    } yield ()).recoverWith { case ex =>
+      // Error recovery: rollback to savepoint
+      H2Profile.unsafeRollbackToSavepoint(sp) >> DBIO.failed(ex)
+    }.transactionally
+
+    db.run(savepointExample)
+    //#manual-savepoint
+
+    //#high-level-savepoint
+    // High-level savepoint usage
+    val safeSavepoint = (for {
+      _ <- coffees.schema.create
+      _ <- coffees += ("House Blend", new SerialBlob("image1".getBytes))
+      _ <- (for {
+        _ <- coffees += ("French Roast", new SerialBlob("image2".getBytes))  // Protected by savepoint
+        _ <- DBIO.failed(new RuntimeException("Simulated failure"))         // This might fail
+      } yield ()).withSavepoint("attempt")   // Auto-rollback on failure
+      _ <- coffees += ("Success Coffee", new SerialBlob("image3".getBytes))
+    } yield ()).transactionally
+
+    db.run(safeSavepoint)
+    //#high-level-savepoint
+    
+    db.close
+  }
 }
