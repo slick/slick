@@ -17,33 +17,33 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
 
     ts.schema.create andThen { // test savepoints with rollback
       for {
-        _ <- tdb.profile.api.unsafeBeginTransaction
+        _ <- tdb.profile.unsafeBeginTransaction
         _ <- ts += 100
-        savepoint1 <- tdb.profile.api.unsafeCreateSavepoint("sp1")
+        savepoint1 <- tdb.profile.unsafeCreateSavepoint("sp1")
         _ <- ts += 200
         _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200))
-        savepoint2 <- tdb.profile.api.unsafeCreateSavepoint("sp2")
+        savepoint2 <- tdb.profile.unsafeCreateSavepoint("sp2")
         _ <- ts += 300
         _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200, 300))
-        _ <- tdb.profile.api.unsafeRollbackToSavepoint(savepoint2) // rollback to sp2
+        _ <- tdb.profile.unsafeRollbackToSavepoint(savepoint2) // rollback to sp2
         _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200)) // 300 should be gone
         _ <- ts += 400
         _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200, 400))
-        _ <- tdb.profile.api.unsafeRollbackToSavepoint(savepoint1) // rollback to sp1
+        _ <- tdb.profile.unsafeRollbackToSavepoint(savepoint1) // rollback to sp1
         _ <- ts.result.map(_ shouldBe Seq(100)) // only 100 should remain
-        _ <- tdb.profile.api.unsafeCommitTransaction
+        _ <- tdb.profile.unsafeCommitTransaction
       } yield ()
     } andThen {
       ts.result.map(_ shouldBe Seq(100)) // transaction committed
     } andThen { // test savepoints with release
       for {
-        _ <- tdb.profile.api.unsafeBeginTransaction
+        _ <- tdb.profile.unsafeBeginTransaction
         _ <- ts += 500
-        savepoint3 <- tdb.profile.api.unsafeCreateSavepoint("sp3")
+        savepoint3 <- tdb.profile.unsafeCreateSavepoint("sp3")
         _ <- ts += 600
-        _ <- tdb.profile.api.unsafeReleaseSavepoint(savepoint3) // release savepoint
+        _ <- tdb.profile.unsafeReleaseSavepoint(savepoint3) // release savepoint
         _ <- ts.to[Set].result.map(_ shouldBe Set(100, 500, 600))
-        _ <- tdb.profile.api.unsafeCommitTransaction
+        _ <- tdb.profile.unsafeCommitTransaction
       } yield ()
     } andThen {
       ts.to[Set].result.map(_ shouldBe Set(100, 500, 600)) // all changes committed
@@ -61,30 +61,30 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
 
     ts.schema.create andThen { // test manual transaction control with commit
       for {
-        _ <- tdb.profile.api.unsafeBeginTransaction
-        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe true)
+        _ <- tdb.profile.unsafeBeginTransaction
+        _ <- tdb.profile.isInTransaction.map(_ shouldBe true)
         _ <- GetTransactionality.map(_._1 shouldBe 1) // should be in transaction
         _ <- ts += 10
         _ <- ts.result.map(_ shouldBe Seq(10))
-        _ <- tdb.profile.api.unsafeCommitTransaction
-        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe false)
+        _ <- tdb.profile.unsafeCommitTransaction
+        _ <- tdb.profile.isInTransaction.map(_ shouldBe false)
         _ <- GetTransactionality.map(_._1 shouldBe 0) // should be outside transaction
       } yield ()
     } andThen {
       ts.result.map(_ shouldBe Seq(10)) // data should be committed
     } andThen { // test manual transaction control with rollback
       for {
-        _ <- tdb.profile.api.unsafeBeginTransaction
-        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe true)
+        _ <- tdb.profile.unsafeBeginTransaction
+        _ <- tdb.profile.isInTransaction.map(_ shouldBe true)
         _ <- ts += 20
         _ <- ts.to[Set].result.map(_ shouldBe Set(10, 20))
-        _ <- tdb.profile.api.unsafeRollbackTransaction
-        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe false)
+        _ <- tdb.profile.unsafeRollbackTransaction
+        _ <- tdb.profile.isInTransaction.map(_ shouldBe false)
       } yield ()
     } andThen {
       ts.result.map(_ shouldBe Seq(10)) // data should be rolled back
     } andThen { // test isInTransaction outside transaction
-      tdb.profile.api.isInTransaction.map(_ shouldBe false)
+      tdb.profile.isInTransaction.map(_ shouldBe false)
     } andThen {
       ts.schema.drop
     }
