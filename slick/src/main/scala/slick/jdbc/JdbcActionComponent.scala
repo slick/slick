@@ -65,6 +65,47 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def getDumpInfo = DumpInfo(name = "PopStatementParameters")
   }
 
+  /**
+   * Begin a new transaction. This pins the session and starts a database transaction.
+   *
+   * WARNING: This is an unsafe primitive. You are responsible for properly committing
+   * or rolling back the transaction and ensuring the session is unpinned.
+   *
+   * @return A DBIO action that starts a transaction
+   */
+  def unsafeBeginTransaction: ProfileAction[Unit, NoStream, Effect.Transactional] = StartTransaction
+
+  /**
+   * Commit the current transaction and unpin the session.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure there is an active transaction
+   * before calling this action.
+   *
+   * @return A DBIO action that commits the transaction
+   */
+  def unsafeCommitTransaction: ProfileAction[Unit, NoStream, Effect.Transactional] = Commit
+
+  /**
+   * Roll back the current transaction and unpin the session.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure there is an active transaction
+   * before calling this action.
+   *
+   * @return A DBIO action that rolls back the transaction
+   */
+  def unsafeRollbackTransaction: ProfileAction[Unit, NoStream, Effect.Transactional] = Rollback
+
+  /**
+   * Check if the current session is in a transaction.
+   *
+   * @return A DBIO action that returns true if currently in a transaction, false otherwise
+   */
+  def isInTransaction: ProfileAction[Boolean, NoStream, Effect] =
+    new SimpleJdbcProfileAction[Boolean]("isInTransaction", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Boolean =
+        ctx.session.isInTransaction
+    }
+
   protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Int, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Int = {
       val c = ctx.session.conn

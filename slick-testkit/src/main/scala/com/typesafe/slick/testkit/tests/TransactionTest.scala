@@ -8,6 +8,44 @@ import slick.jdbc.TransactionIsolation
 class TransactionTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
+  def testUnsafeTransactionPrimitives = {
+    class T(tag: Tag) extends Table[Int](tag, "t_unsafe") {
+      def a = column[Int]("a", O.PrimaryKey)
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    ts.schema.create andThen { // test manual transaction control with commit
+      for {
+        _ <- tdb.profile.api.unsafeBeginTransaction
+        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe true)
+        _ <- GetTransactionality.map(_._1 shouldBe 1) // should be in transaction
+        _ <- ts += 10
+        _ <- ts.result.map(_ shouldBe Seq(10))
+        _ <- tdb.profile.api.unsafeCommitTransaction
+        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe false)
+        _ <- GetTransactionality.map(_._1 shouldBe 0) // should be outside transaction
+      } yield ()
+    } andThen {
+      ts.result.map(_ shouldBe Seq(10)) // data should be committed
+    } andThen { // test manual transaction control with rollback
+      for {
+        _ <- tdb.profile.api.unsafeBeginTransaction
+        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe true)
+        _ <- ts += 20
+        _ <- ts.to[Set].result.map(_ shouldBe Set(10, 20))
+        _ <- tdb.profile.api.unsafeRollbackTransaction
+        _ <- tdb.profile.api.isInTransaction.map(_ shouldBe false)
+      } yield ()
+    } andThen {
+      ts.result.map(_ shouldBe Seq(10)) // data should be rolled back
+    } andThen { // test isInTransaction outside transaction
+      tdb.profile.api.isInTransaction.map(_ shouldBe false)
+    } andThen {
+      ts.schema.drop
+    }
+  }
+
   def testTransactions = {
     class T(tag: Tag) extends Table[Int](tag, "t") {
       def a = column[Int]("a", O.PrimaryKey)
