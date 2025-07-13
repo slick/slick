@@ -8,7 +8,7 @@ import slick.jdbc.TransactionIsolation
 class TransactionTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
-  def testHighLevelSavepointAPI = {
+  def testHighLevelSavepointAPI = ifCap(jcap.savepoint) {
     class T(tag: Tag) extends Table[Int](tag, "t_hl_savepoint") {
       def a = column[Int]("a", O.PrimaryKey)
       def * = a
@@ -71,7 +71,7 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
     }
   }
 
-  def testUnsafeSavepointPrimitives = {
+  def testUnsafeSavepointPrimitives = ifCap(jcap.savepoint) {
     class T(tag: Tag) extends Table[Int](tag, "t_savepoint") {
       def a = column[Int]("a", O.PrimaryKey)
       def * = a

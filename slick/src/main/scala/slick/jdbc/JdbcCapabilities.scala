@@ -37,6 +37,8 @@ object JdbcCapabilities {
   val supportsByte = Capability("jdbc.supportsByte")
   /** Supports FOR UPDATE row level locking */
   val forUpdate = Capability("jdbc.forUpdate")
+  /** Supports savepoints for partial transaction rollback */
+  val savepoint = Capability("jdbc.savepoint")
 
   /** Supports all JdbcProfile features which do not have separate capability values */
   val other = Capability("jdbc.other")
@@ -58,6 +60,7 @@ object JdbcCapabilities {
     returnInsertKey,
     returnInsertOther,
     returnMultipleInsertKey,
+    savepoint,
     supportsByte,
   )
 }
