@@ -155,6 +155,56 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
     }
   }
 
+  def testUnsafeSessionPinningPrimitives = {
+    class T(tag: Tag) extends Table[Int](tag, "t_session_pin") {
+      def a = column[Int]("a", O.PrimaryKey)
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    ts.schema.create andThen { // test basic pin/unpin/isPinned functionality
+      for {
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe false) // initially not pinned
+        _ <- tdb.profile.unsafePinSession
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe true) // now pinned
+        _ <- ts += 100 // operations work with pinned session
+        _ <- ts.result.map(_ shouldBe Seq(100))
+        _ <- tdb.profile.unsafeUnpinSession
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe false) // unpinned again
+      } yield ()
+    } andThen { // test nested pinning
+      for {
+        _ <- tdb.profile.unsafePinSession // pin level 1
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe true)
+        _ <- tdb.profile.unsafePinSession // pin level 2 (nested)
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe true) // still pinned
+        _ <- ts += 200
+        _ <- tdb.profile.unsafeUnpinSession // unpin level 2
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe true) // still pinned (level 1)
+        _ <- ts += 300
+        _ <- tdb.profile.unsafeUnpinSession // unpin level 1
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe false) // fully unpinned
+      } yield ()
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(100, 200, 300)) // all operations succeeded
+    } andThen { // test pinning with transactions
+      (for {
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe true) // transaction pins session automatically
+        _ <- tdb.profile.unsafePinSession // add another pin level
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe true) // still pinned
+        _ <- tdb.profile.isInTransaction.map(_ shouldBe true) // in transaction
+        _ <- ts += 400
+        _ <- tdb.profile.unsafeUnpinSession // unpin our level
+        _ <- tdb.profile.isSessionPinned.map(_ shouldBe true) // still pinned (transaction level)
+        _ <- tdb.profile.isInTransaction.map(_ shouldBe true)
+      } yield ()).transactionally
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(100, 200, 300, 400)) // transaction committed
+    } andThen {
+      ts.schema.drop
+    }
+  }
+
   def testTransactions = {
     class T(tag: Tag) extends Table[Int](tag, "t") {
       def a = column[Int]("a", O.PrimaryKey)

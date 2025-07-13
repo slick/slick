@@ -110,6 +110,43 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
 
   /**
+   * Pin the current session. Multiple calls to pin may be nested - the same number
+   * of calls to unpin is required to mark the session as not pinned anymore.
+   *
+   * A pinned session will not be released at the end of a primitive database action.
+   * Instead, the same pinned session is passed to all subsequent actions until it is unpinned.
+   *
+   * WARNING: This is an unsafe primitive. You are responsible for ensuring matching
+   * unpin calls to avoid session leaks.
+   *
+   * @return A DBIO action that pins the session
+   */
+  def unsafePinSession: DBIOAction[Unit, NoStream, Effect] =
+    DBIO.Pin.asInstanceOf[DBIOAction[Unit, NoStream, Effect]]
+
+  /**
+   * Unpin the current session once. May only be called from a synchronous action context.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure there was a matching pin call
+   * before calling this action.
+   *
+   * @return A DBIO action that unpins the session
+   */
+  def unsafeUnpinSession: DBIOAction[Unit, NoStream, Effect] =
+    DBIO.Unpin.asInstanceOf[DBIOAction[Unit, NoStream, Effect]]
+
+  /**
+   * Check if the current session is pinned.
+   *
+   * @return A DBIO action that returns true if session is pinned, false otherwise
+   */
+  def isSessionPinned: DBIOAction[Boolean, NoStream, Effect] =
+    new SimpleJdbcProfileAction[Boolean]("isSessionPinned", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Boolean =
+        ctx.isPinned
+    }
+
+  /**
    * Create a named savepoint within the current transaction.
    *
    * WARNING: This is an unsafe primitive. You must ensure there is an active transaction
