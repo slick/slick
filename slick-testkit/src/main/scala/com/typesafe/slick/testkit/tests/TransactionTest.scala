@@ -104,7 +104,9 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
         _ <- ts += 500
         savepoint3 <- tdb.profile.unsafeCreateSavepoint("sp3")
         _ <- ts += 600
-        _ <- tdb.profile.unsafeReleaseSavepoint(savepoint3) // release savepoint
+        _ <- ifCap(jcap.savepointRelease) {
+          tdb.profile.unsafeReleaseSavepoint(savepoint3) // release savepoint
+        }
         _ <- ts.to[Set].result.map(_ shouldBe Set(100, 500, 600))
         _ <- tdb.profile.unsafeCommitTransaction
       } yield ()
