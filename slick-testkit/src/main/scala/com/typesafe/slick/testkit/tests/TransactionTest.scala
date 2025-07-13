@@ -8,6 +8,69 @@ import slick.jdbc.TransactionIsolation
 class TransactionTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
+  def testHighLevelSavepointAPI = {
+    class T(tag: Tag) extends Table[Int](tag, "t_hl_savepoint") {
+      def a = column[Int]("a", O.PrimaryKey)
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    ts.schema.create andThen { // test high-level savepoint API with success
+      (for {
+        _ <- ts += 1000
+        _ <- (for {
+          _ <- ts += 2000
+          _ <- ts.to[Set].result.map(_ shouldBe Set(1000, 2000))
+        } yield ()).withSavepoint("inner_scope")
+        _ <- ts.to[Set].result.map(_ shouldBe Set(1000, 2000)) // both should be committed
+      } yield ()).transactionally
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(1000, 2000)) // transaction committed
+    } andThen { // test high-level savepoint API with failure and rollback
+      (for {
+        _ <- ts += 3000
+        _ <- (for {
+          _ <- ts += 4000
+          _ <- ts.to[Set].result.map(_ shouldBe Set(1000, 2000, 3000, 4000))
+          _ = throw new ExpectedException
+        } yield ()).withSavepoint("failing_scope").failed.map(_ should (_.isInstanceOf[ExpectedException]))
+        _ <- ts.to[Set].result.map(_ shouldBe Set(1000, 2000, 3000)) // 4000 should be rolled back
+        _ <- ts += 5000
+      } yield ()).transactionally
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(1000, 2000, 3000, 5000)) // final state
+    } andThen { // test nested savepoints
+      (for {
+        _ <- ts += 6000
+        _ <- (for {
+          _ <- ts += 7000
+          _ <- (for {
+            _ <- ts += 8000
+            _ = throw new ExpectedException
+          } yield ()).withSavepoint("inner_inner").failed.map(_ should (_.isInstanceOf[ExpectedException]))
+          _ <- ts.to[Set].result.map(_ shouldBe Set(1000, 2000, 3000, 5000, 6000, 7000)) // 8000 rolled back
+          _ <- ts += 9000
+        } yield ()).withSavepoint("inner")
+        _ <- ts += 10000
+      } yield ()).transactionally
+    } andThen {
+      ts.result.map(_.toSet shouldBe Set(1000, 2000, 3000, 5000, 6000, 7000, 9000, 10000))
+    } andThen { // test auto-named savepoints
+      (for {
+        _ <- ts += 11000
+        _ <- (for {
+          _ <- ts += 12000
+          _ = throw new ExpectedException  
+        } yield ()).withSavepoint.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+        _ <- ts.result.map(_.size shouldBe 9) // 12000 rolled back, size stays the same
+      } yield ()).transactionally
+    } andThen {
+      ts.to[Set].result.map(_ should (_.contains(11000))) // 11000 should be committed
+    } andThen {
+      ts.schema.drop
+    }
+  }
+
   def testUnsafeSavepointPrimitives = {
     class T(tag: Tag) extends Table[Int](tag, "t_savepoint") {
       def a = column[Int]("a", O.PrimaryKey)

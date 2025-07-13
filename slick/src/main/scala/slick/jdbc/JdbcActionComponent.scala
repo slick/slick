@@ -154,6 +154,21 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         ctx.session.conn.releaseSavepoint(savepoint)
     }
 
+  protected object CreateSavepoint {
+    def apply(name: String): DBIOAction[java.sql.Savepoint, NoStream, Effect.Transactional] = 
+      unsafeCreateSavepoint(name)
+  }
+  
+  protected object RollbackToSavepoint {
+    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] = 
+      unsafeRollbackToSavepoint(savepoint)
+  }
+  
+  protected object ReleaseSavepoint {
+    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] = 
+      unsafeReleaseSavepoint(savepoint)
+  }
+
   protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Int, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Int = {
       val c = ctx.session.conn
@@ -209,6 +224,40 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
                                 fetchSize: Int = 0): DBIOAction[R, S, E] =
       (new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit, fetchSize))).
         andThen(a).andFinally(PopStatementParameters)
+
+    /** Run this Action with a named savepoint for rollback control within a transaction.
+      * 
+      * If the wrapped Action succeeds, the savepoint is released (cleaned up).
+      * If the wrapped Action fails, the transaction is rolled back to the savepoint,
+      * allowing partial rollback within a larger transaction.
+      * 
+      * This must be used within an existing transaction (created by `transactionally`).
+      * 
+      * @param name The name for the savepoint (must be unique within the transaction)
+      * @return The action wrapped with savepoint management
+      */
+    def withSavepoint(name: String): DBIOAction[R, S, E with Effect.Transactional] = {
+      CreateSavepoint(name).flatMap { savepoint =>
+        a.cleanUp { errorOpt =>
+          if (errorOpt.isDefined) {
+            // On error: rollback to savepoint, then release it
+            RollbackToSavepoint(savepoint).andThen(ReleaseSavepoint(savepoint).asTry.map(_ => ())(DBIO.sameThreadExecutionContext))
+          } else {
+            // On success: just release the savepoint
+            ReleaseSavepoint(savepoint)
+          }
+        }(DBIO.sameThreadExecutionContext)
+      }(DBIO.sameThreadExecutionContext).asInstanceOf[DBIOAction[R, S, E with Effect.Transactional]]
+    }
+
+    /** Run this Action with an automatically-named savepoint.
+      * Savepoint names are generated based on current timestamp and a random component
+      * to ensure uniqueness within the transaction.
+      */
+    def withSavepoint: DBIOAction[R, S, E with Effect.Transactional] = {
+      val autoName = s"sp_${System.currentTimeMillis()}_${scala.util.Random.nextInt(10000)}"
+      withSavepoint(autoName)
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////
