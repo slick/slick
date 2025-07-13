@@ -106,6 +106,51 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         ctx.session.isInTransaction
     }
 
+  /** 
+   * Create a named savepoint within the current transaction.
+   * 
+   * WARNING: This is an unsafe primitive. You must ensure there is an active transaction
+   * before calling this action and properly release or rollback to the savepoint.
+   * 
+   * @param name The name for the savepoint
+   * @return A DBIO action that creates a savepoint and returns a Savepoint object
+   */
+  def unsafeCreateSavepoint(name: String): ProfileAction[java.sql.Savepoint, NoStream, Effect.Transactional] = 
+    new SimpleJdbcProfileAction[java.sql.Savepoint]("unsafeCreateSavepoint", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): java.sql.Savepoint = 
+        ctx.session.conn.setSavepoint(name)
+    }
+
+  /** 
+   * Rollback to a specific savepoint within the current transaction.
+   * 
+   * WARNING: This is an unsafe primitive. You must ensure the savepoint is valid
+   * and was created within the current transaction.
+   * 
+   * @param savepoint The savepoint to rollback to
+   * @return A DBIO action that rolls back to the savepoint
+   */
+  def unsafeRollbackToSavepoint(savepoint: java.sql.Savepoint): ProfileAction[Unit, NoStream, Effect.Transactional] = 
+    new SimpleJdbcProfileAction[Unit]("unsafeRollbackToSavepoint", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = 
+        ctx.session.conn.rollback(savepoint)
+    }
+
+  /** 
+   * Release a savepoint, indicating that it is no longer needed.
+   * 
+   * WARNING: This is an unsafe primitive. You must ensure the savepoint is valid
+   * and was created within the current transaction.
+   * 
+   * @param savepoint The savepoint to release
+   * @return A DBIO action that releases the savepoint
+   */
+  def unsafeReleaseSavepoint(savepoint: java.sql.Savepoint): ProfileAction[Unit, NoStream, Effect.Transactional] = 
+    new SimpleJdbcProfileAction[Unit]("unsafeReleaseSavepoint", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = 
+        ctx.session.conn.releaseSavepoint(savepoint)
+    }
+
   protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Int, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Int = {
       val c = ctx.session.conn

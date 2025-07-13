@@ -8,6 +8,50 @@ import slick.jdbc.TransactionIsolation
 class TransactionTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
+  def testUnsafeSavepointPrimitives = {
+    class T(tag: Tag) extends Table[Int](tag, "t_savepoint") {
+      def a = column[Int]("a", O.PrimaryKey)
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    ts.schema.create andThen { // test savepoints with rollback
+      for {
+        _ <- tdb.profile.api.unsafeBeginTransaction
+        _ <- ts += 100
+        savepoint1 <- tdb.profile.api.unsafeCreateSavepoint("sp1")
+        _ <- ts += 200
+        _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200))
+        savepoint2 <- tdb.profile.api.unsafeCreateSavepoint("sp2")
+        _ <- ts += 300
+        _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200, 300))
+        _ <- tdb.profile.api.unsafeRollbackToSavepoint(savepoint2) // rollback to sp2
+        _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200)) // 300 should be gone
+        _ <- ts += 400
+        _ <- ts.to[Set].result.map(_ shouldBe Set(100, 200, 400))
+        _ <- tdb.profile.api.unsafeRollbackToSavepoint(savepoint1) // rollback to sp1
+        _ <- ts.result.map(_ shouldBe Seq(100)) // only 100 should remain
+        _ <- tdb.profile.api.unsafeCommitTransaction
+      } yield ()
+    } andThen {
+      ts.result.map(_ shouldBe Seq(100)) // transaction committed
+    } andThen { // test savepoints with release
+      for {
+        _ <- tdb.profile.api.unsafeBeginTransaction
+        _ <- ts += 500
+        savepoint3 <- tdb.profile.api.unsafeCreateSavepoint("sp3")
+        _ <- ts += 600
+        _ <- tdb.profile.api.unsafeReleaseSavepoint(savepoint3) // release savepoint
+        _ <- ts.to[Set].result.map(_ shouldBe Set(100, 500, 600))
+        _ <- tdb.profile.api.unsafeCommitTransaction
+      } yield ()
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(100, 500, 600)) // all changes committed
+    } andThen {
+      ts.schema.drop
+    }
+  }
+
   def testUnsafeTransactionPrimitives = {
     class T(tag: Tag) extends Table[Int](tag, "t_unsafe") {
       def a = column[Int]("a", O.PrimaryKey)
