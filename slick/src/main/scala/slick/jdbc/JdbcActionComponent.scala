@@ -73,7 +73,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
    *
    * @return A DBIO action that starts a transaction
    */
-  def unsafeBeginTransaction: ProfileAction[Unit, NoStream, Effect.Transactional] = StartTransaction
+  def unsafeBeginTransaction: DBIOAction[Unit, NoStream, Effect.Transactional] =
+    StartTransaction.asInstanceOf[DBIOAction[Unit, NoStream, Effect.Transactional]]
 
   /**
    * Commit the current transaction and unpin the session.
@@ -83,7 +84,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
    *
    * @return A DBIO action that commits the transaction
    */
-  def unsafeCommitTransaction: ProfileAction[Unit, NoStream, Effect.Transactional] = Commit
+  def unsafeCommitTransaction: DBIOAction[Unit, NoStream, Effect.Transactional] =
+    Commit.asInstanceOf[DBIOAction[Unit, NoStream, Effect.Transactional]]
 
   /**
    * Roll back the current transaction and unpin the session.
@@ -93,14 +95,15 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
    *
    * @return A DBIO action that rolls back the transaction
    */
-  def unsafeRollbackTransaction: ProfileAction[Unit, NoStream, Effect.Transactional] = Rollback
+  def unsafeRollbackTransaction: DBIOAction[Unit, NoStream, Effect.Transactional] =
+    Rollback.asInstanceOf[DBIOAction[Unit, NoStream, Effect.Transactional]]
 
   /**
    * Check if the current session is in a transaction.
    *
    * @return A DBIO action that returns true if currently in a transaction, false otherwise
    */
-  def isInTransaction: ProfileAction[Boolean, NoStream, Effect] =
+  def isInTransaction: DBIOAction[Boolean, NoStream, Effect] =
     new SimpleJdbcProfileAction[Boolean]("isInTransaction", Vector.empty) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Boolean =
         ctx.session.asInstanceOf[JdbcBackend#BaseSession].isInTransaction
@@ -115,7 +118,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
    * @param name The name for the savepoint
    * @return A DBIO action that creates a savepoint and returns a Savepoint object
    */
-  def unsafeCreateSavepoint(name: String): ProfileAction[java.sql.Savepoint, NoStream, Effect.Transactional] =
+  def unsafeCreateSavepoint(name: String): DBIOAction[java.sql.Savepoint, NoStream, Effect.Transactional] =
     new SimpleJdbcProfileAction[java.sql.Savepoint]("unsafeCreateSavepoint", Vector.empty) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): java.sql.Savepoint =
         ctx.session.conn.setSavepoint(name)
@@ -130,7 +133,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
    * @param savepoint The savepoint to rollback to
    * @return A DBIO action that rolls back to the savepoint
    */
-  def unsafeRollbackToSavepoint(savepoint: java.sql.Savepoint): ProfileAction[Unit, NoStream, Effect.Transactional] =
+  def unsafeRollbackToSavepoint(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
     new SimpleJdbcProfileAction[Unit]("unsafeRollbackToSavepoint", Vector.empty) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
         ctx.session.conn.rollback(savepoint)
@@ -145,7 +148,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
    * @param savepoint The savepoint to release
    * @return A DBIO action that releases the savepoint
    */
-  def unsafeReleaseSavepoint(savepoint: java.sql.Savepoint): ProfileAction[Unit, NoStream, Effect.Transactional] =
+  def unsafeReleaseSavepoint(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
     new SimpleJdbcProfileAction[Unit]("unsafeReleaseSavepoint", Vector.empty) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
         ctx.session.conn.releaseSavepoint(savepoint)
