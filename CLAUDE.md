@@ -208,28 +208,72 @@ sbt -Dslick.ansiDump=true testkit/test
 
 ### Cross-Database Testing Configuration
 
-**IMPORTANT**: When running tests against multiple databases (PostgreSQL, MySQL, Oracle, DB2, SQL Server), you **must** use the GitHub Actions configuration to ensure proper database connectivity:
+#### Configuration System Overview
+
+Slick's testkit uses a layered configuration system for database testing:
+
+1. **Default Configuration** (`testkit-reference.conf`): Embedded databases only (H2, Derby, HSQLDB, SQLite)
+   - Fast local testing with no external dependencies
+
+2. **Base Database Configuration** (`test-dbs/testkit-databases.conf`): All service database connection settings
+   - Contains connection details for PostgreSQL, MySQL, Oracle, DB2, SQL Server
+   - All service databases remain disabled by default
+   - Matches the services defined in GitHub Actions as well as `docker-compose.yml`
+
+3. **GitHub Actions Configuration** (`test-dbs/testkit.github-actions.conf`): CI comprehensive testing
+   - Includes the base database config and sets `enabled = true` for all service databases
+   - Used for comprehensive cross-database testing in CI
+
+4. **System Property Overrides**: Typesafe Config allows runtime configuration overrides
+   - `-D[database].enabled=true` enables specific databases when using base config
+   - Much simpler than having to disable everything else
+
+#### Testing Service Databases Locally
+
+Use the base config and enable only what you need:
 
 ```bash
-# Required environment variable for multi-database testing
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt [test-command]
-
-# Example: Test specific database with proper configuration
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt \
-  -Ddb2.enabled=false -Dmysql.enabled=false -Doracle.enabled=false \
-  -Dsqlserver-sqljdbc.enabled=false -Dpostgres.enabled=true \
+# Test only PostgreSQL (start docker container and enable)
+docker compose up -d postgres
+env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
+  -Dpostgres.enabled=true \
   "testkit/testOnly slick.test.profile.PostgresTest"
 
-# Example: Test specific functionality across multiple databases
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt \
+# Test PostgreSQL + MySQL together
+docker compose up -d postgres mysql
+env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
+  -Dpostgres.enabled=true -Dmysql.enabled=true \
+  testkit/test
+
+# Test specific functionality across multiple databases
+env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
+  -Dpostgres.enabled=true -Dmysql.enabled=true \
   'project testkit' \
   '+testOnly -- -z com.typesafe.slick.testkit.tests.AggregateTest.testGroupBy*'
 ```
 
-The `SLICK_TESTKIT_CONFIG` environment variable is required because:
-- Default configuration only enables H2, Derby, HSQLDB, and SQLite
-- Production databases (PostgreSQL, MySQL, Oracle, DB2, SQL Server) require explicit configuration
-- The `test-dbs/testkit.github-actions.conf` file contains the necessary database connection settings
+**CI Testing** (all databases enabled):
+
+```bash
+# Comprehensive testing (as used in GitHub Actions)
+env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt testkit/test
+```
+
+**Available Database Flags:**
+
+- `postgres.enabled=true` - Enable PostgreSQL testing
+- `mysql.enabled=true` - Enable MySQL testing  
+- `db2.enabled=true` - Enable DB2 testing
+- `oracle.enabled=true` - Enable Oracle testing
+- `sqlserver-sqljdbc.enabled=true` - Enable SQL Server testing
+
+#### Why This Design?
+
+- **Local simplicity**: Enable only what you want to test with `-D[database].enabled=true`
+- **Resource efficiency**: No need to disable multiple databases - just enable what you need
+- **CI simplicity**: GitHub Actions config enables everything for comprehensive testing
+- **Consistent connection settings**: Same connection parameters across all environments
+- **Clear separation**: Base config has connection details, CI config just enables everything
 
 ### Local Database Testing with Docker
 
@@ -237,6 +281,7 @@ The `SLICK_TESTKIT_CONFIG` environment variable is required because:
 # Start databases using docker-compose
 docker compose up -d postgres
 docker compose up -d mysql
+docker compose up -d sqlserver
 
 # Wait for database readiness
 docker compose exec postgres pg_isready -U postgres
