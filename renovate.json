@@ -2,19 +2,49 @@
   "extends": [
     "config:base"
   ],
+  "baseBranches": ["main", "java17", "java21"],
   "packageRules": [
     {
       "matchPackagePatterns": [
         "^com\\.microsoft\\.sqlserver:.*"
       ],
       "allowedVersions": "/.*jre11$/",
-      "baseBranch": "java17"
+      "matchBaseBranches": ["main"]
+    },
+    {
+      "matchPackagePatterns": [
+        "^com\\.microsoft\\.sqlserver:.*"
+      ],
+      "allowedVersions": "/.*jre12$/",
+      "matchBaseBranches": ["java17"]
+    },
+    {
+      "matchPackagePatterns": [
+        "^com\\.microsoft\\.sqlserver:.*"
+      ],
+      "allowedVersions": "/.*jre(13|1[4-9]|[2-9][0-9])$/",
+      "matchBaseBranches": ["java21"]
     },
     {
       "matchPackagePatterns": [
         "^org\\.apache\\.derby:.*"
       ],
-      "allowedVersions": "<10.15.0"
+      "allowedVersions": "<10.16.0",
+      "matchBaseBranches": ["main"]
+    },
+    {
+      "matchPackagePatterns": [
+        "^org\\.apache\\.derby:.*"
+      ],
+      "allowedVersions": ">=10.16.0 <10.17.0",
+      "matchBaseBranches": ["java17"]
+    },
+    {
+      "matchPackagePatterns": [
+        "^org\\.apache\\.derby:.*"
+      ],
+      "allowedVersions": ">=10.17.0",
+      "matchBaseBranches": ["java21"]
     }
   ]
 }
