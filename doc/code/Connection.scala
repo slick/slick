@@ -10,6 +10,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import slick.basic.DatabasePublisher
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
 //#imports
 
@@ -151,7 +152,7 @@ object Connection extends App {
   // Advanced transaction control examples
   if (false) {
     val db = Database.forConfig("mydb")
-    
+
     //#manual-transaction
     // Manual transaction management
     val manualTransaction = for {
@@ -171,7 +172,7 @@ object Connection extends App {
       _ <- H2Profile.unsafePinSession       // Pin session
       _ <- coffees.schema.create            // Operations reuse same connection
       _ <- coffees += ("Colombian", new SerialBlob("image".getBytes))
-      pinned <- H2Profile.isSessionPinned   // Check pinning state  
+      pinned <- H2Profile.isSessionPinned   // Check pinning state
       _ <- H2Profile.unsafeUnpinSession     // Unpin session
     } yield pinned
 
@@ -184,12 +185,14 @@ object Connection extends App {
       _ <- coffees.schema.create
       _ <- coffees += ("House Blend", new SerialBlob("image1".getBytes))
       sp <- H2Profile.unsafeCreateSavepoint("coffee_save")
-      _ <- coffees += ("French Roast", new SerialBlob("image2".getBytes))  // This might fail
+      _ <-
+        (coffees += ("French Roast", new SerialBlob("image2".getBytes)))
+          .cleanUp {
+            case None     => DBIO.unit
+            case Some(ex) => H2Profile.unsafeRollbackToSavepoint(sp) >> DBIO.failed(ex)
+          }
       _ <- H2Profile.unsafeReleaseSavepoint(sp)  // Success - clean up savepoint
-    } yield ()).recoverWith { case ex =>
-      // Error recovery: rollback to savepoint
-      H2Profile.unsafeRollbackToSavepoint(sp) >> DBIO.failed(ex)
-    }.transactionally
+    } yield ()).transactionally
 
     db.run(savepointExample)
     //#manual-savepoint
@@ -208,7 +211,7 @@ object Connection extends App {
 
     db.run(safeSavepoint)
     //#high-level-savepoint
-    
+
     db.close
   }
 }
