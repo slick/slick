@@ -24,6 +24,7 @@ services:
       MSSQL_SA_PASSWORD: Freeslick18
     ports:
       - "1401:1433"
+    cpus: "8"
   db2:
     image: ibmcom/db2:11.5.8.0
     ports:
