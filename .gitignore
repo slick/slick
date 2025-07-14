@@ -1,10 +1,6 @@
 /.idea/
 target/
-/test-dbs/*-*
-/test-dbs/*_*
-/test-dbs/databases.properties
-/test-dbs/testkit.conf
-!/test-dbs/testkit.github-actions.conf
+/test-dbs/*.local.conf
 /test-output/
 *.log
 *.iml
