@@ -242,7 +242,6 @@ docker compose up -d mysql
 docker compose exec postgres pg_isready -U postgres
 ```
 
-
 ### Test Development Patterns
 
 - **TestDB abstraction**: Database-specific test configurations with capability detection
@@ -279,12 +278,12 @@ The project uses a custom versioning system:
 - **Version Policy**: Uses sbt-version-policy for compatibility checking across versions
 - **Pattern Matching**: Internal dependency version changes are filtered using regex patterns in `versionPolicy.sbt`
 
-
 ## Compatibility Checking System
 
 ### CompatReportPlugin
 
-Slick uses a custom `CompatReportPlugin` that integrates with sbt-version-policy and MiMa for binary compatibility checking:
+Slick uses a custom `CompatReportPlugin` that integrates with sbt-version-policy and MiMa for binary compatibility
+checking:
 
 - **Binary Compatibility**: Uses MiMa to detect breaking changes in public APIs
 - **Source Compatibility**: Tracks changes that break source compatibility
@@ -373,7 +372,9 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - Use capability system to handle database-specific features
 - Test against multiple database profiles
 - Handle database-specific SQL generation in profiles
-- **Aggregate Functions**: When modifying aggregate functions (like AVG), be aware that different databases return different types (INTEGER vs DECIMAL vs DOUBLE). Consider using `Option[Double]` for consistency and add database-specific rounding logic in test suites
+- **Aggregate Functions**: When modifying aggregate functions (like AVG), be aware that different databases return
+  different types (INTEGER vs DECIMAL vs DOUBLE). Consider using `Option[Double]` for consistency and add
+  database-specific rounding logic in test suites
 
 ### Performance Considerations
 
@@ -403,10 +404,14 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 
 ### Code Generation (Codegen) Issues
 
-- **H2 VARCHAR Length Problems**: H2 reports default VARCHAR length as 1000000000, which can cause issues with other databases during round-trip testing. This is handled in `H2ColumnBuilder.length` by filtering out large default values
-- **Derby VARCHAR Limits**: Derby has a VARCHAR length limit of 32,672 characters. Codegen tests use H2 for generation but Derby for execution, requiring careful length handling
-- **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of capability differences (e.g., H2's features vs Derby's limitations)
-- **Codegen Test Cleanup**: Always delete `slick-testkit/target/scala-2.13/src_managed` before running codegen tests to ensure clean regeneration
+- **H2 VARCHAR Length Problems**: H2 reports default VARCHAR length as 1000000000, which can cause issues with other
+  databases during round-trip testing. This is handled in `H2ColumnBuilder.length` by filtering out large default values
+- **Derby VARCHAR Limits**: Derby has a VARCHAR length limit of 32,672 characters. Codegen tests use H2 for generation
+  but Derby for execution, requiring careful length handling
+- **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of
+  capability differences (e.g., H2's features vs Derby's limitations)
+- **Codegen Test Cleanup**: Always delete `slick-testkit/target/scala-2.13/src_managed` before running codegen tests to
+  ensure clean regeneration
 
 ### Performance Issues
 
