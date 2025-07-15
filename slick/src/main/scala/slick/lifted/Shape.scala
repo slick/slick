@@ -70,8 +70,8 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
       def encodeRef(value: Any, path: Node): Any =
         throw new SlickException("Shape does not have the same Mixed and Packed type")
       def toNode(value: Any): Node = pack(value).toNode
-    override def toString = s"PrimitiveShape($tm)"
-  }
+      override def toString = s"PrimitiveShape($tm)"
+    }
 
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
@@ -366,24 +366,24 @@ object ProvenShape {
     new Shape[FlatShapeLevel, ProvenShape[T], T, P] {
       def pack(value: Any): Packed = {
         val v = value.asInstanceOf[ProvenShape[T]]
-      v.shape.pack(v.value).asInstanceOf[Packed]
-    }
-
-    def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] =
-      shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, Packed, Unpacked, Packed]]
-    def buildParams(extract: Any => Unpacked): Packed =
-      shape.buildParams(extract)
-      def encodeRef(value: Any, path: Node) = {
-        val v = value.asInstanceOf[ProvenShape[T]]
-      v.shape.encodeRef(v.value, path)
+        v.shape.pack(v.value).asInstanceOf[Packed]
       }
 
-    def toNode(value: Any): Node = {
+      def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] =
+        shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, Packed, Unpacked, Packed]]
+      def buildParams(extract: Any => Unpacked): Packed =
+        shape.buildParams(extract)
+      def encodeRef(value: Any, path: Node) = {
         val v = value.asInstanceOf[ProvenShape[T]]
-      v.shape.toNode(v.value)
-    }
+        v.shape.encodeRef(v.value, path)
+      }
 
-    override def toString = s"ProvenShapeShape($shape)"
+      def toNode(value: Any): Node = {
+        val v = value.asInstanceOf[ProvenShape[T]]
+        v.shape.toNode(v.value)
+      }
+
+      override def toString = s"ProvenShapeShape($shape)"
     }
 }
 

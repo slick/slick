@@ -50,7 +50,7 @@ class HoistClientOps extends Phase {
                                     br @ Bind(bsr, rfrom, Pure(StructNode(rdefs), tsr)),
                           jt, on1) if jt != JoinType.Outer =>
           logger.debug("Hoisting operations from Join:", Ellipsis(from2, List(0, 0), List(1, 0)))
-          val (bl2: Bind, lrepl: Map[TermSymbol, (Node => Node, AnonSymbol)] @unchecked) = if(jt != JoinType.Right) {
+          val (bl2: Bind, lrepl: Map[TermSymbol, (Node => Node, AnonSymbol)] @unchecked) = (if(jt != JoinType.Right) {
             val hoisted = ldefs.map { case (ts, n) => (ts, n, unwrap(n, false)) }
             logger.debug("Hoisting operations from defs in left side of Join: " + hoisted.iterator.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
             val newDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
@@ -59,8 +59,8 @@ class HoistClientOps extends Phase {
             logger.debug("Translated left join side:", Ellipsis(bl2, List(0)))
             val repl = hoisted.iterator.map { case (s, _, (n2, wrap)) => (s, (wrap, newDefsM(n2))) }.toMap
             (bl2, repl)
-          } else (bl, Map.empty)
-          val (br2: Bind, rrepl: Map[TermSymbol, (Node => Node, AnonSymbol)] @unchecked) = if(jt != JoinType.Left) {
+          } else (bl, Map.empty)): @unchecked
+          val (br2: Bind, rrepl: Map[TermSymbol, (Node => Node, AnonSymbol)] @unchecked) = (if(jt != JoinType.Left) {
             val hoisted = rdefs.map { case (ts, n) => (ts, n, unwrap(n, false)) }
             logger.debug("Hoisting operations from defs in right side of Join: " + hoisted.iterator.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
             val newDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
@@ -69,7 +69,7 @@ class HoistClientOps extends Phase {
             logger.debug("Translated right join side:", Ellipsis(br2, List(0)))
             val repl = hoisted.iterator.map { case (s, _, (n2, wrap)) => (s, (wrap, newDefsM(n2))) }.toMap
             (br2, repl)
-          } else (br, Map.empty)
+          } else (br, Map.empty)): @unchecked
           if((bl2 ne bl) || (br2 ne br)) {
             val from3 = from2.copy(left = bl2, right = br2, on = on1.replace {
               case Select(Ref(s), f) if s == sl1 && (bl2 ne bl) =>

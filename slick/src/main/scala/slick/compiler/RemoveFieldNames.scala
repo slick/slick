@@ -11,7 +11,7 @@ class RemoveFieldNames(val alwaysKeepSubqueryNames: Boolean = false) extends Pha
   val name = "removeFieldNames"
 
   def apply(state: CompilerState) = state.map { n => ClientSideOp.mapResultSetMapping(n, true) { rsm =>
-    val CollectionType(_, NominalType(top, StructType(fdefs))) = rsm.from.nodeType
+    val CollectionType(_, NominalType(top, StructType(fdefs))) = rsm.from.nodeType: @unchecked
     val requiredSyms = rsm.map.collect[TermSymbol]({
       case Select(Ref(s), f) if s == rsm.generator => f
     }, stopOnMatch = true).toSeq.distinct.zipWithIndex.toMap
@@ -41,7 +41,7 @@ class RemoveFieldNames(val alwaysKeepSubqueryNames: Boolean = false) extends Pha
       }.infer()
     })
     logger.debug("Transformed RSM: ", rsm2)
-    val CollectionType(_, fType) = rsm2.from.nodeType
+    val CollectionType(_, fType) = rsm2.from.nodeType: @unchecked
     val baseRef = Ref(rsm.generator) :@ fType
     rsm2.copy(map = rsm2.map.replace({
       case Select(Ref(s), f) if s == rsm.generator =>

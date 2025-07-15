@@ -131,7 +131,7 @@ class RewriteJoins extends Phase {
       case (Filter(fs1, from1, pred1), tss1) =>
         logger.debug("Hoisting Filter out of Bind from:", b)
         val sRefs = pred1.collect({ case p @ FwdPath(s :: rest) if s == fs1 => (p, FwdPath(b.generator :: rest)) }, stopOnMatch = true)
-        val Bind(_, _, Pure(StructNode(struct1), pts)) = b
+        val Bind(_, _, Pure(StructNode(struct1), pts)) = b: @unchecked
         val foundRefs = sRefs.map { case (p, pOnBGen) =>
           (p, (pOnBGen, /*None: Option[Symbol]*/ struct1.find { case (s, n) => pOnBGen == n }.map(_._1) ))
         }.toMap

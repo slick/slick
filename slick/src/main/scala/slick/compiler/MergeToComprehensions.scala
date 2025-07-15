@@ -167,7 +167,7 @@ class MergeToComprehensions extends Phase {
         }
         val c2 = c1a.copy(groupBy = Some(ProductNode(ConstArray(b2a)).flatten), select = Pure(str2, ts2)).infer()
         logger.debug("Merged GroupBy into Comprehension:", c2)
-        val StructNode(defs2) = str2
+        val StructNode(defs2) = str2: @unchecked
         val replacements = defs2.iterator.map { case (f, _) => (ts2, f) -> f }.toMap
         logger.debug("Replacements are: "+replacements)
         (c2, replacements)
@@ -183,7 +183,7 @@ class MergeToComprehensions extends Phase {
         val str2 = applyReplacements(str1, replacements1, c1)
         val c2 = c1.copy(select = Pure(str2, ts)).infer()
         logger.debug("Merged Aggregate source into Comprehension:", c2)
-        val StructNode(defs) = str2
+        val StructNode(defs) = str2: @unchecked
         val repl = defs.iterator.map { case (f, _) => ((ts, f), f) }.toMap
         logger.debug("Replacements are: "+repl)
         (c2, repl)
@@ -223,8 +223,8 @@ class MergeToComprehensions extends Phase {
         Some((p, mappings))
       case j @ Join(ls, rs, l1, r1, _, on1) =>
         logger.debug(s"Creating source from Join $ls/$rs:", j)
-        val (l2 @ _ :@ CollectionType(_, _), leftMappings) = dealias(l1)(createSourceOrTopLevel)
-        val (r2 @ _ :@ CollectionType(_, _), rightMappings) = dealias(r1)(createSourceOrTopLevel)
+        val (l2 @ _ :@ CollectionType(_, _), leftMappings) = dealias(l1)(createSourceOrTopLevel): @unchecked
+        val (r2 @ _ :@ CollectionType(_, _), rightMappings) = dealias(r1)(createSourceOrTopLevel): @unchecked
         logger.debug(s"Converted left side of Join $ls/$rs:", l2)
         logger.debug(s"Converted right side of Join $ls/$rs:", r2)
         // Detect and remove empty join sides
@@ -324,7 +324,7 @@ class MergeToComprehensions extends Phase {
       case n => convert1(n)
     }
 
-    val tree2 :@ CollectionType(cons2, _) = convert1(tree)
+    val tree2 :@ CollectionType(cons2, _) = convert1(tree): @unchecked
     val cons1 = tree.nodeType.asCollectionType.cons
     if(cons2 != cons1) CollectionCast(tree2, cons1).infer()
     else tree2
@@ -410,7 +410,7 @@ class MergeToComprehensions extends Phase {
             case Select(_ :@ NominalType(_, _), _) => true
             case _ => false
           }.getOrElse(throw new SlickTreeException("Missing path on top of TypeSymbol in:", p))
-          val Select(_ :@ NominalType(ts2, _), f2) = sel
+          val Select(_ :@ NominalType(ts2, _), f2) = sel: @unchecked
           (ts1, f1) -> map1M((ts2, f2))
         }
         (n2, map2)
@@ -421,7 +421,7 @@ class MergeToComprehensions extends Phase {
   /** Apply the replacements and current selection of a Comprehension to a new Node that
     * will be merged into the Comprehension. */
   def applyReplacements(n1: Node, r: Replacements, c: Comprehension[Option[Node]]): Node = {
-    val Pure(StructNode(base), _) = c.select
+    val Pure(StructNode(base), _) = c.select: @unchecked
     val baseM = base.iterator.toMap
     n1.replace({ case n @ Select(_ :@ NominalType(ts, _), s) =>
       r.get((ts, s)) match {
