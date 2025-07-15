@@ -78,8 +78,6 @@ def slickScalacOptions = Seq(
           "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
           "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
         ) ++ scala2InlineSettings.value
-      case Some((3, _)) =>
-        List("-source:3.0-migration")
       case _ =>
         Nil
     })
