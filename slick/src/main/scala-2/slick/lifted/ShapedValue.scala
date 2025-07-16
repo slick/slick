@@ -46,6 +46,47 @@ object ShapedValue {
         }
         .toIndexedSeq
     val (f, g) = if(uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
+      // Extract element types from HList for validation
+      def extractHListTypes(tpe: c.Type): List[c.Type] = {
+        if (tpe =:= c.typeOf[slick.collection.heterogeneous.HNil.type]) {
+          Nil
+        } else {
+          // Check if it's an HCons by looking at the type constructor
+          val hconsSymbol = c.typeOf[slick.collection.heterogeneous.HCons[Nothing, Nothing]].typeConstructor.typeSymbol
+          if (tpe.typeConstructor.typeSymbol == hconsSymbol && tpe.typeArgs.length == 2) {
+            val List(headType, tailType) = tpe.typeArgs
+            headType :: extractHListTypes(tailType)
+          } else {
+            c.abort(c.enclosingPosition, s"Expected HList type, got: $tpe")
+          }
+        }
+      }
+      
+      val sourceTypes = extractHListTypes(uTag.tpe)
+      val targetTypes = fields.map(_._2).toList
+      
+      // Validate that the number of fields matches
+      if (sourceTypes.length != targetTypes.length) {
+        val sourceStr = sourceTypes.map(_.toString).mkString("(", ", ", ")")
+        val targetStr = targetTypes.map(_.toString).mkString("(", ", ", ")")
+        c.abort(c.enclosingPosition, 
+          s"Source and target product decomposition do not match.\n  Source: $sourceStr\n  Target: $targetStr")
+      }
+      
+      // Validate that the types match (allowing for some flexibility in type checking)
+      val typeMismatches = sourceTypes.zip(targetTypes).zipWithIndex.collect {
+        case ((src, tgt), idx) if !(src =:= tgt || src <:< tgt || tgt <:< src) =>
+          s"  Position $idx: source type $src does not match target type $tgt"
+      }
+      
+      if (typeMismatches.nonEmpty) {
+        val sourceStr = sourceTypes.map(_.toString).mkString("(", ", ", ")")
+        val targetStr = targetTypes.map(_.toString).mkString("(", ", ", ")")
+        c.abort(c.enclosingPosition, 
+          s"Source and target product decomposition do not match.\n  Source: $sourceStr\n  Target: $targetStr\n" +
+          s"Type mismatches:\n${typeMismatches.mkString("\n")}")
+      }
+      
       val rTypeAsHList = fields.foldRight[Tree](tq"_root_.slick.collection.heterogeneous.HNil.type") {
         case ((_, t, _), z) => tq"_root_.slick.collection.heterogeneous.HCons[$t, $z]"
       }
