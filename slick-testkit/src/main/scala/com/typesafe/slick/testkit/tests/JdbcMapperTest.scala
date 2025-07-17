@@ -451,6 +451,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+
+
   def testSingleElement = {
     import slick.collection.heterogeneous.*
     import slick.collection.heterogeneous.syntax.*
