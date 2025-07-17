@@ -348,60 +348,67 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
-  def testH2NestedJoinParentheses = ifCap(rcap.other) {
+  def testH2NestedJoinParentheses = {
     // Test for issue #1756: H2 inner join not wrapped in parentheses
-    // This test creates a complex nested join structure that would produce
-    // ambiguous SQL without proper parenthesization in H2
-    class SpaceAssignment(tag: Tag) extends Table[(String, String)](tag, "space_assignment_h2test") {
-      def id = column[String]("id", O.PrimaryKey)
-      def spaceId = column[String]("space_id")
-      def * = (id, spaceId)
-    }
-    val spaceAssignments = TableQuery[SpaceAssignment]
+    // This test demonstrates that H2 should generate parentheses around nested joins
+    // to avoid SQL ambiguity, similar to MySQL and SQLite
     
-    class Space(tag: Tag) extends Table[(String, String)](tag, "space_h2test") {
-      def id = column[String]("id", O.PrimaryKey)
-      def spaceProfileId = column[String]("space_profile_id") 
-      def * = (id, spaceProfileId)
+    // Create a scenario that depends on proper parenthesization
+    // The specific structure that causes issues: LEFT JOIN ... INNER JOIN ... INNER JOIN ...
+    class Table1(tag: Tag) extends Table[(Int, String)](tag, "table1_h2") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
     }
-    val spaces = TableQuery[Space]
+    val table1 = TableQuery[Table1]
     
-    class SpaceProfile(tag: Tag) extends Table[(String, String)](tag, "space_profile_h2test") {
-      def id = column[String]("id", O.PrimaryKey)
-      def title = column[String]("title")
-      def * = (id, title)
+    class Table2(tag: Tag) extends Table[(Int, Int, String)](tag, "table2_h2") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def table1Id = column[Int]("table1_id")
+      def value = column[String]("value")
+      def * = (id, table1Id, value)
     }
-    val spaceProfiles = TableQuery[SpaceProfile]
+    val table2 = TableQuery[Table2]
     
-    class SpaceAssignmentCategory(tag: Tag) extends Table[(String, String)](tag, "space_assignment_category_h2test") {
-      def spaceAssignmentId = column[String]("space_assignment_id")
-      def categoryId = column[String]("category_id")
-      def * = (spaceAssignmentId, categoryId)
+    class Table3(tag: Tag) extends Table[(Int, Int, String)](tag, "table3_h2") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def table2Id = column[Int]("table2_id")
+      def description = column[String]("description")
+      def * = (id, table2Id, description)
     }
-    val spaceAssignmentCategories = TableQuery[SpaceAssignmentCategory]
+    val table3 = TableQuery[Table3]
     
-    // Create the join that demonstrates the parenthesization issue
-    // Without parentheses, this generates ambiguous SQL in H2:
-    // left outer join ... inner join ... inner join ... on ... on ...
-    val join = for {
-      (spaceAssignment, spaceAssignmentCategory) <- spaceAssignments joinLeft spaceAssignmentCategories on (_.id === _.spaceAssignmentId)
-      (space, spaceProfile) <- (spaces join spaceProfiles on (_.spaceProfileId === _.id)) if space.id === spaceAssignment.spaceId
-    } yield (spaceAssignment, space, spaceProfile, spaceAssignmentCategory)
+    class Table4(tag: Tag) extends Table[(Int, String)](tag, "table4_h2") {
+      def table1Id = column[Int]("table1_id")
+      def category = column[String]("category")
+      def * = (table1Id, category)
+    }
+    val table4 = TableQuery[Table4]
+    
+    // Create a complex nested join structure that requires parentheses
+    // This creates the problematic SQL pattern mentioned in issue #1756
+    val complexJoin = for {
+      ((t1, t4), (t2, t3)) <- (table1 joinLeft table4 on (_.id === _.table1Id)) join
+                              (table2 join table3 on (_.id === _.table2Id)) on (_._1.id === _._1.table1Id)
+    } yield (t1, t2, t3, t4)
+    
+    // This test depends on the SQL being properly parenthesized
+    // Without parentheses, H2 may generate ambiguous SQL that could cause parsing issues
+    // The test should fail if the generated SQL is ambiguous
     
     DBIO.seq(
-      (spaceAssignments.schema ++ spaces.schema ++ spaceProfiles.schema ++ spaceAssignmentCategories.schema).create,
+      (table1.schema ++ table2.schema ++ table3.schema ++ table4.schema).create,
       // Insert test data
-      spaceAssignments += ("sa1", "s1"),
-      spaces += ("s1", "sp1"),
-      spaceProfiles += ("sp1", "Test Profile"),
-      spaceAssignmentCategories += ("sa1", "cat1"),
-      // This query execution will demonstrate whether H2 properly handles nested joins
-      // Without parentheses, H2 may generate ambiguous SQL that fails
-      join.result.map(result => {
-        result.length shouldBe 1
-        // The test passes if the query executes successfully, which means
-        // the SQL was properly parenthesized
-      })
+      table1 ++= Seq((1, "A"), (2, "B")),
+      table2 ++= Seq((1, 1, "X"), (2, 2, "Y")),
+      table3 ++= Seq((1, 1, "DESC1"), (2, 2, "DESC2")),
+      table4 ++= Seq((1, "CAT1")),
+      // Execute the complex join
+      complexJoin.result.map { results =>
+        // The test should pass if the query can be properly parsed and executed
+        // If H2 generates ambiguous SQL without parentheses, this might fail
+        results.length shouldBe 2
+      }
     )
   }
 }
