@@ -65,6 +65,147 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def getDumpInfo = DumpInfo(name = "PopStatementParameters")
   }
 
+  /**
+   * Begin a new transaction. This pins the session and starts a database transaction.
+   *
+   * WARNING: This is an unsafe primitive. You are responsible for properly committing
+   * or rolling back the transaction and ensuring the session is unpinned.
+   *
+   * @return A DBIO action that starts a transaction
+   */
+  def unsafeBeginTransaction: DBIOAction[Unit, NoStream, Effect.Transactional] =
+    StartTransaction.asInstanceOf[DBIOAction[Unit, NoStream, Effect.Transactional]]
+
+  /**
+   * Commit the current transaction and unpin the session.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure there is an active transaction
+   * before calling this action.
+   *
+   * @return A DBIO action that commits the transaction
+   */
+  def unsafeCommitTransaction: DBIOAction[Unit, NoStream, Effect.Transactional] =
+    Commit.asInstanceOf[DBIOAction[Unit, NoStream, Effect.Transactional]]
+
+  /**
+   * Roll back the current transaction and unpin the session.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure there is an active transaction
+   * before calling this action.
+   *
+   * @return A DBIO action that rolls back the transaction
+   */
+  def unsafeRollbackTransaction: DBIOAction[Unit, NoStream, Effect.Transactional] =
+    Rollback.asInstanceOf[DBIOAction[Unit, NoStream, Effect.Transactional]]
+
+  /**
+   * Check if the current session is in a transaction.
+   *
+   * @return A DBIO action that returns true if currently in a transaction, false otherwise
+   */
+  def isInTransaction: DBIOAction[Boolean, NoStream, Effect] =
+    new SimpleJdbcProfileAction[Boolean]("isInTransaction", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Boolean =
+        ctx.session.asInstanceOf[JdbcBackend#BaseSession].isInTransaction
+    }
+
+  /**
+   * Pin the current session. Multiple calls to pin may be nested - the same number
+   * of calls to unpin is required to mark the session as not pinned anymore.
+   *
+   * A pinned session will not be released at the end of a primitive database action.
+   * Instead, the same pinned session is passed to all subsequent actions until it is unpinned.
+   *
+   * WARNING: This is an unsafe primitive. You are responsible for ensuring matching
+   * unpin calls to avoid session leaks.
+   *
+   * @return A DBIO action that pins the session
+   */
+  def unsafePinSession: DBIOAction[Unit, NoStream, Effect] =
+    DBIO.Pin.asInstanceOf[DBIOAction[Unit, NoStream, Effect]]
+
+  /**
+   * Unpin the current session once. May only be called from a synchronous action context.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure there was a matching pin call
+   * before calling this action.
+   *
+   * @return A DBIO action that unpins the session
+   */
+  def unsafeUnpinSession: DBIOAction[Unit, NoStream, Effect] =
+    DBIO.Unpin.asInstanceOf[DBIOAction[Unit, NoStream, Effect]]
+
+  /**
+   * Check if the current session is pinned.
+   *
+   * @return A DBIO action that returns true if session is pinned, false otherwise
+   */
+  def isSessionPinned: DBIOAction[Boolean, NoStream, Effect] =
+    new SimpleJdbcProfileAction[Boolean]("isSessionPinned", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Boolean =
+        ctx.isPinned
+    }
+
+  /**
+   * Create a named savepoint within the current transaction.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure there is an active transaction
+   * before calling this action and properly release or rollback to the savepoint.
+   *
+   * @param name The name for the savepoint
+   * @return A DBIO action that creates a savepoint and returns a Savepoint object
+   */
+  def unsafeCreateSavepoint(name: String): DBIOAction[java.sql.Savepoint, NoStream, Effect.Transactional] =
+    new SimpleJdbcProfileAction[java.sql.Savepoint]("unsafeCreateSavepoint", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): java.sql.Savepoint =
+        ctx.session.conn.setSavepoint(name)
+    }
+
+  /**
+   * Rollback to a specific savepoint within the current transaction.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure the savepoint is valid
+   * and was created within the current transaction.
+   *
+   * @param savepoint The savepoint to rollback to
+   * @return A DBIO action that rolls back to the savepoint
+   */
+  def unsafeRollbackToSavepoint(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
+    new SimpleJdbcProfileAction[Unit]("unsafeRollbackToSavepoint", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
+        ctx.session.conn.rollback(savepoint)
+    }
+
+  /**
+   * Release a savepoint, indicating that it is no longer needed.
+   *
+   * WARNING: This is an unsafe primitive. You must ensure the savepoint is valid
+   * and was created within the current transaction.
+   *
+   * @param savepoint The savepoint to release
+   * @return A DBIO action that releases the savepoint
+   */
+  def unsafeReleaseSavepoint(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
+    new SimpleJdbcProfileAction[Unit]("unsafeReleaseSavepoint", Vector.empty) {
+      def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
+        ctx.session.conn.releaseSavepoint(savepoint)
+    }
+
+  protected object CreateSavepoint {
+    def apply(name: String): DBIOAction[java.sql.Savepoint, NoStream, Effect.Transactional] =
+      unsafeCreateSavepoint(name)
+  }
+
+  protected object RollbackToSavepoint {
+    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
+      unsafeRollbackToSavepoint(savepoint)
+  }
+
+  protected object ReleaseSavepoint {
+    def apply(savepoint: java.sql.Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
+      unsafeReleaseSavepoint(savepoint)
+  }
+
   protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Int, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Int = {
       val c = ctx.session.conn
@@ -120,6 +261,49 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
                                 fetchSize: Int = 0): DBIOAction[R, S, E] =
       (new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit, fetchSize))).
         andThen(a).andFinally(PopStatementParameters)
+
+    /** Run this Action with a named savepoint for rollback control within a transaction.
+      *
+      * If the wrapped Action succeeds, the savepoint is released (cleaned up).
+      * If the wrapped Action fails, the transaction is rolled back to the savepoint,
+      * allowing partial rollback within a larger transaction.
+      *
+      * This must be used within an existing transaction (created by `transactionally`).
+      *
+      * @param name The name for the savepoint (must be unique within the transaction)
+      * @return The action wrapped with savepoint management
+      */
+    def withSavepoint(name: String): DBIOAction[R, S, E with Effect.Transactional] = {
+      CreateSavepoint(name).flatMap { savepoint =>
+        a.cleanUp { errorOpt =>
+          if (errorOpt.isDefined) {
+            // On error: rollback to savepoint, then release it if supported
+            val releaseAction = if (capabilities.contains(JdbcCapabilities.savepointRelease)) {
+              ReleaseSavepoint(savepoint).asTry.map(_ => ())(DBIO.sameThreadExecutionContext)
+            } else {
+              DBIO.successful(()) // Oracle/SQL Server auto-release on rollback
+            }
+            RollbackToSavepoint(savepoint).andThen(releaseAction)
+          } else {
+            // On success: release the savepoint if supported
+            if (capabilities.contains(JdbcCapabilities.savepointRelease)) {
+              ReleaseSavepoint(savepoint)
+            } else {
+              DBIO.successful(()) // Oracle/SQL Server auto-release on commit
+            }
+          }
+        }(DBIO.sameThreadExecutionContext)
+      }(DBIO.sameThreadExecutionContext).asInstanceOf[DBIOAction[R, S, E with Effect.Transactional]]
+    }
+
+    /** Run this Action with an automatically-named savepoint.
+      * Savepoint names are generated based on current timestamp and a random component
+      * to ensure uniqueness within the transaction.
+      */
+    def withSavepoint: DBIOAction[R, S, E with Effect.Transactional] = {
+      val autoName = s"sp_${System.currentTimeMillis()}_${scala.util.Random.nextInt(10000)}"
+      withSavepoint(autoName)
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////
