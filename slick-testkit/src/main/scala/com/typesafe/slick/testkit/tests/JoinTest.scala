@@ -1,6 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import slick.ast.LiteralNode
+import slick.compiler.CompilerState
 
 class JoinTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
@@ -350,65 +352,26 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
 
   def testH2NestedJoinParentheses = {
     // Test for issue #1756: H2 inner join not wrapped in parentheses
-    // This test demonstrates that H2 should generate parentheses around nested joins
-    // to avoid SQL ambiguity, similar to MySQL and SQLite
+    // This test directly validates that H2 profile is configured to parenthesize nested joins
     
-    // Create a scenario that depends on proper parenthesization
-    // The specific structure that causes issues: LEFT JOIN ... INNER JOIN ... INNER JOIN ...
-    class Table1(tag: Tag) extends Table[(Int, String)](tag, "table1_h2") {
-      def id = column[Int]("id", O.PrimaryKey)
-      def name = column[String]("name")
-      def * = (id, name)
+    // Access the H2 profile and check its configuration
+    val h2Profile = slick.jdbc.H2Profile
+    val queryBuilder = h2Profile.createQueryBuilder(LiteralNode(1), new CompilerState(null, LiteralNode(1)))
+    
+    // Use reflection to access the parenthesizeNestedRHSJoin field
+    val parenthesizeNestedRHSJoin = {
+      val field = queryBuilder.getClass.getSuperclass.getDeclaredField("parenthesizeNestedRHSJoin")
+      field.setAccessible(true)
+      field.getBoolean(queryBuilder)
     }
-    val table1 = TableQuery[Table1]
     
-    class Table2(tag: Tag) extends Table[(Int, Int, String)](tag, "table2_h2") {
-      def id = column[Int]("id", O.PrimaryKey)
-      def table1Id = column[Int]("table1_id")
-      def value = column[String]("value")
-      def * = (id, table1Id, value)
+    // This test should fail without the fix and pass with the fix
+    // H2 should parenthesize nested joins like MySQL and SQLite do
+    if (!parenthesizeNestedRHSJoin) {
+      throw new AssertionError("H2 profile should parenthesize nested RHS joins to avoid SQL ambiguity (issue #1756)")
     }
-    val table2 = TableQuery[Table2]
     
-    class Table3(tag: Tag) extends Table[(Int, Int, String)](tag, "table3_h2") {
-      def id = column[Int]("id", O.PrimaryKey)
-      def table2Id = column[Int]("table2_id")
-      def description = column[String]("description")
-      def * = (id, table2Id, description)
-    }
-    val table3 = TableQuery[Table3]
-    
-    class Table4(tag: Tag) extends Table[(Int, String)](tag, "table4_h2") {
-      def table1Id = column[Int]("table1_id")
-      def category = column[String]("category")
-      def * = (table1Id, category)
-    }
-    val table4 = TableQuery[Table4]
-    
-    // Create a complex nested join structure that requires parentheses
-    // This creates the problematic SQL pattern mentioned in issue #1756
-    val complexJoin = for {
-      ((t1, t4), (t2, t3)) <- (table1 joinLeft table4 on (_.id === _.table1Id)) join
-                              (table2 join table3 on (_.id === _.table2Id)) on (_._1.id === _._1.table1Id)
-    } yield (t1, t2, t3, t4)
-    
-    // This test depends on the SQL being properly parenthesized
-    // Without parentheses, H2 may generate ambiguous SQL that could cause parsing issues
-    // The test should fail if the generated SQL is ambiguous
-    
-    DBIO.seq(
-      (table1.schema ++ table2.schema ++ table3.schema ++ table4.schema).create,
-      // Insert test data
-      table1 ++= Seq((1, "A"), (2, "B")),
-      table2 ++= Seq((1, 1, "X"), (2, 2, "Y")),
-      table3 ++= Seq((1, 1, "DESC1"), (2, 2, "DESC2")),
-      table4 ++= Seq((1, "CAT1")),
-      // Execute the complex join
-      complexJoin.result.map { results =>
-        // The test should pass if the query can be properly parsed and executed
-        // If H2 generates ambiguous SQL without parentheses, this might fail
-        results.length shouldBe 2
-      }
-    )
+    // If we reach here, the fix is in place
+    DBIO.successful(parenthesizeNestedRHSJoin shouldBe true)
   }
 }
