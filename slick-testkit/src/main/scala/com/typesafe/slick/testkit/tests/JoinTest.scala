@@ -350,8 +350,8 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
 
   def testH2NestedJoinParentheses = ifCap(rcap.other) {
     // Test for issue #1756: H2 inner join not wrapped in parentheses
-    // This test creates a complex join that would fail with SQL syntax errors 
-    // if H2 doesn't properly parenthesize nested joins
+    // This test creates a complex nested join structure that would produce
+    // ambiguous SQL without proper parenthesization in H2
     class SpaceAssignment(tag: Tag) extends Table[(String, String)](tag, "space_assignment_h2test") {
       def id = column[String]("id", O.PrimaryKey)
       def spaceId = column[String]("space_id")
@@ -380,25 +380,28 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     }
     val spaceAssignmentCategories = TableQuery[SpaceAssignmentCategory]
     
-    // Create the join that should generate parentheses for H2
-    // This creates a complex nested join structure that requires proper parenthesization
-    // The critical structure is: LEFT OUTER JOIN ... INNER JOIN ... INNER JOIN ... ON ... ON ...
+    // Create the join that demonstrates the parenthesization issue
+    // Without parentheses, this generates ambiguous SQL in H2:
+    // left outer join ... inner join ... inner join ... on ... on ...
     val join = for {
       (spaceAssignment, spaceAssignmentCategory) <- spaceAssignments joinLeft spaceAssignmentCategories on (_.id === _.spaceAssignmentId)
       (space, spaceProfile) <- (spaces join spaceProfiles on (_.spaceProfileId === _.id)) if space.id === spaceAssignment.spaceId
     } yield (spaceAssignment, space, spaceProfile, spaceAssignmentCategory)
     
-    for {
-      _ <- (spaceAssignments.schema ++ spaces.schema ++ spaceProfiles.schema ++ spaceAssignmentCategories.schema).create
-      // Insert test data to make sure the query can actually run
-      _ <- spaceAssignments += ("sa1", "s1")
-      _ <- spaces += ("s1", "sp1")
-      _ <- spaceProfiles += ("sp1", "Test Profile")
-      _ <- spaceAssignmentCategories += ("sa1", "cat1")
-      // This query would fail with SQL syntax error if nested joins aren't properly parenthesized
-      // The fix ensures H2 generates proper parentheses around nested joins
-      result <- join.result
-      _ = result.length shouldBe 1
-    } yield ()
+    DBIO.seq(
+      (spaceAssignments.schema ++ spaces.schema ++ spaceProfiles.schema ++ spaceAssignmentCategories.schema).create,
+      // Insert test data
+      spaceAssignments += ("sa1", "s1"),
+      spaces += ("s1", "sp1"),
+      spaceProfiles += ("sp1", "Test Profile"),
+      spaceAssignmentCategories += ("sa1", "cat1"),
+      // This query execution will demonstrate whether H2 properly handles nested joins
+      // Without parentheses, H2 may generate ambiguous SQL that fails
+      join.result.map(result => {
+        result.length shouldBe 1
+        // The test passes if the query executes successfully, which means
+        // the SQL was properly parenthesized
+      })
+    )
   }
 }
