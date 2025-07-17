@@ -354,14 +354,25 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     // Test for issue #1756: H2 inner join not wrapped in parentheses
     // This test directly validates that H2 profile is configured to parenthesize nested joins
     
-    // Access the H2 profile and check its configuration
-    val h2Profile = slick.jdbc.H2Profile
+    // Use the actual profile from the test framework
+    val h2Profile = tdb.profile.asInstanceOf[slick.jdbc.H2Profile.type]
     val queryBuilder = h2Profile.createQueryBuilder(LiteralNode(1), new CompilerState(null, LiteralNode(1)))
     
     // Use reflection to access the parenthesizeNestedRHSJoin field
     val parenthesizeNestedRHSJoin = {
-      val field = queryBuilder.getClass.getSuperclass.getDeclaredField("parenthesizeNestedRHSJoin")
-      field.setAccessible(true)
+      // First try to get it from the current class (in case it's overridden)
+      val field = try {
+        val f = queryBuilder.getClass.getDeclaredField("parenthesizeNestedRHSJoin")
+        f.setAccessible(true)
+        f
+      } catch {
+        case _: NoSuchFieldException => 
+          // Fall back to superclass
+          val f = queryBuilder.getClass.getSuperclass.getDeclaredField("parenthesizeNestedRHSJoin")
+          f.setAccessible(true)
+          f
+      }
+      
       field.getBoolean(queryBuilder)
     }
     
