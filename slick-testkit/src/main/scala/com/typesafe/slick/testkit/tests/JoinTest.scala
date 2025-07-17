@@ -382,17 +382,23 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     
     // Create the join that should generate parentheses for H2
     // This creates a complex nested join structure that requires proper parenthesization
+    // The critical structure is: LEFT OUTER JOIN ... INNER JOIN ... INNER JOIN ... ON ... ON ...
     val join = for {
       (spaceAssignment, spaceAssignmentCategory) <- spaceAssignments joinLeft spaceAssignmentCategories on (_.id === _.spaceAssignmentId)
-      space <- spaces if space.id === spaceAssignment.spaceId
-      spaceProfile <- spaceProfiles if spaceProfile.id === space.spaceProfileId
+      (space, spaceProfile) <- (spaces join spaceProfiles on (_.spaceProfileId === _.id)) if space.id === spaceAssignment.spaceId
     } yield (spaceAssignment, space, spaceProfile, spaceAssignmentCategory)
     
     for {
       _ <- (spaceAssignments.schema ++ spaces.schema ++ spaceProfiles.schema ++ spaceAssignmentCategories.schema).create
-      // If the SQL is malformed due to missing parentheses, this query execution would fail
+      // Insert test data to make sure the query can actually run
+      _ <- spaceAssignments += ("sa1", "s1")
+      _ <- spaces += ("s1", "sp1")
+      _ <- spaceProfiles += ("sp1", "Test Profile")
+      _ <- spaceAssignmentCategories += ("sa1", "cat1")
+      // This query would fail with SQL syntax error if nested joins aren't properly parenthesized
       // The fix ensures H2 generates proper parentheses around nested joins
-      _ <- join.result.map(_ => ())
+      result <- join.result
+      _ = result.length shouldBe 1
     } yield ()
   }
 }
