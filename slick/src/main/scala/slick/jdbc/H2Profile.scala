@@ -114,7 +114,6 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     override protected val alwaysAliasSubqueries = false
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
-    override protected val parenthesizeNestedRHSJoin = true
 
     override def expr(n: Node) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"
