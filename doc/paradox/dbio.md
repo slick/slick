@@ -192,6 +192,107 @@ In case you want to force a rollback, you can return `DBIO.failed` within a `DBI
 
 @@snip [Connection.scala](../code/Connection.scala) { #rollback }
 
+### Advanced Transaction and Session Control {#advanced-control}
+
+For advanced use cases, particularly when integrating with external effect libraries (ZIO, Cats Effect, etc.), 
+Slick provides low-level primitives for manual transaction, session, and savepoint control. These enable building 
+sophisticated resource management patterns while maintaining Slick's session pinning behavior.
+
+@@@ warning
+
+These are unsafe primitives that require careful manual resource management. Improper use can lead to 
+connection leaks, uncommitted transactions, or database inconsistencies. Use the high-level 
+`transactionally` and `withPinnedSession` combinators for most use cases.
+
+@@@
+
+#### Transaction Control Primitives
+
+Manual transaction control provides external libraries full control over transaction boundaries:
+
+@@snip [Connection.scala](../code/Connection.scala) { #manual-transaction }
+
+Available transaction primitives:
+
+- `unsafeBeginTransaction: DBIO[Unit]` - Start a transaction and pin the session
+- `unsafeCommitTransaction: DBIO[Unit]` - Commit transaction and unpin session  
+- `unsafeRollbackTransaction: DBIO[Unit]` - Rollback transaction and unpin session
+- `isInTransaction: DBIO[Boolean]` - Check if currently in a transaction
+
+@@@ note
+
+External effect libraries can use these primitives to implement proper resource management 
+with acquire/release patterns:
+
+```scala
+// ZIO integration example
+def withSlickTransaction[A](dbio: DBIO[A]): ZIO[Database, Throwable, A] = 
+  ZIO.acquireReleaseWith(
+    ZIO.fromDBIO(H2Profile.unsafeBeginTransaction)
+  )(_ => 
+    ZIO.fromDBIO(H2Profile.unsafeCommitTransaction)
+      .orElse(ZIO.fromDBIO(H2Profile.unsafeRollbackTransaction))
+  )(_ => 
+    ZIO.fromDBIO(dbio)
+  )
+```
+
+@@@
+
+#### Session Pinning Primitives
+
+Session pinning controls when database connections are reused across multiple operations,
+providing performance benefits for batched operations:
+
+@@snip [Connection.scala](../code/Connection.scala) { #session-pinning }
+
+Available session pinning primitives:
+
+- `unsafePinSession: DBIO[Unit]` - Pin current session (nestable)
+- `unsafeUnpinSession: DBIO[Unit]` - Unpin session once (must match pin calls)
+- `isSessionPinned: DBIO[Boolean]` - Check if session is pinned
+
+Pin/unpin calls can be nested - the same number of unpin calls is required to fully unpin the session.
+
+#### Savepoint Control
+
+Savepoints provide partial rollback capabilities within transactions, enabling sophisticated 
+error recovery patterns:
+
+@@snip [Connection.scala](../code/Connection.scala) { #manual-savepoint }
+
+Available savepoint primitives:
+
+- `unsafeCreateSavepoint(name: String): DBIO[Savepoint]` - Create named savepoint
+- `unsafeRollbackToSavepoint(savepoint: Savepoint): DBIO[Unit]` - Rollback to savepoint
+- `unsafeReleaseSavepoint(savepoint: Savepoint): DBIO[Unit]` - Release savepoint (when supported)
+
+@@@ note
+
+Database compatibility for savepoints:
+
+- **All databases** support creating savepoints and rolling back to them
+- **Oracle and SQL Server** don't support explicit savepoint release - savepoints are automatically 
+  released when the transaction commits or rolls back
+- **Other databases** (H2, PostgreSQL, MySQL, etc.) support explicit savepoint release
+
+@@@
+
+#### High-Level Savepoint API
+
+For common savepoint use cases, Slick provides a high-level API that automatically manages 
+savepoint lifecycle:
+
+@@snip [Connection.scala](../code/Connection.scala) { #high-level-savepoint }
+
+The `withSavepoint` extension method:
+
+- `action.withSavepoint(name: String)` - Run action with named savepoint
+- `action.withSavepoint` - Run action with auto-generated savepoint name
+- Automatically rolls back to savepoint on failure
+- Automatically releases savepoint on success (when supported by database)
+- Handles database compatibility transparently
+
 JDBC Interoperability
 ---------------------
 
