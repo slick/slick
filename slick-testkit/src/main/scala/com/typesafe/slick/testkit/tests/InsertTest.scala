@@ -235,7 +235,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     if (tdb.capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
       for {
         _ <- prepare
-        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe 3))
+        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe 2))
         _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
       } yield ()
     } else {
