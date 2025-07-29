@@ -444,8 +444,8 @@ object SqlToSlick extends App {
           //#slickCase
           people.map(p =>
             Case
-              If(p.addressId === 1) Then "A"
-              If(p.addressId === 2) Then "B"
+              .If(p.addressId === 1).Then("A")
+              .If(p.addressId === 2).Then("B")
           ).result
           //#slickCase
         val (sqlRes, slickRes) = Await.result(db.run(sql zip slick), Duration.Inf)
