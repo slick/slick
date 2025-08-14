@@ -33,6 +33,8 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     up in the JDBC meta data, thus the original type is lost.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     DB2 does not have a BYTE type.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.forShare]]:
+  *     DB2 does not support SELECT ... FOR SHARE.</li>
   * </ul>
   *
   * Note: The DB2 JDBC driver has problems with quoted identifiers. Columns
@@ -48,7 +50,8 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
       RelationalCapabilities.reverse -
       JdbcCapabilities.insertOrUpdate -
       JdbcCapabilities.supportsByte -
-      JdbcCapabilities.booleanMetaData
+      JdbcCapabilities.booleanMetaData -
+      JdbcCapabilities.forShare
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
@@ -117,9 +120,9 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
       if(o.direction.desc) b += " desc"
     }
 
-    override protected def buildForUpdateClause(forUpdate: Boolean) = {
-      super.buildForUpdateClause(forUpdate)
-      if(forUpdate) {
+    override protected def buildLockingClause(strength: Option[LockStrength]): Unit = {
+      super.buildLockingClause(strength)
+      if (strength.isDefined) {
         b" with RS "
       }
     }

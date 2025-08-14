@@ -185,13 +185,17 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override protected def buildFromClause(from: Seq[(TermSymbol, Node)]) = {
       super.buildFromClause(from)
       tree match {
-        // SQL Server "select for update" syntax
-        case c: Comprehension.Base => if(c.forUpdate) b" with (updlock,rowlock) "
+        // SQL Server "select for update/share" syntax
+        case c: Comprehension.Base => c.locking match {
+          case Some(LockStrength.ForUpdate) => b" with (updlock,rowlock) "
+          case Some(LockStrength.ForShare) => b" with (holdlock,rowlock) "
+          case None =>
+        }
         case _ =>
       }
     }
 
-    override protected def buildForUpdateClause(forUpdate: Boolean) = {
+    override protected def buildLockingClause(strength: Option[LockStrength]) = {
       // SQLSever doesn't have "select for update" syntax, so use with (updlock,rowlock) in from clause
     }
 

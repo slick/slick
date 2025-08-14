@@ -71,6 +71,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.supportsByte]]:
   *     SQLite does not distinguish integer types and maps them all to Int
   *     in the meta data.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.forUpdate]],
+  *     [[slick.jdbc.JdbcCapabilities.forShare]]:
+  *     SQLite does not support row-level locking (but all transactions are
+  *     serializable, so it is not necessary).</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
   *     SQLite returns the last generated key only.</li>
   * </ul>
@@ -94,6 +98,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       JdbcCapabilities.supportsByte -
       JdbcCapabilities.distinguishesIntTypes -
       JdbcCapabilities.forUpdate -
+      JdbcCapabilities.forShare -
       JdbcCapabilities.returnMultipleInsertKey
 
   class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)

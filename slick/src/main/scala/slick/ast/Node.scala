@@ -404,12 +404,12 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
 }
 
 /** A .forUpdate call */
-final case class ForUpdate(generator: TermSymbol, from: Node) extends ComplexFilteredQuery {
-  type Self = ForUpdate
+final case class Locking(generator: TermSymbol, strength: LockStrength, from: Node) extends ComplexFilteredQuery {
+  type Self = Locking
   override def self = this
   lazy val children = ConstArray(from)
   protected[this] def rebuild(ch: ConstArray[Node]) = copy(from = ch(0))
-  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): ForUpdate = copy(generator = gen(0))
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Locking = copy(generator = gen(0))
 }
 
 /** A .take call. */
