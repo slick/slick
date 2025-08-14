@@ -50,6 +50,9 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.insertMultipleRowsWithSingleStatement]]:
   *      Oracle doesn't support this feature directly.
   *      There are several alternative ways, but the library doesn't support them, so far.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.savepointRelease]]:
+  *      Oracle JDBC driver does not support explicit savepoint release via releaseSavepoint().
+  *      Savepoints are automatically released when the transaction commits or rolls back.</li>
   * </ul>
   *
   * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns
@@ -70,7 +73,8 @@ trait OracleProfile extends JdbcProfile {
       JdbcCapabilities.distinguishesIntTypes -
       JdbcCapabilities.supportsByte -
       JdbcCapabilities.returnMultipleInsertKey -
-      JdbcCapabilities.insertMultipleRowsWithSingleStatement
+      JdbcCapabilities.insertMultipleRowsWithSingleStatement -
+      JdbcCapabilities.savepointRelease
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false

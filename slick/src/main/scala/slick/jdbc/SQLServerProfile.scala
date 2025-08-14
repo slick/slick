@@ -49,6 +49,9 @@ import com.typesafe.config.Config
   *     SQL Server's TINYINT is unsigned. It doesn't have a signed Byte-like
   *     type. Slick maps Byte to SMALLINT instead and that's how it shows up
   *     in model and code-generation.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.savepointRelease]]:
+  *     Microsoft JDBC Driver for SQL Server does not support explicit savepoint release.
+  *     Savepoints are automatically released when the transaction commits or rolls back.</li>
   * </ul>
   *
   * The default type for strings of unlimited length is "VARCHAR(MAX)", falling back to
@@ -77,7 +80,8 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
       SqlCapabilities.sequence -
       JdbcCapabilities.supportsByte -
       JdbcCapabilities.returnMultipleInsertKey -
-      JdbcCapabilities.insertMultipleRowsWithSingleStatement
+      JdbcCapabilities.insertMultipleRowsWithSingleStatement -
+      JdbcCapabilities.savepointRelease
 
   override protected def computeQueryCompiler =
     super.computeQueryCompiler
