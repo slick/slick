@@ -169,8 +169,8 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] = Some(Vector(Library.User))
 
-    override protected def buildForUpdateClause(forUpdate: Boolean) = {
-      super.buildForUpdateClause(forUpdate)
+    override protected def buildForUpdateClause(forUpdate: Boolean, forShare: Boolean) = {
+      super.buildForUpdateClause(forUpdate, forShare)
       if (forUpdate) {
         b" with RS "
       }
@@ -227,7 +227,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
-      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
+      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _, _) =>
         super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
       case _ => super.expr(c)
     }
