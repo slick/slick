@@ -19,7 +19,7 @@ jobs:
         ref: ${{ github.event.pull_request.base.sha }}
 
     - name: Set up JDK
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         distribution: adopt
         java-version: ${{ env.JAVA_VERSION }}
