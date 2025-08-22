@@ -37,6 +37,8 @@ object JdbcCapabilities {
   val supportsByte = Capability("jdbc.supportsByte")
   /** Supports FOR UPDATE row level locking */
   val forUpdate = Capability("jdbc.forUpdate")
+  /** Supports FOR SHARE row level locking */
+  val forShare = Capability("jdbc.forShare")
 
   /** Supports all JdbcProfile features which do not have separate capability values */
   val other = Capability("jdbc.other")
@@ -48,6 +50,7 @@ object JdbcCapabilities {
     defaultValueMetaData,
     distinguishesIntTypes,
     forUpdate,
+    forShare,
     forceInsert,
     insertOrUpdate,
     insertOrUpdateWithPrimaryKeyOnly,

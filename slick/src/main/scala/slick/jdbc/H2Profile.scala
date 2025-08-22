@@ -38,6 +38,8 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     InsertOrUpdate operations are emulated on the client side if the
   *     data to insert contains an `AutoInc` fields. Otherwise the operation
   *     is performed natively on the server side.</li>
+  *   <li>[[slick.jdbc.JdbcCapabilities.forShare]]:
+  *     H2 does not support SELECT ... FOR SHARE.</li>
   * </ul>
   */
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
@@ -50,7 +52,8 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       JdbcCapabilities.returnInsertOther -
       RelationalCapabilities.joinFull -
       JdbcCapabilities.insertOrUpdate -
-      RelationalCapabilities.reverse
+      RelationalCapabilities.reverse -
+      JdbcCapabilities.forShare
 
   class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

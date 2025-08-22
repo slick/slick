@@ -75,6 +75,8 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
   *     Derby's driver is unable to properly return the generated key for insert statements with multiple values.
   *     (<a href="https://issues.apache.org/jira/browse/DERBY-3609" target="_parent"></a>DERBY-3609</li>)
+  *   <li>[[slick.jdbc.JdbcCapabilities.forShare]]:
+  *     Derby does not support SELECT ... FOR SHARE.</li>
   * </ul>
   */
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
@@ -96,7 +98,8 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       JdbcCapabilities.booleanMetaData -
       JdbcCapabilities.supportsByte -
       RelationalCapabilities.repeat -
-      JdbcCapabilities.returnMultipleInsertKey
+      JdbcCapabilities.returnMultipleInsertKey -
+      JdbcCapabilities.forShare
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
@@ -169,9 +172,9 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns: Some[Vector[Library.JdbcFunction]] = Some(Vector(Library.User))
 
-    override protected def buildForUpdateClause(forUpdate: Boolean) = {
-      super.buildForUpdateClause(forUpdate)
-      if (forUpdate) {
+    override protected def buildLockingClause(strength: Option[LockStrength]): Unit = {
+      super.buildLockingClause(strength)
+      if (strength.isDefined) {
         b" with RS "
       }
     }
