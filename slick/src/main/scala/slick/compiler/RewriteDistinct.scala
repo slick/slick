@@ -33,12 +33,20 @@ class RewriteDistinct extends Phase {
   }
 
   def rewrite(s1: TermSymbol, dist1: Distinct, sel1: Node): (Node, Node) = {
+    val onFlat = ProductNode(ConstArray(dist1.on)).flatten
+    val onNodes = onFlat.children
+    
+    // Check if this is a regular .distinct() call (empty 'on' clause) - if so, don't rewrite
+    if (onNodes.isEmpty) {
+      logger.debug("Regular .distinct() call with empty 'on' clause - no rewrite needed")
+      return (dist1, sel1)
+    }
+    
+    logger.debug("Processing .distinctOn() call with non-empty 'on' clause")
     val refFields = sel1.collect[TermSymbol] {
       case Select(Ref(s), f) if s == s1 => f
     }.toSet
     logger.debug("Referenced fields: " + refFields.mkString(", "))
-    val onFlat = ProductNode(ConstArray(dist1.on)).flatten
-    val onNodes = onFlat.children
     val onFieldPos = onNodes.iterator.zipWithIndex.collect[(TermSymbol, Int)] {
       case (Select(Ref(s), f), idx) if s == dist1.generator => (f, idx)
     }.toMap
