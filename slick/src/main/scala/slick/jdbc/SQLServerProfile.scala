@@ -185,14 +185,16 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override protected def buildFromClause(from: Seq[(TermSymbol, Node)]) = {
       super.buildFromClause(from)
       tree match {
-        // SQL Server "select for update" syntax
-        case c: Comprehension.Base => if(c.forUpdate) b" with (updlock,rowlock) "
+        // SQL Server "select for update" and "select for share" syntax
+        case c: Comprehension.Base => 
+          if(c.forUpdate) b" with (updlock,rowlock) "
+          else if(c.forShare) b" with (sharedlock,rowlock) "
         case _ =>
       }
     }
 
-    override protected def buildForUpdateClause(forUpdate: Boolean) = {
-      // SQLSever doesn't have "select for update" syntax, so use with (updlock,rowlock) in from clause
+    override protected def buildForUpdateClause(forUpdate: Boolean, forShare: Boolean) = {
+      // SQLSever doesn't have "select for update" or "select for share" syntax, so use with (updlock,rowlock) or (sharedlock,rowlock) in from clause
     }
 
     override def expr(n: Node): Unit = n match {
@@ -214,7 +216,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.IfNull, _)) =>
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
-      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
+      case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _, _) =>
         super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
       case n => super.expr(n)
     }

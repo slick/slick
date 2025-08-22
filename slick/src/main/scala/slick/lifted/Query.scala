@@ -198,6 +198,12 @@ sealed trait QueryBase[T] extends Rep[T]
     val generator = new AnonSymbol
     new WrappingQuery[E, U, C](ForUpdate(generator, toNode), shaped)
   }
+  
+  /** Specify part of a select statement for share and marked for row level locking */
+  def forShare: Query[E, U, C] = {
+    val generator = new AnonSymbol
+    new WrappingQuery[E, U, C](ForShare(generator, toNode), shaped)
+  }
   def encodeRef(path: Node): Query[E, U, C] = new Query[E, U, C] {
     val shaped = self.shaped.encodeRef(path)
     def toNode = path

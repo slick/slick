@@ -412,6 +412,15 @@ final case class ForUpdate(generator: TermSymbol, from: Node) extends ComplexFil
   override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): ForUpdate = copy(generator = gen(0))
 }
 
+/** A .forShare call */
+final case class ForShare(generator: TermSymbol, from: Node) extends ComplexFilteredQuery {
+  type Self = ForShare
+  override def self = this
+  lazy val children = ConstArray(from)
+  protected[this] def rebuild(ch: ConstArray[Node]) = copy(from = ch(0))
+  override protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): ForShare = copy(generator = gen(0))
+}
+
 /** A .take call. */
 final case class Take(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
   type Self = Take
