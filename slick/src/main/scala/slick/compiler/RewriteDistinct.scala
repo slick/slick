@@ -37,8 +37,13 @@ class RewriteDistinct extends Phase {
       case (Select(Ref(s), f), idx) if s == dist1.generator => (f, idx)
     }.toMap
     logger.debug("Fields used directly in 'on' clause: " + onFieldPos.keySet.mkString(", "))
-    if((refFields -- onFieldPos.keys).isEmpty) {
-      // Only distinct fields referenced -> Create subquery and remove 'on' clause
+    
+    // Check if there's a SortBy in dist1.from that would conflict with DISTINCT ON
+    val hasConflictingSortBy = checkForConflictingSortBy(dist1.from, dist1.generator, onFieldPos.keySet)
+    logger.debug(s"Has conflicting SortBy: $hasConflictingSortBy")
+    
+    if((refFields -- onFieldPos.keys).isEmpty || hasConflictingSortBy) {
+      // Only distinct fields referenced OR there's a conflicting ORDER BY -> Create subquery and remove 'on' clause
       val onDefs = onNodes.map((new AnonSymbol, _))
       val onLookup = onDefs.iterator.collect[(TermSymbol, AnonSymbol)] {
         case (a, Select(Ref(s), f)) if s == dist1.generator => (f, a)
@@ -65,6 +70,30 @@ class RewriteDistinct extends Phase {
       val ret = GroupBy(dist1.generator, dist1.from, onFlat)
       logger.debug("Transformed Distinct to GroupBy:", Ellipsis(ret, List(0)))
       (ret, sel2)
+    }
+  }
+
+  def checkForConflictingSortBy(node: Node, distinctGenerator: TermSymbol, distinctFields: Set[TermSymbol]): Boolean = {
+    node match {
+      case SortBy(generator, _, orderBy) if generator == distinctGenerator =>
+        // Check if the ORDER BY contains fields not in the DISTINCT ON clause
+        val orderByFields = orderBy.flatMap { case (orderExpr, _) =>
+          orderExpr.collect[TermSymbol] {
+            case Select(Ref(s), f) if s == generator => f
+          }
+        }.toSet
+        val extraOrderByFields = orderByFields -- distinctFields
+        if (extraOrderByFields.nonEmpty) {
+          logger.debug(s"Found conflicting ORDER BY fields: $extraOrderByFields")
+          true
+        } else {
+          false
+        }
+      case n if n.children.nonEmpty =>
+        // Recursively check children
+        n.children.exists(child => checkForConflictingSortBy(child, distinctGenerator, distinctFields))
+      case _ =>
+        false
     }
   }
 }
