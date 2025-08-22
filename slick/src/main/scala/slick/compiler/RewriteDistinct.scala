@@ -48,6 +48,12 @@ class RewriteDistinct extends Phase {
     val hasConflictingSortBy = checkForConflictingSortBy(dist1.from, dist1.generator, onFieldPos.keySet)
     logger.debug(s"Has conflicting SortBy: $hasConflictingSortBy")
     
+    // Additional debugging for understanding the difference between profiles
+    logger.debug(s"refFields count: ${refFields.size}, onFieldPos.keys count: ${onFieldPos.keySet.size}")
+    logger.debug(s"refFields - onFieldPos.keys = ${refFields -- onFieldPos.keys}")
+    logger.debug(s"(refFields -- onFieldPos.keys).isEmpty = ${(refFields -- onFieldPos.keys).isEmpty}")
+    logger.debug(s"Final condition: only distinct fields = ${(refFields -- onFieldPos.keys).isEmpty}, has conflicts = $hasConflictingSortBy")
+    
     if((refFields -- onFieldPos.keys).isEmpty && !hasConflictingSortBy) {
       // Only distinct fields referenced AND no conflicting ORDER BY -> Create subquery and remove 'on' clause
       logger.debug("Creating subquery because only distinct fields referenced and no conflicts")
