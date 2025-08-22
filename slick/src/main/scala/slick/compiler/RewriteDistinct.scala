@@ -44,6 +44,7 @@ class RewriteDistinct extends Phase {
     
     if((refFields -- onFieldPos.keys).isEmpty || hasConflictingSortBy) {
       // Only distinct fields referenced OR there's a conflicting ORDER BY -> Create subquery and remove 'on' clause
+      logger.debug("Creating subquery due to: " + (if (hasConflictingSortBy) "conflicting ORDER BY" else "only distinct fields referenced"))
       val onDefs = onNodes.map((new AnonSymbol, _))
       val onLookup = onDefs.iterator.collect[(TermSymbol, AnonSymbol)] {
         case (a, Select(Ref(s), f)) if s == dist1.generator => (f, a)
