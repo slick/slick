@@ -9,21 +9,27 @@ import slick.util.{Ellipsis, ConstArray}
 class RewriteDistinct extends Phase {
   val name = "rewriteDistinct"
 
-  def apply(state: CompilerState) = if(state.get(Phase.assignUniqueSymbols).map(_.distinct).getOrElse(true)) state.map(_.replace({
+  def apply(state: CompilerState) = {
+    logger.debug("RewriteDistinct phase starting")
+    if(state.get(Phase.assignUniqueSymbols).map(_.distinct).getOrElse(true)) {
+      logger.debug("DISTINCT detected, proceeding with rewrite")
+      state.map(_.replace({
 
-    case n @ Bind(s1, dist1: Distinct, Pure(sel1, ts1))  =>
-      logger.debug("Rewriting Distinct in Bind:", Ellipsis(n, List(0, 0)))
-      val (inner, sel2) = rewrite(s1, dist1, sel1)
-      Bind(s1, inner, Pure(sel2, ts1)).infer()
+        case n @ Bind(s1, dist1: Distinct, Pure(sel1, ts1))  =>
+          logger.debug("Rewriting Distinct in Bind:", Ellipsis(n, List(0, 0)))
+          val (inner, sel2) = rewrite(s1, dist1, sel1)
+          Bind(s1, inner, Pure(sel2, ts1)).infer()
 
-    case n @ Aggregate(s1, dist1: Distinct, sel1)  =>
-      logger.debug("Rewriting Distinct in Aggregate:", Ellipsis(n, List(0, 0)))
-      val (inner, sel2) = rewrite(s1, dist1, sel1)
-      Aggregate(s1, inner, sel2).infer()
+        case n @ Aggregate(s1, dist1: Distinct, sel1)  =>
+          logger.debug("Rewriting Distinct in Aggregate:", Ellipsis(n, List(0, 0)))
+          val (inner, sel2) = rewrite(s1, dist1, sel1)
+          Aggregate(s1, inner, sel2).infer()
 
-  }, keepType = true, bottomUp = true)) else {
-    logger.debug("No DISTINCT used as determined by assignUniqueSymbols - skipping phase")
-    state
+      }, keepType = true, bottomUp = true))
+    } else {
+      logger.debug("No DISTINCT used as determined by assignUniqueSymbols - skipping phase")
+      state
+    }
   }
 
   def rewrite(s1: TermSymbol, dist1: Distinct, sel1: Node): (Node, Node) = {
@@ -75,26 +81,38 @@ class RewriteDistinct extends Phase {
   }
 
   def checkForConflictingSortBy(node: Node, distinctGenerator: TermSymbol, distinctFields: Set[TermSymbol]): Boolean = {
-    node match {
-      case SortBy(generator, _, orderBy) if generator == distinctGenerator =>
-        // Check if the ORDER BY contains fields not in the DISTINCT ON clause
-        val orderByFields = orderBy.flatMap { case (orderExpr, _) =>
-          orderExpr.collect[TermSymbol] {
-            case Select(Ref(s), f) if s == generator => f
-          }
-        }.toSet
-        val extraOrderByFields = orderByFields -- distinctFields
-        if (extraOrderByFields.nonEmpty) {
-          logger.debug(s"Found conflicting ORDER BY fields: $extraOrderByFields")
-          true
-        } else {
-          false
-        }
-      case n if n.children.nonEmpty =>
-        // Recursively check children
-        n.children.exists(child => checkForConflictingSortBy(child, distinctGenerator, distinctFields))
-      case _ =>
-        false
+    logger.debug(s"Checking node for conflicting sortBy: ${node.getClass.getSimpleName}")
+    
+    // Collect all SortBy nodes in the tree
+    val sortByNodes = node.collect {
+      case sortBy: SortBy => sortBy
     }
+    
+    logger.debug(s"Found ${sortByNodes.length} SortBy nodes")
+    
+    for (sortBy <- sortByNodes) {
+      logger.debug(s"Analyzing SortBy with generator: ${sortBy.generator}")
+      
+      // Extract all field references from ORDER BY expressions
+      val orderByFields = sortBy.by.flatMap { case (orderExpr, _) =>
+        logger.debug(s"Processing orderBy expression: $orderExpr")
+        orderExpr.collect[TermSymbol] {
+          case Select(Ref(s), f) => 
+            logger.debug(s"Found ORDER BY field: $f from ref $s")
+            f
+        }
+      }.toSet
+      
+      logger.debug(s"ORDER BY fields: $orderByFields, DISTINCT fields: $distinctFields")
+      val extraOrderByFields = orderByFields -- distinctFields
+      
+      if (extraOrderByFields.nonEmpty) {
+        logger.debug(s"Found conflicting ORDER BY fields: $extraOrderByFields")
+        return true
+      }
+    }
+    
+    logger.debug("No conflicting ORDER BY fields found")
+    false
   }
 }
