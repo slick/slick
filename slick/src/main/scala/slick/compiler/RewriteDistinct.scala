@@ -48,9 +48,9 @@ class RewriteDistinct extends Phase {
     val hasConflictingSortBy = checkForConflictingSortBy(dist1.from, dist1.generator, onFieldPos.keySet)
     logger.debug(s"Has conflicting SortBy: $hasConflictingSortBy")
     
-    if((refFields -- onFieldPos.keys).isEmpty || hasConflictingSortBy) {
-      // Only distinct fields referenced OR there's a conflicting ORDER BY -> Create subquery and remove 'on' clause
-      logger.debug("Creating subquery due to: " + (if (hasConflictingSortBy) "conflicting ORDER BY" else "only distinct fields referenced"))
+    if((refFields -- onFieldPos.keys).isEmpty && !hasConflictingSortBy) {
+      // Only distinct fields referenced AND no conflicting ORDER BY -> Create subquery and remove 'on' clause
+      logger.debug("Creating subquery because only distinct fields referenced and no conflicts")
       val onDefs = onNodes.map((new AnonSymbol, _))
       val onLookup = onDefs.iterator.collect[(TermSymbol, AnonSymbol)] {
         case (a, Select(Ref(s), f)) if s == dist1.generator => (f, a)
@@ -63,6 +63,8 @@ class RewriteDistinct extends Phase {
       logger.debug("Removed 'on' clause from Distinct:", Ellipsis(ret, List(0, 0, 0)))
       (ret, sel2)
     } else {
+      // Either non-distinct fields referenced OR conflicting ORDER BY -> Use GroupBy approach
+      logger.debug("Using GroupBy approach due to: " + (if (hasConflictingSortBy) "conflicting ORDER BY" else "non-distinct fields referenced"))
       val sel2 = sel1.replace {
         case Select(Ref(s), f) :@ tpe if s == s1 =>
           onFieldPos.get(f) match {
