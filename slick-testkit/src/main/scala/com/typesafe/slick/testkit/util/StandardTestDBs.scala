@@ -282,8 +282,6 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
 }
 
 abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
-  // sbt enables a security manager which prevents Derby from loading, we must disable it
-  System.setSecurityManager(null)
   import profile.api.actionBasedSQLInterpolation
   val profile: DerbyProfile = DerbyProfile
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
