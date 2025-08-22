@@ -1,9 +1,7 @@
 package manual
 
 import slick.jdbc.PostgresProfile.api._
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+import slick.jdbc.H2Profile
 
 object DebugDistinct extends App {
   
@@ -30,8 +28,22 @@ object DebugDistinct extends App {
     .distinctOn { case (list, _) => list.id }
     .sortBy { case (_, item) => item.map(_.createdAt).desc }
 
+  println("=== PostgreSQL Profile ===")
   println("Compiled SQL:")
   println(problemQuery.result.statements.mkString("\n"))
   
-  println("Trying to execute query (will fail since no DB is setup, but shows SQL compilation works)")
+  // Test with H2 profile for comparison
+  import slick.jdbc.H2Profile.api.{Database => H2Database, _}
+  val listsH2 = TableQuery[Lists](new Lists(_))
+  val listItemsH2 = TableQuery[ListItems](new ListItems(_))
+  
+  val problemQueryH2 = listsH2
+    .joinLeft(listItemsH2).on((list, item) => list.id === item.listId)
+    .sortBy { case (list, item) => (list.id, item.map(_.createdAt).desc) }
+    .distinctOn { case (list, _) => list.id }
+    .sortBy { case (_, item) => item.map(_.createdAt).desc }
+
+  println("\n=== H2 Profile ===")
+  println("Compiled SQL:")
+  println(problemQueryH2.result.statements.mkString("\n"))
 }
