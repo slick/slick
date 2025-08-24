@@ -50,6 +50,38 @@ The following loggers are particularly interesting:
 - `slick.jdbc.StatementInvoker.result`:
    Shows the first rows of the result set when a query is executed. Does not apply to streaming results.
 
+### Custom Logging Context
+
+Slick supports attaching custom context information to database operations for enhanced logging and traceability.
+This context information is automatically included in SQL statement logs and other relevant log messages.
+
+To use custom logging context:
+
+```scala
+import slick.util.LoggingContext
+
+// Create a context with key-value pairs
+val context = LoggingContext("user" -> "john.doe", "operation" -> "user-registration")
+
+// Attach context to a database action
+val action = myTable.filter(_.id === 123).result.withLoggingContext(context)
+
+// Or use the convenience method for single key-value pairs
+val taggedAction = myTable += newRecord.tagged("source", "api")
+
+// Context can be accumulated through action chains
+val combinedAction = (for {
+  _ <- createAction.tagged("phase", "setup")
+  result <- queryAction.tagged("phase", "execution")
+} yield result).withLoggingContext(LoggingContext("component" -> "user-service"))
+```
+
+When the above actions are executed, SQL statements will include the context information in log messages:
+
+```
+[user=john.doe, operation=user-registration] select "id", "name" from "users" where "id" = ?
+```
+
 Monitoring
 ----------
 

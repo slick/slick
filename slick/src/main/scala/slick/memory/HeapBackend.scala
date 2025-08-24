@@ -10,7 +10,7 @@ import slick.ast.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
 import slick.compat.collection.*
-import slick.util.Logging
+import slick.util.{Logging, LoggingContext}
 
 import com.typesafe.config.Config
 import org.reactivestreams.Subscriber
@@ -30,7 +30,16 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   class HeapDatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends BasicDatabaseDef {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
-      new BasicActionContext { val useSameThread = _useSameThread }
+      new BasicActionContext { 
+        val useSameThread = _useSameThread 
+        val loggingContext = LoggingContext.empty
+      }
+
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _loggingContext: LoggingContext): Context =
+      new BasicActionContext { 
+        val useSameThread = _useSameThread 
+        val loggingContext = _loggingContext
+      }
 
     protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T],
                                                                 useSameThread: Boolean): StreamingContext =
@@ -80,6 +89,7 @@ trait HeapBackend extends RelationalBackend with Logging {
     }) {
       override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
                                indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable = err
+      override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _loggingContext: LoggingContext): Context = err.asInstanceOf[Context]
     }
   }
 
