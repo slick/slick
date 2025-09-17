@@ -353,8 +353,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def updateStatement: String = sres.sql
 
     /** Add a RETURNING clause to the UPDATE statement to return specific columns.
-     * Only works with databases that support UPDATE ... RETURNING. */
-    def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningUpdateActionComposer[T, RU] =
+     * Only works with databases that support UPDATE ... RETURNING. 
+     * Use this method specifically for UPDATE operations to avoid conflicts with INSERT returning. */
+    def updateReturning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningUpdateActionComposer[T, RU] =
       createReturningUpdateActionComposer[T, RU, RU](tree, param, value.toNode, (_, r) => r)
   }
 
