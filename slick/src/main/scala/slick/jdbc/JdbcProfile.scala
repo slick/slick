@@ -74,6 +74,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   final def buildSequenceSchemaDescription(seq: Sequence[?]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
   trait JdbcLowPriorityAPI {
+    // Only provide update returning for specifically mapped queries to avoid conflict with insert returning
     implicit def queryUpdateActionExtensionMethods[U, C[_]](q: Query[?, U, C]): UpdateActionExtensionMethodsImpl[U] =
       createUpdateActionExtensionMethods(updateCompiler.run(q.toNode).tree, ())
   }
