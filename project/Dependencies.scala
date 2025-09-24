@@ -33,7 +33,7 @@ object Dependencies {
   val logback = "ch.qos.logback" % "logback-classic" % "1.5.18"
   val hikariCP = "com.zaxxer" % "HikariCP" % "7.0.2"
 
-  val h2 = "com.h2database" % "h2" % "2.3.232"
+  val h2 = "com.h2database" % "h2" % "2.4.240"
   val sqlServer = "com.microsoft.sqlserver" % "mssql-jdbc" % "13.2.0.jre11"
 
   val testDBs = Seq(
