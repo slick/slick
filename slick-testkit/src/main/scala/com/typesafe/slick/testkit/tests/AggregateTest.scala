@@ -523,4 +523,41 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testDistinctOnWithJoinAndSortBy = {
+    class Lists(tag: Tag) extends Table[(Int, String)](tag, "lists_dst") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val lists = TableQuery[Lists]
+    
+    class ListItems(tag: Tag) extends Table[(Int, Option[Int], Int)](tag, "list_items_dst") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def listId = column[Option[Int]]("list_id")
+      def createdAt = column[Int]("created_at") // Using Int instead of Timestamp for simplicity
+      def * = (id, listId, createdAt)
+    }
+    val listItems = TableQuery[ListItems]
+    
+    // This should work without explicit .subquery - reproduces the issue
+    val problemQuery = lists
+      .joinLeft(listItems).on((list, item) => list.id === item.listId)
+      .sortBy { case (list, item) => (list.id, item.map(_.createdAt).desc) }
+      .distinctOn { case (list, _) => list.id }
+      .sortBy { case (_, item) => item.map(_.createdAt).desc }
+    
+    val values1 = Seq((1, "List 1"), (2, "List 2"), (3, "List 3"))
+    val values2 = Seq((1, Some(1), 100), (2, Some(1), 200), (3, Some(2), 150), (4, Some(2), 250))
+    
+    DBIO.seq(
+      (lists.schema ++ listItems.schema).createIfNotExists,
+      lists ++= values1,
+      listItems ++= values2,
+      problemQuery.result.map(result => {
+        println(s"Result: $result")
+        assert(result.length >= 0) // Basic check that it doesn't crash
+      })
+    )
+  }
+
 }
