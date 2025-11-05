@@ -45,7 +45,7 @@ object Dependencies {
     "org.hsqldb" % "hsqldb" % "2.7.4",
     "org.postgresql" % "postgresql" % "42.7.8",
     "com.mysql" % "mysql-connector-j" % "9.5.0",
-    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.19.0.0",
+    "com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.20.0.0",
     "com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"
   )
 
