@@ -139,11 +139,16 @@ trait RelationalTableComponent { self: RelationalProfile =>
         "This may be an initialization order problem. "+
         "When using a MappedColumnType, you may want to change it from a val to a lazy val or def.")
       new Rep.TypedRep[C] {
+        // Create a unique FieldSymbol for this specific column definition
+        // This ensures that multiple Rep[T] definitions for the same column name
+        // with different types get distinct FieldSymbol instances
+        private val fieldSymbol = FieldSymbol(n)(options, tt)
+        
         override def toNode: Node =
           Select(tableTag match {
             case r: RefTag => r.path
             case _ => tableNode
-          }, FieldSymbol(n)(options, tt)) :@ tt
+          }, fieldSymbol) :@ tt
         override def toString = (tableTag match {
           case r: RefTag => "(" + _tableName + " " + r.path + ")"
           case _ => _tableName
