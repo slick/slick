@@ -77,4 +77,6 @@ case class SQLActionBuilder(sql: String, setParameter: SetParameter[Unit]) {
       b.setParameter(p, pp)
     })
   }
+  def stripMargin(marginChar: Char): SQLActionBuilder = copy(sql.stripMargin(marginChar))
+  def stripMargin: SQLActionBuilder = copy(sql.stripMargin)
 }
