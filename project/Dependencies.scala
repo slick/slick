@@ -30,7 +30,7 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.3"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.5.20"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.5.21"
   val hikariCP = "com.zaxxer" % "HikariCP" % "7.0.2"
 
   val h2 = "com.h2database" % "h2" % "2.4.240"
