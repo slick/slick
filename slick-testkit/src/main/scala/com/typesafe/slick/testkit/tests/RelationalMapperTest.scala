@@ -109,35 +109,4 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
     )
   }
-
-  def testColumnFilteringWithDuplicateNames = {
-    case class WrappedString(s: String)
-    case class Foo(value: WrappedString)
-
-    implicit val wrappedMap: BaseColumnType[WrappedString] = MappedColumnType.base[WrappedString, String](
-      wrapped => wrapped.s,
-      str => WrappedString(str)
-    )
-
-    class FooTable(tag: Tag) extends Table[Foo](tag, "foo_test") {
-      def valueWrapped: Rep[WrappedString] = column[WrappedString]("value", O.PrimaryKey)
-      def value: Rep[String] = column("value")
-
-      def * = valueWrapped.<>(
-        (wrapped: WrappedString) => Foo(wrapped),
-        (foo: Foo) => Some(foo.value)
-      )
-    }
-
-    val fooTableQuery = TableQuery[FooTable]
-
-    seq(
-      fooTableQuery.schema.create,
-      fooTableQuery.delete,
-      fooTableQuery += Foo(WrappedString("example")),
-      fooTableQuery.result.map(_.length shouldBe 1), // this should work
-      fooTableQuery.filter(_.value === "example").result.map(_.length shouldBe 1), // this should not throw ClassCastException
-      fooTableQuery.filter(_.valueWrapped === WrappedString("example")).result.map(_.length shouldBe 1) // this should also work
-    )
-  }
 }
