@@ -155,7 +155,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     MTable.getTables(None, None, Some("%"), Some(Seq("TABLE")))
 
   override val columnTypes: PostgresJdbcTypes = new PostgresJdbcTypes
-  override protected def computeQueryCompiler = super.computeQueryCompiler
+  override protected def computeQueryCompiler = super.computeQueryCompiler - Phase.rewriteDistinct
   override def createQueryBuilder(n: Node, state: CompilerState): PostgresQueryBuilder =
     new PostgresQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): PostgresUpsertBuilder = new PostgresUpsertBuilder(node)
