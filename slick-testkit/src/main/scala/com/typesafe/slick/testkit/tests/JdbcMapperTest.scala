@@ -516,4 +516,46 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       ts.map(_.auto).to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
     )
   }
+
+  /** Regression test for issue #3125: ClassCastException when filtering on columns not in projection.
+    *
+    * This test verifies that having multiple Rep[T] definitions for the same physical
+    * database column with different types works correctly. Before the fix in PR #3145,
+    * this would cause a ClassCastException during query execution.
+    *
+    * @see https://github.com/slick/slick/issues/3125
+    * @see https://github.com/slick/slick/pull/3145
+    */
+  def testColumnFilteringWithDifferentTypes = {
+    case class WrappedString(s: String)
+    case class Foo(value: WrappedString)
+
+    implicit val wrappedStringMapper: BaseColumnType[WrappedString] = MappedColumnType.base[WrappedString, String](
+      wrapped => wrapped.s,
+      str => WrappedString(str)
+    )
+
+    class FooTable(tag: Tag) extends Table[Foo](tag, "foo_test_3125") {
+      def valueWrapped: Rep[WrappedString] = column[WrappedString]("value", O.PrimaryKey)
+      def value: Rep[String] = column[String]("value")
+
+      def * = valueWrapped.<>(
+        (wrapped: WrappedString) => Foo(wrapped),
+        (foo: Foo) => Some(foo.value)
+      )
+    }
+
+    val fooTableQuery = TableQuery[FooTable]
+
+    seq(
+      fooTableQuery.schema.create,
+      fooTableQuery += Foo(WrappedString("example")),
+      fooTableQuery.result.map(_.length shouldBe 1),
+      // This filter uses the String column which is not in the projection
+      // It should work but was throwing ClassCastException before the fix
+      fooTableQuery.filter(_.value === "example").result.map(_.length shouldBe 1),
+      // This filter uses the WrappedString column which IS in the projection
+      fooTableQuery.filter(_.valueWrapped === WrappedString("example")).result.map(_.length shouldBe 1)
+    )
+  }
 }
