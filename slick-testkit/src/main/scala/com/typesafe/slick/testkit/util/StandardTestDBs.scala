@@ -38,7 +38,7 @@ object StandardTestDBs {
     val url = "jdbc:h2:mem:test1"
   }
 
-  lazy val H2Disk = new H2TestDB("h2disk", false) {
+  lazy val H2Disk: H2TestDB = new H2TestDB("h2disk", false) {
     val dbName = "h2-"+confName
     val url = "jdbc:h2:"+TestkitConfig.testDBPath+"/"+dbName
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -49,13 +49,13 @@ object StandardTestDBs {
     }
   }
 
-  lazy val HsqldbMem = new HsqlDB("hsqldbmem") {
+  lazy val HsqldbMem: HsqlDB = new HsqlDB("hsqldbmem") {
     val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
     override def isPersistent = false
   }
 
-  lazy val HsqldbDisk = new HsqlDB("hsqldbdisk") {
+  lazy val HsqldbDisk: HsqlDB = new HsqlDB("hsqldbdisk") {
     val dbName = "hsqldb-"+confName
     val url = "jdbc:hsqldb:file:"+TestkitConfig.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -86,7 +86,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val DerbyMem = new DerbyDB("derbymem") {
+  lazy val DerbyMem: DerbyDB = new DerbyDB("derbymem") {
     val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
@@ -97,7 +97,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val DerbyDisk = new DerbyDB("derbydisk") {
+  lazy val DerbyDisk: DerbyDB = new DerbyDB("derbydisk") {
     val dbName = "derby-"+confName
     val url = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
@@ -152,7 +152,7 @@ object StandardTestDBs {
     }
   }
 
-  lazy val DB2 = new ExternalJdbcTestDB("db2") {
+  lazy val DB2: ExternalJdbcTestDB = new ExternalJdbcTestDB("db2") {
     val profile: Profile = DB2Profile
     import profile.api.actionBasedSQLInterpolation
 
