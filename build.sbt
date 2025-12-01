@@ -73,7 +73,7 @@ def slickScalacOptions = Seq(
         List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3") ++ scala2InlineSettings.value
       case Some((2, 13)) =>
         List(
-          "-Xsource:3",
+          "-Xsource:3-cross",
           "-Wunused:imports",
           "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
           "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
