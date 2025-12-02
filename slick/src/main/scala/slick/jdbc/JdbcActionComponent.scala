@@ -624,7 +624,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         }
 
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): MultiInsertResult =
-        rowsPerStatement match {
+        if(values.isEmpty) retMany(values, Vector.empty)
+        else rowsPerStatement match {
           case RowsPerStatement.One =>
             values match {
               case seq: IndexedSeq[?] if seq.length < 2 => doUnbatched(ctx, sql)

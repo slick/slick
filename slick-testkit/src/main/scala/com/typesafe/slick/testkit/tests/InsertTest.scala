@@ -538,4 +538,40 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     )
   } else DBIO.seq()
 
+  def testInsertAllEmptyList = {
+    class A(tag: Tag) extends Table[(Int, String)](tag, "insert_all_empty") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val as = TableQuery[A]
+
+    // Test with empty List
+    val emptyList = List[(Int, String)]()
+
+    DBIO.seq(
+      as.schema.create,
+      as.insertAll(emptyList).map(_ shouldBe Some(0)),
+      as.result.map(_ shouldBe Seq.empty)
+    )
+  }
+
+  def testInsertAllEmptyVector = {
+    class A(tag: Tag) extends Table[(Int, String)](tag, "insert_all_empty_vec") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val as = TableQuery[A]
+
+    // Test with empty Vector
+    val emptyVector = Vector[(Int, String)]()
+
+    DBIO.seq(
+      as.schema.create,
+      as.insertAll(emptyVector).map(_ shouldBe Some(0)),
+      as.result.map(_ shouldBe Seq.empty)
+    )
+  }
+
 }
