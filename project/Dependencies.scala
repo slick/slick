@@ -15,6 +15,18 @@ object Dependencies {
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
 
+  // OpenTelemetry dependencies for tracing
+  val opentelemetryVersion = "1.42.1"
+  val opentelemetryApi = "io.opentelemetry" % "opentelemetry-api" % opentelemetryVersion
+  val opentelemetrySemanticConventions = "io.opentelemetry.semconv" % "opentelemetry-semconv" % "1.25.0-alpha"
+  val opentelemetryContext = "io.opentelemetry" % "opentelemetry-context" % opentelemetryVersion
+  
+  def tracingDependencies = Seq(
+    opentelemetryApi,
+    opentelemetrySemanticConventions,
+    opentelemetryContext
+  )
+
   val scalaCollectionCompat = Def.setting {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, n)) if n == 12 =>
