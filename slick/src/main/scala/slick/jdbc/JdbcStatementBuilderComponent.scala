@@ -64,7 +64,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       if(!capabilities.contains(JdbcCapabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(rconv, _)) =
-        forceInsertCompiler.run(node).tree
+        forceInsertCompiler.run(node).tree: @unchecked
       if(ibr.table.baseIdentity != standardInsert.table.baseIdentity)
         throw new SlickException("Returned key columns must be from same table as inserted columns ("+
           ibr.table.baseIdentity+" != "+standardInsert.table.baseIdentity+")")
