@@ -46,6 +46,7 @@ Its features include:
    - Compose queries with for comprehensions or combinators
    - Compose row expressions (column sets, predicates, and column mappings)
  - A database metadata introspection API
+ - Distributed tracing integration with OpenTelemetry for comprehensive database operation monitoring
 
 Slick features an advanced query compiler which can generate SQL for a variety
 of different database engines from the same Scala code, allowing you to focus on
@@ -124,6 +125,35 @@ by a large suite of automated tests to ensure compatibility:
 
 Accessing other database systems is possible, although possibly with a reduced feature 
 set.
+
+## Distributed Tracing
+
+Slick provides an optional distributed tracing module (`slick-tracing`) that integrates with OpenTelemetry 
+to provide comprehensive monitoring and observability of database operations. This includes:
+
+- Automatic span creation for database queries with semantic conventions
+- SQL comment injection for cloud database insights (Google Cloud SQL, AWS Aurora, Azure SQL)
+- Query compilation phase instrumentation
+- Connection pool monitoring
+- Streaming query tracing
+
+To use the tracing module, add the dependency and create a traced profile:
+
+```scala
+libraryDependencies += "com.typesafe.slick" %% "slick-tracing" % "3.7.0"
+
+import slick.tracing._
+import io.opentelemetry.api.OpenTelemetry
+
+val openTelemetry: OpenTelemetry = // ... initialize OpenTelemetry
+val profile = new TracedH2Profile(openTelemetry)
+
+import profile.api._
+// Queries are automatically traced
+val query = users.filter(_.name === "Alice").result
+```
+
+See the [tracing module documentation](slick-tracing/README.md) for detailed configuration and usage instructions.
 
 ## Contributing
 
