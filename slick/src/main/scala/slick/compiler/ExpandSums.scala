@@ -110,7 +110,7 @@ class ExpandSums extends Phase {
   /** Translate an Option-extended left outer, right outer or full outer join */
   def translateJoin(bind: Bind, discCandidates: Set[(TypeSymbol, List[TermSymbol])]): Bind = {
     logger.debug("translateJoin", bind)
-    val Bind(bsym, (join @ Join(lsym, rsym, left :@ CollectionType(_, leftElemType), right :@ CollectionType(_, rightElemType), jt, on)) :@ CollectionType(cons, elemType), pure) = bind
+    val Bind(bsym, (join @ Join(lsym, rsym, left :@ CollectionType(_, leftElemType), right :@ CollectionType(_, rightElemType), jt, on)) :@ CollectionType(cons, elemType), pure) = bind: @unchecked
     val lComplex = !leftElemType.structural.isInstanceOf[AtomicType]
     val rComplex = !rightElemType.structural.isInstanceOf[AtomicType]
     logger.debug(s"Translating join ($jt, complex: $lComplex, $rComplex):", bind)
@@ -154,7 +154,7 @@ class ExpandSums extends Phase {
           logger.debug("No suitable discriminator column found in "+elemType)
           (Disc1, false)
       }
-      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(ConstArray(disc, Ref(extendGen))))).infer()
+      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(ConstArray(disc, Ref(extendGen))))).infer(): @unchecked
       val sideInCondition = Select(Ref(sym) :@ extendedElementType, ElementSymbol(2)).infer()
       val on2 = on.replace({
         case Ref(s) if s == sym => sideInCondition
@@ -177,7 +177,7 @@ class ExpandSums extends Phase {
     }
 
     // Cast to translated Option type in outer bind
-    val join2 :@ CollectionType(_, elemType2) = Join(lsym, rsym, left2, right2, jt2, on2).infer()
+    val join2 :@ CollectionType(_, elemType2) = Join(lsym, rsym, left2, right2, jt2, on2).infer(): @unchecked
     def optionCast(idx: Int, createDisc: Boolean): Node = {
       val ref = Select(Ref(bsym) :@ elemType2, ElementSymbol(idx+1))
       val v = if(createDisc) {
