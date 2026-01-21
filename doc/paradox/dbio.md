@@ -153,6 +153,26 @@ and @scaladoc[DBIO.failed](slick.dbio.DBIOAction$#failed(Throwable):DBIOAction[N
 The @scaladoc[named](slick.dbio.DBIOAction#named(String):DBIOAction[R,S,E]) combinator names an
 action. This name can be seen in debug logs if you enable the `slick.basic.BasicBackend.action`  @ref:[logger](config.md#logging).
 
+### Custom Logging Context
+
+Slick provides support for attaching custom context information to database actions, which will be included
+in SQL statement logs and other relevant log messages for enhanced traceability:
+
+@@snip [DBIOCombinators.scala](../code/DBIOCombinators.scala) { #logging-context }
+
+The @scaladoc[withLoggingContext](slick.dbio.DBIOAction#withLoggingContext) method attaches a full
+@scaladoc[LoggingContext](slick.util.LoggingContext) to an action, while the @scaladoc[tagged](slick.dbio.DBIOAction#tagged) 
+convenience method allows adding single key-value pairs. Context information accumulates through action combinators,
+providing comprehensive traceability through complex action sequences.
+
+When actions with logging context are executed, the context information appears in SQL statement logs:
+
+```
+[user=barista, operation=coffee-management] insert into "COFFEES" ("COF_NAME","PRICE") values (?,?)
+```
+
+See the @ref:[Configuration](config.md#custom-logging-context) section for more details on custom logging context.
+
 ### Transactions and Pinned Sessions {#transactions}
 
 When executing a `DBIOAction` which is composed of several smaller actions, Slick acquires sessions from the connection
