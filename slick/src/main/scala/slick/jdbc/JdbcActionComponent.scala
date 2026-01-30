@@ -14,7 +14,7 @@ import slick.dbio.*
 import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
-import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder}
+import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder, ConstArray}
 import slick.compat.collection.*
 
 
@@ -329,6 +329,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def createUpdateActionExtensionMethods[T](tree: Node, param: Any): UpdateActionExtensionMethods[T] =
     new UpdateActionExtensionMethodsImpl[T](tree, param)
 
+  def createReturningUpdateActionComposer[T, QR, RU](tree: Node, param: Any, keys: Node, mux: (T, QR) => RU): ReturningUpdateActionComposer[T, RU] =
+    new ReturningUpdateActionComposerImpl[T, QR, RU](tree, param, keys, mux)
+
   class UpdateActionExtensionMethodsImpl[T](tree: Node, param: Any) {
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
@@ -348,6 +351,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
     /** Get the statement used by `update` */
     def updateStatement: String = sres.sql
+
+    /** Add a RETURNING clause to the UPDATE statement to return specific columns.
+     * Only works with databases that support UPDATE ... RETURNING. 
+     * Use this method specifically for UPDATE operations to avoid conflicts with INSERT returning. */
+    def updateReturning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningUpdateActionComposer[T, RU] =
+      createReturningUpdateActionComposer[T, RU, RU](tree, param, value.toNode, (_, r) => r)
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -491,6 +500,24 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     type MultiInsertResult = Seq[RU]
     type SingleInsertOrUpdateResult = Option[RU]
     type QueryInsertResult = Seq[RU]
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////// Update Actions Composers
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+
+  /** An UpdateActionComposer that returns generated data or other columns. */
+  trait ReturningUpdateActionComposer[T, RU] extends IntoUpdateActionComposer[T, RU] { self =>
+    /** Specifies a mapping from updated values and returned columns to a desired value.
+      * @param f Function that maps updated values and returned columns to a desired value.
+      * @tparam R target type of the mapping */
+    def into[R](f: (T, RU) => R): IntoUpdateActionComposer[T, R]
+  }
+
+  /** An UpdateActionComposer that returns a mapping of the updated and returned data. */
+  trait IntoUpdateActionComposer[T, RU] { self =>
+    /** An Action that updates a single row and returns columns */
+    def update(value: T): ProfileAction[Option[RU], NoStream, Effect.Write]
   }
 
   //////////////////////////////////////////////////////////// InsertActionComposer Implementations
@@ -779,6 +806,52 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       Some(mux(value, buildKeysResult(st).first(null)))
 
     protected def retOneInsertOrUpdateFromUpdate: SingleInsertOrUpdateResult = None
+  }
+
+  protected class ReturningUpdateActionComposerImpl[T, QR, RU](tree: Node, param: Any, val keys: Node, val mux: (T, QR) => RU) 
+    extends ReturningUpdateActionComposer[T, RU] {
+    
+    protected[this] val ResultSetMapping(_,
+      CompiledStatement(_, sres: SQLBuilder.Result, _),
+      CompiledMapping(_converter, _)) = tree
+    protected[this] val converter = _converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, T]]
+
+    def into[R](f: (T, RU) => R): IntoUpdateActionComposer[T, R] =
+      createReturningUpdateActionComposer[T, QR, R](tree, param, keys, (v, r) => f(v, mux(v, r)))
+
+    protected lazy val (keyColumns, keyConverter, keyReturnOther) = buildReturnColumns(keys)
+
+    protected def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[ResultSet, PreparedStatement, ResultSet, ?], Boolean) = {
+      if(!capabilities.contains(JdbcCapabilities.returnInsertKey))
+        throw new SlickException("This DBMS does not allow returning columns from UPDATE statements")
+      val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(rconv, _)) =
+        forceInsertCompiler.run(node).tree
+      val returnOther = ibr.fields.length > 1 || !ibr.fields.head.options.contains(ColumnOption.AutoInc)
+      if(!capabilities.contains(JdbcCapabilities.returnInsertOther) && returnOther)
+        throw new SlickException(
+          "This DBMS allows only a single column to be returned from an UPDATE," +
+          " and that column must be an AutoInc column."
+        )
+      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, ?]], returnOther)
+    }
+
+    protected def buildKeysResult(st: Statement): Invoker[QR] =
+      ResultSetInvoker[QR](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr.rs).asInstanceOf[QR])
+
+    def update(value: T): ProfileAction[Option[RU], NoStream, Effect.Write] = {
+      new SimpleJdbcProfileAction[Option[RU]]("update.returning", Vector(sres.sql)) {
+        def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Option[RU] = ctx.session.withPreparedInsertStatement(sql.head, keyColumns.toArray) { st =>
+          st.clearParameters
+          converter.set(value, st, 0)
+          sres.setter(st, converter.width+1, param)
+          val updateCount = st.executeUpdate
+          if(updateCount > 0) {
+            val keys = buildKeysResult(st).firstOption(null)
+            keys.map(k => mux(value, k))
+          } else None
+        }
+      }
+    }
   }
 }
 object JdbcActionComponent {
