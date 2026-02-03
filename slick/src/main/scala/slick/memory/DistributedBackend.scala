@@ -8,7 +8,7 @@ import slick.SlickException
 import slick.basic.BasicBackend
 import slick.relational.RelationalBackend
 import slick.compat.collection.*
-import slick.util.Logging
+import slick.util.{Logging, LoggingContext}
 
 import com.typesafe.config.Config
 import org.reactivestreams.Subscriber
@@ -31,7 +31,16 @@ trait DistributedBackend extends RelationalBackend with Logging {
     extends BasicDatabaseDef {
 
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
-      new BasicActionContext { val useSameThread = _useSameThread }
+      new BasicActionContext { 
+        val useSameThread = _useSameThread 
+        val loggingContext = LoggingContext.empty
+      }
+
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _loggingContext: LoggingContext): Context =
+      new BasicActionContext { 
+        val useSameThread = _useSameThread 
+        val loggingContext = _loggingContext
+      }
 
     protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T],
                                                                 useSameThread: Boolean): StreamingContext =

@@ -81,7 +81,7 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
       if(logger.isDebugEnabled) {
         if(GlobalConfig.detectRebuild && s2.tree == state.tree) {
           val rebuilt = detectRebuiltLeafs(state.tree, s2.tree)
-          logger.debug("After phase "+p.name+": (no change but not identical)", s2.tree, (d => rebuilt.contains(RefId(d))))
+          logger.debug("After phase "+p.name+": (no change but not identical)", s2.tree, (d: Dumpable) => rebuilt.contains(RefId(d)))
         } else
           logger.debug("After phase "+p.name+":", s2.tree)
       }

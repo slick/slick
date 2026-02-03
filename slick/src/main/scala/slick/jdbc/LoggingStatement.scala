@@ -14,7 +14,7 @@ import slick.util.TableDump
 
 /** A wrapper for `java.sql.Statement` that logs statements and benchmark results
   * to the appropriate [[JdbcBackend]] loggers. */
-class LoggingStatement(st: Statement) extends Statement {
+class LoggingStatement(st: Statement, context: slick.util.LoggingContext = slick.util.LoggingContext.empty) extends Statement {
   private[this] val doStatement = statementLogger.isDebugEnabled
   private[this] val doBenchmark = benchmarkLogger.isDebugEnabled
   private[this] val doParameter = parameterLogger.isDebugEnabled
@@ -47,9 +47,20 @@ class LoggingStatement(st: Statement) extends Statement {
   }
 
   protected[this] def logged[T](sql: String, what: String = "statement")(f: =>T) = {
-    if (doStatement && (sql ne null)) statementLogger.debug("Executing " + what + ": " + sql)
-    if (doStatementAndParameter && (sql ne null))
-      statementAndParameterLogger.debug("Executing " + what + ": " + sql)
+    if (doStatement && (sql ne null)) {
+      if (context.nonEmpty) {
+        statementLogger.debug("Executing " + what + ": " + sql, context)
+      } else {
+        statementLogger.debug("Executing " + what + ": " + sql)
+      }
+    }
+    if (doStatementAndParameter && (sql ne null)) {
+      if (context.nonEmpty) {
+        statementAndParameterLogger.debug("Executing " + what + ": " + sql, context)
+      } else {
+        statementAndParameterLogger.debug("Executing " + what + ": " + sql)
+      }
+    }
     if(doParameter && (paramss ne null) && paramss.nonEmpty) {
       // like s.groupBy but only group adjacent elements and keep the ordering
       def groupBy[U](s: IterableOnce[U])(f: U => AnyRef): IndexedSeq[IndexedSeq[U]] = {
@@ -83,12 +94,24 @@ class LoggingStatement(st: Statement) extends Statement {
         val types = matchingSets.head._1
         val indexes = 1.to(types.length).map(_.toString)
         dump(Vector(indexes, types.toIndexedSeq), matchingSets.map(_._2).map(_.toIndexedSeq))
-          .foreach(s => parameterLogger.debug(s))
+          .foreach(s => {
+            if (context.nonEmpty) {
+              parameterLogger.debug(s, context)
+            } else {
+              parameterLogger.debug(s)
+            }
+          })
       }
     }
     val t0 = if(doBenchmark) System.nanoTime() else 0L
     val res = f
-    if (doBenchmark) benchmarkLogger.debug("Execution of " + what + " took " + formatNS(System.nanoTime() - t0))
+    if (doBenchmark) {
+      if (context.nonEmpty) {
+        benchmarkLogger.debug("Execution of " + what + " took " + formatNS(System.nanoTime() - t0), context)
+      } else {
+        benchmarkLogger.debug("Execution of " + what + " took " + formatNS(System.nanoTime() - t0))
+      }
+    }
     clearParamss()
     res
   }
@@ -101,8 +124,20 @@ class LoggingStatement(st: Statement) extends Statement {
   }
 
   override def addBatch(sql: String) = {
-    if (doStatement) statementLogger.debug("Adding to batch: " + sql)
-    if (doStatementAndParameter) statementAndParameterLogger.debug("Adding to batch: " + sql)
+    if (doStatement) {
+      if (context.nonEmpty) {
+        statementLogger.debug("Adding to batch: " + sql, context)
+      } else {
+        statementLogger.debug("Adding to batch: " + sql)
+      }
+    }
+    if (doStatementAndParameter) {
+      if (context.nonEmpty) {
+        statementAndParameterLogger.debug("Adding to batch: " + sql, context)
+      } else {
+        statementAndParameterLogger.debug("Adding to batch: " + sql)
+      }
+    }
     st.addBatch(sql)
   }
   override def execute(sql: String, columnNames: Array[String]): Boolean = logged(sql) {
@@ -177,7 +212,7 @@ class LoggingStatement(st: Statement) extends Statement {
 
 /** A wrapper for `java.sql.PreparedStatement` that logs statements, parameters and benchmark results
   * to the appropriate [[JdbcBackend]] loggers. */
-class LoggingPreparedStatement(st: PreparedStatement) extends LoggingStatement(st) with PreparedStatement {
+class LoggingPreparedStatement(st: PreparedStatement, context: slick.util.LoggingContext = slick.util.LoggingContext.empty) extends LoggingStatement(st, context) with PreparedStatement {
 
   override def execute(): Boolean = {
     pushParams()
