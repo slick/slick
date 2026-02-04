@@ -11,6 +11,7 @@ It's a multi-module SBT project with the following key modules:
 - **slick-testkit**: Comprehensive test suite and database compatibility testing
 - **slick-codegen**: Code generation from database schemas
 - **slick-hikaricp**: HikariCP connection pool integration
+- **slick-tracing**: OpenTelemetry-based distributed tracing integration
 - **reactive-streams-tests**: Reactive Streams compliance tests
 
 ## Common Development Commands
@@ -47,6 +48,9 @@ sbt testkit/DocTest/test
 
 # Run reactive streams tests  
 sbt reactive-streams-tests/test
+
+# Compile tracing module
+sbt tracing/compile
 
 # Test specific database profiles
 sbt "testkit/testOnly slick.test.profile.H2MemTest"
@@ -299,7 +303,7 @@ docker compose exec postgres pg_isready -U postgres
 
 ### SBT Configuration
 
-- **Multi-module project**: Root project aggregates slick, codegen, hikaricp, testkit, and site modules
+- **Multi-module project**: Root project aggregates slick, codegen, hikaricp, tracing, testkit, and site modules
 - **Cross-compilation**: Supports Scala 2.12, 2.13, and 3.x with version-specific optimizations
 - **Custom tasks**: `testAll` runs comprehensive test suite across all modules
 - **Dependencies**: Managed in `project/Dependencies.scala` with version centralization
@@ -312,6 +316,7 @@ docker compose exec postgres pg_isready -U postgres
 - **slick-testkit**: Depends on slick, codegen, hikaricp for comprehensive testing
 - **slick-codegen**: Depends on slick for database schema code generation
 - **slick-hikaricp**: Depends on slick for connection pooling integration
+- **slick-tracing**: Depends on slick for distributed tracing integration with OpenTelemetry
 - **reactive-streams-tests**: Depends on testkit for streaming compliance tests
 
 ### Version Management
@@ -378,6 +383,55 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Phase modification**: Phases can be added, removed, or replaced
 - **Debug support**: Compilation logging and AST dumping capabilities
 - **Type system integration**: Comprehensive type annotations throughout compilation
+
+## Distributed Tracing Module (slick-tracing)
+
+The slick-tracing module provides OpenTelemetry-based distributed tracing capabilities for Slick database operations.
+
+### Architecture
+
+- **SimpleTracingSupport**: Basic trait providing tracing capabilities without complex internal API dependencies
+- **TracingContext**: Core tracing context with OpenTelemetry integration and database semantic conventions
+- **SqlCommentInjector**: Injects SQL comments for cloud database query tagging (Google Cloud SQL, AWS Aurora, Azure SQL)
+- **TracingConfig**: Comprehensive configuration system for tracing features
+
+### Key Files
+
+- `slick-tracing/src/main/scala/slick/tracing/SimpleTracingSupport.scala`: Main tracing trait with profile implementations
+- `slick-tracing/src/main/scala/slick/tracing/TracingContext.scala`: OpenTelemetry context management
+- `slick-tracing/src/main/scala/slick/tracing/SqlCommentInjector.scala`: SQL comment injection for cloud databases
+- `slick-tracing/src/main/scala/slick/tracing/TracingConfig.scala`: Configuration management
+- `slick-tracing/src/main/scala/slick/tracing/package.scala`: Package object with convenience methods
+
+### Usage Pattern
+
+```scala
+import slick.tracing._
+import io.opentelemetry.api.OpenTelemetry
+
+// Create tracing profile
+val openTelemetry: OpenTelemetry = // ... initialize OpenTelemetry
+val profile = new TracedH2Profile(openTelemetry)
+
+// Use the profile with automatic tracing
+import profile.api._
+val query = users.filter(_.name === "Alice").result
+val tracedAction = profile.withTracing("user-lookup", query)
+```
+
+### Dependencies
+
+The tracing module uses OpenTelemetry dependencies managed in `project/Dependencies.scala`:
+- `opentelemetry-api`: Core OpenTelemetry API
+- `opentelemetry-semconv`: Semantic conventions for database operations
+- `opentelemetry-context`: Context propagation support
+
+### Development Notes
+
+- **Simplified approach**: Uses basic tracing without deep integration with Slick internals to ensure compatibility
+- **Cross-version compatibility**: Compiles across all supported Scala versions (2.12, 2.13, 3.x)
+- **Cloud integration**: Supports SQL comment injection for cloud database insights
+- **Configuration-driven**: All features can be enabled/disabled via configuration
 
 ## Advanced Development Patterns
 
@@ -471,6 +525,13 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Anonymous class handling**: Be aware of changes in anonymous class generation
 - **Coverage instrumentation**: Some Scala 3 versions have issues with coverage tools
 
+### Tracing Module Issues
+
+- **OpenTelemetry API compatibility**: Ensure correct method signatures when upgrading OpenTelemetry versions
+- **DBIOAction type preservation**: Use simplified tracing patterns to avoid stream type issues
+- **Version policy failures**: New modules may fail compatibility checks until previous versions are established
+- **Missing semantic conventions**: Some OpenTelemetry semconv packages may be missing; use string constants as fallback
+
 ## Key Files to Understand
 
 ### Core Architecture
@@ -505,6 +566,13 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 
 - `slick/src/main/scala-3/slick/lifted/ShapedValue.scala`: Scala 3-specific implementations
 - `slick/src/main/scala/slick/lifted/Rep.scala`: Core representation types
+
+### Distributed Tracing
+
+- `slick-tracing/src/main/scala/slick/tracing/SimpleTracingSupport.scala`: Basic tracing trait and profile implementations
+- `slick-tracing/src/main/scala/slick/tracing/TracingContext.scala`: OpenTelemetry context management
+- `slick-tracing/src/main/scala/slick/tracing/SqlCommentInjector.scala`: SQL comment injection for cloud databases
+- `slick-tracing/README.md`: Comprehensive tracing documentation and usage examples
 
 ## Critical Development Notes
 
