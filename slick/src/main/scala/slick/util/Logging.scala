@@ -47,6 +47,57 @@ final class SlickLogger(val slf4jLogger: Slf4jLogger) {
 
   @inline
   def trace(msg: => String, t: Throwable): Unit = { if (slf4jLogger.isTraceEnabled) slf4jLogger.trace(msg, t) }
+
+  // Context-aware logging methods
+  @inline
+  def debug(msg: => String, context: LoggingContext): Unit = { 
+    if (slf4jLogger.isDebugEnabled) slf4jLogger.debug(context.formatForLogging + msg) 
+  }
+
+  @inline
+  def debug(msg: => String, context: LoggingContext, t: Throwable): Unit = { 
+    if (slf4jLogger.isDebugEnabled) slf4jLogger.debug(context.formatForLogging + msg, t) 
+  }
+
+  @inline
+  def info(msg: => String, context: LoggingContext): Unit = { 
+    if (slf4jLogger.isInfoEnabled) slf4jLogger.info(context.formatForLogging + msg) 
+  }
+
+  @inline
+  def info(msg: => String, context: LoggingContext, t: Throwable): Unit = { 
+    if (slf4jLogger.isInfoEnabled) slf4jLogger.info(context.formatForLogging + msg, t) 
+  }
+
+  @inline
+  def warn(msg: => String, context: LoggingContext): Unit = { 
+    if (slf4jLogger.isWarnEnabled) slf4jLogger.warn(context.formatForLogging + msg) 
+  }
+
+  @inline
+  def warn(msg: => String, context: LoggingContext, t: Throwable): Unit = { 
+    if (slf4jLogger.isWarnEnabled) slf4jLogger.warn(context.formatForLogging + msg, t) 
+  }
+
+  @inline
+  def error(msg: => String, context: LoggingContext): Unit = { 
+    if (slf4jLogger.isErrorEnabled) slf4jLogger.error(context.formatForLogging + msg) 
+  }
+
+  @inline
+  def error(msg: => String, context: LoggingContext, t: Throwable): Unit = { 
+    if (slf4jLogger.isErrorEnabled) slf4jLogger.error(context.formatForLogging + msg, t) 
+  }
+
+  @inline
+  def trace(msg: => String, context: LoggingContext): Unit = { 
+    if (slf4jLogger.isTraceEnabled) slf4jLogger.trace(context.formatForLogging + msg) 
+  }
+
+  @inline
+  def trace(msg: => String, context: LoggingContext, t: Throwable): Unit = { 
+    if (slf4jLogger.isTraceEnabled) slf4jLogger.trace(context.formatForLogging + msg, t) 
+  }
 }
 
 object SlickLogger {
