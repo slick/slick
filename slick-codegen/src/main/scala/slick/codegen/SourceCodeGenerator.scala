@@ -2,8 +2,9 @@ package slick.codegen
 
 import java.net.URI
 
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration.Duration
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+
 import slick.basic.DatabaseConfig
 import slick.{model => m}
 import slick.jdbc.JdbcProfile
@@ -66,18 +67,22 @@ object SourceCodeGenerator {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
     val dbFactory = profileInstance.api.Database
-    val db = dbFactory.forURL(url, driver = jdbcDriver,
-      user = user.getOrElse(null), password = password.getOrElse(null), keepAliveConnection = true)
-    try {
-      val m = Await.result(db.run(profileInstance.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
-      val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
-      val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[? <: SourceCodeGenerator]]
-      val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
-      if(outputToMultipleFiles)
-        generatorInstance.writeToMultipleFiles(profile, outputDir, pkg)
-      else
-        generatorInstance.writeToFile(profile, outputDir, pkg)
-    } finally db.close
+    dbFactory.forURL[IO](url, driver = jdbcDriver,
+                         user = user.getOrElse(null),
+                         password = password.getOrElse(null),
+                         keepAliveConnection = true
+    ).use { db =>
+      db.run(profileInstance.createModel(None, ignoreInvalidDefaults).withPinnedSession)
+        .map { m =>
+          val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
+          val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[? <: SourceCodeGenerator]]
+          val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
+          if (outputToMultipleFiles)
+            generatorInstance.writeToMultipleFiles(profile, outputDir, pkg)
+          else
+            generatorInstance.writeToFile(profile, outputDir, pkg)
+        }
+    }.unsafeRunSync()
   }
 
   def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = true, outputToMultipleFiles: Boolean = false): Unit = {
@@ -85,14 +90,17 @@ object SourceCodeGenerator {
     val pkg = dc.config.getString("codegen.package")
     val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
     val profile = if(dc.profileIsObject) dc.profileName else "new " + dc.profileName
-    try {
-      val m = Await.result(dc.db.run(dc.profile.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
-      val generator = new SourceCodeGenerator(m)
-      if(outputToMultipleFiles)
-        generator.writeToMultipleFiles(profile, out, pkg)
-      else
-        generator.writeToFile(profile, out, pkg)
-    } finally dc.db.close
+
+    dc.open[IO].use { db =>
+      db.run(dc.profile.createModel(None, ignoreInvalidDefaults).withPinnedSession)
+        .map { m =>
+          val generator = new SourceCodeGenerator(m)
+          if (outputToMultipleFiles)
+            generator.writeToMultipleFiles(profile, out, pkg)
+          else
+            generator.writeToFile(profile, out, pkg)
+        }
+    }.unsafeRunSync()
   }
 
   def main(args: Array[String]): Unit = {

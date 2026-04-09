@@ -3,7 +3,6 @@ package slick.jdbc
 
 import java.sql.DatabaseMetaData
 
-import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 
@@ -27,7 +26,7 @@ import slick.util.Logging
   *
   * @param ignoreInvalidDefaults see JdbcModelBuilder#ColumnBuilder#default
   */
-class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends Logging {
+class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) extends Logging {
 
   ////////////////////////////////////////////////////////////////////// Actions for reading the required JDBC metadata
 
