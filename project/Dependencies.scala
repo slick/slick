@@ -14,7 +14,12 @@ object Dependencies {
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
 
-  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
+  val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
+  val fs2Core    = "co.fs2"        %% "fs2-core"    % "3.12.0"
+  val fs2ReactiveStreams = "co.fs2" %% "fs2-reactive-streams" % "3.12.0"
+  val munitCatsEffect = "org.typelevel" %% "munit-cats-effect" % "2.1.0"
+
+  def mainDependencies = Seq(slf4j, typesafeConfig, catsEffect, fs2Core)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",

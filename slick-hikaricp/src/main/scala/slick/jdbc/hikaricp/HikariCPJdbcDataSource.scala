@@ -46,15 +46,15 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     c.getBooleanOpt("autoCommit").foreach(hconf.setAutoCommit)
     c.getStringOpt("exceptionOverrideClassName").foreach(hconf.setExceptionOverrideClassName)
 
-    val numThreads = c.getIntOr("numThreads", 20)
+    val defaultPoolSize = c.getIntOpt("maxConnections").orElse(c.getIntOpt("numThreads")).getOrElse(20)
 
     hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 30000))
     hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
     hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
     c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
     c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
-    hconf.setMaximumPoolSize(c.getIntOpt("maximumPoolSize").orElse(c.getIntOpt("maxConnections")).getOrElse(numThreads))
-    hconf.setMinimumIdle(c.getIntOpt("minimumIdle").orElse(c.getIntOpt("minConnections")).getOrElse(numThreads))
+    hconf.setMaximumPoolSize(c.getIntOpt("maximumPoolSize").orElse(c.getIntOpt("maxConnections")).getOrElse(defaultPoolSize))
+    hconf.setMinimumIdle(c.getIntOpt("minimumIdle").orElse(c.getIntOpt("minConnections")).getOrElse(defaultPoolSize))
     hconf.setPoolName(c.getStringOr("poolName", name))
     c.getLongOpt("keepAliveTime").foreach(hconf.setKeepaliveTime)
 
