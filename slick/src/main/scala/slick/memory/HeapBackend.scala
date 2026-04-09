@@ -7,9 +7,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 import slick.SlickException
 import slick.ast.*
+import slick.compat.collection.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
-import slick.compat.collection.*
 import slick.util.Logging
 
 import com.typesafe.config.Config

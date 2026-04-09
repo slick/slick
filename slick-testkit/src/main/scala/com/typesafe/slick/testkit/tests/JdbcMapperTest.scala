@@ -337,19 +337,19 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   def testProductClassShape = {
     def columnShape[T](implicit s: Shape[FlatShapeLevel, Rep[T], T, Rep[T]]) = s
     class C(val a: Int, val b: Option[String]) extends Product{
-      def canEqual(that: Any): Boolean = that.isInstanceOf[C]
+      def canEqual(that: Any): Boolean = (that: @unchecked).isInstanceOf[C]
       def productArity: Int = 2
       def productElement(n: Int): Any = Seq(a, b)(n)
-      override def equals(a: Any) = a match {
+      override def equals(a: Any) = (a: @unchecked) match {
         case that: C => this.a == that.a && this.b == that.b
         case _ => false
       }
     }
     class LiftedC(val a: Rep[Int], val b: Rep[Option[String]]) extends Product{
-      def canEqual(that: Any): Boolean = that.isInstanceOf[LiftedC]
+      def canEqual(that: Any): Boolean = (that: @unchecked).isInstanceOf[LiftedC]
       def productArity: Int = 2
       def productElement(n: Int): Any = Seq(a, b)(n)
-      override def equals(a: Any) = a match {
+      override def equals(a: Any) = (a: @unchecked) match {
         case that: LiftedC => this.a == that.a && this.b == that.b
         case _ => false
       }

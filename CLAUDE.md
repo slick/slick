@@ -22,12 +22,12 @@ It's a multi-module SBT project with the following key modules:
 sbt clean compile
 
 # Cross-compile for all supported Scala versions
-sbt ++2.12.20 compile
-sbt ++2.13.16 compile
-sbt ++3.3.4 compile
+sbt ++2.12.21 compile
+sbt ++2.13.18 compile
+sbt ++3.8.3 compile
 
 # Force specific Scala version for testing
-sbt ++3.3.4! compile
+sbt ++3.8.3! compile
 
 # Generate API documentation
 sbt doc
@@ -60,8 +60,9 @@ sbt "testkit/testOnly *MainTest* -- -z insertTest"
 sbt -Dslick.ansiDump=true testkit/test
 
 # Cross-version testing
-sbt ++2.13.16 testkit/test
-sbt ++3.3.4! testkit/test
+sbt ++2.12.21 testkit/test
+sbt ++2.13.18 testkit/test
+sbt ++3.8.3! testkit/test
 
 # Codegen tests (requires cleaning managed sources first)
 rm -rf slick-testkit/target/scala-2.13/src_managed && sbt 'testOnly slick.test.codegen.*'

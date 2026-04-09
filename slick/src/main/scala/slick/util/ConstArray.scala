@@ -5,8 +5,9 @@ import java.util.Arrays
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable
 import scala.reflect.ClassTag
-import slick.compat.collection.*
 import scala.util.hashing.MurmurHash3
+
+import slick.compat.collection.*
 
 /** An efficient immutable array implementation which is used in the AST. Semantics are generally
   * the same as for Scala collections but for performance reasons it does not implement any
@@ -368,7 +369,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
   override def hashCode = {
     if(_hashCode != 0) _hashCode
     else {
-      val h = MurmurHash3.productHash(this)
+      val h = MurmurHash3.orderedHash(iterator, MurmurHash3.productSeed)
       _hashCode = h
       h
     }

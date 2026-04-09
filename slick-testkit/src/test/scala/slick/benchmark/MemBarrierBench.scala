@@ -2,7 +2,7 @@ package slick.benchmark
 
 import java.util.concurrent.atomic.AtomicLong
 
-object MemBarrierBench extends App {
+object MemBarrierBench {
 
   trait Subscr[T] {
     def onNext(v: T): Unit

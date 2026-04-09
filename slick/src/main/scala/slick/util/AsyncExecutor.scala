@@ -227,7 +227,7 @@ object AsyncExecutor extends Logging {
                                             keepAliveTime: Duration,
                                             registerMbeans: Boolean) extends AsyncExecutor {
 
-    @volatile private[this] lazy val mBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name")
+    private[this] lazy val mBeanName = new ObjectName(s"slick:type=AsyncExecutor,name=$name")
 
     // Before init: 0, during init: 1, after init: 2, during/after shutdown: 3
     private[this] val state = new AtomicInteger(0)
@@ -336,6 +336,7 @@ object AsyncExecutor extends Logging {
   }
 
   private class DaemonThreadFactory(namePrefix: String) extends ThreadFactory {
+    @annotation.nowarn
     private[this] val group =
       Option(System.getSecurityManager).fold(Thread.currentThread.getThreadGroup)(_.getThreadGroup)
     private[this] val threadNumber = new AtomicInteger(1)

@@ -21,6 +21,9 @@ import scala.runtime.Tuple2Zipped
 package object collection {
   import CompatImpl.*
 
+  private[slick] def numericSign[T](numeric: Numeric[T], value: T): Int =
+    numeric.signum(value)
+
   /**
    * A factory that builds a collection of type `C` with elements of type `A`.
    *

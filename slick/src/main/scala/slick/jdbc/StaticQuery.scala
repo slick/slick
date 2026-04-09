@@ -5,9 +5,9 @@ import java.sql.PreparedStatement
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
 
+import slick.compat.collection.*
 import slick.dbio.Effect
 import slick.sql.SqlStreamingAction
-import slick.compat.collection.*
 
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLActionBuilder via string interpolation */

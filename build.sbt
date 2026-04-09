@@ -39,16 +39,24 @@ inThisBuild(
 def scaladocSourceUrl(dir: String) =
   Compile / doc / scalacOptions ++= {
     val ref = Versioning.currentRef(baseDirectory.value)
-    Seq(
-      "-sourcepath",
-      (ThisBuild / baseDirectory).value.getAbsolutePath,
-      "-doc-source-url",
-      s"https://github.com/slick/slick/blob/${ref}€{FILE_PATH}.scala"
-    )
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((3, _)) =>
+        Seq(
+          s"-source-links:github://slick/slick/${ref}"
+        )
+      case _ =>
+        Seq(
+          "-sourcepath",
+          (ThisBuild / baseDirectory).value.getAbsolutePath,
+          "-doc-source-url",
+          s"https://github.com/slick/slick/blob/${ref}€{FILE_PATH}.scala"
+        )
+    }
   }
 
 val scala2InlineSettings = Def.setting {
-  if (insideCI.value) {
+  val isScala2 = CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2)
+  if (insideCI.value && isScala2) {
     val log = sLog.value
     log.info(s"Running in CI, enabling Scala2 optimizer for module: ${name.value}")
     List(
@@ -66,17 +74,22 @@ def slickScalacOptions = Seq(
     List(
       "-deprecation",
       "-feature",
-      "-unchecked",
-      "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
+      "-unchecked"
     ) ++ (CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) =>
-        List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3") ++ scala2InlineSettings.value
+        List(
+          "-Ywarn-unused:imports",
+          "-language:higherKinds",
+          "-Xsource:3",
+          "-Wconf:cat=unused-imports&src=src_managed/.*:silent",
+          "-Wconf:cat=unused-imports&origin=slick\\.compat\\.collection\\..*:s"
+        ) ++ scala2InlineSettings.value
       case Some((2, 13)) =>
         List(
           "-Xsource:3-cross",
           "-Wunused:imports",
-          "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
-          "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
+          "-Wconf:cat=unused-imports&src=src_managed/.*:silent",
+          "-Wconf:cat=unused-imports&origin=slick\\.compat\\.collection\\..*:s"
         ) ++ scala2InlineSettings.value
       case Some((3, _)) =>
         List("-source:3.0-migration")
@@ -95,16 +108,26 @@ def slickGeneralSettings =
     },
     sonatypeProfileName := "com.typesafe.slick",
     Compile / doc / scalacOptions ++= {
-      val baseOptions = Seq(
-        "-doc-title", name.value,
-        "-doc-version", version.value,
-        "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
-        "-implicits",
-        "-groups"
-      )
-      // Skip diagrams to avoid graphviz dependency
-      if (sys.env.get("SLICK_SKIP_DIAGRAMS").contains("true")) baseOptions
-      else baseOptions :+ "-diagrams" // requires graphviz
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _)) =>
+          val baseOptions = Seq(
+            "-project-version", version.value,
+            "-project-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+            "-groups"
+          )
+          baseOptions
+        case _ =>
+          val baseOptions = Seq(
+            "-doc-title", name.value,
+            "-doc-version", version.value,
+            "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+            "-implicits",
+            "-groups"
+          )
+          // Skip diagrams to avoid graphviz dependency
+          if (sys.env.get("SLICK_SKIP_DIAGRAMS").contains("true")) baseOptions
+          else baseOptions :+ "-diagrams" // requires graphviz
+      }
     },
     logBuffered := false
   ) ++ slickScalacOptions
