@@ -5,8 +5,6 @@ import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import org.junit.Assert._
 import org.junit.Test
 
-import scala.concurrent.ExecutionContext.Implicits.global
-
 
 object CodeGeneratorRoundTrip3Test
   extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerSQLJDBC)
