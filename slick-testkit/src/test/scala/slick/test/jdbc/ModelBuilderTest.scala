@@ -2,9 +2,9 @@ package slick.test.jdbc
 
 import org.junit.Test
 import org.junit.Assert._
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
+
+import cats.effect.unsafe.implicits.global
+
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 
@@ -23,7 +23,7 @@ class ModelBuilderTest(val tdb: JdbcTestDB) extends DBTest {
       tdb.profile.createModel(ignoreInvalidDefaults=false) >>
       sqlu"""create table BAZ (FOO VARCHAR(255) DEFAULT CURRENT_USER)""" >>
       tdb.profile.createModel(ignoreInvalidDefaults=false).asTry
-    val mt = Await.result(db.run(a.withPinnedSession), Duration.Inf)
+    val mt = db.run(a.withPinnedSession).unsafeRunSync()
     assertTrue(mt.asInstanceOf[Failure[?]].exception.asInstanceOf[SlickException].getMessage.contains("not parse default"))
   }
 }
