@@ -1,9 +1,9 @@
 package com.typesafe.slick.docs
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
+
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 
 //#imports
 import slick.jdbc.H2Profile.api.*
@@ -29,37 +29,32 @@ object PlainSQL {
     implicit val getCoffeeResult: GetResult[Coffee] = GetResult(r => Coffee(r.<<, r.<<, r.<<, r.<<, r.<<))
     //#getresult
 
-    val db = Database.forConfig("h2mem1")
-    try {
-      val f: Future[_] = {
-
-        val a: DBIO[Unit] = DBIO.seq(
-          createSuppliers,
-          createCoffees,
-          insertSuppliers,
-          insertCoffees,
-          printAll,
-          printParameterized,
-          coffeeByName("Colombian").map { s =>
-            println(s"Coffee Colombian: $s")
-          },
-          deleteCoffee("Colombian").map { rows =>
-            println(s"Deleted $rows rows")
-          },
-          coffeeByName("Colombian").map { s =>
-            println(s"Coffee Colombian: $s")
-          },
-          coffeesByName(None).map { s =>
-            println(s"Found all coffees: ${s.size}")
-          },
-          coffeesByName(Some("Espresso")).map { s =>
-            println(s"Found one coffee: ${s.size}")
-          },
-        )
-        db.run(a)
-      }
-      Await.result(f, Duration.Inf)
-    } finally db.close
+    Database.forConfig[IO]("h2mem1").use { db =>
+      val a: DBIO[Unit] = DBIO.seq(
+        createSuppliers,
+        createCoffees,
+        insertSuppliers,
+        insertCoffees,
+        printAll,
+        printParameterized,
+        coffeeByName("Colombian").map { s =>
+          println(s"Coffee Colombian: $s")
+        },
+        deleteCoffee("Colombian").map { rows =>
+          println(s"Deleted $rows rows")
+        },
+        coffeeByName("Colombian").map { s =>
+          println(s"Coffee Colombian: $s")
+        },
+        coffeesByName(None).map { s =>
+          println(s"Found all coffees: ${s.size}")
+        },
+        coffeesByName(Some("Espresso")).map { s =>
+          println(s"Found one coffee: ${s.size}")
+        },
+      )
+      db.run(a)
+    }.unsafeRunSync()
 
     out.foreach(Console.out.println)
 

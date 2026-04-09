@@ -1,6 +1,6 @@
-# Slick
+# Slick 4
 
-Reactive Functional Relational Mapping for Scala
+Functional Relational Mapping for Scala, powered by Cats Effect 3 and FS2
 
 ## API Documentation (scaladoc)
 
@@ -29,7 +29,8 @@ Reactive Functional Relational Mapping for Scala
   * @ref:[.](orm-to-slick.md)
   * @ref:[.](sql-to-slick.md)
   * @ref:[.](cookbook.md)
-  * @ref:[.](upgrade.md)
+  * @ref:[.](migrating-to-slick4.md)
+  * @ref:[.](upgrade-slick3.md)
   * @ref:[.](migrations.md)
   * @ref:[.](testkit.md)
   * @ref:[.](documentation.md)
