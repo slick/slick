@@ -217,7 +217,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     def default: Option[Option[Any]] = rawDefault.map { v =>
       if(v == "NULL") None else {
         // NOTE: When extending this list, please also extend the code generator accordingly
-        Some((v,tpe) match {
+        Some(((v,tpe): @unchecked) match {
           case (v,"Byte")   => v.toByte
           case (v,"Short")  => v.toShort
           case (v,"Int")    => v.toInt
@@ -234,6 +234,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
           case (StringPattern(str),"String") => str
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false
+          // Intentionally non-exhaustive: unrecognised (value, type) pairs throw MatchError,
+          // which is caught and logged when ignoreInvalidDefaults = true.
         })
       }
     }

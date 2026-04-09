@@ -3,7 +3,6 @@ package slick.compiler
 import slick.ast._
 import Util._
 import TypeUtil._
-import slick.compat.collection._
 import slick.util.ConstArray
 
 import scala.collection.mutable

@@ -29,8 +29,6 @@ class ReusableSbtChecker(val scaladocDir: String,
     if (!new File(scaladocDir).exists())
       throw new MessageOnlyException("sdlcDocDir '" + scaladocDir + "' does not exist")
 
-    detect212()
-
     buildModel()
     scanPages()
 

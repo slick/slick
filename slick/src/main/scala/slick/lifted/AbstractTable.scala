@@ -95,7 +95,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     m <- getClass.getMethods.iterator
     if m.getParameterTypes.length == 0 && classOf[Constraint].isAssignableFrom(m.getReturnType)
     q = {
-      if(!m.isAccessible) m.setAccessible(true) // Dotty makes classes nested within in methods private
+      m.trySetAccessible() // Dotty makes classes nested within in methods private
       m.invoke(this).asInstanceOf[Constraint]
     }
   } yield q
@@ -114,7 +114,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     m <- getClass.getMethods.iterator
     if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
   } yield {
-    if(!m.isAccessible) m.setAccessible(true) // Dotty makes classes nested within in methods private
+    m.trySetAccessible() // Dotty makes classes nested within in methods private
     m.invoke(this).asInstanceOf[Index]
   }).toIndexedSeq.sortBy(_.name)
 }

@@ -8,7 +8,6 @@ import scala.collection.mutable.ArrayBuffer
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.typeToTypeUtil
-import slick.compat.collection.*
 import slick.util.{ConstArray, Logging, SlickLogger}
 
 import org.slf4j.LoggerFactory
@@ -241,6 +240,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         (ch.nodeType, n.nodeType) match {
           case (OptionType(tpe), tpe2) if tpe == tpe2 => chV.asInstanceOf[Option[Any]].get
           case (tpe, OptionType(tpe2)) if tpe == tpe2 => Option(chV)
+          case _ => chV // same type or unrecognised cast — return value unchanged
         }
       case Library.Exists(coll) =>
         run(coll).asInstanceOf[Coll].nonEmpty
@@ -368,6 +368,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         case (_, ScalaBaseType.doubleType) => v.toString.toDouble
         case (_, ScalaBaseType.floatType) => v.toString.toFloat
         case (_, ScalaBaseType.bigDecimalType) => BigDecimal(v.toString)
+        case (from, to) => throw new slick.SlickException(s"Unsupported cast from $from to $to")
       }
     case Library.Ceiling =>
       val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]
@@ -418,7 +419,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       var len = s.length
       while(len > 0 && s.charAt(len-1) == ' ') len -= 1
       if(len == s.length) s else s.substring(0, len)
-    case Library.Sign => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.signum(args(0)._2)
+    case Library.Sign =>
+      val raw = args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.sign(args(0)._2)
+      raw match { case n: Number => n.intValue(); case other => other }
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
     case Library.User => ""

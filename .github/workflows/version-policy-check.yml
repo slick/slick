@@ -22,7 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        scala: [ 2.12.x, 2.13.x, 3.x ]
+        scala: [ 2.13.x, 3.x ]
 
     steps:
       - uses: actions/checkout@v6

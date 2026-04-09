@@ -10,7 +10,6 @@ import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler.*
 import slick.dbio.*
 import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter}
-import slick.compat.collection.*
 import slick.util.{??, DumpInfo, RefId}
 
 /** A profile for distributed queries. */

@@ -6,7 +6,6 @@ import slick.ast.ColumnOption
 import slick.model.ForeignKeyAction
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
-import slick.compat.collection.*
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)

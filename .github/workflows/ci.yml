@@ -13,7 +13,9 @@ concurrency:
 
 env:
   # language=json
-  JAVA_VERSIONS: '{ "javaMin": "11", "javaLatest": "23" }'
+  # javaMinScala2 is the minimum Java version for Scala 2.x builds.
+  # javaMinScala3 is the minimum Java version for Scala 3.x builds (Scala 3.8+ requires Java 17+).
+  JAVA_VERSIONS: '{ "javaMinScala2": "11", "javaMinScala3": "17", "javaLatest": "23" }'
 
 jobs:
   build:
@@ -22,8 +24,8 @@ jobs:
 
     strategy:
       matrix:
-        java: [ javaMin, javaLatest ]
-        scala: [ 2.12.x, 2.13.x, 3.x ]
+        java: [ javaMinScala2, javaLatest ]
+        scala: [ 2.13.x, 3.x ]
 
     services:
       postgres:
@@ -75,7 +77,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: adopt
-          java-version: ${{ fromJson(env.JAVA_VERSIONS)[matrix.java] }}
+          java-version: ${{ matrix.java == 'javaMinScala2' && matrix.scala == '3.x' && fromJson(env.JAVA_VERSIONS)['javaMinScala3'] || fromJson(env.JAVA_VERSIONS)[matrix.java] }}
           cache: sbt
 
       - name: Setup SBT
@@ -112,7 +114,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: adopt
-          java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMin'] }}
+          java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMinScala2'] }}
           cache: sbt
 
       - name: Setup SBT
@@ -148,7 +150,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: adopt
-          java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMin'] }}
+          java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMinScala2'] }}
           cache: sbt
 
       - name: Setup SBT

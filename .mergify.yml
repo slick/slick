@@ -19,13 +19,10 @@ pull_request_rules:
 
   - name: Automatic merge on approval
     conditions:
-      - "check-success=Build and Test (javaMin, 2.12.x)"
       - "check-success=Build and Test (javaMin, 2.13.x)"
       - "check-success=Build and Test (javaMin, 3.x)"
-      - "check-success=Build and Test (javaLatest, 2.12.x)"
       - "check-success=Build and Test (javaLatest, 2.13.x)"
       - "check-success=Build and Test (javaLatest, 3.x)"
-      - "check-success=Check conformance with version policy (2.12.x)"
       - "check-success=Check conformance with version policy (2.13.x)"
       - "check-success=Check conformance with version policy (3.x)"
       - "#changes-requested-reviews-by=0"

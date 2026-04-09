@@ -3,26 +3,16 @@ import sbt.Keys.scalaVersion
 
 /** Dependencies for reuse in different parts of the build */
 object Dependencies {
-  val scala212 = "2.12.21"
   val scala213 = "2.13.18"
-  val scala3 = "3.3.7"
+  val scala3 = "3.8.3"
 
-  val scalaVersions = Seq(scala212, scala213, scala3) // When updating these also update ci.yml and .mergify.yml
+  val scalaVersions = Seq(scala213, scala3) // When updating these also update ci.yml and .mergify.yml
 
   val slf4j = "org.slf4j" % "slf4j-api" % "2.0.17"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.6"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-
-  val scalaCollectionCompat = Def.setting {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, n)) if n == 12 =>
-        Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.14.0")
-      case _ =>
-        Seq.empty
-    }
-  }
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
 

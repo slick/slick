@@ -39,23 +39,27 @@ inThisBuild(
 def scaladocSourceUrl(dir: String) =
   Compile / doc / scalacOptions ++= {
     val ref = Versioning.currentRef(baseDirectory.value)
-    Seq(
-      "-sourcepath",
-      (ThisBuild / baseDirectory).value.getAbsolutePath,
-      "-doc-source-url",
-      s"https://github.com/slick/slick/blob/${ref}€{FILE_PATH}.scala"
-    )
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((3, _)) =>
+        Seq(
+          s"-source-links:github://slick/slick/${ref}"
+        )
+      case _ =>
+        Seq(
+          "-sourcepath",
+          (ThisBuild / baseDirectory).value.getAbsolutePath,
+          "-doc-source-url",
+          s"https://github.com/slick/slick/blob/${ref}€{FILE_PATH}.scala"
+        )
+    }
   }
 
 val scala2InlineSettings = Def.setting {
-  if (insideCI.value) {
+  if (insideCI.value && CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2)) {
     val log = sLog.value
     log.info(s"Running in CI, enabling Scala2 optimizer for module: ${name.value}")
     List(
       "-opt:l:inline",
-      // Code in slick.compat is private and is also not going to change so its safe to inline within this project. Remove
-      // when Scala 2.12 support is dropped along with slick.compat
-      "-opt-inline-from:slick.compat.**",
       "-opt-inline-from:<sources>"
     )
   } else List.empty
@@ -66,20 +70,18 @@ def slickScalacOptions = Seq(
     List(
       "-deprecation",
       "-feature",
-      "-unchecked",
-      "-Wconf:cat=unused-imports&src=src_managed/.*:silent"
+      "-unchecked"
     ) ++ (CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) =>
-        List("-Ywarn-unused:imports", "-language:higherKinds", "-Xsource:3") ++ scala2InlineSettings.value
       case Some((2, 13)) =>
         List(
           "-Xsource:3-cross",
           "-Wunused:imports",
-          "-Wconf:cat=unused-imports&origin=scala\\.collection\\.compat\\._:s",
-          "-Wconf:cat=deprecation&origin=scala\\.math\\.Numeric\\.signum:s"
+          "-Wconf:cat=unused-imports&src=src_managed/.*:silent",
+          "-Xfatal-warnings"
         ) ++ scala2InlineSettings.value
       case Some((3, _)) =>
-        List("-source:3.0-migration")
+        List("-source:3.0-migration", "-Werror",
+          "-Wconf:cat=unused-imports&src=src_managed/.*:silent")
       case _ =>
         Nil
     })
@@ -95,16 +97,26 @@ def slickGeneralSettings =
     },
     sonatypeProfileName := "com.typesafe.slick",
     Compile / doc / scalacOptions ++= {
-      val baseOptions = Seq(
-        "-doc-title", name.value,
-        "-doc-version", version.value,
-        "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
-        "-implicits",
-        "-groups"
-      )
-      // Skip diagrams to avoid graphviz dependency
-      if (sys.env.get("SLICK_SKIP_DIAGRAMS").contains("true")) baseOptions
-      else baseOptions :+ "-diagrams" // requires graphviz
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _)) =>
+          val baseOptions = Seq(
+            "-project-version", version.value,
+            "-project-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+            "-groups"
+          )
+          baseOptions
+        case _ =>
+          val baseOptions = Seq(
+            "-doc-title", name.value,
+            "-doc-version", version.value,
+            "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+            "-implicits",
+            "-groups"
+          )
+          // Skip diagrams to avoid graphviz dependency
+          if (sys.env.get("SLICK_SKIP_DIAGRAMS").contains("true")) baseOptions
+          else baseOptions :+ "-diagrams" // requires graphviz
+      }
     },
     logBuffered := false
   ) ++ slickScalacOptions
@@ -148,35 +160,6 @@ val docDir = settingKey[File]("Base directory for documentation")
 
 ThisBuild / docDir := (site / baseDirectory).value
 
-lazy val slickCompatCollections =
-  project
-    .in(file("slick-compat-collections"))
-    .settings(
-      slickScalacOptions,
-      // Do not publish this artifact
-      publish / skip := true,
-      Compile / doc / sources := Seq.empty,
-      // Adds a `src/main/scala-2.13+` source directory for code shared
-      // between Scala 2.13 and Scala 3
-      Compile / unmanagedSourceDirectories ++= {
-        val sourceDir = (Compile / sourceDirectory).value
-        CrossVersion.partialVersion(scalaVersion.value) match {
-          case Some((3, n)) => Seq(sourceDir / "scala-2.13+")
-          case Some((2, n)) if n >= 13 => Seq(sourceDir / "scala-2.13+")
-          case _ => Nil
-        }
-      },
-    )
-
-def slickCollectionsCompatSettings = Seq(
-  libraryDependencies ++= Dependencies.scalaCollectionCompat.value,
-  // So that compiled from slickCompatCollections sbt module appear in slick
-  (Compile / packageBin / mappings) ++= (slickCompatCollections / Compile / packageBin / mappings).value,
-  (Compile / packageSrc / mappings) ++= (slickCompatCollections / Compile / packageSrc / mappings).value,
-  projectDependencies := projectDependencies.value.filterNot(_.name.equalsIgnoreCase("slickcompatcollections")),
-  scalacOptions ++= scala2InlineSettings.value
-)
-
 lazy val slick =
   project
     .enablePlugins(MimaPlugin)
@@ -185,7 +168,6 @@ lazy val slick =
       compilerDependencySetting("provided"),
       FMPP.preprocessorSettings,
       extTarget("slick"),
-      slickCollectionsCompatSettings,
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       libraryDependencies ++= Dependencies.mainDependencies,
@@ -197,7 +179,7 @@ lazy val slick =
       // suppress test status output
       test := {},
       testOnly := {}
-    ).dependsOn(slickCompatCollections)
+    )
 
 lazy val testkit =
   project

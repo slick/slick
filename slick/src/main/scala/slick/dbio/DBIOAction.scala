@@ -1,6 +1,6 @@
 package slick.dbio
 
-import scala.collection.mutable
+import scala.collection.{Factory, mutable}
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -9,7 +9,6 @@ import scala.util.control.NonFatal
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
-import slick.compat.collection.*
 
 import org.reactivestreams.Subscription
 
