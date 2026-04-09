@@ -79,7 +79,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     val SimpleDBIO = SimpleMemoryAction
   }
 
-  protected def createInterpreter(db: Backend#Database, param: Any): QueryInterpreter =
+  protected def createInterpreter(db: HeapBackend#AnyHeapDatabaseDef, param: Any): QueryInterpreter =
     new QueryInterpreter(db, param) {
       override def run(n: Node) = n match {
         case ResultSetMapping(_, from, CompiledMapping(converter, _)) :@ CollectionType(cons, el) =>

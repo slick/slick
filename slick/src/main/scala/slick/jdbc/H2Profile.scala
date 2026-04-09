@@ -6,8 +6,6 @@ import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
 
-import scala.concurrent.ExecutionContext
-
 import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
@@ -55,7 +53,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       RelationalCapabilities.reverse -
       JdbcCapabilities.forShare
 
-  class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+  class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createTableNamer(mTable: MTable): TableNamer = new H2TableNamer(mTable)
@@ -87,8 +85,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean): JdbcModelBuilder =
     new H2ModelBuilder(tables, ignoreInvalidDefaults)
 
   override val columnTypes: H2JdbcTypes = new H2JdbcTypes
