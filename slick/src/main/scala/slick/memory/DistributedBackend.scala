@@ -6,8 +6,8 @@ import scala.util.{Failure, Try}
 
 import slick.SlickException
 import slick.basic.BasicBackend
-import slick.relational.RelationalBackend
 import slick.compat.collection.*
+import slick.relational.RelationalBackend
 import slick.util.Logging
 
 import com.typesafe.config.Config

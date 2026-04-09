@@ -8,9 +8,9 @@ import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 import slick.SlickException
+import slick.compat.collection.*
 import slick.dbio.*
 import slick.util.*
-import slick.compat.collection.*
 import slick.util.AsyncExecutor.{Continuation, Fresh, Priority, WithConnection}
 
 import com.typesafe.config.Config

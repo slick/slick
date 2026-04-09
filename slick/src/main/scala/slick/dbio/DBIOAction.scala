@@ -8,8 +8,8 @@ import scala.util.control.NonFatal
 
 import slick.SlickException
 import slick.basic.BasicBackend
-import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
 import slick.compat.collection.*
+import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
 
 import org.reactivestreams.Subscription
 

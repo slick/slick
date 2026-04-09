@@ -5,7 +5,7 @@ import sbt.Keys.scalaVersion
 object Dependencies {
   val scala212 = "2.12.21"
   val scala213 = "2.13.18"
-  val scala3 = "3.3.7"
+  val scala3 = "3.8.3"
 
   val scalaVersions = Seq(scala212, scala213, scala3) // When updating these also update ci.yml and .mergify.yml
 

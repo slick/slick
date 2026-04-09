@@ -8,10 +8,10 @@ import scala.reflect.ClassTag
 import slick.ast.*
 import slick.ast.TypeUtil.*
 import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
+import slick.compat.collection.*
 import slick.compiler.*
 import slick.dbio.*
 import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter, ResultConverterCompiler}
-import slick.compat.collection.*
 import slick.util.{??, DumpInfo}
 
 /** A profile for interpreted queries on top of the in-memory database. */

@@ -8,8 +8,8 @@ import java.util.Calendar
 
 import scala.collection.mutable.ArrayBuffer
 
-import slick.jdbc.JdbcBackend.{benchmarkLogger, parameterLogger, statementAndParameterLogger, statementLogger}
 import slick.compat.collection.*
+import slick.jdbc.JdbcBackend.{benchmarkLogger, parameterLogger, statementAndParameterLogger, statementLogger}
 import slick.util.TableDump
 
 /** A wrapper for `java.sql.Statement` that logs statements and benchmark results
