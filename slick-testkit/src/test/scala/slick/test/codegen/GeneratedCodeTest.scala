@@ -1,6 +1,5 @@
 package slick.test.codegen
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import slick.ast.{FieldSymbol, Node, Select}
 import slick.jdbc.meta.MTable
 import slick.test.codegen.generated._
