@@ -1,10 +1,11 @@
 package slick.jdbc
 
-import java.sql.{PreparedStatement, ResultSet, Statement}
+import java.sql.{PreparedStatement, ResultSet, Savepoint, SQLFeatureNotSupportedException, Statement}
 
 import scala.collection.mutable.Builder
 import scala.language.existentials
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 import slick.SlickException
 import slick.ast.*
 import slick.ast.ColumnOption.PrimaryKey
@@ -44,6 +45,42 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def getDumpInfo = DumpInfo(name = "PopStatementParameters")
   }
 
+  /** Create an anonymous savepoint on the current connection.
+    *
+    * The action must be run inside a transaction (i.e. wrapped with `.transactionally`); calling
+    * it outside a transaction will cause the underlying JDBC driver to throw an exception.
+    * The typical pattern is to use [[JdbcActionExtensionMethods.withSavepoint]] instead of
+    * managing savepoints manually. */
+  val createSavepoint: DBIOAction[Savepoint, NoStream, Effect.Transactional] =
+    new SynchronousDatabaseAction[Savepoint, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect.Transactional] {
+      def run(ctx: JdbcBackend#JdbcActionContext): Savepoint = ctx.connection.setSavepoint()
+      def getDumpInfo = DumpInfo(name = "CreateSavepoint")
+    }
+
+  /** Release (discard) a savepoint, signalling that the enclosed operations succeeded.
+    *
+    * If the database does not support `releaseSavepoint` (e.g. Oracle, SQL Server), the call is
+    * silently ignored — the savepoint is discarded automatically when the surrounding transaction
+    * commits, so skipping the explicit release has no effect on correctness.
+    *
+    * @see [[createSavepoint]], [[JdbcActionExtensionMethods.withSavepoint]] */
+  def releaseSavepoint(sp: Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
+    new SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect.Transactional] {
+      def run(ctx: JdbcBackend#JdbcActionContext): Unit =
+        try ctx.connection.releaseSavepoint(sp)
+        catch { case _: SQLFeatureNotSupportedException => () }
+      def getDumpInfo = DumpInfo(name = "ReleaseSavepoint")
+    }
+
+  /** Roll back to a savepoint, undoing all changes made since the savepoint was created.
+    *
+    * @see [[createSavepoint]], [[JdbcActionExtensionMethods.withSavepoint]] */
+  def rollbackToSavepoint(sp: Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
+    new SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect.Transactional] {
+      def run(ctx: JdbcBackend#JdbcActionContext): Unit = ctx.connection.rollback(sp)
+      def getDumpInfo = DumpInfo(name = "RollbackToSavepoint")
+    }
+
   class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: DBIOAction[R, S, E]) {
 
     /** Run this Action transactionally. This does not guarantee failures to be atomic in the
@@ -62,6 +99,35 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       * the transaction. */
     def transactionally(ti: TransactionIsolation): DBIOAction[R, S, E with Effect.Transactional] =
       TransactionalAction[R, S, E with Effect.Transactional](a, Some(ti.intValue))
+
+    /** Run this Action within a savepoint.
+      *
+      * A savepoint allows partial rollback within a transaction: if this action fails, all changes
+      * made since the savepoint was set are rolled back, but the surrounding transaction can still
+      * be committed. If the action succeeds, the savepoint is released.
+      *
+      * The action is automatically wrapped with `.transactionally` to ensure a database
+      * transaction is active; if already inside a transaction, the existing transaction is reused
+      * (the outermost `.transactionally` wins).
+      *
+      * Example:
+      * {{{
+      * val action = (
+      *   for {
+      *     _ <- users += alice
+      *     _ <- (users += duplicate).withSavepoint  // rolls back only this insert on failure
+      *     _ <- users += bob
+      *   } yield ()
+      * ).transactionally
+      * }}}
+      */
+    def withSavepoint: DBIOAction[R, NoStream, E with Effect.Transactional] =
+      createSavepoint.flatMap { sp =>
+        a.asTry.flatMap {
+          case Success(r) => releaseSavepoint(sp).andThen(DBIO.successful(r))
+          case Failure(e) => rollbackToSavepoint(sp).andThen(DBIO.failed(e))
+        }
+      }.transactionally
 
     /** Run this Action with the given statement parameters. Any unset parameter will use the
       * current value. The following parameters can be set:

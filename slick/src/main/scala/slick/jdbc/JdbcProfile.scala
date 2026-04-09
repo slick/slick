@@ -82,6 +82,13 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
     type SimpleDBIO[+R] = SimpleJdbcAction[R]
     val SimpleDBIO = SimpleJdbcAction
 
+    /** @see [[JdbcActionComponent.createSavepoint]] */
+    def createSavepoint = JdbcProfile.this.createSavepoint
+    /** @see [[JdbcActionComponent.releaseSavepoint]] */
+    def releaseSavepoint(sp: java.sql.Savepoint) = JdbcProfile.this.releaseSavepoint(sp)
+    /** @see [[JdbcActionComponent.rollbackToSavepoint]] */
+    def rollbackToSavepoint(sp: java.sql.Savepoint) = JdbcProfile.this.rollbackToSavepoint(sp)
+
     implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[? <: RelationalProfile#Table[?], ?, C]
                                                         ): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())

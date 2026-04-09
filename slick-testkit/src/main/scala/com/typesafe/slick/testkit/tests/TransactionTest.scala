@@ -83,7 +83,26 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
         // isolation level is back to default after all transactions
         _ <- getTI.map(_ shouldBe ti1)
       } yield ()).withPinnedSession
-    }}
+    }} andThen { // savepoints
+      (for {
+        _ <- ts += 10
+        _ <- ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6, 10))
+        // withSavepoint: successful inner action - savepoint released, row stays
+        _ <- (ts += 11).withSavepoint
+        _ <- ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6, 10, 11))
+        // withSavepoint: failed inner action - rolled back to savepoint, surrounding tx continues
+        _ <- (for {
+          _ <- ts += 12
+          _ = throw new ExpectedException
+        } yield ()).withSavepoint.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+        _ <- ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6, 10, 11))
+        // direct createSavepoint / rollbackToSavepoint
+        sp <- createSavepoint
+        _ <- ts += 13
+        _ <- rollbackToSavepoint(sp)
+        _ <- ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6, 10, 11))
+      } yield ()).transactionally
+    }
   }
 }
 

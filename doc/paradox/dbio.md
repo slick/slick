@@ -198,6 +198,8 @@ transaction is only created and committed or rolled back for the outermost `tran
 `transactionally` actions simply execute inside the existing transaction without additional savepoints.
 @@@
 
+Use @ref:[savepoints](#savepoints) if you need partial rollback within a transaction.
+
 @@@ note
 **Cancellation guarantee**: in Slick 4 a transaction is rolled back not only on error but also on
 fiber cancellation. This guarantee was not possible with `Future`-based execution.
@@ -208,6 +210,55 @@ fiber cancellation. This guarantee was not possible with `Future`-based executio
 In case you want to force a rollback, you can return `DBIO.failed` within a `DBIOAction`.
 
 @@snip [Connection.scala](../code/Connection.scala) { #rollback }
+
+### Savepoints
+
+Savepoints allow partial rollback within a transaction. `.withSavepoint` wraps an action with a
+JDBC savepoint: if the action **succeeds**, the savepoint is released and the result is returned
+normally; if it **fails**, the action's writes are rolled back to the savepoint and the **original
+exception is re-thrown**.
+
+Because the error is re-thrown, a bare `_ <- action.withSavepoint` in a for-comprehension still
+short-circuits on failure. To let the surrounding transaction continue after a savepoint failure,
+handle the error explicitly. Two common approaches:
+
+**`.asTry`** — converts the outcome to a `Try[R]`, which is always a `Success` or `Failure` value
+and never short-circuits the for-comprehension. Note that `.asTry` converts errors to `Failure`
+values but does not intercept fiber cancellation — if the fiber is canceled, the `asTry` result
+is never produced.
+
+```scala
+// Surrounding transaction continues even if the duplicate insert fails.
+// The failed insert's writes are rolled back; item-A and item-B writes are preserved.
+(for {
+  _ <- orders += Order(1, "item-A")
+  _ <- (orders += Order(1, "duplicate")).withSavepoint.asTry  // Failure(...) returned, not thrown
+  _ <- orders += Order(2, "item-B")
+} yield ()).transactionally
+```
+
+**`.recover`** — provides a fallback value for specific failures, continuing the transaction with
+that value instead:
+
+```scala
+(for {
+  _ <- orders += Order(1, "item-A")
+  _ <- (orders += Order(1, "duplicate")).withSavepoint
+         .recover { case _: SQLException => 0 }  // substitute a value on failure
+  _ <- orders += Order(2, "item-B")
+} yield ()).transactionally
+```
+
+Without `.asTry` or `.recover`, a failure inside `.withSavepoint` rolls back the savepoint's
+writes but still short-circuits the for-comprehension, and the surrounding `.transactionally`
+then rolls back everything.
+
+The high-level `.withSavepoint` extension is available from any `JdbcProfile`. Low-level
+primitives for manual control are also available: `createSavepoint`, `releaseSavepoint(sp)`, and
+`rollbackToSavepoint(sp)`. These must be called inside a `.transactionally` scope.
+
+Note: savepoints require JDBC driver support. SQLite does not support them and will throw at
+runtime.
 
 JDBC Interoperability
 ---------------------
