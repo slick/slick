@@ -208,7 +208,9 @@ lazy val testkit =
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
         Dependencies.junit ++:
+          (Dependencies.munitCatsEffect % Test) +:
           (Dependencies.reactiveStreamsTCK % Test) +:
+          (Dependencies.fs2ReactiveStreams % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
       run / fork := true,
