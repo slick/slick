@@ -70,6 +70,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** All raw term names in this table (before escaping or disambiguating columns) */
     final lazy val allRawTermNames: Seq[String] = (definitions ++ TableClass.definitions.flatten).collect{ case d:TermDef => d}.map(_.rawName)
 */
+
     /** Definitions to be generated for this table
         @group Basic customization overrides */
     def definitions = Seq[AbstractDef]( EntityType, PlainSqlMapper, TableClass, TableValue )
