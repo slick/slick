@@ -1,11 +1,10 @@
 package slick.test.codegen
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 
 import slick.codegen.SourceCodeGenerator
-import slick.jdbc.JdbcProfile
+import slick.jdbc.{H2Profile, JdbcProfile}
 
 /** Generates code for CodeGenRoundTripTest.
   *
@@ -22,6 +21,7 @@ object GenerateRoundtripSources {
     import Tables.*
     import Tables.profile.api.*
     val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
+
     val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def parentType: Option[String] = Some("slick.test.codegen.EmptyTestTrait")
       override def Table = new Table(_)
@@ -42,8 +42,9 @@ object GenerateRoundtripSources {
       }
     })
     val a3 = profile.createModel(ignoreInvalidDefaults = false).map(m => new SourceCodeGenerator(m))
-    val db = Database.forURL(url=url, driver=jdbcDriver, keepAliveConnection=true)
-    val ((gen,gen2),gen3) = try Await.result(db.run(ddl.create >> ((a1 zip a2) zip a3)), Duration.Inf) finally db.close
+    val ((gen,gen2),gen3) = H2Profile.backend.Database.forURL[IO](url=url, driver=jdbcDriver, keepAliveConnection=true).use { db =>
+      db.run(ddl.create >> ((a1 zip a2) zip a3))
+    }.unsafeRunSync()
     val pkg = "slick.test.codegen.roundtrip"
     gen.writeToFile( "slick.jdbc.H2Profile", args(0), pkg )
     gen2.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"2" )
