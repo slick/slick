@@ -31,7 +31,7 @@ only composes queries and runs them, the migration is largely mechanical.
 - `slick-codegen`: code generation is unchanged. If you have previously generated code that
   contains `import scala.concurrent.ExecutionContext` (added by older codegen versions), that
   import is now unused — remove it or regenerate.
-- `DatabaseConfig.forConfig[P, F](path)` — still works; see [DatabaseConfig](#databaseconfig) below
+- `DatabaseConfig.forConfig[P](path)` — still works with an added effect-type parameter; see [DatabaseConfig](#databaseconfig) below
 
 ### Changed (breaking)
 
@@ -41,11 +41,11 @@ only composes queries and runs them, the migration is largely mechanical.
 | `db.stream(a)` return type | `DatabasePublisher[T]` | `Stream[F, T]` |
 | `Database` construction | `Database.forConfig("p")` returns `Database` | `Database.forConfig[IO]("p")` returns `Resource[IO, Database[IO]]` |
 | `map`/`flatMap`/`filter`/`cleanUp`/`zipWith`/`DBIO.fold` | require `(implicit ec: ExecutionContext)` | no EC parameter |
-| `DBIO.from(x)` | lifts a `Future[R]` | lifts any `F[R]` (CE3 effect) |
+| `DBIO.from(x)` | lifts a `Future[R]` | lifts any `F[R]` (CE3 effect) **or** `Future[R]` — both overloads exist |
 | `DBIO.liftF` | did not exist | alias for `DBIO.from` |
 | `AsyncExecutor` | required for thread pool config | **removed** entirely |
 | `db.shutdown` | `Future[Unit]` | **removed** — use `Resource` finalizer or `db.close()` |
-| `db.close()` (manual) | `Unit` | still works; `Resource` finalizer is preferred — see [Database Construction](#2-database-construction) |
+| `db.close()` (manual) | `Unit` | still works; `Resource` finalizer is an alternative — see [Database Construction](#2-database-construction) |
 | `ioExecutionContext` | `ExecutionContext` for blocking work | **removed** — use `db.io(thunk)` which returns `F[T]` |
 
 ---
@@ -65,17 +65,24 @@ libraryDependencies ++= Seq(
 
 Slick 4 supports **Scala 2.12**, **Scala 2.13**, and **Scala 3** (primary).
 
-### Reactive Streams (optional)
+### Play / Akka / Pekko users (optional)
 
-The `reactive-streams` artifact is no longer a core dependency. If you need to expose a
-`Publisher[T]` for interop with Akka Streams or another Reactive Streams consumer, add the
-optional compatibility module:
+If your application uses `Future` at its framework boundary (Play controllers, Akka/Pekko actors),
+add the optional Future API module. It provides a `Future`-based `Database` wrapper with no
+type parameter — identical to the Slick 3 API — for teams that keep `Future` at the application boundary:
 
 ```scala
-libraryDependencies += "com.typesafe.slick" %% "slick-reactive-streams" % "$project.version$"
+libraryDependencies += "com.typesafe.slick" %% "slick-future" % "$project.version$"
 ```
 
-See [Reactive Streams Compatibility](#reactive-streams-compatibility) for usage.
+See [Slick Future API](#slick-future-api) for usage.
+
+### Reactive Streams (included in `slick-future`)
+
+The `reactive-streams` artifact is no longer a core dependency. `slick-future` includes the
+`DatabasePublisher[T]` type alias and `db.streamAsPublisher` extension. If you are on a pure CE3
+stack and only need Reactive Streams interop (without the `Future` wrapper), `slick-future`
+still covers that use case via `import slick.future.*`.
 
 ---
 
@@ -85,9 +92,9 @@ All factory methods now return `Resource[F, Database[F]]`, where `F[_]` is your 
 (e.g. `cats.effect.IO`). The effect type is fixed at construction time — pass it as a type
 argument.
 
-There are three ways to manage the database lifecycle, listed here **in order of preference**:
+There are three ways to manage the database lifecycle:
 
-### Option 1 — `Resource.use` (recommended)
+### Option 1 — `Resource.use`
 
 The `Resource` finalizer closes the connection pool automatically when the `use` block completes,
 fails, or is cancelled. No manual `close()` call is needed.
@@ -107,7 +114,7 @@ Database.forConfig[IO]("mydb").use { db =>
 }
 ```
 
-This is the cleanest approach and the one to aim for in new code.
+This scopes acquisition and cleanup with `Resource.use`.
 
 ### Option 2 — `Resource.allocated` with explicit `closeDb`
 
@@ -125,8 +132,7 @@ program(db)
 closeDb.unsafeRunSync()
 ```
 
-This is the right migration step when restructuring around `Resource.use` is too large a change
-for one PR.
+Use this when restructuring around `Resource.use` is too large a change for one PR.
 
 ### Option 3 — `Resource.allocated`, discard finalizer, call `db.close()` directly
 
@@ -146,8 +152,7 @@ This is safe because `db.close()` and the `Resource` finalizer call the same und
 calling `closeDb.unsafeRunSync()`. The only thing you give up is the ability to compose shutdown
 into your effect chain.
 
-Use this option as a **temporary stepping stone** — it lets you change nothing else in your
-codebase while you migrate incrementally toward Option 1 or 2.
+Use this option when you need manual `close()` semantics while retaining the new constructor shapes.
 
 ### All factory methods
 
@@ -198,6 +203,81 @@ io.flatMap(rows => IO(rows.foreach(println)))
 ```
 
 No `Await.result`, no `scala.concurrent.ExecutionContext` needed anywhere.
+
+### Concurrency semantics: `Future` is eager, `IO` is lazy
+
+@@@ warning
+This is the most important behavioral difference when migrating to `Database[IO]`. Migrating
+`Future` → `IO` without understanding this will silently serialize work that was previously
+concurrent.
+
+This section applies only to `Database[IO]`. If you are using
+`slick.future.Database`, its `run` method calls `unsafeToFuture()` internally and preserves
+Slick 3's eager-start semantics — the concurrency behavior of your existing code is unchanged.
+@@@
+
+In Slick 3, `db.run(action)` **immediately** submitted work to the internal thread pool and
+returned a pending `Future`. Assigning two `Future` values to `val`s started both operations
+concurrently — this was "accidental" parallelism built into `Future`'s eager evaluation:
+
+```scala
+// Slick 3 — both operations start immediately at the `val` declaration
+val dbR: Future[A]   = db.run(queryAction)
+val httpR: Future[B] = httpClient.get(url)
+
+// By the time we reach the for-comprehension, both are already running
+for {
+  row      <- dbR
+  response <- httpR
+} yield combine(row, response)
+```
+
+With `Database[IO]`, `db.run(action)` returns an `IO` value — a **description** of work to be
+done. No database call is made until the `IO` is evaluated. A `for`-comprehension over `IO`
+values is **sequential by construction** — each step waits for the previous one to complete:
+
+```scala
+// Slick 4 Database[IO] — SEQUENTIAL: httpClient.get does not start until db.run finishes
+for {
+  row      <- db.run(queryAction)
+  response <- httpClient.get(url)
+} yield combine(row, response)
+```
+
+To run independent `IO` operations concurrently, use the CE3 parallel combinators:
+
+```scala
+import cats.syntax.parallel.*
+
+// Slick 4 Database[IO] — CONCURRENT: both start at the same time
+(db.run(queryAction), httpClient.get(url)).parTupled.map {
+  case (row, response) => combine(row, response)
+}
+
+// or equivalently:
+(db.run(queryAction), httpClient.get(url)).parMapN(combine)
+```
+
+@@@ note { title="For AI agents performing automated migration" }
+This section applies only when migrating to `Database[IO]`. If the target code uses
+`slick.future.Database` (which returns `Future`), the eager-start semantics are preserved and
+no concurrency changes are needed.
+
+When migrating Slick 3 code to `Database[IO]` that assigns multiple `db.run(...)` or
+`Future`-producing calls to `val`s and then combines them in a single `for`-comprehension or
+`Future.sequence`, the intent is almost always concurrent execution. Replace with `parTupled`,
+`parMapN`, or `parSequence`:
+
+| Pattern (Slick 3) | Replacement (Slick 4 `Database[IO]`) |
+|-------------------|-----------------------|
+| `val a = db.run(x); val b = db.run(y); for { ra <- a; rb <- b } yield f(ra, rb)` | `(db.run(x), db.run(y)).parMapN(f)` |
+| `val a = db.run(x); val b = otherFuture; for { ra <- a; rb <- b } yield f(ra, rb)` | `(db.run(x), otherIO).parMapN(f)` |
+| `Future.sequence(list.map(db.run(_)))` | `list.parTraverse(db.run(_))` |
+| `Future.traverse(list)(db.run(_))` | `list.parTraverse(db.run(_))` |
+
+If the original code uses a plain `for`-comprehension where each step depends on the result of the
+previous one, **no change is needed** — both `Future` and `IO` are already sequential in that case.
+@@@
 
 ---
 
@@ -270,11 +350,50 @@ val action: DBIO[String] = for {
 ### Play Framework
 
 Play injects an `ExecutionContext` into controllers and services via DI. In Slick 4 you no
-longer pass it to DBIO combinators, but you may still need it for other `Future`-based code in
-the same class. Bridge `IO[R]` to `Future[R]` at the outermost point:
+longer pass it to DBIO combinators.
+
+**Path A — `slick-future` (`Future`-based API)**
+
+Add `slick-future` to your dependencies. Swap the injection type, add two imports, and
+everything else — `db.run`, `db.stream`, `DBIO.from(future)`, `db.close()` — is identical to
+Slick 3:
 
 ```scala
-// Slick 4 with Play
+import slick.jdbc.PostgresProfile.api.*
+import slick.future.*
+import cats.effect.unsafe.implicits.runtime   // or inject IORuntime via DI
+
+class UserController @Inject()(db: slick.future.Database, cc: ControllerComponents)
+    extends AbstractController(cc) {
+
+  def list = Action.async {
+    db.run(users.result)                        // Future[Seq[User]] — identical to Slick 3
+      .map(rows => Ok(Json.toJson(rows)))(cc.executionContext)
+  }
+
+  def create = Action.async(parse.json) { req =>
+    val action = for {
+      id <- DBIO.from(generateId())             // generateId() returns Future[String], just works
+      _  <- users += User(id, req.body.as[User])
+    } yield id
+    db.run(action).map(id => Created(id))
+  }
+}
+```
+
+Wire `slick.future.Database` in your DI module:
+
+```scala
+// In a Play Module (Guice)
+import cats.effect.unsafe.implicits.runtime
+bind[slick.future.Database].toInstance(slick.future.Database.forConfig("mydb"))
+```
+
+**Path B — `Database[IO]` (`IO`-based API)**
+
+Bridge `IO[R]` to `Future[R]` at the outermost point:
+
+```scala
 import cats.effect.IO
 import cats.effect.unsafe.implicits.runtime   // or inject IORuntime
 
@@ -291,11 +410,31 @@ class UserController @Inject()(db: Database[IO], cc: ControllerComponents)
 ### Pekko / Akka
 
 Pekko and Akka actors expose `context.dispatcher: ExecutionContext`. In Slick 4, remove it
-from DBIO combinators. It is still available for `pipeTo`, `ask`, and other
-`Future` operations.
+from DBIO combinators. It is still available for `pipeTo`, `ask`, and other `Future` operations.
+
+**Path A — `slick-future` (`Future`-based API)**
 
 ```scala
-// Slick 4 with Pekko
+import slick.future.*
+import cats.effect.unsafe.implicits.runtime   // or use a custom IORuntime
+
+class OrderActor(db: slick.future.Database) extends Actor {
+  import context.dispatcher   // still needed for pipeTo / ask, not for DBIO
+
+  def receive = {
+    case PlaceOrder(order) =>
+      val action = for {
+        _ <- DBIO.from(validateOrder(order))  // validateOrder returns Future — just works
+        id <- orders += order
+      } yield id
+      db.run(action).pipeTo(sender())         // Future — identical to Slick 3
+  }
+}
+```
+
+**Path B — `Database[IO]` (`IO`-based API)**
+
+```scala
 import cats.effect.IO
 import cats.effect.unsafe.implicits.runtime   // or use a custom IORuntime
 
@@ -338,20 +477,29 @@ DBIO.fold(actions, zero)(f)
 
 ## 6. `DBIO.from` and `DBIO.liftF`
 
-`DBIO.from` now lifts a CE3 effect `F[R]` into a `DBIOAction`, not a `Future`.
-`DBIO.liftF` is an alias for `DBIO.from`.
+`DBIO.from` now accepts both a CE3 effect `F[R]` **and** a plain `Future[R]`. `DBIO.liftF` is
+an alias for `DBIO.from`.
+
+**`Future` overload — works unchanged from Slick 3:**
 
 ```scala
-// Slick 3
-val action = DBIO.from(Future(computeSomething()))
+// Slick 3 — still compiles unchanged in Slick 4
+val action = DBIO.from(callExternalService())   // callExternalService() returns Future[String]
+```
 
-// Slick 4
+No wrapping is required when you already have a `Future`. Scala resolves the `Future` overload
+and the CE3 overload independently — there is no ambiguity.
+
+**CE3 overload — lift any `F[R]`:**
+
+```scala
+// Slick 4 — IO overload
 val action = DBIO.from(IO(computeSomething()))
 // or equivalently:
 val action = DBIO.liftF(IO(computeSomething()))
 ```
 
-If you have an existing `Future` you need to bridge:
+If you have a `Future` and want to bridge it into the CE3 world explicitly:
 
 ```scala
 val action = DBIO.from(IO.fromFuture(IO(myExistingFuture)))
@@ -401,38 +549,191 @@ Savepoint APIs are not available in this branch, so there is nothing to migrate 
 
 ## 9. `db.io` — running blocking work in `F`
 
-If you need to run a blocking JDBC-level call outside of `SimpleDBIO`, use `db.io`:
+If you need to run a blocking call on the CE3 blocking thread pool — outside of a DBIO action
+— use `db.io`:
 
 ```scala
 // Slick 4
-val result: IO[Boolean] = db.io(conn.getAutoCommit)
+val result: IO[String] = db.io(System.getProperty("user.home"))
 ```
 
-This is the replacement for `db.ioExecutionContext` (which has been removed). `db.io` returns
-`F[T]`, shifting the thunk to the CE3 blocking thread pool.
+`db.io(thunk)` is equivalent to `Async[F].blocking(thunk)`. It is the replacement for the
+removed `db.ioExecutionContext`. Use `SimpleDBIO` for work that needs a `Connection`:
+
+```scala
+// For connection-aware blocking work, use SimpleDBIO (unchanged from Slick 3)
+val action: DBIO[Boolean] = SimpleDBIO(_.connection.getAutoCommit)
+db.run(action)  // IO[Boolean]
+```
 
 ---
 
 ## 10. Reactive Streams Compatibility
 
-If you need a `Publisher[T]` for interop with Akka Streams or another Reactive Streams consumer,
-use the optional `slick-reactive-streams` module:
+If you need a `Publisher[T]` for interop with Akka Streams, Pekko Streams, or another Reactive
+Streams consumer, there are two paths:
+
+**Path 1 — `slick.future.Database` (Future-based wrapper, from `slick-future`)**
+
+`db.stream(action)` on `slick.future.Database` returns a `Publisher[T]` directly — identical to
+Slick 3. For teams keeping `Future` at the boundary, this path keeps the same return type. See
+[Slick Future API](#slick-future-api) for setup and full API.
+
+**Path 2 — `db.streamAsPublisher` extension (CE3-native)**
+
+If you have a `Database[IO]` and need a `Publisher[T]`, use the `streamAsPublisher` extension
+from `import slick.future.*`. It requires an implicit `Dispatcher[IO]` from your CE3 context:
 
 ```scala
-import slick.reactivestreams.*
+import slick.future.*
 
-// Requires a cats.effect.std.Dispatcher[F] from your app context
-val publisherResource: Resource[IO, Publisher[User]] =
-  Database.forConfig[IO]("mydb").flatMap { db =>
-    db.stream(users.result).toUnicastPublisher
-  }
+Dispatcher.parallel[IO].use { implicit dispatcher =>
+  val publisher: Publisher[User] = db.streamAsPublisher(users.result)
+  // hand to Akka/Pekko Streams: Source.fromPublisher(publisher)
+  IO.unit
+}
 ```
+
+The `DatabasePublisher[T]` type alias (equal to `org.reactivestreams.Publisher[T]`) is provided
+by `slick.future.*` for drop-in source compatibility with code that used the Slick 3 type.
 
 The core `slick` artifact no longer depends on `reactive-streams`.
 
 ---
 
-## 11. Completely Removed APIs
+## 11. Slick Future API
+
+The optional `slick-future` module provides a `Future`-based `Database` type with no type
+parameter — identical to the Slick 3 `Database` API. It is designed for Play / Akka / Pekko
+applications that use `Future` at their framework boundary and want to migrate with minimal
+diff.
+
+### What `slick-future` provides
+
+| Feature | Import / type |
+|---------|--------------|
+| `slick.future.Database` — `Future`-based wrapper | `import slick.future.*` |
+| `db.run(action): Future[R]` | on `slick.future.Database` |
+| `db.stream(action): Publisher[T]` | on `slick.future.Database` |
+| `db.close(): Unit` | on `slick.future.Database` |
+| `db.underlying: Database[IO]` | escape hatch to access the full CE3 API |
+| `DatabasePublisher[T]` type alias | `import slick.future.*` |
+| `db.streamAsPublisher(action)` extension | `import slick.future.*` + implicit `Dispatcher[F]` |
+| `DBIO.from(future: Future[R])` overload | **no import** — in `slick` core |
+
+### Construction
+
+All factory methods mirror Slick 3 exactly. They require an implicit
+`cats.effect.unsafe.IORuntime` (you can import the global default or inject a custom one):
+
+```scala
+import cats.effect.unsafe.implicits.runtime   // global IORuntime
+
+// Identical to Slick 3 — no Resource, no type parameter
+val db: slick.future.Database = slick.future.Database.forConfig("mydb")
+val db: slick.future.Database = slick.future.Database.forDataSource(ds, Some(10))
+val db: slick.future.Database = slick.future.Database.forURL("jdbc:h2:mem:test", driver="org.h2.Driver")
+val db: slick.future.Database = slick.future.Database.forDriver(driver, url)
+```
+
+The connection pool and an internal `Dispatcher` are allocated eagerly on construction and
+released when `db.close()` is called. `close()` is safe to call from a Play `Module` `onStop`
+hook, an Akka extension shutdown callback, or a JVM shutdown hook — exactly as in Slick 3.
+
+### `run` and `stream`
+
+```scala
+import slick.future.*
+
+// run — returns Future[R], identical to Slick 3
+val result: Future[Seq[User]] = db.run(users.result)
+
+// stream — returns Publisher[T], identical to Slick 3
+val publisher: Publisher[User] = db.stream(users.result)
+// e.g. hand to Akka Streams:
+//   Source.fromPublisher(db.stream(users.result))
+```
+
+### `DBIO.from(future)` — no import needed
+
+`DBIO.from` accepts a `Future[R]` directly in Slick 4 core (no `slick-future` needed for
+this). This means that wherever you previously wrote:
+
+```scala
+// Slick 3
+DBIO.from(callExternalService())   // callExternalService() returns Future[String]
+```
+
+...it **still compiles unchanged in Slick 4**. No `IO.fromFuture(IO(...))` wrapping is required
+when the `Future` is already at hand. The CE3 overload `DBIO.from(io: F[R])` and the `Future`
+overload coexist — Scala resolves them correctly.
+
+```scala
+// Still works unchanged in Slick 4 — no modification needed
+val action: DBIO[String] = DBIO.from(callExternalService())
+```
+
+### Lifecycle — Play example
+
+```scala
+// app/modules/SlickModule.scala
+import com.google.inject.{AbstractModule, Provides, Singleton}
+import cats.effect.unsafe.implicits.runtime
+
+class SlickModule extends AbstractModule {
+  @Provides @Singleton
+  def database(): slick.future.Database =
+    slick.future.Database.forConfig("mydb")
+}
+```
+
+Play calls `onStop` during shutdown; register a `Lifecycle` hook to call `db.close()`:
+
+```scala
+@Singleton
+class SlickModule @Inject()(lifecycle: ApplicationLifecycle) extends AbstractModule {
+  @Provides @Singleton
+  def database(): slick.future.Database = {
+    val db = slick.future.Database.forConfig("mydb")
+    lifecycle.addStopHook(() => Future.successful(db.close()))
+    db
+  }
+}
+```
+
+### CE3-managed `Database[IO]` with a `Future`-facing handle (`Database.wrap`)
+
+If you already manage a `Database[IO]` via CE3 `Resource` (e.g. inside an `IOApp`) and only
+need a `Future`-facing handle for one framework component, use `Database.wrap`:
+
+```scala
+Database.forConfig[IO]("mydb").use { underlying =>
+  Dispatcher.parallel[IO].use { implicit dispatcher =>
+    val db: slick.future.Database = slick.future.Database.wrap(underlying, dispatcher)
+    // pass db to framework component; db.close() is a no-op — caller owns lifecycle
+    runApp(db)
+  }
+}
+```
+
+### `streamAsPublisher` extension for CE3 users
+
+For CE3-native code that has a `Database[F]` and needs a `Publisher[T]`:
+
+```scala
+import slick.future.*
+
+// Requires an implicit Dispatcher[F] in scope
+Dispatcher.parallel[IO].use { implicit dispatcher =>
+  val publisher: Publisher[User] = db.streamAsPublisher(users.result)
+  Source.fromPublisher(publisher)  // hand to Akka/Pekko Streams
+  IO.unit
+}
+```
+
+---
+
+## 12. Completely Removed APIs
 
 The following APIs are removed and have **no direct replacement** in Slick 4 (the need they
 addressed is either gone or covered by a different mechanism):
@@ -456,8 +757,8 @@ HikariCP pool size can be set to whatever your database server supports.
 
 `close(): Unit` is still implemented on `Database` (it is called by the `Resource` finalizer), and
 calling it directly still works — see [Option 3](#option-3----resource-allocated-discard-finalizer-call-dbclose-directly)
-above. However, the preferred migration is to wrap your program in `Resource.use` and let the
-finalizer handle cleanup, or to use `Resource.allocated` and keep the `closeDb` effect:
+above. You can also wrap your program in `Resource.use` and let the finalizer handle cleanup,
+or use `Resource.allocated` and keep the `closeDb` effect:
 
 ```scala
 // Slick 3
@@ -465,7 +766,7 @@ val db = Database.forConfig("mydb")
 try program(db).onComplete(_ => db.close())
 finally Await.result(db.shutdown, Duration.Inf)
 
-// Slick 4 — preferred
+// Slick 4
 Database.forConfig[IO]("mydb").use(db => program(db))
 ```
 
@@ -491,7 +792,8 @@ db.stream(blobQuery.result)   // demand-driven by default
 
 `DatabasePublisher[T]` is removed from the `slick` core module. Use `db.stream(...)` which
 returns `Stream[F, T]` (FS2) instead. If you need `Publisher[T]` interop, use the optional
-`slick-reactive-streams` module (see [above](#reactive-streams-compatibility)).
+`slick-future` module (see [Reactive Streams Compatibility](#reactive-streams-compatibility)
+and [Slick Future API](#slick-future-api)).
 
 ### `DBIO.sameThreadExecutionContext`
 
@@ -518,7 +820,7 @@ present in Slick 4. Use `.transactionally` to scope transactions in DBIO composi
 
 ---
 
-## 12. ZIO Interop
+## 13. ZIO Interop
 
 Slick 4 works with ZIO out of the box via
 [zio-interop-cats](https://github.com/zio/zio-interop-cats), which provides a `cats.effect.Async`
@@ -555,7 +857,9 @@ developers doing a systematic find-and-replace pass.
 
 - **Add**: `"org.typelevel" %% "cats-effect" % "3.x"`
 - **Add**: `"co.fs2" %% "fs2-core" % "3.x"`
-- **Remove** (or move to `slick-reactive-streams`): any direct dependency on
+- **Optional**: `"com.typesafe.slick" %% "slick-future" % "$project.version$"` — Future-based
+  `Database` wrapper; see [Slick Future API](#slick-future-api)
+- **Remove** (or replace with `slick-future`): any direct dependency on
   `org.reactivestreams:reactive-streams`
 - **Keep** Scala 2.12, 2.13, and Scala 3 cross-build entries
 
@@ -587,17 +891,41 @@ In order of preference:
 
 | Pattern (Slick 3) | Replacement (Slick 4) | Option |
 |-------------------|-----------------------|--------|
-| `val db = Database.forConfig("p")` + `db.shutdown` / `db.close()` | `Database.forConfig[IO]("p").use { db => program(db) }` | 1 — preferred |
-| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val (db, closeDb) = Database.forConfig[IO]("p").allocated.unsafeRunSync()` + `closeDb.unsafeRunSync()` on shutdown | 2 — migration step |
-| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val (db, _) = Database.forConfig[IO]("p").allocated.unsafeRunSync()` + `db.close()` on shutdown | 3 — minimal change |
+| `val db = Database.forConfig("p")` + `db.shutdown` / `db.close()` | `Database.forConfig[IO]("p").use { db => program(db) }` | 1 — scoped `Resource.use` |
+| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val (db, closeDb) = Database.forConfig[IO]("p").allocated.unsafeRunSync()` + `closeDb.unsafeRunSync()` on shutdown | 2 — explicit finalizer |
+| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val (db, _) = Database.forConfig[IO]("p").allocated.unsafeRunSync()` + `db.close()` on shutdown | 3 — direct `close()` |
 | `Await.result(db.shutdown, ...)` | Remove — use one of the options above | — |
 
 ### 5. `db.run`
 
 | Pattern (Slick 3) | Replacement (Slick 4) |
 |-------------------|-----------------------|
-| `val f: Future[R] = db.run(a)` | `val io: IO[R] = db.run(a)` |
+| `val f: Future[R] = db.run(a)` | `val io: IO[R] = db.run(a)` — compose with CE3 |
+| `val f: Future[R] = db.run(a)` | `val f: Future[R] = db.run(a)` — **unchanged** with `slick.future.Database` |
 | `Await.result(db.run(a), d)` | `db.run(a).unsafeRunSync()` (in tests) or compose with `use` |
+
+For Play / Akka / Pekko applications that keep `Future` at the boundary, add `slick-future` and
+use `slick.future.Database` — `db.run` returns `Future[R]` identically to Slick 3. See
+[Slick Future API](#slick-future-api).
+
+### 5a. Concurrency — `Future` eagerness → `IO` laziness
+
+This applies only to `Database[IO]`. `slick.future.Database.run` returns `Future` and preserves
+Slick 3's eager-start semantics — no concurrency changes are needed with the Future API module.
+
+`IO` is lazy: independent `IO` values composed with `for`/`flatMap` run sequentially. Code that
+relied on `Future`'s eager start for concurrency must be rewritten with CE3 parallel combinators.
+
+| Pattern (Slick 3) | Replacement (Slick 4 `Database[IO]`) |
+|-------------------|-----------------------|
+| `val a = db.run(x); val b = db.run(y); for { ra <- a; rb <- b } yield f(ra, rb)` | `(db.run(x), db.run(y)).parMapN(f)` |
+| `val a = db.run(x); val b = otherFuture; for { ra <- a; rb <- b } yield f(ra, rb)` | `(db.run(x), otherIO).parMapN(f)` |
+| `Future.sequence(list.map(db.run(_)))` | `list.parTraverse(db.run(_))` |
+| `Future.traverse(list)(db.run(_))` | `list.parTraverse(db.run(_))` |
+
+If each step in the `for`-comprehension depends on the previous step's result, **no change is
+needed** — both `Future` and `IO` are sequential in that case. See
+[Concurrency semantics](#concurrency-semantics-future-is-eager-io-is-lazy) for full explanation.
 
 ### 6. `db.stream`
 
@@ -625,12 +953,15 @@ error. If it was implicit it will simply no longer be required.
 
 ### 8. `DBIO.from` / `DBIO.liftF`
 
-| Pattern (Slick 3) | Replacement (Slick 4) |
-|-------------------|-----------------------|
-| `DBIO.from(future: Future[R])` | `DBIO.from(io: IO[R])` — or any `F[R]` |
-| `DBIO.from(Future(expr))` | `DBIO.from(IO(expr))` |
-| `DBIO.from(Future.successful(v))` | `DBIO.successful(v)` (unchanged) or `DBIO.from(IO.pure(v))` |
-| Bridge existing `Future`: `DBIO.from(fut)` | `DBIO.from(IO.fromFuture(IO(fut)))` |
+`DBIO.from(future: Future[R])` compiles unchanged — the `Future` overload is present in `slick`
+core alongside the CE3 overload. No migration is required for existing `DBIO.from` call sites.
+
+| Pattern (Slick 3) | Status in Slick 4 | Notes |
+|-------------------|--------------------|-------|
+| `DBIO.from(future: Future[R])` | **unchanged** | `Future` overload in `slick` core |
+| `DBIO.from(Future(expr))` | compiles unchanged; **preferably** replace with `DBIO.from(IO(expr))` | wrapping a thunk in `Future` is unnecessary overhead |
+| `DBIO.from(Future.successful(v))` | compiles unchanged; prefer `DBIO.successful(v)` | `DBIO.successful` is the zero-overhead path |
+| Bridge `Future` into CE3 explicitly | `DBIO.from(IO.fromFuture(IO(fut)))` | only needed if you want the result as `IO` before passing to `DBIO.from` |
 
 `DBIO.liftF` is new in Slick 4 and is an alias for `DBIO.from`.
 
