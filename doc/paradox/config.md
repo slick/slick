@@ -53,17 +53,18 @@ The following loggers are particularly interesting:
 Monitoring
 ----------
 
-When a  @ref:[Database](database.md) object has the `registerMbeans` option enabled (see
-@scaladoc[Database.forConfig](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig(String,Config,Driver,ClassLoader):Database),
-Slick registers a @extref[JMX](jmx:) management bean of type @scaladoc[AsyncExecutorMXBean](slick.util.AsyncExecutorMXBean) that provides information about the
-current workload of the database I/O thread pool and the task queue.
+Slick does not expose its own JMX bean in Slick 4. Observability is provided at two levels:
 
-Connection pool implementations may also honor this option and register additional management beans. In particular,
-the default @extref[HikariCP](hikaricp:) pool implementation does this. See [HikariCP Monitoring] in the HikariCP documentation for
-details.
+1. **Connection pool (HikariCP)**: When a @ref:[Database](database.md) object has the `registerMbeans` option
+   enabled, the @extref[HikariCP](hikaricp:) pool implementation registers @extref[JMX](jmx:) management beans.
+   See [HikariCP Monitoring] in the HikariCP documentation for details.
 
-The management bean names are qualified with the `poolName` from the database configuration, or the config path
-if the `poolName` has not been set explicitly.
+2. **Effect runtime**: Cats Effect 3 runtimes (including the default `IORuntime`) expose metrics through
+   standard JVM tooling. If you are using a framework like http4s, refer to its documentation for
+   integrating metrics (e.g., via Micrometer or Prometheus) with the CE3 runtime.
+
+The management bean names registered by HikariCP are qualified with the `poolName` from the database
+configuration, or the config path if `poolName` has not been set explicitly.
 
 Example: Including the following configuration options in the database configuration
 
@@ -73,8 +74,7 @@ registerMbeans = true
 poolName = "myDb"
 ```
 
-results in these three management beans being registered:
+results in these two HikariCP management beans being registered:
 
-- `slick:type=AsyncExecutor,name=myDb`
 - `com.zaxxer.hikari:type=PoolConfig (myDb)`
 - `com.zaxxer.hikari:type=Pool (myDb)`

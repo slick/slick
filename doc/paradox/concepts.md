@@ -41,18 +41,19 @@ Databases
 
 A @scaladoc[Database](slick.jdbc.JdbcBackend#Database:Database) object encapsulates the resources that are required to
 connect to a specific database. This *can* be just a number of connection parameters but in most cases it includes a
-*connection pool* and a *thread pool*. You should usually create a single `Database` object when your application
-starts and shut it down when your application shuts down to ensure that all resources are released.
+*connection pool*. `Database` is parameterized by an effect type `F[_]` (e.g. `cats.effect.IO`) and is constructed
+as a `Resource[F, Database[F]]`. You should create the `Database` resource once and keep it for the lifetime of your
+application; the resource finalizer closes the connection pool automatically.
 
 Results
 -------
 
 Any *action* can be run on a database to obtain the results (or perform side effects such as updating the database).
 Execution is always asynchronous, i.e. it does not block the caller thread. Any kind of action can be run to obtain
-a `Future` that is eventually completed with a result when the execution is finished (`myDatabase.run(myAction)`).
-Actions that produce a sequence of values usually support streaming results as well. Such an action can be combined
-with a database to produce a @extref[Reactive Streams](reactive-streams:) `Publisher` (`myDatabase.stream(myAction)`). The action is
-executed when a consumer subscribes to the Publisher.
+an `F[R]` value (for example `IO[R]`) that completes asynchronously with the result (`myDatabase.run(myAction)`).
+Actions that produce a sequence of values also support streaming results. Such an action can be combined with a
+database to produce an @extref[FS2](fs2:) `Stream[F, T]` (`myDatabase.stream(myAction)`). The action is not
+executed until the stream is consumed.
 
 Profiles
 --------
