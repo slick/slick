@@ -4,8 +4,6 @@ import java.sql.{PreparedStatement, ResultSet}
 import java.time.Instant
 import java.util.UUID
 
-import scala.concurrent.ExecutionContext
-
 import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
@@ -67,7 +65,7 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     new DB2ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new DB2SequenceDDLBuilder(seq)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
+  override def defaultTables: DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE"))).map(_.filter(!_.name.schema.exists(_ == "SYSTOOLS")))
 
   override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
