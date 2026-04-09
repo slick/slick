@@ -6,6 +6,11 @@ You can tell Slick how to connect to the JDBC database of your choice by creatin
 @scaladoc[factory methods](slick.jdbc.JdbcBackend$DatabaseFactoryDef) on `slick.jdbc.JdbcBackend.Database` that you can use
 depending on what connection data you have available.
 
+All factory methods return a `Resource[F, Database[F]]`, where `F` is your effect type (e.g. `cats.effect.IO`). The
+`Resource` manages the full lifecycle of the connection pool: it is acquired when the `Resource` is used and released
+(connections closed, pool shut down) when the `Resource` is released. You never need to call `close()` or `shutdown()`
+manually.
+
 Using Typesafe Config
 ---------------------
 
@@ -13,8 +18,8 @@ The preferred way to configure database connections is through @extref[Typesafe 
 `application.conf`, which is also used by @extref[Play](play:) and @extref[Akka](akka:) for their configuration.
 
 Such a configuration can be loaded with `Database.forConfig` (see the
-@scaladoc[API documentation](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig(String,Config,Driver,ClassLoader):Database)
-of this method for details on the configuration parameters).
+@scaladoc[API documentation](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig)
+of this method for details on the configuration parameters). It returns a `Resource[F, Database[F]]`.
 
 @@snip [Connection.scala](../code/Connection.scala) { #forConfig }
 
@@ -82,7 +87,7 @@ Using a JDBC URL
 ----------------
 
 You can pass a JDBC URL to
-@scaladoc[forURL](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forURL(String,String,String,Properties,String,AsyncExecutor,Boolean,ClassLoader):DatabaseDef).
+@scaladoc[forURL](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forURL).
 (see your database's JDBC driver's documentation for the correct URL syntax).
 
 @@snip [Connection.scala](../code/Connection.scala) { #forURL }
@@ -103,7 +108,7 @@ property if the `DATABASE_URL` environment variable is set. You may also define 
 standard Typesafe Config syntax, such as `${?MYSQL_DATABASE_URL}`.
 
 Or you may pass a @scaladoc[DatabaseUrlDataSource](slick.jdbc.DatabaseUrlDataSource) object to
-@scaladoc[forDataSource](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forDataSource(DataSource,Option[Int],AsyncExecutor,Boolean):DatabaseDef)
+@scaladoc[forDataSource](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forDataSource)
 .
 
 @@snip [Connection.scala](../code/Connection.scala) { #forDatabaseURL }
@@ -112,7 +117,7 @@ Using a DataSource
 ------------------
 
 You can pass a @javadoc[DataSource](javax.sql.DataSource) object to
-@scaladoc[forDataSource](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forDataSource(DataSource,Option[Int],AsyncExecutor,Boolean):DatabaseDef).
+@scaladoc[forDataSource](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forDataSource).
 If you got it from the connection pool of your application framework, this plugs the pool into Slick. If the pool has
 a size limit, the correct size should always be specified.
 
@@ -122,39 +127,47 @@ Using a JNDI Name
 -----------------
 
 If you are using @extref[JNDI](wikipedia:JNDI) you can pass a JNDI name to
-@scaladoc[forName](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forName(String,Option[Int],AsyncExecutor):DatabaseDef)
+@scaladoc[forName](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forName)
 under which a @javadoc[DataSource](javax.sql.DataSource) object can be looked up. If the data source has
 a limit in the number of connections it can provide, the correct size should always be specified.
 
 @@snip [Connection.scala](../code/Connection.scala) { #forName }
 
-Database thread pool
---------------------
+Database lifecycle
+------------------
 
-Every `Database` contains an @scaladoc[AsyncExecutor](slick.util.AsyncExecutor) that manages the thread pool
-for asynchronous execution of Database I/O Actions. Its size is the main parameter to tune for the best
-performance of the `Database` object. It should be set to the value that you would use for the
-size of the *connection pool* in a traditional, blocking application (see @extref[About Pool Sizing](about-pool-sizing:)
-in the @extref[HikariCP](hikaricp:) documentation for further information). When using
-@scaladoc[Database.forConfig](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig(String,Config,Driver,ClassLoader):Database),
-the thread pool is configured directly in the external configuration file together with the connection
-parameters. If you use any other factory method to get a `Database`, you can either use a default
-configuration or specify a custom AsyncExecutor:
+Every factory method returns a `Resource[F, Database[F]]`. The `Resource` allocates the connection pool when
+acquired and shuts it down when released. The recommended pattern is to acquire the `Resource` once at
+application startup and keep the `Database` value alive for the lifetime of the application:
 
-@@snip [Connection.scala](../code/Connection.scala) { #forURL2 }
+```scala
+val dbResource: Resource[IO, Database[IO]] = Database.forConfig[IO]("mydb")
+
+// In your main entry point:
+dbResource.use { db =>
+  // run your entire application here
+  myApp(db)
+}
+```
+
+You do not need to call `close()` or any shutdown method manually — the `Resource` finalizer handles it. If you are
+using a framework such as http4s or Tapir, you can convert the `Resource` into the framework's service lifecycle
+using standard Cats Effect `Resource` combinators.
 
 Connection pools
 ----------------
 
-When using a connection pool (which is always recommended in production environments) the *minimum*
-size of the *connection pool* should also be set to at least the same size. The *maximum* size of
-the *connection pool* can be set much higher than in a blocking application. Any connections beyond
-the size of the *thread pool* will only be used when other connections are required to keep a
-database session open (e.g. while waiting for the result from an asynchronous computation in the
-middle of a transaction) but are not actively doing any work on the database.
+Using a connection pool is always recommended in production environments. Slick integrates with
+@extref[HikariCP](hikaricp:) via the `slick-hikaricp` module and will use it automatically when it is on the
+classpath (see @ref:[Getting Started](gettingstarted.md) for the dependency).
 
-Note that reasonable defaults for the connection pool sizes are calculated from the thread pool size when using
-@scaladoc[Database.forConfig](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig(String,Config,Driver,ClassLoader):Database).
+Set the *maximum* pool size to the number of concurrent database connections your database server can handle
+efficiently. Because Slick's execution model is non-blocking, you do not need to add extra connections to
+"absorb" thread blocking — size the pool purely based on the database server's capacity. See
+@extref[About Pool Sizing](about-pool-sizing:) in the HikariCP documentation for background.
+
+Note that reasonable defaults for the connection pool sizes are calculated automatically when using
+@scaladoc[Database.forConfig](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig).
 
 Slick uses *prepared* statements wherever possible but it does not cache them on its own. You
 should therefore enable prepared statement caching in the connection pool's configuration.
@@ -199,7 +212,7 @@ demonstrate the features.
 
 @@@
 
-Since its addition in Slick 3.0 `DatabaseConfig` (see [above](#databaseconfig)) is the recommended solution.
+`DatabaseConfig` (see [above](#databaseconfig)) is the recommended solution.
 More complex scenarios (for example, where you need to map custom functions differently for different database
 systems, or where you cannot use the simple application.conf syntax) may require abstracting over databases in Scala
 code. The following sections explain two different ways of accomplishing this.

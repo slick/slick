@@ -6,8 +6,8 @@ Slick ("Scala Language-Integrated Connection Kit") is @extref[Lightbend](lightbe
 (FRM) library for Scala that makes it easy to work with relational databases. It allows you to work with stored data
 almost as if you were using Scala collections while at the same time giving you full control over when database access
 happens and which data is transferred. You can also use SQL directly. Execution of database actions is done
-asynchronously, making Slick a perfect fit for your reactive applications based on @extref[Play](play:) and
-@extref[Akka](akka:).
+asynchronously, making Slick a perfect fit for applications built with
+@extref[Cats Effect](cats-effect:) or any other CE3-compatible effect system.
 
 @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala){#what-is-slick-micro-example}
 
@@ -84,27 +84,32 @@ Some of the key benefits of Slick's FRM approach for functional programming incl
 
     @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #features-composable }
 
-## Reactive Applications
+## Effectful Applications
 
-Slick is easy to use in asynchronous, non-blocking application designs, and supports building applications according to
-the @extref[Reactive Manifesto](reactive-manifesto:). Unlike simple wrappers around traditional, blocking database APIs,
-Slick gives you:
+Slick is built for asynchronous, non-blocking application designs. It integrates natively with
+@extref[Cats Effect 3](cats-effect:) and @extref[FS2](fs2:):
 
-* Clean separation of I/O and CPU-intensive code: Isolating I/O allows you to keep your main
-  thread pool busy with CPU-intensive parts of the application while waiting for I/O in the
-  background.
+* **`F[_]: Async` integration**: `db.run(action)` returns `F[R]` — for example `IO[R]` — which
+  composes directly in any CE3 program without any conversion or bridging.
 
-* Resilience under load: When a database cannot keep up with the load of your application,
-  Slick will not create more and more threads (thus making the situation worse) or lock out all
-  kinds of I/O. Back-pressure is controlled efficiently through a queue (of configurable size)
-  for database I/O actions, allowing a certain number of requests to build up with very little
-  resource usage and failing immediately once this limit has been reached.
+* **Clean separation of I/O and computation**: JDBC calls execute on CE3's built-in blocking
+  thread pool via `F.blocking`. Your main compute pool stays free for CPU-bound work.
 
-* @extref[Reactive Streams](reactive-streams:) for asynchronous streaming.
+* **FS2 streaming with native back-pressure**: `db.stream(action)` returns `Stream[F, T]`. Back-
+  pressure is structural — when the consumer is slow, the fiber suspends and the OS thread is
+  released. No Reactive Streams subscription protocol is needed for the common case.
 
-* Efficient utilization of database resources: Slick can be tuned easily and precisely for the
-  parallelism (number of concurrent active jobs) and resource usage (number of currently
-  suspended database sessions) of your database server.
+* **Correct resource lifecycle**: `Database[F]` is constructed as a `Resource[F, Database[F]]`.
+  Shutting down the connection pool happens automatically when the `Resource` scope ends, even on
+  error or fiber cancellation. No manual `close()` call is needed.
+
+* **Transaction rollback on cancellation**: when a fiber running a `.transactionally` action is
+  cancelled, the transaction is rolled back. This guarantee was not achievable with
+  `Future`-based libraries.
+
+* **Effect-system agnostic**: the `Async[F]` constraint means Slick 4 works with any CE3-
+  compatible effect type — `cats.effect.IO`, ZIO via `zio-interop-cats`, Monix `Task`, and
+  others — without any special per-effect-system support.
 
 ## Plain SQL Support
 
@@ -124,6 +129,6 @@ Slick is released under a BSD-Style free and open source software @github[licens
 ## Next Steps
 
 * If you are new to Slick, continue to  @ref:[Getting Started](gettingstarted.md)
-* If you have used an older version of Slick, make sure to read the  @ref:[Upgrade Guides](upgrade.md)
+* If you are migrating from Slick 3, read the  @ref:[Migrating to Slick 4](migrating-to-slick4.md) guide
 * If you have used an ORM before, see  @ref:[Coming from ORM to Slick](orm-to-slick.md)
 * If you are familiar with SQL, see  @ref:[Coming from SQL to Slick](sql-to-slick.md)

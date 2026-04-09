@@ -4,6 +4,7 @@ import slick.jdbc.H2Profile.api._
 
 object JoinsUnions {
   def main(args: Array[String]): Unit = {
+
     class Suppliers(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey)
       def name = column[String]("SUP_NAME")

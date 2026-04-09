@@ -1,11 +1,11 @@
 package com.typesafe.slick.docs
 
-import scala.concurrent.{Future, Await}
-import scala.concurrent.duration.Duration
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 
 //#imports
 // Use H2Profile to connect to an H2 database
-import slick.jdbc.H2Profile.api.*
+// import slick.jdbc.H2Profile.api.*
 //#imports
 
 /**
@@ -15,6 +15,9 @@ import slick.jdbc.H2Profile.api.*
  */
 object GettingStartedOverview {
   def main(args: Array[String]): Unit = {
+    //#quick-imports
+    import slick.jdbc.H2Profile.api.*
+    //#quick-imports
 
     //#quick-schema
     class Coffees(tag: Tag) extends Table[(String, Double)](tag, "COFFEES") {
@@ -25,44 +28,46 @@ object GettingStartedOverview {
     val coffees = TableQuery[Coffees]
     //#quick-schema
 
-    val f1 =
-      //#quick-query
-      Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver").run(
-        //#quick-query
+    //#quick-query
+    Database.forURL[IO]("jdbc:h2:mem:test1", driver = "org.h2.Driver").use { db =>
+    //#quick-query
+      db.run(
         coffees.schema.create andThen
-          //#quick-query
-          ( for( c <- coffees; if c.price < 10.0 ) yield c.name ).result
-          //#quick-query
+    //#quick-query
+        ( for( c <- coffees; if c.price < 10.0 ) yield c.name ).result
+    //#quick-query
           andThen
-          //#quick-query
-          // or
-          coffees.filter(_.price < 10.0).map(_.name).result
+    //#quick-query
+        // or
+        coffees.filter(_.price < 10.0).map(_.name).result
       )
     //#quick-query
-    Await.result(f1, Duration.Inf)
+    }.unsafeRunSync()
+    //#quick-query
 
-    val f2 = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver").run(
-      coffees.schema.create andThen {
-        //#what-is-slick-micro-example
-        val limit = 10.0
+    Database.forURL[IO]("jdbc:h2:mem:test1", driver = "org.h2.Driver").use { db =>
+      db.run(
+        coffees.schema.create andThen {
+          //#what-is-slick-micro-example
+          val limit = 10.0
 
-        // Your query could look like this:
-        ( for( c <- coffees; if c.price < limit ) yield c.name ).result
+          // Your query could look like this:
+          ( for( c <- coffees; if c.price < limit ) yield c.name ).result
 
-        // Equivalent SQL: select COF_NAME from COFFEES where PRICE < 10.0
-        //#what-is-slick-micro-example
-      } andThen {
-        //#what-is-slick-micro-example-plainsql
-        val limit = 10.0
+          // Equivalent SQL: select COF_NAME from COFFEES where PRICE < 10.0
+          //#what-is-slick-micro-example
+        } andThen {
+          //#what-is-slick-micro-example-plainsql
+          val limit = 10.0
 
-        sql"select COF_NAME from COFFEES where PRICE < $limit".as[String]
+          sql"select COF_NAME from COFFEES where PRICE < $limit".as[String]
 
-        // Automatically using a bind variable to be safe from SQL injection:
-        // select COF_NAME from COFFEES where PRICE < ?
-        //#what-is-slick-micro-example-plainsql
-      }
-    )
-    Await.result(f2, Duration.Inf)
+          // Automatically using a bind variable to be safe from SQL injection:
+          // select COF_NAME from COFFEES where PRICE < ?
+          //#what-is-slick-micro-example-plainsql
+        }
+      )
+    }.unsafeRunSync()
 
     //#features-scala-collections
     // Query that only returns the "name" column
@@ -75,16 +80,15 @@ object GettingStartedOverview {
     //#features-scala-collections
 
     {
-      val db = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
-      val f4 = {
+      Database.forURL[IO]("jdbc:h2:mem:test1", driver = "org.h2.Driver").use { db =>
         //#features-type-safe
         // The result of "select PRICE from COFFEES" is a Seq of Double
         // because of the type safe column definitions
-        val coffeeNames: Future[Seq[Double]] = db.run(
+        val coffeeNames: IO[Seq[Double]] = db.run(
           //#features-type-safe
           coffees.schema.create andThen
-            //#features-type-safe
-            coffees.map(_.price).result
+          //#features-type-safe
+          coffees.map(_.price).result
         )
 
         // Query builders are type safe:
@@ -92,8 +96,7 @@ object GettingStartedOverview {
         // Using a string in the filter would result in a compilation error
         //#features-type-safe
         coffeeNames
-      }
-      Await.result(f4, Duration.Inf)
+      }.unsafeRunSync()
     }
 
     //#features-composable

@@ -2,7 +2,7 @@ package com.typesafe.slick.docs
 
 import slick.jdbc.H2Profile.api._
 
-object DBIOCombinators extends {
+object DBIOCombinators {
   def main(args: Array[String]): Unit = {
     class Coffees(tag: Tag) extends Table[(String, Double)](tag, "COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
