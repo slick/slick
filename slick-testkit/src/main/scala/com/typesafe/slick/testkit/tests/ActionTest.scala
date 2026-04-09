@@ -3,12 +3,13 @@ package com.typesafe.slick.testkit.tests
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB, StandardTestDBs}
 import slick.lifted.ProvenShape
 
-import scala.concurrent.Future
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 
 class ActionTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
-  def testSimpleActionAsFuture = {
+  def testSimpleActionAsFuture: IO[Unit] = {
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a
@@ -22,7 +23,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       }
       q1 = ts.sortBy(_.a).map(_.a)
       f1 = db.run(q1.result)
-      r1 <- f1 : Future[Seq[Int]]
+      r1 <- f1 : IO[Seq[Int]]
       _ = r1 shouldBe List(1, 2, 3, 4, 5)
     } yield ()
   }
@@ -70,7 +71,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     aSetup andThen aNotPinned andThen aFused andThen aPinned
   }
 
-  def testStreaming = {
+  def testStreaming: IO[Unit] = {
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a
@@ -96,8 +97,8 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
 
   def testDeepRecursion = if(tdb == StandardTestDBs.H2Disk) {
     val a1 = DBIO.sequence((1 to 5000).toSeq.map(i => LiteralColumn(i).result))
-    val a2 = DBIO.sequence((1 to 20).toSeq.map(i => if(i%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
-    val a3 = DBIO.sequence((1 to 20).toSeq.map(i => if((i/4)%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
+    val a2 = DBIO.sequence((1 to 20).toSeq.map(i => if(i%2 == 0) LiteralColumn(i).result else DBIO.liftF(IO.pure(i))))
+    val a3 = DBIO.sequence((1 to 20).toSeq.map(i => if((i/4)%2 == 0) LiteralColumn(i).result else DBIO.liftF(IO.pure(i))))
     val a4 = DBIO.seq((1 to 50000).toSeq.map(i => DBIO.successful("a4")): _*)
     val a5 = (1 to 50000).toSeq.map(i => DBIO.successful("a5")).reduceLeft(_ andThen _)
     val a6 = DBIO.fold((1 to 50000).toSeq.map(i => LiteralColumn(i).result), 0)(_ + _)
@@ -157,7 +158,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield result shouldBe inputs
   }
 
-  def testFlatten = {
+  def testFlatten: IO[Unit] = {
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
       def * = a
@@ -174,7 +175,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
-  def testZipWith = {
+  def testZipWith: IO[Unit] = {
       class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
         def a = column[Int]("a")
         def * = a
@@ -192,7 +193,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       } yield ()
     }
 
-  def testCollect = {
+  def testCollect: IO[Unit] = {
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")
 
@@ -210,12 +211,10 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       })
       _ = result shouldBe 1
       _ = result shouldFail { _ =>
-        val future = db.run(q1.result.headOption.collect {
+        val io = db.run(q1.result.headOption.collect {
           case None => ()
         })
-        import scala.concurrent.duration.Duration
-        import scala.concurrent.Await
-        Await.result(future, Duration.Inf)
+        io.unsafeRunSync()
       }
     } yield ()
   }
