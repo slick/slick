@@ -1,14 +1,13 @@
 package com.typesafe.slick.testkit.tests
 
 import java.util.concurrent.{CountDownLatch, Executor, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
-import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB, TestkitConfig}
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import org.junit.Assert
 import slick.dbio.DBIOAction
 import slick.util.Logging
+import cats.effect.unsafe.implicits.global
 
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.Await
-import scala.util.Failure
 
 
 class LockingClauseTest extends AsyncTest[JdbcTestDB] with Logging {
@@ -29,22 +28,18 @@ class LockingClauseTest extends AsyncTest[JdbcTestDB] with Logging {
                             success: AtomicBoolean)
                            (commands: DBIO[Unit],
                           completeLatch: CountDownLatch): DBIO[Unit] = {
-    executor.execute(() => Await.result({
+    executor.execute(() => {
       startLatch.await()
-      val f = db.run {
+      val result = db.run {
         seq(GetTransactionality.map(_._1 shouldBe 0), // make sure not in transaction yet
           commands.transactionally)
+      }.attempt.unsafeRunSync()
+      result match {
+        case Left(_) => success.set(false)
+        case Right(_) =>
       }
-      f.onComplete { t => {
-        completeLatch.countDown()
-        t match {
-          case Failure(_) => success.set(false)
-          case _ =>
-        }
-      }
-      }
-      f
-    }, TestkitConfig.asyncTimeout))
+      completeLatch.countDown()
+    })
     DBIOAction.successful(()) // dummy action to add into pipeline
   }
 
