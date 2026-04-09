@@ -6,8 +6,6 @@ import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
 
-import scala.concurrent.ExecutionContext
-
 import slick.SlickException
 import slick.ast.*
 import slick.basic.Capability
@@ -46,7 +44,7 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       JdbcCapabilities.insertOrUpdate -
       JdbcCapabilities.forShare
 
-  class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+  class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createTableNamer(mTable: MTable): TableNamer = new HsqldbTableNamer(mTable)
@@ -56,11 +54,10 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean): JdbcModelBuilder =
     new HsqldbModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
+  override def defaultTables: DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override protected def computeQueryCompiler =

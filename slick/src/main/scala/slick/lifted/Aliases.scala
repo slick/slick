@@ -49,6 +49,4 @@ trait Aliases {
   val Effect = dbio.Effect
   type NoStream = dbio.NoStream
   type Streaming[+T] = dbio.Streaming[T]
-  type AsyncExecutor = util.AsyncExecutor
-  val AsyncExecutor = util.AsyncExecutor
 }

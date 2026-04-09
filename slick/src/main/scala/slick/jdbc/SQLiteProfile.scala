@@ -5,8 +5,6 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-import scala.concurrent.ExecutionContext
-
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.SlickException
@@ -101,7 +99,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       JdbcCapabilities.forShare -
       JdbcCapabilities.returnMultipleInsertKey
 
-  class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+  class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
@@ -165,11 +163,10 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     )
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean): JdbcModelBuilder =
     new SQLiteModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
+  override def defaultTables: DBIO[Seq[MTable]] =
     MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
       .map(_.filter(_.name.name.toLowerCase != "sqlite_sequence"))
 

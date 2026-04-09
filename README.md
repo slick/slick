@@ -37,11 +37,11 @@ Its features include:
  - Query API inspired by Scala's collections API
  - Full control over how the database schema is seen by Slick,
    by using an explicit representation that can be code-generated from the actual database
- - Asynchronous API using `Future` for complete results, and a streaming API that conforms to
-   the [Reactive Streams](https://www.reactive-streams.org/) interface, for easy integration with
-   any streaming library, such as [Akka Streams](https://doc.akka.io/docs/akka/current/stream/index.html),
-   [FS2](https://fs2.io/#/), or [ZIO](https://github.com/zio/interop-reactive-streams).
-- Composability at many levels
+ - Asynchronous API built on [Cats Effect 3](https://typelevel.org/cats-effect/): `db.run(action)` returns `F[R]`
+   for any effect type with a `cats.effect.Async` instance (e.g. `cats.effect.IO`, ZIO `Task`)
+ - Streaming API returning [FS2](https://fs2.io/) `Stream[F, T]`, for easy composition with the broader
+   Typelevel ecosystem
+ - Composability at many levels
    - Compose actions (steps to run in a database context) with for comprehensions
    - Compose queries with for comprehensions or combinators
    - Compose row expressions (column sets, predicates, and column mappings)
@@ -76,7 +76,7 @@ As a simple example we will create a Scala object `Coffee`, and a table to store
 instances of this object in the database:
 
 ```scala
-import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.PostgresProfile.api.*
 
 // First declare our Scala object
 final case class Coffee(name: String, price: Double)
@@ -112,15 +112,15 @@ by a large suite of automated tests to ensure compatibility:
 
 | Database        | JDBC Driver                                                    | Tested server version |
 |-----------------|----------------------------------------------------------------|-----------------------|
-| PostgreSQL      | `"org.postgresql" % "postgresql" % "42.5.0"`                   | Latest                |
-| MySQL           | `"com.mysql" % "mysql-connector-j" % "8.0.33"`                 | Latest                |
-| SQLServer       | `"com.microsoft.sqlserver" % "mssql-jdbc" % "7.2.2.jre11"`     | 2022                  |
-| Oracle          | `"com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.6.0.0.1"` | 11g                   |
+| PostgreSQL      | `"org.postgresql" % "postgresql" % "42.7.10"`                  | Latest                |
+| MySQL           | `"com.mysql" % "mysql-connector-j" % "9.6.0"`                  | Latest                |
+| SQLServer       | `"com.microsoft.sqlserver" % "mssql-jdbc" % "13.4.0.jre11"`    | 2022                  |
+| Oracle          | `"com.oracle.database.jdbc.debug" % "ojdbc8_g" % "21.21.0.0"` | 11g                   |
 | DB2             | `"com.ibm.db2.jcc" % "db2jcc" % "db2jcc4"`                     | 11.5.7.0              |
-| Derby/JavaDB    | `"org.apache.derby" % "derby" % "10.14.2.0"`                   |                       |
-| H2              | `"com.h2database" % "h2" % "1.4.200"`                          |                       |
-| HSQLDB/HyperSQL | `"org.hsqldb" % "hsqldb" % "2.5.2"`                            |                       |
-| SQLite          | `"org.xerial" % "sqlite-jdbc" % "3.39.2.1"`                    |                       |
+| Derby/JavaDB    | `"org.apache.derby" % "derby" % "10.15.2.0"`                   |                       |
+| H2              | `"com.h2database" % "h2" % "2.4.240"`                          |                       |
+| HSQLDB/HyperSQL | `"org.hsqldb" % "hsqldb" % "2.7.4"`                            |                       |
+| SQLite          | `"org.xerial" % "sqlite-jdbc" % "3.51.3.0"`                    |                       |
 
 Accessing other database systems is possible, although possibly with a reduced feature 
 set.

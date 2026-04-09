@@ -5,8 +5,6 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-import scala.concurrent.ExecutionContext
-
 import slick.SlickException
 import slick.ast.*
 import slick.basic.Capability
@@ -85,7 +83,7 @@ trait OracleProfile extends JdbcProfile {
 
   override val columnOptions: OracleColumnOptions = new OracleColumnOptions {}
 
-  class OracleModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+  class OracleModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
       new OracleColumnBuilder(tableBuilder, meta)
@@ -101,11 +99,10 @@ trait OracleProfile extends JdbcProfile {
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean): JdbcModelBuilder =
     new OracleModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
+  override def defaultTables: DBIO[Seq[MTable]] = {
     for {
       user <- SimpleJdbcAction(_.session.metaData.getUserName)
       mTables <- MTable.getTables(None, Some(user), Some("%"), Some(Seq("TABLE")))

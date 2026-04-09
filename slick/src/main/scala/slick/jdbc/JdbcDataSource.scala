@@ -61,13 +61,19 @@ class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Bool
                                val connectionPreparer: ConnectionPreparer = null) extends JdbcDataSource {
   private[this] var openedKeepAliveConnection: Connection = null
 
-  def createConnection(): Connection = {
-    if(keepAliveConnection) {
-      synchronized {
-        if(openedKeepAliveConnection eq null)
-          openedKeepAliveConnection = ds.getConnection
-      }
+  /** Open the keepalive connection eagerly, if `keepAliveConnection` is true and it has not been
+    * opened yet. For named in-memory databases (e.g. H2 named databases) the database is only
+    * kept alive as long as at least one connection is open. Calling this method in the
+    * `Resource.make` acquire (before any DBIO actions run) ensures the database survives the
+    * period between pool construction and the first actual query. */
+  def openKeepAlive(): Unit = if (keepAliveConnection) {
+    synchronized {
+      if (openedKeepAliveConnection eq null)
+        openedKeepAliveConnection = ds.getConnection
     }
+  }
+
+  def createConnection(): Connection = {
     val c = ds.getConnection
     if(connectionPreparer ne null) connectionPreparer(c)
     c

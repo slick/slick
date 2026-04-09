@@ -111,6 +111,8 @@ object Docs extends AutoPlugin {
         "github.base_url" -> (scmInfo.value.get.browseUrl.toString + "/blob/main"),
         "extref.SI.base_url" -> "https://issues.scala-lang.org/browse/SI-%s",
         "extref.about-pool-sizing.base_url" -> "https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing",
+        "extref.cats-effect.base_url" -> "https://typelevel.org/cats-effect/",
+        "extref.fs2.base_url" -> "https://fs2.io/",
         "extref.activator.base_url" -> "https://typesafe.com/activator",
         "extref.akka-sphinx.base_url" -> "https://doc.akka.io/docs/akka/2.4.0/dev/documentation.html",
         "extref.akka-streams.base_url" -> "https://akka.io/docs/",

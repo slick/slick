@@ -6,8 +6,6 @@ import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
 
-import scala.concurrent.ExecutionContext
-
 import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
@@ -59,7 +57,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       JdbcCapabilities.nullableNoDefault -
       JdbcCapabilities.supportsByte
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createTableNamer(mTable: MTable): TableNamer = new PostgresTableNamer(mTable)
@@ -147,11 +145,10 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
+  override def defaultTables: DBIO[Seq[MTable]] =
     MTable.getTables(None, None, Some("%"), Some(Seq("TABLE")))
 
   override val columnTypes: PostgresJdbcTypes = new PostgresJdbcTypes

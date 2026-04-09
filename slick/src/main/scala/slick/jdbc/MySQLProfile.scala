@@ -3,8 +3,6 @@ package slick.jdbc
 import java.sql.{PreparedStatement, ResultSet}
 import java.time.{Instant, LocalDateTime}
 
-import scala.concurrent.ExecutionContext
-
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
@@ -78,7 +76,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     super.loadProfileConfig
   }
 
-  class MySQLModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext)
+  class MySQLModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
     override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder =
       new MySQLPrimaryKeyBuilder(tableBuilder, meta)
@@ -135,10 +133,9 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)
-                                 (implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean): JdbcModelBuilder =
     new MySQLModelBuilder(tables, ignoreInvalidDefaults)
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] ={
+  override def defaultTables: DBIO[Seq[MTable]] ={
     for {
       catalog <- SimpleJdbcAction(_.session.conn.getCatalog)
       mTables <- MTable.getTables(Some(catalog), None, Some("%"), Some(Seq("TABLE")))
