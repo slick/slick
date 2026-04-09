@@ -1,8 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
+import cats.effect.IO
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
-
-import scala.concurrent.Future
 
 class NestingTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
@@ -131,11 +130,11 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     )
 
     // Unpack result types
-    def r1: Future[Seq[Option[(Int, String, Option[Int])]]] = db.run(q1.result)
-    def r2: Future[Seq[Option[Int]]] = db.run(q2.result)
-    def r3: Future[Seq[Option[Int]]] = db.run(q3.result)
-    def r2b: Future[Seq[Int]] = db.run(q2b.result)
-    def r3b: Future[Seq[Int]] = db.run(q3b.result)
+    def r1: IO[Seq[Option[(Int, String, Option[Int])]]] = db.run(q1.result)
+    def r2: IO[Seq[Option[Int]]] = db.run(q2.result)
+    def r3: IO[Seq[Option[Int]]] = db.run(q3.result)
+    def r2b: IO[Seq[Int]] = db.run(q2b.result)
+    def r3b: IO[Seq[Int]] = db.run(q3b.result)
 
     // Perform Option-mapped operations
     val q2c = q2.map(io => io + 42)

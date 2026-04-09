@@ -1,8 +1,8 @@
 package com.typesafe.slick.testkit.util
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters.*
+
+import cats.effect.unsafe.implicits.global
 
 import slick.dbio.DBIO
 
@@ -23,7 +23,7 @@ abstract class DBTest {
 
   println("[Using test database "+tdb+"]")
 
-  def runBlocking[T](a: DBIO[T]): Unit = Await.result(db.run(a), Duration.Inf)
+  def runBlocking[T](a: DBIO[T]): Unit = db.run(a).unsafeRunSync()
 
   @Before def beforeDBTest = tdb.cleanUpBefore()
   @After def afterDBTest = {

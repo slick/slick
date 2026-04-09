@@ -2,6 +2,12 @@ package slick.benchmark
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import cats.effect.IO
+import cats.effect.std.Dispatcher
+import cats.effect.unsafe.implicits.global
+
+import fs2.interop.reactivestreams._
+
 import org.reactivestreams.tck.TestEnvironment
 
 object StreamsStressTest {
@@ -17,42 +23,46 @@ object StreamsStressTest {
 
   val env = new TestEnvironment(30000)
   val entityNum = new AtomicInteger()
-  def main(args: Array[String]): Unit = {
-    val db = Database.forURL(url, driver = driver, keepAliveConnection = true)
-    try {
-      val threads = 1.to(numThreads).toVector.map { i =>
-        new Thread(new Runnable {
-                     def run(): Unit = {
-                       try {
-                         for(j <- 1 to repeats) {
-                           run1
-                           if(j % 100 == 0) println(s"Thread $i: Stream $j successful")
-                         }
-                       } catch { case t: Throwable => env.flop(t, t.toString) }
-                     }
-                   })
-      }
-      threads.foreach(_.start())
-      threads.foreach(_.join())
-      println("All threads finished")
-      env.verifyNoAsyncErrors()
-    } finally db.close
 
-    def run1: Unit = {
-      val sub = env.newManualSubscriber(createPublisher(1L))
-      sub.requestNextElementOrEndOfStream("Timeout while waiting for next element from Publisher")
-      sub.requestEndOfStream()
-    }
-
-    def createPublisher(elements: Long) = {
-      val tableName = "data_" + elements + "_" + entityNum.incrementAndGet()
-      class Data(tag: Tag) extends Table[Int](tag, tableName) {
-        def id = column[Int]("id")
-        def * = id
+  def main(args: Array[String]): Unit =
+    Database.forURL[IO](url, driver = driver, keepAliveConnection = true).use { db =>
+      Dispatcher.parallel[IO].use { implicit dispatcher =>
+        IO {
+          val threads = 1.to(numThreads).toVector.map { i =>
+            new Thread(new Runnable {
+              def run(): Unit = {
+                try {
+                  for(j <- 1 to repeats) {
+                    run1(db, dispatcher)
+                    if(j % 100 == 0) println(s"Thread $i: Stream $j successful")
+                  }
+                } catch { case t: Throwable => env.flop(t, t.toString) }
+              }
+            })
+          }
+          threads.foreach(_.start())
+          threads.foreach(_.join())
+          println("All threads finished")
+          env.verifyNoAsyncErrors()
+        }
       }
-      val data = TableQuery[Data]
-      val a = data.schema.create >> (data ++= Range.apply(0, elements.toInt)) >> data.sortBy(_.id).map(_.id).result
-      db.stream(a.withPinnedSession)
+    }.unsafeRunSync()
+
+  def run1(db: Database[IO], dispatcher: Dispatcher[IO]): Unit = {
+    val sub = env.newManualSubscriber(createPublisher(db, dispatcher, 1L))
+    sub.requestNextElementOrEndOfStream("Timeout while waiting for next element from Publisher")
+    sub.requestEndOfStream()
+  }
+
+  def createPublisher(db: Database[IO], dispatcher: Dispatcher[IO], elements: Long) = {
+    val tableName = "data_" + elements + "_" + entityNum.incrementAndGet()
+    class Data(tag: Tag) extends Table[Int](tag, tableName) {
+      def id = column[Int]("id")
+      def * = id
     }
+    val data = TableQuery[Data]
+    val a = data.schema.create >> (data ++= Range.apply(0, elements.toInt)) >> data.sortBy(_.id).map(_.id).result
+    val resource = db.stream(a.withPinnedSession).toUnicastPublisher
+    dispatcher.unsafeRunSync(resource.allocated.map(_._1))
   }
 }

@@ -64,7 +64,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
       _ = r1 shouldBe expectedUserTuples
     } yield ()) andThen q1.result).withPinnedSession)
 
-    materialize(p1.mapResult { case (id,f,l) => User(id,f,l.orNull) }).flatMap { allUsers =>
+    materialize(p1.map { case (id,f,l) => User(id,f,l.orNull) }).flatMap { allUsers =>
       allUsers shouldBe expectedUserTuples.map{ case (id,f,l) => User(id,f,l.orNull) }
       db.run(for {
         r1b <- q1b.result

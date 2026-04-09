@@ -249,7 +249,9 @@ lazy val testkit =
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
         Dependencies.junit ++:
+          (Dependencies.munitCatsEffect % Test) +:
           (Dependencies.reactiveStreamsTCK % Test) +:
+          (Dependencies.fs2ReactiveStreams % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
       run / fork := true,
@@ -322,20 +324,6 @@ lazy val hikaricp =
       scaladocSourceUrl("slick-hikaricp"),
       test := {}, testOnly := {}, // suppress test status output
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
-    )
-
-lazy val `reactive-streams-tests` =
-  project
-    .dependsOn(testkit)
-    .settings(
-      slickGeneralSettings,
-      name := "Slick-ReactiveStreamsTests",
-      libraryDependencies += "org.scalatestplus" %% "testng-7-5" % "3.2.17.0",
-      libraryDependencies ++=
-        (Dependencies.logback +: Dependencies.testDBs).map(_ % Test),
-      libraryDependencies += Dependencies.reactiveStreamsTCK,
-      Test / parallelExecution := false,
-      commonTestResourcesSetting
     )
 
 def writeToGitHubOutput(text: String, logger: Logger) = {
@@ -421,7 +409,6 @@ lazy val root =
         Def.sequential(
           testkit / Test / test,
           testkit / DocTest / test,
-          `reactive-streams-tests` / Test / test,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,

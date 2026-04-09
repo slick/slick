@@ -1,9 +1,9 @@
 package slick.test.codegen
 
 import org.junit.Test
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
+
+import cats.effect.unsafe.implicits.global
+
 import slick.codegen.SourceCodeGenerator
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
@@ -62,7 +62,7 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
     })
     val profileName = tdb.profile.getClass.toString.dropRight(1).split("[\\. ]").last
 
-    val codegen = Await.result(db.run((createA >> codegenA).withPinnedSession), Duration.Inf)
+    val codegen = db.run((createA >> codegenA).withPinnedSession).unsafeRunSync()
     codegen.writeToFile("slick.jdbc.H2Profile","target/slick-testkit-codegen-tests/","all.test",profileName+"Tables",profileName+".scala")
     /// test write to multiple files
     codegen.writeToMultipleFiles("slick.jdbc.H2Profile","target/slick-testkit-codegen-tests/","all.test.multiple",profileName+"Tables")

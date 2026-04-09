@@ -2,6 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.tests.TransactionTest.ExpectedException
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import scala.annotation.nowarn
 
 import slick.jdbc.TransactionIsolation
 
@@ -64,11 +65,33 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
     } andThen { ifCap(tcap.transactionIsolation) {
       (for {
         ti1 <- getTI
+        // transactionally(ReadUncommitted) sets the isolation level for the transaction
         _ <- (for {
           _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
-          _ <- getTI.withTransactionIsolation(TransactionIsolation.Serializable).map(_ should(_ >= TransactionIsolation.Serializable.intValue))
+        } yield ()).transactionally(TransactionIsolation.ReadUncommitted)
+        // transactionally(Serializable) sets the isolation level for the transaction
+        _ <- (for {
+          _ <- getTI.map(_ should(_ >= TransactionIsolation.Serializable.intValue))
+        } yield ()).transactionally(TransactionIsolation.Serializable)
+        // nested transactionally: outer isolation level wins, inner is ignored
+        _ <- (for {
           _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
-        } yield ()).withTransactionIsolation(TransactionIsolation.ReadUncommitted)
+          _ <- (for {
+            // still ReadUncommitted (outer wins), not Serializable
+            _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
+          } yield ()).transactionally(TransactionIsolation.Serializable)
+        } yield ()).transactionally(TransactionIsolation.ReadUncommitted)
+        // withTransactionIsolation compatibility: temporary nested isolation changes are restored
+        _ <- {
+          @nowarn("cat=deprecation")
+          val compat = (for {
+            _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
+            _ <- getTI.withTransactionIsolation(TransactionIsolation.Serializable).map(_ should(_ >= TransactionIsolation.Serializable.intValue))
+            _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
+          } yield ()).withTransactionIsolation(TransactionIsolation.ReadUncommitted)
+          compat
+        }
+        // isolation level is back to default after all transactions
         _ <- getTI.map(_ shouldBe ti1)
       } yield ()).withPinnedSession
     }}

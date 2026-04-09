@@ -5,7 +5,6 @@ import org.junit.Assert._
 import slick.collection.heterogeneous._
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
-import scala.concurrent.ExecutionContext.Implicits.global
 
 
 object CodeGeneratorRoundTripTest
