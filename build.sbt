@@ -285,16 +285,27 @@ lazy val hikaricp =
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
     )
 
-lazy val `reactive-streams-tests` =
+lazy val slickV3Compat =
   project
-    .dependsOn(testkit)
+    .in(file("slick-v3-compat"))
+    .dependsOn(slick)
     .settings(
       slickGeneralSettings,
-      name := "Slick-ReactiveStreamsTests",
-      libraryDependencies += "org.scalatestplus" %% "testng-7-5" % "3.2.17.0",
+      extTarget("slick-v3-compat"),
+      name := "Slick-V3-Compat",
+      description := "Slick 3 compatibility layer: Future-based Database wrapper, DatabasePublisher, and DBIO.from(Future) for Play / Akka / Pekko",
+      scaladocSourceUrl("slick-v3-compat"),
+      libraryDependencies ++= Seq(
+        Dependencies.reactiveStreams,
+        Dependencies.fs2ReactiveStreams
+      ),
+      libraryDependencies ++= Seq(
+        "org.scalatestplus" %% "testng-7-5" % "3.2.17.0",
+        Dependencies.reactiveStreamsTCK,
+        Dependencies.munitCatsEffect
+      ).map(_ % Test),
       libraryDependencies ++=
         (Dependencies.logback +: Dependencies.testDBs).map(_ % Test),
-      libraryDependencies += Dependencies.reactiveStreamsTCK,
       Test / parallelExecution := false,
       commonTestResourcesSetting
     )
@@ -315,7 +326,8 @@ lazy val site: Project =
         "api" -> (slick / Compile / doc).value,
         "codegen-api" -> (codegen / Compile / doc).value,
         "hikaricp-api" -> (hikaricp / Compile / doc).value,
-        "testkit-api" -> (testkit / Compile / doc).value
+        "testkit-api" -> (testkit / Compile / doc).value,
+        "v3-compat-api" -> (slickV3Compat / Compile / doc).value
       ),
       buildCompatReport := {
         val compatReports =
@@ -364,7 +376,7 @@ lazy val site: Project =
 lazy val root =
   project
     .in(file("."))
-    .aggregate(slick, codegen, hikaricp, testkit, site)
+    .aggregate(slick, codegen, hikaricp, testkit, slickV3Compat, site)
     .settings(
       name := "slick-root",
       slickGeneralSettings,
@@ -382,7 +394,7 @@ lazy val root =
         Def.sequential(
           testkit / Test / test,
           testkit / DocTest / test,
-          `reactive-streams-tests` / Test / test,
+          slickV3Compat / Test / test,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,

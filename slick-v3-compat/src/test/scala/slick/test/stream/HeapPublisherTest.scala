@@ -1,13 +1,12 @@
 package slick.test.stream
 
-import scala.concurrent.ExecutionContext
+import cats.effect.unsafe.implicits.global
 
 import slick.memory.MemoryProfile
 
 
 class HeapPublisherTest extends RelationalPublisherTest[MemoryProfile](MemoryProfile, 300L) {
-
   import profile.api.*
 
-  def createDB = Database(ExecutionContext.global)
+  def createDB: slick.compat.Database = slick.compat.Database.wrap(Database())
 }
