@@ -61,6 +61,13 @@ object CloseableIterator {
     def close: Unit = {}
   }
 
+  /** Wrap a plain Iterator as a CloseableIterator with a no-op close. */
+  def wrap[T](it: Iterator[T]): CloseableIterator[T] = new CloseableIterator[T] {
+    def hasNext: Boolean = it.hasNext
+    def next(): T = it.next()
+    def close(): Unit = ()
+  }
+
   /**
    * Using some Closeable resource and a function to create a CloseableIterator
    * from it, return a wrapped CloseableIterator which closes the resource when

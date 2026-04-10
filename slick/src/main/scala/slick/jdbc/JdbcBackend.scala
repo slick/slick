@@ -118,99 +118,17 @@ trait JdbcBackend extends RelationalBackend {
       state: ExecState
     ): Stream[F, T] = {
       val F = asyncF
-      val outerSession = session
-      val outerTransactionDepth = state.transactionDepth
-      val outerPinned = state.pinned
-      // emitStream drives the SDA one element at a time.
-      // We use AnyRef as the state type since SynchronousDatabaseAction.StreamState is an
-      // instance-level type member and cannot be named from outside the instance.
-      // We capture `a` in a stable val to allow path-dependent type access.
       val sda = a.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], JdbcActionContext, JdbcStreamingActionContext, Nothing]]
+      val ctx = sessionAsContext(session, state)
 
-      // Factory for a JdbcStreamingActionContext that closes over the outer session/tx state
-      // and delegates emit() to the supplied callback.  Used both for normal streaming and
-      // for the cancelStream() call so the action always sees a consistent context.
-      def mkStreamingCtx(onEmit: Any => Unit): JdbcStreamingActionContext =
-        new JdbcStreamingActionContext {
-          override def rawSession: JdbcSessionDef = outerSession
-          override def transactionDepth: Int = outerTransactionDepth
-          override def isPinned: Boolean = outerPinned
-          override def emit(v: Any): Unit = onEmit(v)
-        }
-
-      // SDA streaming uses null as the initial/sentinel StreamState by API contract:
-      //   null input  = start a new stream
-      //   null return = stream exhausted
-      // We name it once here and reuse below to avoid repeating the cast.
-      val initialState = null.asInstanceOf[sda.StreamState]
-
-      // State is Option[sda.StreamState]:
-      //   Some(st) = active (st may be initialState on first call)
-      //   None     = exhausted (stop unfolding)
-      //
-      // We use unfoldChunkEval rather than unfoldEval so that a step can produce zero
-      // elements while still advancing state.  This is necessary for MutatingResultAction
-      // when the row-loop exhausts the result set and transitions to end-marker-pending
-      // state (state==1) without emitting anything: the next step then emits the end marker.
-      // With unfoldEval a no-emission step would have to either stop the stream or duplicate
-      // state-advancement logic unsafely.
-      //
-      // liveState tracks the most recent StreamState so that cancelStream() can be called
-      // with it if the stream is cancelled mid-way.
-      Stream.eval(F.ref[Option[sda.StreamState]](Some(initialState))).flatMap { liveState =>
-        Stream.unfoldChunkEval[F, Option[sda.StreamState], T](Some(initialState)) {
-          case None =>
-            // Stream already exhausted — should not be called, but guard anyway.
-            F.flatMap(liveState.set(None))(_ => F.pure(None))
-
-          case Some(st) =>
-            F.flatMap(F.blocking {
-              var emitted: Option[T] = None
-              val ctx2 = mkStreamingCtx { v =>
-                // The value is provided through onEmit (the SDA push callback), so we
-                // capture it into a local cell to pair it with the returned next state.
-                emitted = Some(v.asInstanceOf[T])
-              }
-              val nextState: Option[sda.StreamState] = Option(sda.emitStream(ctx2, 1L, st))
-
-              (emitted, nextState)
-            }) { case (emitted, nextState) =>
-              // Update liveState inside an uncancelable region so that cancellation
-              // cannot arrive between F.blocking returning the new state and liveState
-              // being set.  Without this, the onFinalizeCase handler could read a stale
-              // StreamState and call cancelStream with it, potentially skipping ResultSet
-              // cleanup.
-              F.uncancelable { _ =>
-                F.flatMap(liveState.set(nextState)) { _ =>
-                  F.pure(
-                    // unfoldChunkEval: None = stop stream; Some((chunk, s)) = emit chunk and continue.
-                    // - If nextState is Some: more steps to come; emit element if any (may be empty chunk).
-                    // - If nextState is None and emitted is Some: last element, then stop.
-                    // - If nextState is None and emitted is None: stop immediately (exhausted).
-                    (nextState, emitted) match {
-                      case (Some(_), _)   => Some((fs2.Chunk.fromOption(emitted), nextState))
-                      case (None, Some(v)) => Some((fs2.Chunk.singleton(v), None))
-                      case (None, None)    => None
-                    }
-                  )
-                }
-              }
-            }
-        }.onFinalizeCase {
-          case Resource.ExitCase.Canceled =>
-            // Call the action's own cancel hook so it can close open ResultSets /
-            // iterators that would otherwise be abandoned until the connection closes.
-            // emitStream error paths self-dispose by contract, so we only need this
-            // for the Canceled case.  Errors are swallowed so as not to mask cancellation.
-            F.flatMap(liveState.get) {
-              case Some(st) if st ne null =>
-                F.flatMap(F.attempt(F.blocking(sda.cancelStream(mkStreamingCtx(_ => ()), st))))(_ => F.unit)
-              case _ =>
-                F.unit
-            }
-          case _ =>
-            F.unit
-        }
+      Stream.resource(
+        Resource.make(
+          F.blocking(sda.openStream(ctx).asInstanceOf[CloseableIterator[T]])
+        )(it => F.blocking(it.close()))
+      ).flatMap { it =>
+        Stream.repeatEval(F.blocking {
+          if (it.hasNext) Some(it.next()) else None
+        }).unNoneTerminate
       }
     }
   }

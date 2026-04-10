@@ -25,6 +25,9 @@ trait StreamingInvokerAction[R, T, -E <: Effect]
     b.result()
   }
 
+  override final def openStream(ctx: JdbcBackend#JdbcActionContext): CloseableIterator[T] =
+    createInvoker(statements).iteratorTo(0)(ctx.session)
+
   override final def emitStream(ctx: JdbcBackend#JdbcStreamingActionContext, limit: Long, state: StreamState): StreamState = {
     val it = if(state ne null) state else createInvoker(statements).iteratorTo(0)(ctx.session)
     var count = 0L

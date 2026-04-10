@@ -8,11 +8,11 @@ import cats.effect.{Async, IO, Resource}
 
 import slick.SlickException
 import slick.ast.*
+import slick.basic.ConcurrencyControl.Controls
 import slick.compat.collection.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
-import slick.util.Logging
-import slick.basic.ConcurrencyControl.Controls
+import slick.util.{CloseableIterator, Logging}
 
 import com.typesafe.config.Config
 
@@ -63,30 +63,16 @@ trait HeapBackend extends RelationalBackend with Logging {
       state: ExecState
     ): fs2.Stream[F, T] = {
       val sda = a.asInstanceOf[slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], BasicActionContext, BasicStreamingActionContext, Nothing]]
-      val outerSession = session
-      val outerDepth   = state.transactionDepth
-      val outerPinned  = state.pinned
-      fs2.Stream.unfoldEval[F, Option[sda.StreamState], T](Some(null.asInstanceOf[sda.StreamState])) {
-        case None => asyncF.pure(None)
-        case Some(st) =>
-          asyncF.blocking {
-            var emitted: Option[T] = None
-            val ctx = new BasicStreamingActionContext {
-              override def session: Session    = outerSession
-              override def transactionDepth: Int = outerDepth
-              override def isPinned: Boolean     = outerPinned
-              override def emit(v: Any): Unit    = emitted = Some(v.asInstanceOf[T])
-            }
-            val nextState = sda.emitStream(ctx, 1L, st)
-            emitted match {
-              case Some(v) =>
-                val next: Option[sda.StreamState] =
-                  if (nextState eq null) None else Some(nextState)
-                Some((v, next))
-              case None =>
-                None
-            }
-          }
+      val ctx = sessionAsContext(session, state)
+
+      fs2.Stream.resource(
+        Resource.make(
+          asyncF.blocking(sda.openStream(ctx).asInstanceOf[CloseableIterator[T]])
+        )(it => asyncF.blocking(it.close()))
+      ).flatMap { it =>
+        fs2.Stream.repeatEval(asyncF.blocking {
+          if (it.hasNext) Some(it.next()) else None
+        }).unNoneTerminate
       }
     }
 
