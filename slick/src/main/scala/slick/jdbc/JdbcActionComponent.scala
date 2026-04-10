@@ -162,60 +162,31 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
 
   class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Nothing, Streaming[ResultSetMutator[T]], JdbcBackend#JdbcActionContext, Effect] with ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect] { streamingAction =>
-    class Mutator(val prit: PositionedResultIterator[T], val inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
-      val pr = prit.pr
-      val rs = pr.rs
-      var current: T = _
-      /** The state of the stream.
-        * 0 = iterating over result set rows
-        * 1 = end-marker event (consumer sees m.end == true)
-        * 2 = after end-marker (terminal; m.end throws) */
-      var state = 0
-      def row = if(state > 0) throw new SlickException("After end of result set") else current
-      def row_=(value: T): Unit = {
-        if(state > 0) throw new SlickException("After end of result set")
-        pr.restart
-        inv.updateRowValues(pr, value)
-        rs.updateRow()
-      }
-      def += (value: T): Unit = {
-        rs.moveToInsertRow()
-        pr.restart
-        inv.updateRowValues(pr, value)
-        rs.insertRow()
-        if(state == 0) rs.moveToCurrentRow()
-      }
-      def delete: Unit = {
-        if(state > 0) throw new SlickException("After end of result set")
-        rs.deleteRow()
-        if(invokerPreviousAfterDelete) rs.previous()
-      }
-      def end = if(state > 1) throw new SlickException("After end of result set") else state > 0
-      override def toString = s"Mutator(state = $state, current = $current)"
+    class Mutator(val current: T, pr: PositionedResult, inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
+      private val rs: ResultSet = pr.rs
+      def row = current
+      def row_=(value: T): Unit = { pr.restart; inv.updateRowValues(pr, value); rs.updateRow() }
+      def +=(value: T): Unit = { rs.moveToInsertRow(); pr.restart; inv.updateRowValues(pr, value); rs.insertRow(); rs.moveToCurrentRow() }
+      def delete: Unit = { rs.deleteRow(); if(invokerPreviousAfterDelete) rs.previous() }
+      def end = false
+    }
+    class EndMutator(pr: PositionedResult, inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
+      def row = throw new SlickException("After end of result set")
+      def row_=(value: T) = throw new SlickException("After end of result set")
+      def +=(value: T): Unit = { val rs = pr.rs; rs.moveToInsertRow(); pr.restart; inv.updateRowValues(pr, value); rs.insertRow() }
+      def delete = throw new SlickException("After end of result set")
+      def end = true
     }
     override def statements: List[String] = List(sql)
     def run(ctx: JdbcBackend#JdbcActionContext) =
       throw new SlickException("The result of .mutate can only be used in a streaming way")
     override def openStream(ctx: JdbcBackend#JdbcActionContext): CloseableIterator[ResultSetMutator[T]] = {
       val inv = createQueryInvoker[T](rsm, param, sql)
-      val mu = new Mutator(
-        inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).getOrElse(throw new NoSuchElementException),
-        inv)
-      new CloseableIterator[ResultSetMutator[T]] {
-        private var advanced = false
-        private var ready = false
-
-        private def advance(): Boolean =
-          if (mu.state >= 2) false
-          else if (mu.state == 1) { mu.state = 2; false }
-          else if (mu.pr.nextRow) { mu.current = inv.extractValue(mu.pr); true }
-          else if (sendEndMarker) { mu.state = 1; true }
-          else { mu.state = 2; false }
-
-        override def hasNext: Boolean = { if (!advanced) { ready = advance(); advanced = true }; ready }
-        override def next(): ResultSetMutator[T] = { if (!hasNext) noNext; advanced = false; mu }
-        override def close(): Unit = mu.prit.close()
-      }
+      val prit = inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType, autoClose = !sendEndMarker)(ctx.session)
+        .getOrElse(throw new NoSuchElementException)
+      val rows: Iterator[ResultSetMutator[T]] = prit.map(value => new Mutator(value, prit.pr, inv))
+      val all = if(sendEndMarker) rows ++ Iterator.single(new EndMutator(prit.pr, inv)) else rows
+      CloseableIterator.from(all, () => prit.close())
     }
     override def getDumpInfo = super.getDumpInfo.copy(name = "mutate")
     def overrideStatements(_statements: Iterable[String]): MutatingResultAction[T] =
