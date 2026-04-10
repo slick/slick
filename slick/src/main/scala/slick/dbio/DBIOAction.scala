@@ -8,6 +8,7 @@ import scala.util.control.NonFatal
 
 import slick.SlickException
 import slick.basic.BasicBackend
+import slick.util.CloseableIterator
 import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
 
 /** A Database I/O Action that can be executed on a database. The DBIOAction type allows a
@@ -466,6 +467,12 @@ trait SynchronousDatabaseAction[+R, +S <: NoStream, -C <: BasicBackend#BasicActi
   /** Run this action synchronously and produce a result, or throw an Exception to indicate a
     * failure. */
   def run(context: C): R
+
+  /** Open a closeable iterator for streaming results from this action.
+    * The caller is responsible for closing the iterator (typically via `Resource.make`).
+    * The default implementation throws a `SlickException`; override in streaming actions. */
+  def openStream(context: C): CloseableIterator[Any] =
+    throw new SlickException("Internal error: Streaming is not supported by this Action")
 
   /** Run this action synchronously and emit results to the context. This methods may throw an
     * Exception to indicate a failure.

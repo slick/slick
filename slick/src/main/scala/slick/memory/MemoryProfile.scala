@@ -11,7 +11,7 @@ import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
 import slick.compiler.*
 import slick.dbio.*
 import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter, ResultConverterCompiler}
-import slick.util.{??, DumpInfo}
+import slick.util.{??, CloseableIterator, DumpInfo}
 
 /** A profile for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self: MemoryProfile =>
@@ -149,6 +149,8 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       }
       if(it.hasNext) it else null
     }
+    override def openStream(ctx: HeapBackend#BasicActionContext): CloseableIterator[T] =
+      CloseableIterator.wrap(getIterator(ctx))
     def head: ProfileAction[T, NoStream, Effect.Read] =
       new ProfileAction[T, NoStream, Effect.Read]
         with SynchronousDatabaseAction[T, NoStream, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.Read] {

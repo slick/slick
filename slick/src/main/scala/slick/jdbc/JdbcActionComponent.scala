@@ -15,7 +15,7 @@ import slick.dbio.*
 import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
-import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder}
+import slick.util.{ignoreFollowOnError, CloseableIterator, DumpInfo, SQLBuilder}
 
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
@@ -241,6 +241,27 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       mu.emitStream(ctx, limit)
     }
     override def cancelStream(ctx: JdbcBackend#JdbcStreamingActionContext, state: StreamState): Unit = state.prit.close()
+    override def openStream(ctx: JdbcBackend#JdbcActionContext): CloseableIterator[ResultSetMutator[T]] = {
+      val inv = createQueryInvoker[T](rsm, param, sql)
+      val mu = new Mutator(
+        inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).getOrElse(throw new NoSuchElementException),
+        inv)
+      new CloseableIterator[ResultSetMutator[T]] {
+        private var advanced = false
+        private var ready = false
+
+        private def advance(): Boolean =
+          if (mu.state >= 2) false
+          else if (mu.state == 1) { mu.state = 2; false }
+          else if (mu.pr.nextRow) { mu.current = inv.extractValue(mu.pr); true }
+          else if (sendEndMarker) { mu.state = 1; true }
+          else { mu.state = 2; false }
+
+        override def hasNext: Boolean = { if (!advanced) { ready = advance(); advanced = true }; ready }
+        override def next(): ResultSetMutator[T] = { if (!hasNext) noNext; advanced = false; mu }
+        override def close(): Unit = mu.prit.close()
+      }
+    }
     override def getDumpInfo = super.getDumpInfo.copy(name = "mutate")
     def overrideStatements(_statements: Iterable[String]): MutatingResultAction[T] =
       new MutatingResultAction[T](rsm, elemType, collectionType, _statements.head, param, sendEndMarker)
