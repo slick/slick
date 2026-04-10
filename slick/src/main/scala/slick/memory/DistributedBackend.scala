@@ -4,13 +4,13 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Try}
 
 import cats.effect.{Async, IO, Resource}
-import cats.effect.std.Semaphore
 
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.compat.collection.*
 import slick.relational.RelationalBackend
 import slick.util.Logging
+import slick.basic.ConcurrencyControl.Controls
 
 import com.typesafe.config.Config
 
@@ -28,7 +28,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
   def createDatabase[F[_]: Async](config: Config, path: String, classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader): Resource[F, Database[F]] =
     Resource.eval(Async[F].raiseError(new SlickException("DistributedBackend cannot be configured with an external config file")))
 
-  class DistributedDatabaseDef[F[_]](val dbs: Vector[BasicBackend#AnyDatabaseDef], override val semaphore: Semaphore[F])(implicit override val asyncF: cats.effect.Async[F])
+  class DistributedDatabaseDef[F[_]](val dbs: Vector[BasicBackend#AnyDatabaseDef], override val controls: Controls[F])(implicit override val asyncF: cats.effect.Async[F])
     extends BasicDatabaseDef[F] {
 
     /** DistributedBackend always uses cats.effect.IO as its effect type. */
@@ -68,7 +68,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     /** Create a new distributed database instance. */
     def apply(dbs: IterableOnce[BasicBackend#AnyDatabaseDef]): Resource[IO, Database[IO]] =
       Resource.eval(
-        Semaphore[IO](Long.MaxValue).map(sem => new DistributedDatabaseDef[IO](Vector.from(dbs), sem))
+        Controls.create[IO](Long.MaxValue, Long.MaxValue, Long.MaxValue).map(c => new DistributedDatabaseDef[IO](Vector.from(dbs), c))
       )
   }
 
