@@ -446,6 +446,15 @@ required to prevent deadlocks in Slick 3 **does not exist in Slick 4**.
 No code changes needed other than removing any `AsyncExecutor` construction. Do not pass it to
 factory methods — none of the Slick 4 factory methods accept it.
 
+Slick 4 replaces the old executor queue/thread model with explicit database execution limits:
+
+- `queueSize` (default `1000`): max callers waiting to start.
+- `maxInflightActions` (default `2 * maxConnections`): max concurrent DBIO chains.
+- `maxConnections`: max concurrent JDBC work.
+
+If you configured AsyncExecutor queue sizing in Slick 3, map that operational intent to
+`queueSize` and `maxInflightActions` in Slick 4.
+
 If you previously sized your HikariCP pool conservatively to satisfy the Slick 3 deadlock constraint
 (`maximumPoolSize == threadCount`), you are now free to size it independently of thread counts —
 HikariCP pool size can be set to whatever your database server supports.
