@@ -8,12 +8,12 @@ import javax.sql.DataSource
 import javax.naming.InitialContext
 
 import cats.effect.{Async, Resource}
-import cats.effect.std.Semaphore
 import fs2.Stream
 
 import slick.dbio.*
 import slick.SlickException
 import slick.relational.RelationalBackend
+import slick.basic.ConcurrencyControl.*
 import slick.util.*
 import slick.util.ConfigExtensionMethods.*
 
@@ -39,7 +39,12 @@ trait JdbcBackend extends RelationalBackend {
     * Construct via `Database.forConfig[IO](...)` etc. — this returns a `Resource[IO, Database[IO]]`
     * that manages connection pool lifecycle.
     */
-  abstract class JdbcDatabaseDef[F[_]](val source: JdbcDataSource) extends BasicDatabaseDef[F] {
+  abstract class JdbcDatabaseDef[F[_]](
+    val source: JdbcDataSource,
+    override val controls: Controls[F]
+  )(
+    override implicit val asyncF: Async[F]
+  ) extends BasicDatabaseDef[F] {
 
     /** DatabaseCapabilities, lazily determined and cached from the first Session. */
     @volatile
@@ -144,15 +149,31 @@ trait JdbcBackend extends RelationalBackend {
       *                        must be sized to at least `maxConnections + 1` to accommodate the
       *                        keep-alive connection.
       */
-    def forSource[G[_]](source: JdbcDataSource, maxConnections: Option[Int] = None)(implicit AG: Async[G]): Resource[G, Database[G]] = {
+    def forSource[G[_]](source: JdbcDataSource, maxConnections: Option[Int] = None)(implicit AG: Async[G]): Resource[G, Database[G]] =
+      forSource(source, maxConnections, maxInflightActions = None, queueSize = 1000)
+
+    /** Create a Database backed by a [[JdbcDataSource]] with explicit admission controls.
+      *
+      * @param maxInflightActions Maximum concurrently running DBIO chains. If `None`, defaults
+      *                           to `2 * maxConnections`.
+      * @param queueSize Maximum number of callers that may wait for inflight admission.
+      */
+    def forSource[G[_]](
+      source: JdbcDataSource,
+      maxConnections: Option[Int],
+      maxInflightActions: Option[Int],
+      queueSize: Int
+    )(implicit AG: Async[G]): Resource[G, Database[G]] = {
       val n = maxConnections.getOrElse(20)
+      val computedInflight = maxInflightActions.getOrElse(n * 2)
+      val k = math.max(n, computedInflight)
       require(n > 0, s"maxConnections must be > 0, got $n")
+      require(queueSize >= 0, s"queueSize must be >= 0, got $queueSize")
+      require(computedInflight > 0, s"maxInflightActions must be > 0, got $computedInflight")
+
       Resource.make(
-        AG.map(Semaphore[G](n.toLong)) { sem =>
-          new JdbcDatabaseDef[G](source) {
-            override implicit val asyncF: Async[G] = AG
-            override val semaphore: Semaphore[G] = sem
-          }
+        AG.map(Controls.create[G](n.toLong, queueSize.toLong, k.toLong)) { controls =>
+          new JdbcDatabaseDef[G](source, controls)(AG) {}
         }
       )(db => AG.blocking(db.close())).evalTap { _ =>
         // The keep-alive connection prevents named in-memory databases (e.g. H2, HSQLDB)
@@ -186,11 +207,40 @@ trait JdbcBackend extends RelationalBackend {
     ): Resource[G, Database[G]] =
       forSource[G](new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections), maxConnections)
 
+    /** Create a Database from a `javax.sql.DataSource` with explicit admission controls. */
+    def forDataSource[G[_]: Async](
+      ds: DataSource,
+      maxConnections: Option[Int],
+      maxInflightActions: Option[Int],
+      queueSize: Int,
+      keepAliveConnection: Boolean
+    ): Resource[G, Database[G]] =
+      forSource[G](
+        new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections),
+        maxConnections,
+        maxInflightActions,
+        queueSize
+      )
+
     /** Create a Database based on the JNDI name of a DataSource. */
     def forName[G[_]: Async](name: String, maxConnections: Option[Int]): Resource[G, Database[G]] =
       new InitialContext().lookup(name) match {
         case ds: DataSource =>
           forDataSource[G](ds, maxConnections)
+        case x =>
+          throw new SlickException("Expected a DataSource for JNDI name " + name + ", but got " + x)
+      }
+
+    /** Create a Database based on the JNDI name of a DataSource with explicit admission controls. */
+    def forName[G[_]: Async](
+      name: String,
+      maxConnections: Option[Int],
+      maxInflightActions: Option[Int],
+      queueSize: Int
+    ): Resource[G, Database[G]] =
+      new InitialContext().lookup(name) match {
+        case ds: DataSource =>
+          forDataSource[G](ds, maxConnections, maxInflightActions, queueSize, keepAliveConnection = false)
         case x =>
           throw new SlickException("Expected a DataSource for JNDI name " + name + ", but got " + x)
       }
@@ -235,8 +285,11 @@ trait JdbcBackend extends RelationalBackend {
       *
       * Supported config keys:
       * <ul>
+      *   <li>`connectionPool` — connection pool implementation (default: `HikariCP`)</li>
       *   <li>`maxConnections` (Int, default 20) — max concurrent JDBC connections</li>
       *   <li>`numThreads` (Int, legacy fallback) — treated as `maxConnections` when `maxConnections` is not set</li>
+      *   <li>`maxInflightActions` (Int, default `2 * maxConnections`) — max concurrent DBIO chains</li>
+      *   <li>`queueSize` (Int, default 1000) — max callers waiting for inflight admission</li>
       *   <li>`poolName` (String, optional) — name for logging</li>
       * </ul>
       *
@@ -256,8 +309,18 @@ trait JdbcBackend extends RelationalBackend {
       val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
       val configuredMaxConnections = usedConfig.getIntOpt("maxConnections").orElse(usedConfig.getIntOpt("numThreads")).getOrElse(20)
       val maxConnections = source.maxConnections.getOrElse(configuredMaxConnections)
+      val queueSize = usedConfig.getIntOr("queueSize", 1000)
+      val configuredInflight = usedConfig.getIntOpt("maxInflightActions")
+      val computedInflight = configuredInflight.getOrElse(maxConnections * 2)
+      val maxInflightActions = math.max(maxConnections, computedInflight)
 
-      forSource[G](source, Some(maxConnections))
+      require(maxConnections > 0, s"maxConnections must be > 0, got $maxConnections")
+      require(queueSize >= 0, s"queueSize must be >= 0, got $queueSize")
+      require(computedInflight > 0, s"maxInflightActions must be > 0, got $computedInflight")
+      require(maxInflightActions >= maxConnections,
+        s"maxInflightActions must be >= maxConnections ($maxConnections), got $maxInflightActions")
+
+      forSource[G](source, Some(maxConnections), Some(maxInflightActions), queueSize)
     }
   }
 

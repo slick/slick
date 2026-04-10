@@ -6,6 +6,9 @@ import cats.effect.{Deferred, IO, Ref}
 import cats.syntax.parallel.*
 import munit.CatsEffectSuite
 
+import scala.concurrent.duration.*
+
+import slick.SlickException
 import slick.jdbc.H2Profile.api.*
 import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource, JdbcBackend}
 
@@ -38,6 +41,16 @@ class CE3GuaranteesTest extends CatsEffectSuite {
   /** A database with several connection slots for concurrency tests. */
   val multiSlotDb = ResourceFunFixture(
     JdbcBackend.Database.forSource[IO](h2Source("ce3test_multi"), maxConnections = Some(4))
+  )
+
+  /** A database with strict admission controls for inflight/queue tests. */
+  val admissionDb = ResourceFunFixture(
+    JdbcBackend.Database.forSource[IO](
+      h2Source("ce3test_admission"),
+      maxConnections = Some(1),
+      maxInflightActions = Some(1),
+      queueSize = 1
+    )
   )
 
   // ---------------------------------------------------------------------------
@@ -92,6 +105,58 @@ class CE3GuaranteesTest extends CatsEffectSuite {
       results <- (1 to 8).toList.map(_ => db.run(items.result)).parSequence
       _  = assert(results.forall(_.size == 8), "every concurrent query must return all 8 rows")
       _ <- db.run(items.schema.drop)
+    } yield ()
+  }
+
+  admissionDb.test("maxInflightActions gates execution even for non-DB steps") { db =>
+    for {
+      gate1 <- Deferred[IO, Unit]
+      release1 <- Deferred[IO, Unit]
+      gate2 <- Deferred[IO, Unit]
+
+      fiber1 <- db.run(DBIO.from(gate1.complete(()) >> release1.get)).start
+      _ <- gate1.get
+
+      fiber2 <- db.run(DBIO.from(gate2.complete(()) >> IO.unit)).start
+
+      // The second action should not start while the first occupies the single inflight slot.
+      notStarted <- gate2.get.timeout(250.millis).attempt
+      _ = assert(notStarted.isLeft, "second action should still be waiting for inflight admission")
+
+      _ <- release1.complete(())
+      _ <- fiber1.join
+      _ <- fiber2.join
+      _ <- gate2.get
+    } yield ()
+  }
+
+  admissionDb.test("queueSize bounds callers waiting for inflight admission") { db =>
+    def waitUntilQueueFull(deadline: FiniteDuration): IO[Unit] =
+      db.availableAdmissionQueueSlots.flatMap { n =>
+        if (n == 0L) IO.unit
+        else if (deadline <= Duration.Zero) IO.raiseError(new RuntimeException("timed out waiting for queue to fill"))
+        else IO.sleep(20.millis) >> waitUntilQueueFull(deadline - 20.millis)
+      }
+
+    for {
+      gate1 <- Deferred[IO, Unit]
+      release1 <- Deferred[IO, Unit]
+
+      fiber1 <- db.run(DBIO.from(gate1.complete(()) >> release1.get)).start
+      _ <- gate1.get
+
+      // This one should occupy the only queue slot while waiting for inflight.
+      fiber2 <- db.run(DBIO.successful(1)).start
+      _ <- waitUntilQueueFull(2.seconds)
+
+      // Third caller should be rejected immediately.
+      rejected <- db.run(DBIO.successful(2)).attempt
+      _ = assert(rejected.swap.exists(_.isInstanceOf[SlickException]))
+      _ = assert(rejected.swap.exists(_.getMessage == "DBIOAction queue full"))
+
+      _ <- release1.complete(())
+      _ <- fiber1.join
+      _ <- fiber2.join
     } yield ()
   }
 

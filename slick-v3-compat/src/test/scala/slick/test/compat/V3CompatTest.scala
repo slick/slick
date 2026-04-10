@@ -175,10 +175,10 @@ class V3CompatTest extends FunSuite {
   // Streaming lifecycle — connection pinning, full consumption, cancellation
   // ---------------------------------------------------------------------------
 
-  /** Number of free semaphore permits on the underlying Database[IO].
+  /** Number of free connection slots on the underlying Database[IO].
     * `maxConnections - freePermits` = number of connections currently checked out. */
   private def freePermits(db: slick.compat.Database): Long =
-    db.underlying.semaphore.available.unsafeRunSync()
+    db.underlying.availableConnectionSlots.unsafeRunSync()
 
   test("stream: connection is pinned while streaming and released after full consumption") {
     withDb("stream_pin_consume") { db =>
