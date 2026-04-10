@@ -42,8 +42,6 @@ trait BasicBackend { self =>
   type Session >: Null <: BasicSessionDef
   /** The type of the context used for running SynchronousDatabaseActions */
   type Context >: Null <: BasicActionContext
-  /** The type of the context used for streaming SynchronousDatabaseActions */
-  type StreamingContext >: Null <: Context & BasicStreamingActionContext
 
   /** The database factory */
   val Database: DatabaseFactory
@@ -520,10 +518,10 @@ trait BasicBackend { self =>
               }
           }
 
-        case a: SynchronousDatabaseAction[?, ?, ?, ?, ?] =>
+        case a: SynchronousDatabaseAction[?, ?, ?, ?] =>
           withSession[R](ctx) { (session, state) =>
             F.blocking {
-              a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, StreamingContext, Nothing]]
+              a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, Nothing]]
                .run(sessionAsContext(session, state))
             }
           }
@@ -581,14 +579,14 @@ trait BasicBackend { self =>
     ): Stream[F, T] = {
       val F = asyncF
       a match {
-        case sa: SynchronousDatabaseAction[?, ?, ?, ?, ?]
+        case sa: SynchronousDatabaseAction[?, ?, ?, ?]
             if sa.supportsStreaming =>
           withSessionStream[T](ctx) { (session, state) =>
-            val sda = sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, StreamingContext, Nothing]]
+            val sda = sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
             streamFromSDA[T](sda, session, state)
           }
 
-        case sa: SynchronousDatabaseAction[?, ?, ?, ?, ?] =>
+        case sa: SynchronousDatabaseAction[?, ?, ?, ?] =>
           // FusedAndThenAction (supportsStreaming = false): unfuse and recurse so that prefix
           // actions run through the interpreter and the final streaming action is streamed.
           streamInterpret[T](
@@ -652,7 +650,7 @@ trait BasicBackend { self =>
     /** Build an FS2 Stream from a SynchronousDatabaseAction.
       * Must be implemented by each backend that supports streaming. */
     protected def streamFromSDA[T](
-      a: SynchronousDatabaseAction[?, Streaming[T], Context, StreamingContext, Nothing],
+      a: SynchronousDatabaseAction[?, Streaming[T], Context, Nothing],
       session: Session,
       state: ExecState
     ): Stream[F, T]
@@ -707,6 +705,4 @@ trait BasicBackend { self =>
     def isPinned: Boolean
   }
 
-  /** A special BasicActionContext for streaming SynchronousDatabaseActions. */
-  trait BasicStreamingActionContext extends BasicActionContext with StreamingActionContext
 }

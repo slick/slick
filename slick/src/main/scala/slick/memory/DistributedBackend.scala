@@ -20,7 +20,6 @@ trait DistributedBackend extends RelationalBackend with Logging {
   type Session = DistributedSessionDef
   type DatabaseFactory = DistributedDatabaseFactoryDef
   type Context = BasicActionContext
-  type StreamingContext = BasicStreamingActionContext
 
   val Database = new DistributedDatabaseFactoryDef
   val backend: DistributedBackend = this
@@ -57,7 +56,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     def close(): Unit = ()
 
     override protected def streamFromSDA[T](
-      a: slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], Context, StreamingContext, Nothing],
+      a: slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], Context, Nothing],
       session: Session,
       state: ExecState
     ): fs2.Stream[F, T] =

@@ -22,7 +22,6 @@ trait HeapBackend extends RelationalBackend with Logging {
   type Session = HeapSessionDef
   type DatabaseFactory = HeapDatabaseFactoryDef
   type Context = BasicActionContext
-  type StreamingContext = BasicStreamingActionContext
 
   val Database = new HeapDatabaseFactoryDef
   val backend: HeapBackend = this
@@ -58,11 +57,11 @@ trait HeapBackend extends RelationalBackend with Logging {
     }
 
     override protected def streamFromSDA[T](
-      a: slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], Context, StreamingContext, Nothing],
+      a: slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], Context, Nothing],
       session: Session,
       state: ExecState
     ): fs2.Stream[F, T] = {
-      val sda = a.asInstanceOf[slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], BasicActionContext, BasicStreamingActionContext, Nothing]]
+      val sda = a.asInstanceOf[slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], BasicActionContext, Nothing]]
       val ctx = sessionAsContext(session, state)
 
       fs2.Stream.resource(
