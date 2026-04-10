@@ -4,7 +4,6 @@ import java.sql.{PreparedStatement, ResultSet, Savepoint, SQLFeatureNotSupported
 
 import scala.collection.mutable.Builder
 import scala.language.existentials
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 import slick.SlickException
 import slick.ast.*
@@ -15,7 +14,7 @@ import slick.dbio.*
 import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
-import slick.util.{ignoreFollowOnError, CloseableIterator, DumpInfo, SQLBuilder}
+import slick.util.{CloseableIterator, DumpInfo, SQLBuilder}
 
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
@@ -26,7 +25,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   type RowsPerStatement >: slick.jdbc.RowsPerStatement.One.type <: slick.jdbc.RowsPerStatement
   def defaultRowsPerStatement: RowsPerStatement
 
-  abstract class SimpleJdbcProfileAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] with ProfileAction[R, NoStream, Effect] { self =>
+  abstract class SimpleJdbcProfileAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, JdbcBackend#JdbcActionContext, Effect] with ProfileAction[R, NoStream, Effect] { self =>
     def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): R
     final override def getDumpInfo = super.getDumpInfo.copy(name = _name)
     final def run(ctx: JdbcBackend#JdbcActionContext): R = run(ctx, statements)
@@ -35,12 +34,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
   }
 
-  protected class PushStatementParameters(p: JdbcBackend.StatementParameters) extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+  protected class PushStatementParameters(p: JdbcBackend.StatementParameters) extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Unit = ctx.pushStatementParameters(p)
     def getDumpInfo = DumpInfo(name = "PushStatementParameters", mainInfo = p.toString)
   }
 
-  protected object PopStatementParameters extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+  protected object PopStatementParameters extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Unit = ctx.popStatementParameters
     def getDumpInfo = DumpInfo(name = "PopStatementParameters")
   }
@@ -52,7 +51,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     * The typical pattern is to use [[JdbcActionExtensionMethods.withSavepoint]] instead of
     * managing savepoints manually. */
   val createSavepoint: DBIOAction[Savepoint, NoStream, Effect.Transactional] =
-    new SynchronousDatabaseAction[Savepoint, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect.Transactional] {
+    new SynchronousDatabaseAction[Savepoint, NoStream, JdbcBackend#JdbcActionContext, Effect.Transactional] {
       def run(ctx: JdbcBackend#JdbcActionContext): Savepoint = ctx.connection.setSavepoint()
       def getDumpInfo = DumpInfo(name = "CreateSavepoint")
     }
@@ -65,7 +64,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     *
     * @see [[createSavepoint]], [[JdbcActionExtensionMethods.withSavepoint]] */
   def releaseSavepoint(sp: Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
-    new SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect.Transactional] {
+    new SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, Effect.Transactional] {
       def run(ctx: JdbcBackend#JdbcActionContext): Unit =
         try ctx.connection.releaseSavepoint(sp)
         catch { case _: SQLFeatureNotSupportedException => () }
@@ -76,7 +75,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     *
     * @see [[createSavepoint]], [[JdbcActionExtensionMethods.withSavepoint]] */
   def rollbackToSavepoint(sp: Savepoint): DBIOAction[Unit, NoStream, Effect.Transactional] =
-    new SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect.Transactional] {
+    new SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, Effect.Transactional] {
       def run(ctx: JdbcBackend#JdbcActionContext): Unit = ctx.connection.rollback(sp)
       def getDumpInfo = DumpInfo(name = "RollbackToSavepoint")
     }
@@ -162,7 +161,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
 
-  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Nothing, Streaming[ResultSetMutator[T]], JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] with ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect] { streamingAction =>
+  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Nothing, Streaming[ResultSetMutator[T]], JdbcBackend#JdbcActionContext, Effect] with ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect] { streamingAction =>
     class Mutator(val prit: PositionedResultIterator[T], val inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
       val pr = prit.pr
       val rs = pr.rs
@@ -191,56 +190,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         rs.deleteRow()
         if(invokerPreviousAfterDelete) rs.previous()
       }
-      def emitStream(ctx: JdbcBackend#JdbcStreamingActionContext, limit: Long): this.type = {
-        var count = 0L
-        try {
-          if(state == 2) {
-            // Terminal — nothing to emit.
-          } else if(state == 1) {
-            // End-marker event step: consumer has already seen the end marker emitted
-            // on the previous call.  Now advance to terminal.
-            if(limit > 0) state = 2
-            // limit == 0: no demand, stay in state 1
-          } else { // state == 0
-            while(count < limit && state == 0) {
-              if(!pr.nextRow) {
-                if(sendEndMarker) {
-                  state = 1
-                  ctx.emit(this)
-                } else {
-                  state = 2
-                }
-              } else {
-                current = inv.extractValue(pr)
-                count += 1
-                ctx.emit(this)
-              }
-            }
-          }
-        } catch {
-          case NonFatal(ex) =>
-            try prit.close() catch ignoreFollowOnError
-            throw ex
-        }
-        if(state < 2) this else null.asInstanceOf[this.type]
-      }
       def end = if(state > 1) throw new SlickException("After end of result set") else state > 0
       override def toString = s"Mutator(state = $state, current = $current)"
     }
-    type StreamState = Mutator
     override def statements: List[String] = List(sql)
     def run(ctx: JdbcBackend#JdbcActionContext) =
       throw new SlickException("The result of .mutate can only be used in a streaming way")
-    override def emitStream(ctx: JdbcBackend#JdbcStreamingActionContext, limit: Long, state: StreamState): StreamState = {
-      val mu = if(state ne null) state else {
-        val inv = createQueryInvoker[T](rsm, param, sql)
-        new Mutator(
-          inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).getOrElse(throw new NoSuchElementException),
-          inv)
-      }
-      mu.emitStream(ctx, limit)
-    }
-    override def cancelStream(ctx: JdbcBackend#JdbcStreamingActionContext, state: StreamState): Unit = state.prit.close()
     override def openStream(ctx: JdbcBackend#JdbcActionContext): CloseableIterator[ResultSetMutator[T]] = {
       val inv = createQueryInvoker[T](rsm, param, sql)
       val mu = new Mutator(

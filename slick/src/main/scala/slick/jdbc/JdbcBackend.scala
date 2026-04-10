@@ -26,7 +26,6 @@ trait JdbcBackend extends RelationalBackend {
   type Session = JdbcSessionDef
   type DatabaseFactory = DatabaseFactoryDef
   type Context = JdbcActionContext
-  type StreamingContext = JdbcStreamingActionContext
 
   val Database: DatabaseFactory = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
@@ -106,12 +105,12 @@ trait JdbcBackend extends RelationalBackend {
     // ------------------------------------------------------------------
 
     override protected def streamFromSDA[T](
-      a: SynchronousDatabaseAction[?, Streaming[T], Context, StreamingContext, Nothing],
+      a: SynchronousDatabaseAction[?, Streaming[T], Context, Nothing],
       session: Session,
       state: ExecState
     ): Stream[F, T] = {
       val F = asyncF
-      val sda = a.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], JdbcActionContext, JdbcStreamingActionContext, Nothing]]
+      val sda = a.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], JdbcActionContext, Nothing]]
       val ctx = sessionAsContext(session, state)
 
       Stream.resource(
@@ -506,8 +505,6 @@ trait JdbcBackend extends RelationalBackend {
     /** The current JDBC Connection */
     def connection: Connection = session.conn
   }
-
-  trait JdbcStreamingActionContext extends BasicStreamingActionContext with JdbcActionContext
 }
 
 object JdbcBackend extends JdbcBackend {

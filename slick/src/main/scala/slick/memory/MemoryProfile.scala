@@ -123,15 +123,14 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
   type StreamingProfileAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
 
   protected[this] def dbAction[R, S <: NoStream, E <: Effect](f: Backend#Session => R): ProfileAction[R, S, E] =
-    new ProfileAction[R, S, E] with SynchronousDatabaseAction[R, S, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, E] {
+    new ProfileAction[R, S, E] with SynchronousDatabaseAction[R, S, HeapBackend#BasicActionContext, E] {
       def run(ctx: HeapBackend#BasicActionContext): R = f(ctx.session)
       def getDumpInfo = DumpInfo("MemoryProfile.ProfileAction")
     }
 
   class StreamingQueryAction[R, T](tree: Node, param: Any)
     extends StreamingProfileAction[R, T, Effect.Read]
-      with SynchronousDatabaseAction[R, Streaming[T], HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.Read] {
-    type StreamState = Iterator[T]
+      with SynchronousDatabaseAction[R, Streaming[T], HeapBackend#BasicActionContext, Effect.Read] {
     protected[this] def getIterator(ctx: HeapBackend#BasicActionContext): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
       val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree: @unchecked
@@ -140,26 +139,17 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     }
     def run(ctx: HeapBackend#BasicActionContext): R =
       createInterpreter(ctx.session.database, param).run(tree).asInstanceOf[R]
-    override def emitStream(ctx: HeapBackend#BasicStreamingActionContext, limit: Long, state: StreamState): StreamState = {
-      val it = if(state ne null) state else getIterator(ctx.asInstanceOf[Backend#Context]) //TODO why does Dotty need this cast?
-      var count = 0L
-      while(count < limit && it.hasNext) {
-        count += 1
-        ctx.emit(it.next())
-      }
-      if(it.hasNext) it else null
-    }
     override def openStream(ctx: HeapBackend#BasicActionContext): CloseableIterator[T] =
       CloseableIterator.wrap(getIterator(ctx))
     def head: ProfileAction[T, NoStream, Effect.Read] =
       new ProfileAction[T, NoStream, Effect.Read]
-        with SynchronousDatabaseAction[T, NoStream, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.Read] {
+        with SynchronousDatabaseAction[T, NoStream, HeapBackend#BasicActionContext, Effect.Read] {
         def run(ctx: HeapBackend#BasicActionContext): T = getIterator(ctx).next()
         def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
       }
     def headOption: ProfileAction[Option[T], NoStream, Effect.Read] =
       new ProfileAction[Option[T], NoStream, Effect.Read]
-        with SynchronousDatabaseAction[Option[T], NoStream, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.Read] {
+        with SynchronousDatabaseAction[Option[T], NoStream, HeapBackend#BasicActionContext, Effect.Read] {
 
         def run(ctx: HeapBackend#BasicActionContext): Option[T] = {
           val it = getIterator(ctx)
@@ -258,7 +248,7 @@ object MemoryProfile extends MemoryProfile
 
 /** A non-streaming Action that wraps a synchronous MemoryProfile API call. */
 case class SimpleMemoryAction[+R](f: HeapBackend#BasicActionContext => R)
-  extends SynchronousDatabaseAction[R, NoStream, HeapBackend#BasicActionContext, HeapBackend#BasicStreamingActionContext, Effect.All] {
+  extends SynchronousDatabaseAction[R, NoStream, HeapBackend#BasicActionContext, Effect.All] {
 
   def run(context: HeapBackend#BasicActionContext): R = f(context)
   def getDumpInfo = DumpInfo(name = "SimpleMemoryAction")

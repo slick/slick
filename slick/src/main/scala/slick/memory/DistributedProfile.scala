@@ -57,7 +57,7 @@ class DistributedProfile(val profiles: RelationalProfile*) extends MemoryQueryin
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: ProfileAction[R, S, Effect.Read] =
       new StreamingProfileAction[R, Any, Effect.Read]
-        with SynchronousDatabaseAction[R, Streaming[Any], DistributedBackend#BasicActionContext, DistributedBackend#BasicStreamingActionContext, Effect.Read] {
+        with SynchronousDatabaseAction[R, Streaming[Any], DistributedBackend#BasicActionContext, Effect.Read] {
         def run(ctx: DistributedBackend#BasicActionContext) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.ProfileAction")
         def head: ResultAction[Any, NoStream, Effect.Read] = ??
