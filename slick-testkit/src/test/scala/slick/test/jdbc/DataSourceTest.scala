@@ -122,7 +122,7 @@ class DataSourceTest {
     } finally close.unsafeRunSync()
   }
 
-  @Test def testMaxConnectionsNumThreads: Unit = {
+  @Test def testMaxConnectionsFallbackToNumThreads: Unit = {
     MockDriver.reset
     val (db, close) = JdbcBackend.Database.forConfig[IO]("databaseUrl", ConfigFactory.parseString(
       """
@@ -135,6 +135,53 @@ class DataSourceTest {
     )).allocated.unsafeRunSync()
     try {
       assertEquals("maxConnections should be numThreads", Some(10), db.source.maxConnections)
+      val q = db.availableAdmissionQueueSlots.unsafeRunSync()
+      val i = db.availableInflightSlots.unsafeRunSync()
+      assertEquals("default queueSize should be 1000", 1000L, q)
+      assertEquals("default maxInflightActions should be 2 * maxConnections", 20L, i)
+    } finally close.unsafeRunSync()
+  }
+
+  @Test def testMaxConnectionsPreferredOverNumThreads: Unit = {
+    MockDriver.reset
+    val (db, close) = JdbcBackend.Database.forConfig[IO]("databaseUrl", ConfigFactory.parseString(
+      """
+        |databaseUrl {
+        |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
+        |  maxConnections = 12
+        |  numThreads = 10
+        |  url = "postgres://user:pass@host/dbname"
+        |}
+        |""".stripMargin
+    )).allocated.unsafeRunSync()
+    try {
+      val q = db.availableAdmissionQueueSlots.unsafeRunSync()
+      val i = db.availableInflightSlots.unsafeRunSync()
+      assertEquals("maxConnections should take precedence over numThreads", Some(12), db.source.maxConnections)
+      assertEquals("default queueSize should be 1000", 1000L, q)
+      assertEquals("default maxInflightActions should be 2 * maxConnections", 24L, i)
+    } finally close.unsafeRunSync()
+  }
+
+  @Test def testInflightAndQueueConfig: Unit = {
+    MockDriver.reset
+    val (db, close) = JdbcBackend.Database.forConfig[IO]("databaseUrl", ConfigFactory.parseString(
+      """
+        |databaseUrl {
+        |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
+        |  maxConnections = 10
+        |  maxInflightActions = 5
+        |  queueSize = 42
+        |  url = "postgres://user:pass@host/dbname"
+        |}
+        |""".stripMargin
+    )).allocated.unsafeRunSync()
+    try {
+      val q = db.availableAdmissionQueueSlots.unsafeRunSync()
+      val i = db.availableInflightSlots.unsafeRunSync()
+      assertEquals("maxConnections should be respected", Some(10), db.source.maxConnections)
+      assertEquals("queueSize should be configurable", 42L, q)
+      assertEquals("maxInflightActions must be at least maxConnections", 10L, i)
     } finally close.unsafeRunSync()
   }
 

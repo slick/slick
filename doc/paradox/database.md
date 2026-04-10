@@ -172,6 +172,62 @@ Note that reasonable defaults for the connection pool sizes are calculated autom
 Slick uses *prepared* statements wherever possible but it does not cache them on its own. You
 should therefore enable prepared statement caching in the connection pool's configuration.
 
+Execution Concurrency Model
+---------------------------
+
+Slick 4 uses a two-stage admission model for `db.run(...)` and `db.stream(...)` calls:
+
+1. **Queue** (`queueSize`): bounds how many callers are allowed to wait for admission.
+2. **In-flight** (`maxInflightActions`): bounds how many DBIO chains may run concurrently.
+
+After a call is admitted, actual JDBC work is still bounded by the connection pool size
+(`maxConnections`).
+
+### Why these two limits exist
+
+- **Queue** protects the application from unbounded memory growth under overload.
+- **In-flight** limits total concurrent action chains (including chains that are between DB steps).
+- **Connections** limit actual simultaneous JDBC I/O.
+
+This separation avoids a common overload pattern where too many callers pile up waiting forever,
+while still allowing some headroom when actions do non-DB work between JDBC steps.
+
+### Configuration keys
+
+These keys are read from the same database config section used by `Database.forConfig`:
+
+- `maxConnections`: maximum concurrent JDBC connections (existing key).
+- `queueSize`: maximum number of callers waiting for in-flight admission (default: `1000`).
+- `maxInflightActions`: maximum concurrently running DBIO chains (default: `2 * maxConnections`).
+
+If `maxInflightActions` is configured lower than `maxConnections`, Slick uses
+`maxConnections` as the effective value.
+
+Example:
+
+```hocon
+mydb {
+  connectionPool = "HikariCP"
+
+  # JDBC concurrency
+  maxConnections = 10
+
+  # DBIO admission control
+  maxInflightActions = 20
+  queueSize = 1000
+}
+```
+
+### Overload behavior
+
+When the queue is full, new calls fail fast with:
+
+- `SlickException("DBIOAction queue full")`
+
+This is intentional back-pressure. Typical responses are to retry with jittered backoff, shed load,
+or increase capacity (`queueSize`, `maxInflightActions`, and/or database connection pool size)
+based on measured behavior.
+
 DatabaseConfig
 --------------
 

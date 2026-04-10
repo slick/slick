@@ -63,6 +63,26 @@ Slick does not expose its own JMX bean in Slick 4. Observability is provided at 
    standard JVM tooling. If you are using a framework like http4s, refer to its documentation for
    integrating metrics (e.g., via Micrometer or Prometheus) with the CE3 runtime.
 
+In addition to pool/runtime observability, Slick 4's execution limits are configured directly on
+the database config section:
+
+- `maxConnections`: maximum concurrent JDBC connections.
+- `maxInflightActions` (default `2 * maxConnections`): maximum concurrently running DBIO chains.
+- `queueSize` (default `1000`): maximum callers waiting for in-flight admission.
+
+When `queueSize` is exhausted, Slick rejects immediately with
+`SlickException("DBIOAction queue full")`.
+
+Slick also exposes runtime concurrency gauges on `Database[F]`:
+
+- `availableConnectionSlots`: free connection slots in the connection arbiter.
+- `pendingConnectionSlots`: callers currently waiting for a connection slot.
+- `availableAdmissionQueueSlots`: free waiting-room slots before queue-full rejection.
+- `availableInflightSlots`: free in-flight DBIO action slots.
+
+These values are useful to distinguish pressure points: admission saturation, inflight saturation,
+or connection-slot contention.
+
 The management bean names registered by HikariCP are qualified with the `poolName` from the database
 configuration, or the config path if `poolName` has not been set explicitly.
 
