@@ -61,6 +61,18 @@ object CloseableIterator {
     def close: Unit = {}
   }
 
+  /** Wrap a plain Iterator as a CloseableIterator with a custom close action.
+    * The close action is called automatically when `hasNext` returns `false` (auto-close),
+    * and must be idempotent. */
+  def from[T](it: Iterator[T], onClose: () => Unit): CloseableIterator[T] = new CloseableIterator[T] {
+    def hasNext: Boolean = {
+      if (it.hasNext) true
+      else { onClose(); false }
+    }
+    def next(): T = it.next()
+    def close(): Unit = onClose()
+  }
+
   /** Wrap a plain Iterator as a CloseableIterator with a no-op close. */
   def wrap[T](it: Iterator[T]): CloseableIterator[T] = new CloseableIterator[T] {
     def hasNext: Boolean = it.hasNext
