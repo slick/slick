@@ -4,7 +4,6 @@ import java.io.Closeable
 
 import cats.effect.{Async, Ref, Resource}
 import cats.effect.kernel.Outcome
-import cats.effect.std.Semaphore
 import cats.syntax.all.*
 import cats.effect.syntax.all.*
 import fs2.Stream
@@ -14,6 +13,7 @@ import slick.SlickException
 import slick.compat.collection.*
 import slick.dbio.*
 import slick.util.*
+import slick.basic.ConcurrencyControl.*
 
 import com.typesafe.config.Config
 import org.slf4j.LoggerFactory
@@ -74,8 +74,9 @@ trait BasicBackend { self =>
     * currently-open session + semaphore permit pair.  It is set when a session is first
     * acquired and cleared (and run) when the session is released. */
   case class ExecState(
+    ordinal:               Long,             // globally assigned submission order for this DBIO chain
     session:               Option[AnyRef],   // None = no JDBC connection acquired yet; cast to Session; AnyRef avoids Scala 2.13 path-dependent type issues with abstract type member Session
-    sessionRelease:        Option[AnyRef],   // None = no session open; Some(F[Unit]) = finalizer to close session + release permit; AnyRef for the same reason as session
+    sessionRelease:        Option[AnyRef],   // None = no session open; Some(F[Unit]) = finalizer to close session + release connection slot; AnyRef for the same reason as session
     transactionDepth:      Int,              // nesting depth of .transactionally scopes (0 = no transaction)
     isolationLevel:        Option[Int],      // None = database default
     previousIsolationLevel: Option[Int],     // isolation level to restore after outermost transaction ends
@@ -87,7 +88,8 @@ trait BasicBackend { self =>
   }
 
   object ExecState {
-    def empty: ExecState = ExecState(
+    def initial(ordinal: Long): ExecState = ExecState(
+      ordinal                = ordinal,
       session                = None,
       sessionRelease         = None,
       transactionDepth       = 0,
@@ -106,18 +108,19 @@ trait BasicBackend { self =>
     * `F[_]` is the effect type (e.g. `cats.effect.IO`).
     * All `run` and `stream` calls on a given database instance use the same effect type.
     *
-    * Concrete subclasses must supply:
-    *   - `val asyncF: Async[F]` (the typeclass instance)
-    *   - `val semaphore: Semaphore[F]` (for connection-slot back-pressure)
+    * Concrete subclasses supply:
+    *   - `asyncF`
+    *   - `controls` (admission control + connection arbiter)
     */
   trait BasicDatabaseDef[F[_]] extends AnyDatabaseDef { this: Database[F] =>
 
-    /** The `Async` instance for `F`. */
     implicit val asyncF: Async[F]
 
-    /** CE3 Semaphore used for connection-slot back-pressure.
-      * One permit = one JDBC connection. Created once at database construction time. */
-    val semaphore: Semaphore[F]
+    /** Concurrency controls for admission and connection-slot arbitration. */
+    val controls: Controls[F]
+
+    protected final def admissionControl: AdmissionControl[F] = controls.admissionControl
+    protected final def connectionArbiter: ConnectionArbiter[F] = controls.connectionArbiter
 
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
@@ -130,27 +133,50 @@ trait BasicBackend { self =>
     // ------------------------------------------------------------------
 
     /** Run a DBIOAction and return the result in F[R]. */
-    final def run[R](a: DBIOAction[R, NoStream, Nothing]): F[R] = {
-      asyncF.ref(ExecState.empty).flatMap { ctx =>
-        interpret[R](a, ctx)
+    final def run[R](a: DBIOAction[R, NoStream, Nothing]): F[R] =
+      admissionControl.withInflight {
+        connectionArbiter.allocateOrdinal.flatMap { ordinal =>
+          asyncF.ref(ExecState.initial(ordinal)).flatMap { ctx =>
+            interpret[R](a, ctx)
+          }
+        }
       }
-    }
 
     /** Stream results of a streaming DBIOAction as an FS2 Stream.
       * Back-pressure is structural — the fiber suspends when the consumer is slow. */
     final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): Stream[F, T] =
-      Stream.eval(asyncF.ref(ExecState.empty)).flatMap { ctx =>
-        streamInterpret[T](a, ctx)
+      Stream.bracketCase(admissionControl.inflightAcquire >> connectionArbiter.allocateOrdinal) { (_, _) =>
+        admissionControl.inflightRelease
+      }.flatMap { ordinal =>
+        Stream.eval(asyncF.ref(ExecState.initial(ordinal))).flatMap { ctx =>
+          streamInterpret[T](a, ctx)
+        }
       }
+
+    /** Number of currently free connection slots managed by the connection arbiter. */
+    final def availableConnectionSlots: F[Long] =
+      connectionArbiter.available
+
+    /** Number of callers currently waiting in the connection arbiter queue. */
+    final def pendingConnectionSlots: F[Int] =
+      connectionArbiter.pending
+
+    /** Number of free admission-queue slots. */
+    final def availableAdmissionQueueSlots: F[Long] =
+      admissionControl.queueAvailable
+
+    /** Number of free inflight slots. */
+    final def availableInflightSlots: F[Long] =
+      admissionControl.inflightAvailable
 
     // ------------------------------------------------------------------
     // Interpreter
     // ------------------------------------------------------------------
 
-    /** A `Resource` that acquires one semaphore permit and releases it in its finalizer.
+    /** A `Resource` that acquires one connection-arbiter permit and releases it in its finalizer.
       * The finalizer always runs regardless of how the `use`/`allocated` body completes. */
-    private def permitR: Resource[F, Unit] =
-      Resource.make(semaphore.acquire)(_ => semaphore.release)
+    private def permitR(ordinal: Long): Resource[F, Unit] =
+      Resource.make(connectionArbiter.acquire(ordinal))(_ => connectionArbiter.release)
 
     /** A `Resource` that opens a new session and closes it (best-effort) in its finalizer.
       * Close is wrapped in `.attempt` so a JDBC exception during close does not suppress
@@ -158,11 +184,11 @@ trait BasicBackend { self =>
     private def sessionR: Resource[F, Session] =
       Resource.make(asyncF.blocking(createSession()))(s => asyncF.blocking(s.close()).attempt.void)
 
-    /** A `Resource` that acquires a semaphore permit *and* opens a session.
+    /** A `Resource` that acquires a connection slot *and* opens a session.
       * Finalizers run in reverse acquisition order: session is closed first, then the
-      * permit is released — so the permit is always returned to the semaphore even if
+      * slot is released — so the slot is always returned to the arbiter even if
       * `session.close()` throws. */
-    private def acquiredSessionR: Resource[F, Session] = permitR.flatMap(_ => sessionR)
+    private def acquiredSessionR(ordinal: Long): Resource[F, Session] = permitR(ordinal).flatMap(_ => sessionR)
 
     /** Atomically take the `sessionRelease` finalizer out of `ExecState` and run it.
       * The take-and-clear is a single `Ref.modify` so it is idempotent: a second call
@@ -334,7 +360,7 @@ trait BasicBackend { self =>
             // `allocated` returning and `installSession` completing cannot orphan the
             // resource.  User work runs cancelably via poll.
             F.uncancelable { poll =>
-              acquiredSessionR.allocated.flatMap { case (session, releaseAcquired) =>
+              acquiredSessionR(state.ordinal).allocated.flatMap { case (session, releaseAcquired) =>
                 installSession(ctx, state, session, releaseAcquired).flatMap { s1 =>
                   poll(f(session, s1)).guarantee {
                     ctx.get.flatMap { s2 =>
@@ -534,7 +560,7 @@ trait BasicBackend { self =>
             // Both acquire and release are uncancelable by bracketCase semantics, so no gap
             // can exist between the two.
             Stream.bracketCase(
-              acquire = acquiredSessionR.allocated.flatMap { case (session, releaseAcquired) =>
+              acquire = acquiredSessionR(state.ordinal).allocated.flatMap { case (session, releaseAcquired) =>
                 installSession(ctx, state, session, releaseAcquired).map(s1 => (session, s1))
               }
             )(

@@ -5,11 +5,11 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
 import cats.effect.{Async, IO, Resource}
-import cats.effect.std.Semaphore
 
 import slick.SlickException
 import slick.ast.*
 import slick.compat.collection.*
+import slick.basic.ConcurrencyControl.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
 import slick.util.Logging
@@ -28,7 +28,11 @@ trait HeapBackend extends RelationalBackend with Logging {
   val backend: HeapBackend = this
 
   def createDatabase[F[_]](config: Config, path: String, classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader)(implicit AF: Async[F]): Resource[F, Database[F]] =
-    Resource.eval(AF.flatMap(Semaphore[F](Long.MaxValue))(sem => AF.pure(new HeapDatabaseDef[F](sem))))
+    Resource.eval(
+      AF.map(Controls.create[F](Long.MaxValue, Long.MaxValue, Long.MaxValue)) { controls =>
+        new HeapDatabaseDef[F](controls)(AF)
+      }
+    )
 
   /** Non-parameterized base for HeapDatabaseDef, providing table management operations
     * that do not depend on the effect type F. Used by HeapSessionDef. */
@@ -44,7 +48,13 @@ trait HeapBackend extends RelationalBackend with Logging {
     def getTables: IndexedSeq[HeapTable]
   }
 
-  class HeapDatabaseDef[F[_]](override val semaphore: Semaphore[F])(implicit override val asyncF: cats.effect.Async[F]) extends BasicDatabaseDef[F] with AnyHeapDatabaseDef {
+  class HeapDatabaseDef[F[_]](
+    override val controls: Controls[F]
+  )(
+    override implicit val asyncF: cats.effect.Async[F]
+  )
+    extends BasicDatabaseDef[F]
+    with AnyHeapDatabaseDef {
 
     override protected def sessionAsContext(session: Session, state: ExecState): Context = {
       val s = session
@@ -128,8 +138,7 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   def createEmptyDatabase: AnyHeapDatabaseDef = {
     def err = throw new SlickException("Unsupported operation for empty heap database")
-    // Use an unlimited semaphore (Long.MaxValue permits) — the empty database throws on all
-    // meaningful operations anyway; we just need a valid Database instance.
+
     new AnyHeapDatabaseDef {
       override def createSession(): BasicSessionDef = new HeapSessionDef(this)
       override def close(): Unit = ()
@@ -149,7 +158,9 @@ trait HeapBackend extends RelationalBackend with Logging {
     /** Create a new heap database instance. */
     def apply(): Resource[IO, Database[IO]] =
       Resource.eval(
-        Semaphore[IO](Long.MaxValue).map(sem => new HeapDatabaseDef[IO](sem))
+        Controls.create[IO](Long.MaxValue, Long.MaxValue, Long.MaxValue).map { controls =>
+          new HeapDatabaseDef[IO](controls)(IO.asyncForIO)
+        }
       )
   }
 
