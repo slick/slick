@@ -179,6 +179,67 @@ class DataSourceTest {
     } finally close.unsafeRunSync()
   }
 
+  @Test def testAdmissionAndConnectionTimeoutConfig: Unit = {
+    MockDriver.reset
+    val (db, close) = JdbcBackend.Database.forConfig[IO]("databaseUrl", ConfigFactory.parseString(
+      """
+        |databaseUrl {
+        |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
+        |  maxConnections = 10
+        |  maxInflightActions = 20
+        |  queueSize = 42
+        |  inflightAdmissionTimeout = 250ms
+        |  connectionAcquireTimeout = 500ms
+        |  url = "postgres://user:pass@host/dbname"
+        |}
+        |""".stripMargin
+    )).allocated.unsafeRunSync()
+    try {
+      assertEquals("queueSize should be configurable", 42L, db.availableAdmissionQueueSlots.unsafeRunSync())
+    } finally close.unsafeRunSync()
+  }
+
+  @Test def testTimeoutsMustBePositive: Unit = {
+    MockDriver.reset
+    val inflightEx = try {
+      JdbcBackend.Database.forConfig[IO]("databaseUrl", ConfigFactory.parseString(
+        """
+          |databaseUrl {
+          |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
+          |  maxConnections = 10
+          |  inflightAdmissionTimeout = 0ms
+          |  url = "postgres://user:pass@host/dbname"
+          |}
+          |""".stripMargin
+      )).allocated.unsafeRunSync()
+      null
+    } catch {
+      case t: Throwable => t
+    }
+
+    assertTrue("zero inflight timeout should be rejected", inflightEx != null)
+    assertTrue("must mention positive inflight timeout", inflightEx.getMessage.contains("inflightAdmissionTimeout must be > 0"))
+
+    val connectionEx = try {
+      JdbcBackend.Database.forConfig[IO]("databaseUrl", ConfigFactory.parseString(
+        """
+          |databaseUrl {
+          |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
+          |  maxConnections = 10
+          |  connectionAcquireTimeout = 0ms
+          |  url = "postgres://user:pass@host/dbname"
+          |}
+          |""".stripMargin
+      )).allocated.unsafeRunSync()
+      null
+    } catch {
+      case t: Throwable => t
+    }
+
+    assertTrue("zero connection timeout should be rejected", connectionEx != null)
+    assertTrue("must mention positive connection timeout", connectionEx.getMessage.contains("connectionAcquireTimeout must be > 0"))
+  }
+
   @Test def testConnectionPoolDisabled: Unit = {
     MockDriver.reset
     val (db, close) = JdbcBackend.Database.forConfig[IO]("databaseUrl", ConfigFactory.parseString(

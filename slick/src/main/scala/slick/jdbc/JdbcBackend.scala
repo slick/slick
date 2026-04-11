@@ -1,6 +1,7 @@
 package slick.jdbc
 
 import scala.util.control.NonFatal
+import scala.concurrent.duration.FiniteDuration
 
 import java.util.Properties
 import java.sql.{Array => _, *}
@@ -150,7 +151,7 @@ trait JdbcBackend extends RelationalBackend {
       *                        keep-alive connection.
       */
     def forSource[G[_]](source: JdbcDataSource, maxConnections: Option[Int] = None)(implicit AG: Async[G]): Resource[G, Database[G]] =
-      forSource(source, maxConnections, maxInflightActions = None, queueSize = 1000)
+      forSource(source, maxConnections, maxInflightActions = None, queueSize = 1000, inflightAdmissionTimeout = None, connectionAcquireTimeout = None)
 
     /** Create a Database backed by a [[JdbcDataSource]] with explicit admission controls.
       *
@@ -163,6 +164,24 @@ trait JdbcBackend extends RelationalBackend {
       maxConnections: Option[Int],
       maxInflightActions: Option[Int],
       queueSize: Int
+    )(implicit AG: Async[G]): Resource[G, Database[G]] =
+      forSource(source, maxConnections, maxInflightActions, queueSize, inflightAdmissionTimeout = None, connectionAcquireTimeout = None)
+
+    /** Create a Database backed by a [[JdbcDataSource]] with explicit admission controls and optional timeouts.
+      *
+      * @param maxInflightActions Maximum concurrently running DBIO chains. If `None`, defaults
+      *                           to `2 * maxConnections`.
+      * @param queueSize Maximum number of callers that may wait for inflight admission.
+      * @param inflightAdmissionTimeout Maximum time waiting for inflight admission.
+      * @param connectionAcquireTimeout Maximum time waiting for a connection slot.
+      */
+    def forSource[G[_]](
+      source: JdbcDataSource,
+      maxConnections: Option[Int],
+      maxInflightActions: Option[Int],
+      queueSize: Int,
+      inflightAdmissionTimeout: Option[FiniteDuration],
+      connectionAcquireTimeout: Option[FiniteDuration]
     )(implicit AG: Async[G]): Resource[G, Database[G]] = {
       val n = maxConnections.getOrElse(20)
       val computedInflight = maxInflightActions.getOrElse(n * 2)
@@ -170,9 +189,11 @@ trait JdbcBackend extends RelationalBackend {
       require(n > 0, s"maxConnections must be > 0, got $n")
       require(queueSize >= 0, s"queueSize must be >= 0, got $queueSize")
       require(computedInflight > 0, s"maxInflightActions must be > 0, got $computedInflight")
+      inflightAdmissionTimeout.foreach(t => require(t.length > 0L, s"inflightAdmissionTimeout must be > 0, got $t"))
+      connectionAcquireTimeout.foreach(t => require(t.length > 0L, s"connectionAcquireTimeout must be > 0, got $t"))
 
       Resource.make(
-        AG.map(Controls.create[G](n.toLong, queueSize.toLong, k.toLong)) { controls =>
+        AG.map(Controls.create[G](n.toLong, queueSize.toLong, k.toLong, inflightAdmissionTimeout, connectionAcquireTimeout)) { controls =>
           new JdbcDatabaseDef[G](source, controls)(AG) {}
         }
       )(db => AG.blocking(db.close())).evalTap { _ =>
@@ -215,11 +236,25 @@ trait JdbcBackend extends RelationalBackend {
       queueSize: Int,
       keepAliveConnection: Boolean
     ): Resource[G, Database[G]] =
+      forDataSource(ds, maxConnections, maxInflightActions, queueSize, keepAliveConnection, inflightAdmissionTimeout = None, connectionAcquireTimeout = None)
+
+    /** Create a Database from a `javax.sql.DataSource` with explicit admission controls and optional timeouts. */
+    def forDataSource[G[_]: Async](
+      ds: DataSource,
+      maxConnections: Option[Int],
+      maxInflightActions: Option[Int],
+      queueSize: Int,
+      keepAliveConnection: Boolean,
+      inflightAdmissionTimeout: Option[FiniteDuration],
+      connectionAcquireTimeout: Option[FiniteDuration]
+    ): Resource[G, Database[G]] =
       forSource[G](
         new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections),
         maxConnections,
         maxInflightActions,
-        queueSize
+        queueSize,
+        inflightAdmissionTimeout,
+        connectionAcquireTimeout
       )
 
     /** Create a Database based on the JNDI name of a DataSource. */
@@ -238,9 +273,20 @@ trait JdbcBackend extends RelationalBackend {
       maxInflightActions: Option[Int],
       queueSize: Int
     ): Resource[G, Database[G]] =
+      forName(name, maxConnections, maxInflightActions, queueSize, inflightAdmissionTimeout = None, connectionAcquireTimeout = None)
+
+    /** Create a Database based on the JNDI name of a DataSource with explicit admission controls and optional timeouts. */
+    def forName[G[_]: Async](
+      name: String,
+      maxConnections: Option[Int],
+      maxInflightActions: Option[Int],
+      queueSize: Int,
+      inflightAdmissionTimeout: Option[FiniteDuration],
+      connectionAcquireTimeout: Option[FiniteDuration]
+    ): Resource[G, Database[G]] =
       new InitialContext().lookup(name) match {
         case ds: DataSource =>
-          forDataSource[G](ds, maxConnections, maxInflightActions, queueSize, keepAliveConnection = false)
+          forDataSource[G](ds, maxConnections, maxInflightActions, queueSize, keepAliveConnection = false, inflightAdmissionTimeout, connectionAcquireTimeout)
         case x =>
           throw new SlickException("Expected a DataSource for JNDI name " + name + ", but got " + x)
       }
@@ -290,6 +336,8 @@ trait JdbcBackend extends RelationalBackend {
       *   <li>`numThreads` (Int, legacy fallback) — treated as `maxConnections` when `maxConnections` is not set</li>
       *   <li>`maxInflightActions` (Int, default `2 * maxConnections`) — max concurrent DBIO chains</li>
       *   <li>`queueSize` (Int, default 1000) — max callers waiting for inflight admission</li>
+      *   <li>`inflightAdmissionTimeout` (Duration, optional) — timeout waiting for inflight admission</li>
+      *   <li>`connectionAcquireTimeout` (Duration, optional) — timeout waiting for a connection slot</li>
       *   <li>`poolName` (String, optional) — name for logging</li>
       * </ul>
       *
@@ -313,14 +361,18 @@ trait JdbcBackend extends RelationalBackend {
       val configuredInflight = usedConfig.getIntOpt("maxInflightActions")
       val computedInflight = configuredInflight.getOrElse(maxConnections * 2)
       val maxInflightActions = math.max(maxConnections, computedInflight)
+      val inflightAdmissionTimeout = usedConfig.getFiniteDurationOpt("inflightAdmissionTimeout")
+      val connectionAcquireTimeout = usedConfig.getFiniteDurationOpt("connectionAcquireTimeout")
 
       require(maxConnections > 0, s"maxConnections must be > 0, got $maxConnections")
       require(queueSize >= 0, s"queueSize must be >= 0, got $queueSize")
       require(computedInflight > 0, s"maxInflightActions must be > 0, got $computedInflight")
       require(maxInflightActions >= maxConnections,
         s"maxInflightActions must be >= maxConnections ($maxConnections), got $maxInflightActions")
+      inflightAdmissionTimeout.foreach(t => require(t.length > 0L, s"inflightAdmissionTimeout must be > 0, got $t"))
+      connectionAcquireTimeout.foreach(t => require(t.length > 0L, s"connectionAcquireTimeout must be > 0, got $t"))
 
-      forSource[G](source, Some(maxConnections), Some(maxInflightActions), queueSize)
+      forSource[G](source, Some(maxConnections), Some(maxInflightActions), queueSize, inflightAdmissionTimeout, connectionAcquireTimeout)
     }
   }
 

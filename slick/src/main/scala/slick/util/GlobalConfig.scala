@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 import java.util.Properties
 
 import scala.collection.mutable
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.language.implicitConversions
 
 import com.typesafe.config.*
@@ -57,6 +57,8 @@ class ConfigExtensionMethods(val c: Config) extends AnyVal {
   def getMillisecondsOr(path: String, default: => Long = 0L) = if(c.hasPath(path)) c.getDuration(path, TimeUnit.MILLISECONDS) else default
   def getDurationOr(path: String, default: => Duration = Duration.Zero) =
     if(c.hasPath(path)) Duration(c.getDuration(path, TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS) else default
+  def getFiniteDurationOpt(path: String): Option[FiniteDuration] =
+    if(c.hasPath(path)) Some(FiniteDuration(c.getDuration(path, TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS)) else None
 
   def getPropertiesOr(path: String, default: => Properties = null): Properties =
     if(c.hasPath(path)) new ConfigExtensionMethods(c.getConfig(path)).toProperties else default
