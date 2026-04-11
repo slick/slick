@@ -35,6 +35,8 @@ sbt doc
 
 ### Testing Commands
 
+Use `sbt` directly from the repository root for all test runs.
+
 ```bash
 # Run all tests (includes testkit, doctests, and reactive-streams tests)
 sbt testAll
@@ -55,6 +57,9 @@ sbt "testkit/testOnly slick.test.profile.PostgresTest"
 # Test with pattern matching
 sbt "testkit/testOnly *JoinTest*"
 sbt "testkit/testOnly *MainTest* -- -z insertTest"
+
+# Fully-qualified test name filtering (recommended for a single Testkit test)
+sbt "testkit/testOnly slick.test.profile.H2MemTest -- -z com.typesafe.slick.testkit.tests.TransactionTest.testTransactions[h2mem]"
 
 # Run with debug output and SQL logging
 sbt -Dslick.ansiDump=true testkit/test
