@@ -1,6 +1,7 @@
 package slick.jdbc
 
 import scala.util.control.NonFatal
+import scala.concurrent.duration.FiniteDuration
 
 import java.util.Properties
 import java.sql.{Array => _, *}
@@ -237,13 +238,15 @@ trait JdbcBackend extends RelationalBackend {
       source: JdbcDataSource,
       maxConnections: Option[Int] = None,
       queueSize: Int = 1000,
-      maxInflightActions: Option[Int] = None
+      maxInflightActions: Option[Int] = None,
+      inflightAdmissionTimeout: Option[FiniteDuration] = None,
+      connectionAcquireTimeout: Option[FiniteDuration] = None
     )(implicit AG: Async[G]): Resource[G, Database[G]] = {
       val n = maxConnections.getOrElse(20)
       val maxInflight = math.max(n, maxInflightActions.getOrElse(n * 2))
       require(n > 0, s"maxConnections must be > 0, got $n")
       Resource.make(
-        AG.flatMap(Controls.create[G](n.toLong, queueSize.toLong, maxInflight.toLong)) { controls =>
+        AG.flatMap(Controls.create[G](n.toLong, queueSize.toLong, maxInflight.toLong, inflightAdmissionTimeout, connectionAcquireTimeout)) { controls =>
           AG.pure(new JdbcDatabaseDef[G](source, controls) {
             override implicit val asyncF: Async[G] = AG
           })
@@ -342,8 +345,17 @@ trait JdbcBackend extends RelationalBackend {
       val maxConnections = source.maxConnections.getOrElse(configuredMaxConnections)
       val queueSize = usedConfig.getIntOr("queueSize", 1000)
       val maxInflightActions = usedConfig.getIntOpt("maxInflightActions")
+      val inflightAdmissionTimeout = usedConfig.getFiniteDurationOpt("inflightAdmissionTimeout")
+      val connectionAcquireTimeout = usedConfig.getFiniteDurationOpt("connectionAcquireTimeout")
 
-      forSource[G](source, maxConnections = Some(maxConnections), queueSize = queueSize, maxInflightActions = maxInflightActions)
+      forSource[G](
+        source,
+        maxConnections = Some(maxConnections),
+        queueSize = queueSize,
+        maxInflightActions = maxInflightActions,
+        inflightAdmissionTimeout = inflightAdmissionTimeout,
+        connectionAcquireTimeout = connectionAcquireTimeout
+      )
     }
   }
 
