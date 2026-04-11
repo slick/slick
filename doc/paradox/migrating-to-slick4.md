@@ -752,6 +752,8 @@ Slick 4 replaces the old executor queue/thread model with explicit database exec
 - `queueSize` (default `1000`): max callers waiting to start.
 - `maxInflightActions` (default `2 * maxConnections`): max concurrent DBIO chains.
 - `maxConnections`: max concurrent JDBC work.
+- `inflightAdmissionTimeout` (optional): bound waiting time for in-flight admission.
+- `connectionAcquireTimeout` (optional): bound waiting time for connection-slot acquisition.
 
 If you configured AsyncExecutor queue sizing in Slick 3, map that operational intent to
 `queueSize` and `maxInflightActions` in Slick 4.

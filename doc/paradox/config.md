@@ -69,9 +69,16 @@ the database config section:
 - `maxConnections`: maximum concurrent JDBC connections.
 - `maxInflightActions` (default `2 * maxConnections`): maximum concurrently running DBIO chains.
 - `queueSize` (default `1000`): maximum callers waiting for in-flight admission.
+- `inflightAdmissionTimeout` (optional): max time waiting for an in-flight slot.
+- `connectionAcquireTimeout` (optional): max time waiting for a connection slot.
 
 When `queueSize` is exhausted, Slick rejects immediately with
 `SlickException("DBIOAction queue full")`.
+
+When configured timeout limits are exceeded, Slick fails with `SlickException` as well:
+
+- `SlickException("Timed out waiting for inflight admission after ...")`
+- `SlickException("Timed out waiting for connection slot after ...")`
 
 Slick also exposes runtime concurrency gauges on `Database[F]`:
 

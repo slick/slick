@@ -53,6 +53,30 @@ class CE3GuaranteesTest extends CatsEffectSuite {
     )
   )
 
+  /** A database with short inflight admission timeout for timeout behavior tests. */
+  val inflightTimeoutDb = ResourceFunFixture(
+    JdbcBackend.Database.forSource[IO](
+      h2Source("ce3test_inflight_timeout"),
+      maxConnections = Some(1),
+      maxInflightActions = Some(1),
+      queueSize = 1,
+      inflightAdmissionTimeout = Some(200.millis),
+      connectionAcquireTimeout = None
+    )
+  )
+
+  /** A database with short connection acquire timeout for timeout behavior tests. */
+  val connectionTimeoutDb = ResourceFunFixture(
+    JdbcBackend.Database.forSource[IO](
+      h2Source("ce3test_connection_timeout"),
+      maxConnections = Some(1),
+      maxInflightActions = Some(2),
+      queueSize = 1,
+      inflightAdmissionTimeout = None,
+      connectionAcquireTimeout = Some(200.millis)
+    )
+  )
+
   // ---------------------------------------------------------------------------
   // Fiber cancellation → rollback
   // ---------------------------------------------------------------------------
@@ -157,6 +181,46 @@ class CE3GuaranteesTest extends CatsEffectSuite {
       _ <- release1.complete(())
       _ <- fiber1.join
       _ <- fiber2.join
+    } yield ()
+  }
+
+  inflightTimeoutDb.test("inflightAdmissionTimeout fails callers waiting for inflight slot") { db =>
+    for {
+      gate1 <- Deferred[IO, Unit]
+      release1 <- Deferred[IO, Unit]
+
+      fiber1 <- db.run(DBIO.from(gate1.complete(()) >> release1.get)).start
+      _ <- gate1.get
+
+      timedOut <- db.run(DBIO.successful(2)).attempt
+      _ = assert(timedOut.swap.exists(_.isInstanceOf[SlickException]))
+      _ = assert(timedOut.swap.exists(_.getMessage.contains("Timed out waiting for inflight admission")))
+
+      _ <- release1.complete(())
+      _ <- fiber1.join
+    } yield ()
+  }
+
+  connectionTimeoutDb.test("connectionAcquireTimeout fails callers waiting for connection slot") { db =>
+    for {
+      _ <- db.run(items.schema.create)
+      gate1 <- Deferred[IO, Unit]
+      release1 <- Deferred[IO, Unit]
+
+      // Hold the only connection slot inside a pinned session.
+      fiber1 <- db.run((for {
+        _ <- items += 1
+        _ <- DBIO.from(gate1.complete(()) >> release1.get)
+      } yield ()).withPinnedSession).start
+      _ <- gate1.get
+
+      timedOut <- db.run(items.result).attempt
+      _ = assert(timedOut.swap.exists(_.isInstanceOf[SlickException]))
+      _ = assert(timedOut.swap.exists(_.getMessage.contains("Timed out waiting for connection slot")))
+
+      _ <- release1.complete(())
+      _ <- fiber1.join
+      _ <- db.run(items.schema.drop)
     } yield ()
   }
 
