@@ -7,6 +7,7 @@ import cats.syntax.all.*
 import cats.effect.syntax.all.*
 
 import scala.collection.immutable.TreeMap
+import scala.concurrent.duration.FiniteDuration
 
 import slick.SlickException
 
@@ -17,14 +18,22 @@ object ConcurrencyControl {
   )
 
   object Controls {
-    def create[F[_]](maxConnections: Long, queueSize: Long, maxInflight: Long)(implicit F: Async[F]): F[Controls[F]] = {
+    def create[F[_]](
+      maxConnections: Long,
+      queueSize: Long,
+      maxInflight: Long,
+      inflightAdmissionTimeout: Option[FiniteDuration] = None,
+      connectionAcquireTimeout: Option[FiniteDuration] = None
+    )(implicit F: Async[F]): F[Controls[F]] = {
       require(maxConnections > 0, s"maxConnections must be > 0, got $maxConnections")
       require(queueSize >= 0, s"queueSize must be >= 0, got $queueSize")
       require(maxInflight > 0, s"maxInflight must be > 0, got $maxInflight")
+      inflightAdmissionTimeout.foreach(t => require(t.length > 0L, s"inflightAdmissionTimeout must be > 0, got $t"))
+      connectionAcquireTimeout.foreach(t => require(t.length > 0L, s"connectionAcquireTimeout must be > 0, got $t"))
       F.flatMap(Semaphore[F](queueSize)) { queueSem =>
         F.flatMap(Semaphore[F](maxInflight)) { inflightSem =>
-          F.map(ConnectionArbiter.create[F](maxConnections)) { arbiter =>
-            Controls(new AdmissionControl[F](queueSem, inflightSem), arbiter)
+          F.map(ConnectionArbiter.create[F](maxConnections, connectionAcquireTimeout)) { arbiter =>
+            Controls(new AdmissionControl[F](queueSem, inflightSem, inflightAdmissionTimeout), arbiter)
           }
         }
       }
@@ -33,7 +42,8 @@ object ConcurrencyControl {
 
   final class AdmissionControl[F[_]](
     queue: Semaphore[F],
-    inflight: Semaphore[F]
+    inflight: Semaphore[F],
+    inflightAdmissionTimeout: Option[FiniteDuration]
   )(implicit private val F: Async[F]) {
     // Run helper
 
@@ -45,8 +55,9 @@ object ConcurrencyControl {
           F.raiseError(new SlickException("DBIOAction queue full"))
         case true =>
           F.uncancelable { poll =>
-            poll(inflight.acquire)
-              .onCancel(queue.release) >>
+            poll(acquireInflight)
+              .onCancel(queue.release)
+              .handleErrorWith(e => queue.release >> F.raiseError(e)) >>
             queue.release >>
             poll(fr).guarantee(inflight.release)
           }
@@ -62,10 +73,22 @@ object ConcurrencyControl {
           F.raiseError(new SlickException("DBIOAction queue full"))
         case true =>
           F.uncancelable { poll =>
-            poll(inflight.acquire)
-              .onCancel(queue.release) >>
+            poll(acquireInflight)
+              .onCancel(queue.release)
+              .handleErrorWith(e => queue.release >> F.raiseError(e)) >>
             queue.release
           }
+      }
+
+    private def acquireInflight: F[Unit] =
+      inflightAdmissionTimeout match {
+        case Some(timeout) =>
+          inflight.acquire.timeoutTo(
+            timeout,
+            F.raiseError[Unit](new SlickException(s"Timed out waiting for inflight admission after $timeout"))
+          )
+        case None =>
+          inflight.acquire
       }
 
     /** Release one inflight permit. Use this as the paired operation after
@@ -81,7 +104,8 @@ object ConcurrencyControl {
   }
 
   final class ConnectionArbiter[F[_]] private (
-    state: Ref[F, ConnectionArbiter.State[F]]
+    state: Ref[F, ConnectionArbiter.State[F]],
+    connectionAcquireTimeout: Option[FiniteDuration]
   )(implicit private val F: Async[F]) {
     import ConnectionArbiter.*
 
@@ -118,9 +142,22 @@ object ConcurrencyControl {
             }
           }.flatMap {
             case None => F.unit
-            case Some(key) => poll(gate.get).onCancel(cancelWaiter(key))
+            case Some(key) =>
+              val wait = poll(gate.get).onCancel(cancelWaiter(key))
+              acquireConnection(wait, key)
           }
         }
+      }
+
+    private def acquireConnection(wait: F[Unit], key: WaiterKey): F[Unit] =
+      connectionAcquireTimeout match {
+        case Some(timeout) =>
+          wait.timeoutTo(
+            timeout,
+            cancelWaiter(key) >> F.raiseError[Unit](new SlickException(s"Timed out waiting for connection slot after $timeout"))
+          )
+        case None =>
+          wait
       }
 
     def release: F[Unit] =
@@ -149,9 +186,10 @@ object ConcurrencyControl {
       waiting: TreeMap[WaiterKey, Deferred[F, Unit]]
     )
 
-    def create[F[_]](maxConnections: Long)(implicit F: Async[F]): F[ConnectionArbiter[F]] = {
+    def create[F[_]](maxConnections: Long, connectionAcquireTimeout: Option[FiniteDuration] = None)(implicit F: Async[F]): F[ConnectionArbiter[F]] = {
       require(maxConnections > 0, s"maxConnections must be > 0, got $maxConnections")
-      Ref.of[F, State[F]](State(maxConnections, Long.MinValue, TreeMap.empty)).map(new ConnectionArbiter(_)(F))
+      connectionAcquireTimeout.foreach(t => require(t.length > 0L, s"connectionAcquireTimeout must be > 0, got $t"))
+      Ref.of[F, State[F]](State(maxConnections, Long.MinValue, TreeMap.empty)).map(new ConnectionArbiter(_, connectionAcquireTimeout)(F))
     }
   }
 }

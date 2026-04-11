@@ -21,6 +21,7 @@ import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource, JdbcBackend}
   *   - `DBIO.from` / `DBIO.liftF` lifting CE3 effects into DBIO
   */
 class CE3GuaranteesTest extends CatsEffectSuite {
+  private val ioAsync: Async[IO] = Async[IO]
 
   class Items(tag: Tag) extends Table[Int](tag, "ITEMS") {
     def v = column[Int]("V")
@@ -51,7 +52,35 @@ class CE3GuaranteesTest extends CatsEffectSuite {
     Resource.make(
       Controls.create[IO](1L, 1L, 1L).map { controls =>
         new JdbcBackend.JdbcDatabaseDef[IO](h2Source("ce3test_admission"), controls) {
-          override implicit val asyncF: Async[IO] = implicitly[Async[IO]]
+          override implicit val asyncF: Async[IO] = ioAsync
+        }
+      }
+    )(db => IO.blocking(db.close()))
+  )
+
+  /** A database with short inflight admission timeout for timeout behavior tests. */
+  val inflightTimeoutDb = ResourceFunFixture(
+    // TODO(slick4-rebase): Replace this ad-hoc Controls.create + JdbcDatabaseDef construction
+    // with the real public DatabaseConfig/JDBC API once that API is available again in the
+    // reordered commit sequence.
+    Resource.make(
+      Controls.create[IO](1L, 1L, 1L, Some(200.millis), None).map { controls =>
+        new JdbcBackend.JdbcDatabaseDef[IO](h2Source("ce3test_inflight_timeout"), controls) {
+          override implicit val asyncF: Async[IO] = ioAsync
+        }
+      }
+    )(db => IO.blocking(db.close()))
+  )
+
+  /** A database with short connection acquire timeout for timeout behavior tests. */
+  val connectionTimeoutDb = ResourceFunFixture(
+    // TODO(slick4-rebase): Replace this ad-hoc Controls.create + JdbcDatabaseDef construction
+    // with the real public DatabaseConfig/JDBC API once that API is available again in the
+    // reordered commit sequence.
+    Resource.make(
+      Controls.create[IO](1L, 1L, 2L, None, Some(200.millis)).map { controls =>
+        new JdbcBackend.JdbcDatabaseDef[IO](h2Source("ce3test_connection_timeout"), controls) {
+          override implicit val asyncF: Async[IO] = ioAsync
         }
       }
     )(db => IO.blocking(db.close()))
@@ -161,6 +190,46 @@ class CE3GuaranteesTest extends CatsEffectSuite {
       _ <- release1.complete(())
       _ <- fiber1.join
       _ <- fiber2.join
+    } yield ()
+  }
+
+  inflightTimeoutDb.test("inflightAdmissionTimeout fails callers waiting for inflight slot") { db =>
+    for {
+      gate1 <- Deferred[IO, Unit]
+      release1 <- Deferred[IO, Unit]
+
+      fiber1 <- db.run(DBIO.from(gate1.complete(()) >> release1.get)).start
+      _ <- gate1.get
+
+      timedOut <- db.run(DBIO.successful(2)).attempt
+      _ = assert(timedOut.swap.exists(_.isInstanceOf[SlickException]))
+      _ = assert(timedOut.swap.exists(_.getMessage.contains("Timed out waiting for inflight admission")))
+
+      _ <- release1.complete(())
+      _ <- fiber1.join
+    } yield ()
+  }
+
+  connectionTimeoutDb.test("connectionAcquireTimeout fails callers waiting for connection slot") { db =>
+    for {
+      _ <- db.run(items.schema.create)
+      gate1 <- Deferred[IO, Unit]
+      release1 <- Deferred[IO, Unit]
+
+      // Hold the only connection slot inside a pinned session.
+      fiber1 <- db.run((for {
+        _ <- items += 1
+        _ <- DBIO.from(gate1.complete(()) >> release1.get)
+      } yield ()).withPinnedSession).start
+      _ <- gate1.get
+
+      timedOut <- db.run(items.result).attempt
+      _ = assert(timedOut.swap.exists(_.isInstanceOf[SlickException]))
+      _ = assert(timedOut.swap.exists(_.getMessage.contains("Timed out waiting for connection slot")))
+
+      _ <- release1.complete(())
+      _ <- fiber1.join
+      _ <- db.run(items.schema.drop)
     } yield ()
   }
 

@@ -199,6 +199,8 @@ These keys are read from the same database config section used by `Database.forC
 - `maxConnections`: maximum concurrent JDBC connections (existing key).
 - `queueSize`: maximum number of callers waiting for in-flight admission (default: `1000`).
 - `maxInflightActions`: maximum concurrently running DBIO chains (default: `2 * maxConnections`).
+- `inflightAdmissionTimeout`: optional timeout while waiting for in-flight admission.
+- `connectionAcquireTimeout`: optional timeout while waiting for a connection slot.
 
 If `maxInflightActions` is configured lower than `maxConnections`, Slick uses
 `maxConnections` as the effective value.
@@ -215,8 +217,17 @@ mydb {
   # DBIO admission control
   maxInflightActions = 20
   queueSize = 1000
+
+  # Optional timeout controls
+  inflightAdmissionTimeout = 2s
+  connectionAcquireTimeout = 5s
 }
 ```
+
+Timeout failures are returned as `SlickException`:
+
+- `SlickException("Timed out waiting for inflight admission after ...")`
+- `SlickException("Timed out waiting for connection slot after ...")`
 
 ### Overload behavior
 
