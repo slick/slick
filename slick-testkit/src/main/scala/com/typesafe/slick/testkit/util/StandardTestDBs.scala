@@ -141,7 +141,7 @@ object StandardTestDBs {
     type Profile = MemoryProfile
     val profile: Profile = MemoryProfile
     val confName: String = "heap"
-    override def createDB(): IODatabase = profile.backend.Database()
+    override def createDB(): IODatabase = profile.backend.Database().allocated.unsafeRunSync()._1
     def dropUserArtifacts(implicit session: profile.backend.Session): Unit = {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))
