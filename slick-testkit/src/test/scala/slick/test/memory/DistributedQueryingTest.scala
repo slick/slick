@@ -47,25 +47,26 @@ class DistributedQueryingTest {
     } yield (db1, db2)
 
     program.use { case (db1, db2) =>
-      val distributedDb = DistributedBackend.Database(Seq(db1, db2))
-      for {
-        _ <- {
-          import dc1.profile.api._
-          db1.run(DBIO.seq(ts.schema.create, ts ++= tData))
-        }
-        _ <- {
-          import dc2.profile.api._
-          db2.run(DBIO.seq(us.schema.create, us ++= uData))
-        }
-        _ <- {
-          import dProfile.api._
-          distributedDb.run(DBIO.seq(
-            ts.result.map(d => assertEquals(tData.toSet, d.toSet)),
-            us.result.map(d => assertEquals(uData.toSet, d.toSet)),
-            ts.flatMap(t => us.map(u => (t, u))).result.map(d => assertEquals(tData.flatMap(t => uData.map(u => (t, u))).toSet, d.toSet))
-          ))
-        }
-      } yield ()
+      DistributedBackend.Database(Seq(db1, db2)).use { distributedDb =>
+        for {
+          _ <- {
+            import dc1.profile.api._
+            db1.run(DBIO.seq(ts.schema.create, ts ++= tData))
+          }
+          _ <- {
+            import dc2.profile.api._
+            db2.run(DBIO.seq(us.schema.create, us ++= uData))
+          }
+          _ <- {
+            import dProfile.api._
+            distributedDb.run(DBIO.seq(
+              ts.result.map(d => assertEquals(tData.toSet, d.toSet)),
+              us.result.map(d => assertEquals(uData.toSet, d.toSet)),
+              ts.flatMap(t => us.map(u => (t, u))).result.map(d => assertEquals(tData.flatMap(t => uData.map(u => (t, u))).toSet, d.toSet))
+            ))
+          }
+        } yield ()
+      }
     }.unsafeRunSync()
   }
 }

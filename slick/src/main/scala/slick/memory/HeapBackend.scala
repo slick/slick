@@ -6,7 +6,6 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
 import cats.effect.{Async, IO, Resource}
 import cats.effect.std.Semaphore
-import cats.effect.unsafe.implicits.global
 
 import slick.SlickException
 import slick.ast.*
@@ -127,23 +126,31 @@ trait HeapBackend extends RelationalBackend with Logging {
     }
   }
 
-  def createEmptyDatabase: Database[IO] = {
+  def createEmptyDatabase: AnyHeapDatabaseDef = {
     def err = throw new SlickException("Unsupported operation for empty heap database")
     // Use an unlimited semaphore (Long.MaxValue permits) — the empty database throws on all
     // meaningful operations anyway; we just need a valid Database instance.
-    val sem = Semaphore[IO](Long.MaxValue).unsafeRunSync()
-    new HeapDatabaseDef[IO](sem) {
+    new AnyHeapDatabaseDef {
+      override def createSession(): BasicSessionDef = new HeapSessionDef(this)
+      override def close(): Unit = ()
+      override def getTable(name: String): HeapTable = err
       override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
                                indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable = err
+      override def createTableIfNotExists(name: String, columns: IndexedSeq[HeapBackend.Column],
+                                          indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable = err
+      override def dropTable(name: String): Unit = err
+      override def dropTableIfExists(name: String): Unit = err
+      override def truncateTable(name: String): Unit = err
+      override def getTables: IndexedSeq[HeapTable] = err
     }
   }
 
   class HeapDatabaseFactoryDef {
     /** Create a new heap database instance. */
-    def apply(): Database[IO] = {
-      val sem = Semaphore[IO](Long.MaxValue).unsafeRunSync()
-      new HeapDatabaseDef[IO](sem)
-    }
+    def apply(): Resource[IO, Database[IO]] =
+      Resource.eval(
+        Semaphore[IO](Long.MaxValue).map(sem => new HeapDatabaseDef[IO](sem))
+      )
   }
 
   class HeapSessionDef(val database: AnyHeapDatabaseDef) extends BasicSessionDef {

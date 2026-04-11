@@ -5,7 +5,6 @@ import scala.util.{Failure, Try}
 
 import cats.effect.{Async, IO, Resource}
 import cats.effect.std.Semaphore
-import cats.effect.unsafe.implicits.global
 
 import slick.SlickException
 import slick.basic.BasicBackend
@@ -67,10 +66,10 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
   class DistributedDatabaseFactoryDef {
     /** Create a new distributed database instance. */
-    def apply(dbs: IterableOnce[BasicBackend#AnyDatabaseDef]): Database[IO] = {
-      val sem = Semaphore[IO](Long.MaxValue).unsafeRunSync()
-      new DistributedDatabaseDef[IO](Vector.from(dbs), sem)
-    }
+    def apply(dbs: IterableOnce[BasicBackend#AnyDatabaseDef]): Resource[IO, Database[IO]] =
+      Resource.eval(
+        Semaphore[IO](Long.MaxValue).map(sem => new DistributedDatabaseDef[IO](Vector.from(dbs), sem))
+      )
   }
 
   class DistributedSessionDef(val sessions: Vector[BasicBackend#BasicSessionDef]) extends BasicSessionDef {
