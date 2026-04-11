@@ -5,7 +5,7 @@ import java.util.Properties
 import java.util.logging.Logger
 
 import com.typesafe.config.ConfigFactory
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.junit.Assert._
 import slick.basic.DatabaseConfig
 import slick.jdbc.{JdbcBackend, JdbcProfile}
@@ -13,13 +13,12 @@ import slick.jdbc.{JdbcBackend, JdbcProfile}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-@Ignore
 class DataSourceTest {
   @Test def testDataSourceJdbcDataSource: Unit = {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds1")
     import dc.profile.api._
     try {
-      assertEquals(1, Await.result(dc.db.run(sql"select lock_mode()".as[Int].head), Duration.Inf))
+      assertEquals("MySQL", Await.result(dc.db.run(sql"select setting_value from information_schema.settings where setting_name = 'MODE'".as[String].head), Duration.Inf))
     } finally dc.db.close
   }
 
@@ -27,7 +26,7 @@ class DataSourceTest {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds2")
     import dc.profile.api._
     try {
-      assertEquals(2, Await.result(dc.db.run(sql"select lock_mode()".as[Int].head), Duration.Inf))
+      assertEquals("PostgreSQL", Await.result(dc.db.run(sql"select setting_value from information_schema.settings where setting_name = 'MODE'".as[String].head), Duration.Inf))
     } finally dc.db.close
   }
 
@@ -173,4 +172,3 @@ class MockDriver extends Driver {
   }
   def getMajorVersion: Int = 0
 }
-
