@@ -106,11 +106,11 @@ object CompatReportPlugin extends AutoPlugin {
         }
     )
 
-  private def renderDependencyChangesMarkdownSection(dependencyChanges: Seq[DependencyChangeInfo]) =
+  private def renderDependencyChangesMarkdownSection(module: String, dependencyChanges: Seq[DependencyChangeInfo]) =
     if (dependencyChanges.isEmpty)
       ""
     else
-      "#### Dependency changes\n\n" +
+      s"#### Dependency changes in $module\n\n" +
         renderDependencyChangesMarkdownTable(dependencyChanges) +
         "\n"
 
@@ -125,10 +125,10 @@ object CompatReportPlugin extends AutoPlugin {
       }
     )
 
-  private def renderCodeChangesMarkdownSection(codeChanges: Seq[CodeChangeInfo]) =
+  private def renderCodeChangesMarkdownSection(module: String, codeChanges: Seq[CodeChangeInfo]) =
     if (codeChanges.isEmpty) ""
     else
-      "#### Code changes" + "\n\n" +
+      s"#### Code changes in $module" + "\n\n" +
         renderCodeChangesMarkdownTable(codeChanges)
 
   private def renderModuleMarkdownSection(moduleReport: ModuleReport) =
@@ -140,8 +140,8 @@ object CompatReportPlugin extends AutoPlugin {
              >### ${moduleReport.module}
              >$n change${if (n == 1) "" else "s"} since ${moduleReport.sinceVersion}
              >
-             >${renderDependencyChangesMarkdownSection(moduleReport.depChanges)}
-             >${renderCodeChangesMarkdownSection(moduleReport.codeChanges)}
+             >${renderDependencyChangesMarkdownSection(moduleReport.module, moduleReport.depChanges)}
+             >${renderCodeChangesMarkdownSection(moduleReport.module, moduleReport.codeChanges)}
              >""".stripMargin('>')
         )
     }

@@ -14,6 +14,11 @@ jobs:
     if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+    - uses: actions/checkout@v6
+      with:
+        sparse-checkout: .github/compat-report-too-large.md
+        sparse-checkout-cone-mode: false
+
     - name: 'Download artifact'
       uses: actions/github-script@v9
       with:
@@ -36,6 +41,12 @@ jobs:
           fs.writeFileSync('${{github.workspace}}/compat-report.zip', Buffer.from(download.data));
 
     - run: unzip compat-report.zip
+
+    - name: Replace report if too long for GitHub comment
+      run: |
+        if [ $(wc -c < ./compat-report.md) -gt 60000 ]; then
+          cp .github/compat-report-too-large.md ./compat-report.md
+        fi
 
     - name: Post as comment to PR
       run: |
