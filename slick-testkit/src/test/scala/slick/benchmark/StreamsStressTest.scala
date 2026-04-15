@@ -9,6 +9,9 @@ import cats.effect.unsafe.implicits.global
 import fs2.interop.reactivestreams._
 
 import org.reactivestreams.tck.TestEnvironment
+import slick.cats
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 
 object StreamsStressTest {
   /*import slick.jdbc.DerbyProfile.api._
@@ -25,7 +28,7 @@ object StreamsStressTest {
   val entityNum = new AtomicInteger()
 
   def main(args: Array[String]): Unit =
-    Database.forURL[IO](url, driver = driver, keepAliveConnection = true).use { db =>
+    cats.Database.resource(DatabaseConfig.forURL(H2Profile, url, driver = driver, keepAliveConnection = true)).use { db =>
       Dispatcher.parallel[IO].use { implicit dispatcher =>
         IO {
           val threads = 1.to(numThreads).toVector.map { i =>
@@ -48,13 +51,13 @@ object StreamsStressTest {
       }
     }.unsafeRunSync()
 
-  def run1(db: Database[IO], dispatcher: Dispatcher[IO]): Unit = {
+  def run1(db: cats.Database, dispatcher: Dispatcher[IO]): Unit = {
     val sub = env.newManualSubscriber(createPublisher(db, dispatcher, 1L))
     sub.requestNextElementOrEndOfStream("Timeout while waiting for next element from Publisher")
     sub.requestEndOfStream()
   }
 
-  def createPublisher(db: Database[IO], dispatcher: Dispatcher[IO], elements: Long) = {
+  def createPublisher(db: cats.Database, dispatcher: Dispatcher[IO], elements: Long) = {
     val tableName = "data_" + elements + "_" + entityNum.incrementAndGet()
     class Data(tag: Tag) extends Table[Int](tag, tableName) {
       def id = column[Int]("id")

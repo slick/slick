@@ -4,9 +4,11 @@ import org.junit.Test
 import org.junit.Assert._
 
 import cats.effect.IO
+import cats.effect.Resource
 import cats.effect.unsafe.implicits.global
 
-import slick.basic.DatabaseConfig
+import slick.cats
+import slick.jdbc.DatabaseConfig
 import slick.jdbc.JdbcProfile
 import slick.memory.{DistributedBackend, DistributedProfile}
 
@@ -42,12 +44,14 @@ class DistributedQueryingTest {
   @Test
   def test1: Unit = {
     val program = for {
-      db1 <- dc1.profile.backend.Database.forConfig[IO]("distrib1.db")
-      db2 <- dc2.profile.backend.Database.forConfig[IO]("distrib2.db")
-    } yield (db1, db2)
+      rawDb1 <- Resource.make(dc1.profile.backend.makeDatabase[IO](dc1))(db => IO(db.close()))
+      rawDb2 <- Resource.make(dc2.profile.backend.makeDatabase[IO](dc2))(db => IO(db.close()))
+    } yield (rawDb1, rawDb2)
 
-    program.use { case (db1, db2) =>
-      DistributedBackend.Database(Seq(db1, db2)).use { distributedDb =>
+    program.use { case (rawDb1, rawDb2) =>
+      val db1 = cats.Database.fromCore(rawDb1)
+      val db2 = cats.Database.fromCore(rawDb2)
+      DistributedBackend.Database(Seq(rawDb1, rawDb2)).use { distributedDb =>
         for {
           _ <- {
             import dc1.profile.api._

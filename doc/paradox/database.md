@@ -2,14 +2,14 @@ Database Configuration
 ======================
 
 You can tell Slick how to connect to the JDBC database of your choice by creating a
-@scaladoc[Database](slick.jdbc.JdbcBackend#Database:Database) object, which encapsulates the information. There are several
-@scaladoc[factory methods](slick.jdbc.JdbcBackend$DatabaseFactoryDef) on `slick.jdbc.JdbcBackend.Database` that you can use
-depending on what connection data you have available.
+@scaladoc[Database](slick.basic.BasicBackend#Database:Database) object, which encapsulates the information. Use
+@scaladoc[factory methods](slick.api.DatabaseConfigFactory) on `slick.api.DatabaseConfig` depending on what
+connection data you have available.
 
-All factory methods return a `Resource[F, Database[F]]`, where `F` is your effect type (e.g. `cats.effect.IO`). The
-`Resource` manages the full lifecycle of the connection pool: it is acquired when the `Resource` is used and released
-(connections closed, pool shut down) when the `Resource` is released. You never need to call `close()` or `shutdown()`
-manually.
+`DatabaseConfig` factory methods return a `DatabaseConfig[P]` value. Call `.asResource[F]` to get
+`Resource[F, Database[F]]`, where `F` is your effect type (e.g. `cats.effect.IO`). The `Resource`
+manages the full lifecycle of the connection pool: it is acquired when used and released when the
+resource scope ends. You never need to call `close()` or `shutdown()` manually.
 
 Using Typesafe Config
 ---------------------
@@ -17,9 +17,10 @@ Using Typesafe Config
 The preferred way to configure database connections is through @extref[Typesafe Config](typesafe-config:) in your
 `application.conf`, which is also used by @extref[Play](play:) and @extref[Akka](akka:) for their configuration.
 
-Such a configuration can be loaded with `Database.forConfig` (see the
-@scaladoc[API documentation](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig)
-of this method for details on the configuration parameters). It returns a `Resource[F, Database[F]]`.
+Such a configuration can be loaded with `DatabaseConfig.forConfig` (see the
+@scaladoc[API documentation](slick.api.DatabaseConfig$#forConfig[P](path:String,config:com.typesafe.config.Config,classLoader:ClassLoader)(implicitP:scala.reflect.ClassTag[P]):slick.basic.BasicDatabaseConfig[P])
+of this method for details on the configuration parameters). It returns a `DatabaseConfig` value
+whose `asResource` method yields `Resource[F, Database[F]]`.
 
 @@snip [Connection.scala](../code/Connection.scala) { #forConfig }
 
@@ -87,13 +88,35 @@ Using a JDBC URL
 ----------------
 
 You can pass a JDBC URL to
-@scaladoc[forURL](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forURL).
+@scaladoc[forURL](slick.api.DatabaseConfigFactory#forURL[P%3C:slick.jdbc.JdbcProfile](profile:P,url:String,user:String,password:String,prop:java.util.Properties,driver:String,keepAliveConnection:Boolean,classLoader:ClassLoader):DC[profile.type]).
 (see your database's JDBC driver's documentation for the correct URL syntax).
 
 @@snip [Connection.scala](../code/Connection.scala) { #forURL }
 
 Here we are connecting to a new, empty, in-memory H2 database called `test1` and keep it resident
 until the JVM ends (`DB_CLOSE_DELAY=-1`, which is H2 specific).
+
+@@@ note { title="Scala 2.12: passing a profile instance" }
+When you pass a concrete profile object directly — the common case — everything works as expected
+on all Scala versions:
+
+```scala
+DatabaseConfig.forURL(H2Profile, url, driver = "org.h2.Driver")
+```
+
+If the profile is a type parameter (e.g. `def foo[P <: JdbcProfile](p: P)`), Scala 2.12's type
+inference loses track of the exact profile type when default arguments are involved. In that case,
+assign the profile to a local `val` with an explicit singleton type and pass all arguments
+explicitly:
+
+```scala
+val p: profile.type = profile
+val dc: DatabaseConfig[p.type] = DatabaseConfig.forURL(p, url, null, null, null, driver, false, ClassLoaderUtil.defaultClassLoader)
+dc.profile.backend.makeDatabase[IO](dc).unsafeRunSync()
+```
+
+On Scala 2.13 and 3.x the simpler form works fine even with a type parameter profile.
+@@@
 
 Using a Database URL
 --------------------
@@ -108,7 +131,7 @@ property if the `DATABASE_URL` environment variable is set. You may also define 
 standard Typesafe Config syntax, such as `${?MYSQL_DATABASE_URL}`.
 
 Or you may pass a @scaladoc[DatabaseUrlDataSource](slick.jdbc.DatabaseUrlDataSource) object to
-@scaladoc[forDataSource](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forDataSource)
+@scaladoc[forDataSource](slick.api.DatabaseConfigFactory#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):DC[profile.type])
 .
 
 @@snip [Connection.scala](../code/Connection.scala) { #forDatabaseURL }
@@ -117,7 +140,7 @@ Using a DataSource
 ------------------
 
 You can pass a @javadoc[DataSource](javax.sql.DataSource) object to
-@scaladoc[forDataSource](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forDataSource).
+@scaladoc[forDataSource](slick.api.DatabaseConfigFactory#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):DC[profile.type]).
 If you got it from the connection pool of your application framework, this plugs the pool into Slick. If the pool has
 a size limit, the correct size should always be specified.
 
@@ -127,7 +150,7 @@ Using a JNDI Name
 -----------------
 
 If you are using @extref[JNDI](wikipedia:JNDI) you can pass a JNDI name to
-@scaladoc[forName](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forName)
+@scaladoc[forName](slick.api.DatabaseConfigFactory#forName[P%3C:slick.jdbc.JdbcProfile](profile:P,name:String,maxConnections:scala.Option[Int],classLoader:ClassLoader):DC[profile.type])
 under which a @javadoc[DataSource](javax.sql.DataSource) object can be looked up. If the data source has
 a limit in the number of connections it can provide, the correct size should always be specified.
 
@@ -136,12 +159,14 @@ a limit in the number of connections it can provide, the correct size should alw
 Database lifecycle
 ------------------
 
-Every factory method returns a `Resource[F, Database[F]]`. The `Resource` allocates the connection pool when
+Every `DatabaseConfig` factory method returns a `DatabaseConfig[P]`. `DatabaseConfig.asResource` yields
+`Resource[F, Database[F]]`. The `Resource` allocates the connection pool when
 acquired and shuts it down when released. The recommended pattern is to acquire the `Resource` once at
 application startup and keep the `Database` value alive for the lifetime of the application:
 
 ```scala
-val dbResource: Resource[IO, Database[IO]] = Database.forConfig[IO]("mydb")
+val dbResource: Resource[IO, Database[IO]] =
+  DatabaseConfig.forConfig[JdbcProfile]("mydb").asResource[IO]
 
 // In your main entry point:
 dbResource.use { db =>
@@ -167,7 +192,7 @@ efficiently. Because Slick's execution model is non-blocking, you do not need to
 @extref[About Pool Sizing](about-pool-sizing:) in the HikariCP documentation for background.
 
 Note that reasonable defaults for the connection pool sizes are calculated automatically when using
-@scaladoc[Database.forConfig](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig).
+@scaladoc[DatabaseConfig.forConfig](slick.api.DatabaseConfig$#forConfig[P](path:String,config:com.typesafe.config.Config,classLoader:ClassLoader)(implicitP:scala.reflect.ClassTag[P]):slick.basic.BasicDatabaseConfig[P]).
 
 Slick uses *prepared* statements wherever possible but it does not cache them on its own. You
 should therefore enable prepared statement caching in the connection pool's configuration.
@@ -250,7 +275,7 @@ demonstrate the features.
 @@@
 
 On top of the configuration syntax for `Database`, there is another layer in the form of
-@scaladoc[DatabaseConfig](slick.basic.DatabaseConfig) which allows you to configure a Slick profile plus a
+@scaladoc[DatabaseConfig](slick.api.DatabaseConfig) which allows you to configure a Slick profile plus a
 matching `Database` together. This makes it easy to abstract over different kinds of
 database systems by simply changing a configuration file.
 

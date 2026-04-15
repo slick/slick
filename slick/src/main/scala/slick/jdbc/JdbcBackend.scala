@@ -29,8 +29,56 @@ trait JdbcBackend extends RelationalBackend {
   val Database: DatabaseFactory = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
 
-  def createDatabase[F[_]: Async](config: Config, path: String, classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Resource[F, Database[F]] =
-    Database.forConfig[F](path, config, classLoader = classLoader)
+  @deprecated("Use makeDatabase(slick.basic.DatabaseConfig.forConfig(...))", "4.0")
+  override def createDatabase[F[_]: Async](config: Config, path: String, classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Resource[F, Database[F]] = {
+    val dc = slick.basic.DatabaseConfig.forConfig[slick.jdbc.JdbcProfile](path, config, classLoader)
+    Resource.eval(makeDatabase[F](dc))
+  }
+
+  override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] = {
+    // If the config has a "db" sub-section use it (the {profile=..., db={...}} format),
+    // otherwise use the config directly (flat format where datasource keys are at the top level).
+    val dbConfig = config.config.getConfigOr("db", config.config)
+    val source = JdbcDataSource.forConfig(dbConfig, null, config.path, config.classLoader)
+    val configuredMaxConnections = dbConfig.getIntOpt("maxConnections").orElse(dbConfig.getIntOpt("numThreads")).getOrElse(20)
+    val n = source.maxConnections.getOrElse(configuredMaxConnections)
+    val queueSize = dbConfig.getIntOr("queueSize", 1000)
+    val configuredInflight = dbConfig.getIntOpt("maxInflightActions")
+    val maxInflight = math.max(n, configuredInflight.getOrElse(n * 2))
+    val inflightAdmissionTimeout = dbConfig.getFiniteDurationOpt("inflightAdmissionTimeout")
+    val connectionAcquireTimeout = dbConfig.getFiniteDurationOpt("connectionAcquireTimeout")
+    makeDatabaseWithSource[F](source, n, queueSize, maxInflight, inflightAdmissionTimeout, connectionAcquireTimeout)
+  }
+
+  def makeDatabase[F[_]: Async](config: JdbcDatabaseConfig[?]): F[Database[F]] = {
+    val n = config.maxConnections.getOrElse(20)
+    makeDatabaseWithSource[F](config.source, n, 1000, n * 2, None, None)
+  }
+
+  /** Construct a [[Database]] from a [[JdbcDataSource]] and open the keepalive connection if
+    * configured.  This is the primitive used by both [[makeDatabase]] overloads.  The caller is
+    * responsible for calling [[JdbcDatabaseDef.close]] when done. */
+  private def makeDatabaseWithSource[F[_]: Async](
+    source: JdbcDataSource,
+    maxConnections: Int,
+    queueSize: Int,
+    maxInflight: Int,
+    inflightAdmissionTimeout: Option[FiniteDuration],
+    connectionAcquireTimeout: Option[FiniteDuration]
+  ): F[Database[F]] = {
+    require(maxConnections > 0, s"maxConnections must be > 0, got $maxConnections")
+    Async[F].flatMap(Controls.create[F](maxConnections.toLong, queueSize.toLong, maxInflight.toLong, inflightAdmissionTimeout, connectionAcquireTimeout)) { controls =>
+      val ag = Async[F]
+      val db = new JdbcDatabaseDef[F](source, controls)(ag) {}
+      val keepAlive: F[Unit] = source match {
+        case ds: DataSourceJdbcDataSource if ds.keepAliveConnection =>
+          Async[F].blocking(ds.openKeepAlive())
+        case _ =>
+          Async[F].unit
+      }
+      Async[F].as(keepAlive, db)
+    }
+  }
 
   /** A JDBC database connected to a given DataSource.
     *
@@ -110,6 +158,7 @@ trait JdbcBackend extends RelationalBackend {
   // DatabaseFactory
   // --------------------------------------------------------------------------
 
+  @deprecated("Use slick.jdbc.DatabaseConfig factories with makeDatabase(...)", "4.0")
   trait DatabaseFactoryDef {
 
     /** Create a Database backed by a [[JdbcDataSource]].
@@ -138,9 +187,7 @@ trait JdbcBackend extends RelationalBackend {
       require(n > 0, s"maxConnections must be > 0, got $n")
       Resource.make(
         AG.flatMap(Controls.create[G](n.toLong, queueSize.toLong, maxInflight.toLong, inflightAdmissionTimeout, connectionAcquireTimeout)) { controls =>
-          AG.pure(new JdbcDatabaseDef[G](source, controls) {
-            override implicit val asyncF: Async[G] = AG
-          })
+          AG.pure(new JdbcDatabaseDef[G](source, controls)(AG) {})
         }
       )(db => AG.blocking(db.close())).evalTap { _ =>
         // The keep-alive connection prevents named in-memory databases (e.g. H2, HSQLDB)

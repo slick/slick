@@ -2,10 +2,12 @@ package com.typesafe.slick.docs
 
 import scala.collection.mutable.ArrayBuffer
 
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
+import _root_.cats.effect.unsafe.implicits.global
 
 //#imports
+import slick.cats
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api.*
 //#imports
 import slick.jdbc.GetResult
@@ -15,6 +17,8 @@ import slick.jdbc.GetResult
   * http://docs.oracle.com/javase/tutorial/jdbc/basics/tables.html. */
 object PlainSQL {
   def main(args: Array[String]) = {
+    val dc = DatabaseConfig.forProfileConfig(H2Profile, "h2mem1")
+
     var out = new ArrayBuffer[String]()
     def println(s: String): Unit = out += s
 
@@ -29,7 +33,7 @@ object PlainSQL {
     implicit val getCoffeeResult: GetResult[Coffee] = GetResult(r => Coffee(r.<<, r.<<, r.<<, r.<<, r.<<))
     //#getresult
 
-    Database.forConfig[IO]("h2mem1").use { db =>
+    cats.Database.resource(dc).use { db =>
       val a: DBIO[Unit] = DBIO.seq(
         createSuppliers,
         createCoffees,

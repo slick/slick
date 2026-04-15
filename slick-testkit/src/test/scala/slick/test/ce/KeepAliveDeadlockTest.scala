@@ -8,10 +8,11 @@ import javax.sql.DataSource
 
 import scala.concurrent.duration.*
 
-import cats.effect.IO
 import munit.CatsEffectSuite
 
-import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource, JdbcBackend}
+import slick.cats
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource, H2Profile}
 import slick.jdbc.H2Profile.api.*
 
 /** Tests that `keepAliveConnection = true` works correctly with bounded connection pools.
@@ -162,7 +163,7 @@ class KeepAliveDeadlockTest extends CatsEffectSuite {
     val bounded = new BoundedDataSource(rawDs, maxSize = 2)
     val source = new DataSourceJdbcDataSource(bounded, keepAliveConnection = true, maxConnections = Some(1))
 
-    JdbcBackend.Database.forSource[IO](source, maxConnections = Some(1)).use { db =>
+    cats.Database.resource(DatabaseConfig.forSource(H2Profile, source, maxConnections = Some(1))).use { db =>
       db.run(sql"SELECT 1".as[Int].head).map { r =>
         assertEquals(r, 1)
       }
@@ -178,8 +179,8 @@ class KeepAliveDeadlockTest extends CatsEffectSuite {
     val bounded = new BoundedDataSource(rawDs, maxSize = 3)
     val source = new DataSourceJdbcDataSource(bounded, keepAliveConnection = true, maxConnections = Some(2))
 
-    JdbcBackend.Database.forSource[IO](source, maxConnections = Some(2)).use { db =>
-      import cats.syntax.parallel.*
+    cats.Database.resource(DatabaseConfig.forSource(H2Profile, source, maxConnections = Some(2))).use { db =>
+      import _root_.cats.syntax.parallel.*
       (
         db.run(sql"SELECT 1".as[Int].head),
         db.run(sql"SELECT 2".as[Int].head)
@@ -200,7 +201,7 @@ class KeepAliveDeadlockTest extends CatsEffectSuite {
     val bounded = new BoundedDataSource(rawDs, maxSize = 1)
     val source = new DataSourceJdbcDataSource(bounded, keepAliveConnection = true, maxConnections = Some(1))
 
-    JdbcBackend.Database.forSource[IO](source, maxConnections = Some(1)).use { db =>
+    cats.Database.resource(DatabaseConfig.forSource(H2Profile, source, maxConnections = Some(1))).use { db =>
       db.run(sql"SELECT 1".as[Int].head).attempt.map {
         case Left(e: SQLException) if e.getMessage.contains("pool exhausted") =>
           // Expected: the pool is undersized — it should have been maxConnections + 1.

@@ -2,10 +2,10 @@ package com.typesafe.slick.docs
 
 //#imports
 import slick.jdbc.H2Profile
-import slick.jdbc.H2Profile.api.*
 //#imports
 
-import cats.effect.IO
+import slick.cats
+import slick.jdbc.DatabaseConfig
 import slick.codegen.SourceCodeGenerator
 
 object CodeGenerator {
@@ -19,8 +19,9 @@ object CodeGenerator {
     val user = ""
     val password = ""
     if(false){
-      implicit val runtime: cats.effect.unsafe.IORuntime = cats.effect.unsafe.IORuntime.global
-      Database.forURL[IO]("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver").use { db =>
+      implicit val runtime: _root_.cats.effect.unsafe.IORuntime = _root_.cats.effect.unsafe.IORuntime.global
+      val dc = DatabaseConfig.forURL(H2Profile, "jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
+      cats.Database.resource(dc).use { db =>
         //#default-runner-uri
         slick.codegen.SourceCodeGenerator.main(
           Array(uri, outputFolder)

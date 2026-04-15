@@ -116,8 +116,9 @@ The `keepAliveConnection` option (which is only available without a connection p
 open for the lifetime of the `Database` object in the application. This ensures that the
 database does not get dropped while we are using it.
 
-*Hello Slick* is a standalone command-line application. `Database.forConfig[IO]` returns a
-`Resource[IO, Database[IO]]` that manages the connection pool lifecycle. We use `.use` to run the
+*Hello Slick* is a standalone command-line application. `DatabaseConfig.forConfig[JdbcProfile]`
+returns a `DatabaseConfig`, and `.asResource[IO]` returns a `Resource[IO, Database[IO]]` that
+manages the connection pool lifecycle. We use `.use` to run the
 program with the database and release all resources automatically:
 
 @@snip [FirstExample.scala](../code/FirstExample.scala) { #setup }

@@ -3,16 +3,21 @@ package com.typesafe.slick.docs
 //#imports
 import java.sql.Date
 
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
+import _root_.cats.effect.IO
+import _root_.cats.effect.unsafe.implicits.global
+import slick.cats
+import slick.jdbc.DatabaseConfig
 import scala.reflect.ClassTag
 
-import slick.jdbc.H2Profile.api.*
+import slick.jdbc.H2Profile
 import slick.lifted.ProvenShape
 //#imports
 
 object LiftedEmbedding {
   def main(args: Array[String]) = {
+    val dc = DatabaseConfig.forProfileConfig(H2Profile, "h2mem1")
+    import dc.profile.api.*
+
     // Simple Coffees for Rep types comparison
     {
       //#reptypes
@@ -168,7 +173,7 @@ object LiftedEmbedding {
     //#primarykey
     //#index
 
-    Database.forConfig[IO]("h2mem1").use { db =>
+    cats.Database.resource(dc).use { db =>
       //#ddl
       val schema = coffees.schema ++ suppliers.schema
       //#ddl

@@ -7,9 +7,13 @@ import javax.sql.rowset.serial.SerialBlob
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success}
 
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
+import _root_.cats.effect.IO
+import _root_.cats.effect.Resource
+import _root_.cats.effect.unsafe.implicits.global
 
+import slick.cats
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
 //#imports
 
@@ -25,39 +29,46 @@ object Connection {
       val dataSource = null.asInstanceOf[javax.sql.DataSource]
       val size = 42
       //#forDataSource
-      val db = Database.forDataSource[IO](dataSource: javax.sql.DataSource,
-        Some(size: Int))
+      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: javax.sql.DataSource, Some(size: Int))
+      val db: Resource[IO, cats.Database] = cats.Database.resource(dc)
       //#forDataSource
     }
     if (false){
       val dataSource = null.asInstanceOf[slick.jdbc.DatabaseUrlDataSource]
       //#forDatabaseURL
-      val db = Database.forDataSource[IO](dataSource: slick.jdbc.DatabaseUrlDataSource,
-        None)
+      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: slick.jdbc.DatabaseUrlDataSource, None)
+      val db = cats.Database.resource(dc)
       //#forDatabaseURL
     }
     if(false) {
       val jndiName = ""
       val size = 42
       //#forName
-      val db = Database.forName[IO](jndiName: String, Some(size: Int))
+      val dc = DatabaseConfig.forName(H2Profile, jndiName: String, Some(size: Int))
+      val db = cats.Database.resource(dc)
       //#forName
     }
     ;{
       //#forConfig
-      val db = Database.forConfig[IO]("mydb")
+      val dc = DatabaseConfig.forProfileConfig(H2Profile, "mydb")
+      val db = cats.Database.resource(dc)
       //#forConfig
       // use `db` as a Resource: db.use { ... }
     }
     ;{
       //#forURL
-      val db = Database.forURL[IO]("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1",
-        driver="org.h2.Driver")
+      val dc = DatabaseConfig.forURL(H2Profile, "jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
+      val db = cats.Database.resource(dc)
       //#forURL
       // use `db` as a Resource: db.use { ... }
     }
 
-    val dbResource = Database.forURL[IO]("jdbc:h2:mem:test2;INIT="+coffees.schema.createStatements.mkString("\\;"), driver="org.h2.Driver")
+    val urlDc = DatabaseConfig.forURL(
+      H2Profile,
+      "jdbc:h2:mem:test2;INIT=" + coffees.schema.createStatements.mkString("\\;"),
+      driver = "org.h2.Driver"
+    )
+    val dbResource = cats.Database.resource(urlDc)
     dbResource.use { db =>
       val lines = new ArrayBuffer[Any]()
       def println(s: Any) = lines += s

@@ -31,7 +31,6 @@ only composes queries and runs them, the migration is largely mechanical.
 - `slick-codegen`: code generation is unchanged. If you have previously generated code that
   contains `import scala.concurrent.ExecutionContext` (added by older codegen versions), that
   import is now unused — remove it or regenerate.
-- `DatabaseConfig.forConfig[P, F](path)` — still works; see [DatabaseConfig](#databaseconfig) below
 
 ### Changed (breaking)
 
@@ -39,7 +38,7 @@ only composes queries and runs them, the migration is largely mechanical.
 |------|-----------------|-----------------|
 | `db.run(a)` return type | `Future[R]` | `F[R]` (e.g. `IO[R]`) |
 | `db.stream(a)` return type | `DatabasePublisher[T]` | `Stream[F, T]` |
-| `Database` construction | `Database.forConfig("p")` returns `Database` | `Database.forConfig[IO]("p")` returns `Resource[IO, Database[IO]]` |
+| `Database` construction | `Database.forConfig("p")` returns `Database` | `DatabaseConfig.forConfig[P]("p").asResource[F]` returns `Resource[F, Database[F]]` |
 | `map`/`flatMap`/`filter`/`cleanUp`/`zipWith`/`DBIO.fold` | require `(implicit ec: ExecutionContext)` | no EC parameter |
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts any `F[R]` (CE3 effect) |
 | `DBIO.liftF` | did not exist | alias for `DBIO.from` |
@@ -81,9 +80,22 @@ See [Reactive Streams Compatibility](#reactive-streams-compatibility) for usage.
 
 ## 2. Database Construction
 
-All factory methods now return `Resource[F, Database[F]]`, where `F[_]` is your effect type
-(e.g. `cats.effect.IO`). The effect type is fixed at construction time — pass it as a type
-argument.
+In Slick 4 the `Database.forXxx` factory methods are **deprecated**. The new entry point is
+`slick.api.DatabaseConfig`, which bundles the database profile together with the connection
+configuration. You first obtain a `DatabaseConfig`, then create/load the database from it.
+
+```scala
+import slick.api.DatabaseConfig
+import slick.jdbc.H2Profile
+```
+
+There are two ways to load a database from a `DatabaseConfig`:
+
+- **`dc.asResource[F]`** — returns a `Resource[F, Database[F]]`; the connection pool is closed
+  automatically when the `Resource` scope ends.
+- **`dc.makeDatabase[F]`** — returns `F[Database[F]]`; you are responsible for calling `db.close()`.
+
+Prefer `asResource` in new code.
 
 There are three ways to manage the database lifecycle, listed here **in order of preference**:
 
@@ -102,7 +114,8 @@ try {
 }
 
 // Slick 4
-Database.forConfig[IO]("mydb").use { db =>
+val dc = DatabaseConfig.forConfig[MyProfile]("mydb")
+dc.asResource[IO].use { db =>
   program(db)
 }
 ```
@@ -117,7 +130,8 @@ returns an `F[(Database[F], F[Unit])]` where the second element is the finalizer
 shutdown:
 
 ```scala
-val (db, closeDb) = Database.forConfig[IO]("mydb").allocated.unsafeRunSync()
+val dc = DatabaseConfig.forConfig[MyProfile]("mydb")
+val (db, closeDb) = dc.asResource[IO].allocated.unsafeRunSync()
 
 program(db)
 
@@ -128,13 +142,14 @@ closeDb.unsafeRunSync()
 This is the right migration step when restructuring around `Resource.use` is too large a change
 for one PR.
 
-### Option 3 — `Resource.allocated`, discard finalizer, call `db.close()` directly
+### Option 3 — `makeDatabase`, call `db.close()` directly
 
 For the minimal-change migration — old code that already calls `db.close()` in a shutdown hook
-— you can discard the `closeDb` finalizer entirely and keep calling `db.close()` as before:
+— you can use `dc.makeDatabase[F]` and keep calling `db.close()` as before:
 
 ```scala
-val (db, _) = Database.forConfig[IO]("mydb").allocated.unsafeRunSync()
+val dc = DatabaseConfig.forConfig[MyProfile]("mydb")
+val db = dc.makeDatabase[IO].unsafeRunSync()
 
 program(db)
 
@@ -142,40 +157,43 @@ db.close()  // exactly as in Slick 3
 ```
 
 This is safe because `db.close()` and the `Resource` finalizer call the same underlying
-`HikariDataSource.close()`, which is idempotent. Calling `db.close()` directly is equivalent to
-calling `closeDb.unsafeRunSync()`. The only thing you give up is the ability to compose shutdown
-into your effect chain.
-
-Use this option as a **temporary stepping stone** — it lets you change nothing else in your
-codebase while you migrate incrementally toward Option 1 or 2.
+`HikariDataSource.close()`, which is idempotent. Use this option as a **temporary stepping stone**
+— it lets you change nothing else in your codebase while you migrate incrementally toward Option 1
+or 2.
 
 ### All factory methods
 
-All factory methods return `Resource[F, Database[F]]`:
+`DatabaseConfig` provides factory methods mirroring those that existed on `Database`:
 
-| Method | Slick 4 signature |
-|--------|------------------|
-| `Database.forConfig[F](path)` | `Resource[F, Database[F]]` |
-| `Database.forURL[F](url, ...)` | `Resource[F, Database[F]]` |
-| `Database.forDataSource[F](ds, maxConn)` | `Resource[F, Database[F]]` |
-| `Database.forName[F](jndi, maxConn)` | `Resource[F, Database[F]]` |
+| Method | Returns |
+|--------|---------|
+| `DatabaseConfig.forConfig[P](path)` | `BasicDatabaseConfig[P]` |
+| `DatabaseConfig.forURL(profile, url, ...)` | `JdbcDatabaseConfig[P]` |
+| `DatabaseConfig.forDataSource(profile, ds, maxConn)` | `JdbcDatabaseConfig[P]` |
+| `DatabaseConfig.forName(profile, jndi, maxConn)` | `JdbcDatabaseConfig[P]` |
+
+Call `.asResource[F]` or `.makeDatabase[F]` on the returned config to obtain the database.
 
 For **library or framework code** that must remain polymorphic over the effect type:
 
 ```scala
+import slick.api.DatabaseConfig
+import slick.jdbc.PostgresProfile
+
 def makeDb[F[_]: Async]: Resource[F, Database[F]] =
-  Database.forConfig[F]("mydb")
+  DatabaseConfig.forConfig[PostgresProfile]("mydb").asResource[F]
 ```
 
-### DatabaseConfig
+### DatabaseConfig and profile import
 
-`DatabaseConfig.forConfig` is also effect-aware in Slick 4. Use the two-type-parameter overload:
+`DatabaseConfig.forConfig` also gives you access to the loaded profile, which lets you drive
+the query DSL import from configuration rather than hardcoding a profile:
 
 ```scala
-// Slick 4
-DatabaseConfig.forConfig[JdbcProfile, IO]("mydb").use { dc =>
-  val db: Database[IO] = dc.db
-  import dc.profile.api.*
+val dc = DatabaseConfig.forConfig[JdbcProfile]("mydb")
+import dc.profile.api.*
+
+dc.asResource[IO].use { db =>
   db.run(users.result)
 }
 ```
@@ -423,7 +441,7 @@ import slick.reactivestreams.*
 
 // Requires a cats.effect.std.Dispatcher[F] from your app context
 val publisherResource: Resource[IO, Publisher[User]] =
-  Database.forConfig[IO]("mydb").flatMap { db =>
+  DatabaseConfig.forConfig[MyProfile]("mydb").asResource[IO].flatMap { db =>
     db.stream(users.result).toUnicastPublisher
   }
 ```
@@ -461,12 +479,18 @@ If you previously sized your HikariCP pool conservatively to satisfy the Slick 3
 (`maximumPoolSize == threadCount`), you are now free to size it independently of thread counts —
 HikariCP pool size can be set to whatever your database server supports.
 
+### `Database.forXxx` factory methods
+
+`Database.forConfig`, `Database.forURL`, `Database.forDataSource`, and `Database.forName` are
+**deprecated** in Slick 4. Use `DatabaseConfig.forXxx` instead — see
+[Database Construction](#2-database-construction).
+
 ### `db.shutdown` and `db.close()`
 
 `shutdown: Future[Unit]` is removed entirely.
 
 `close(): Unit` is still implemented on `Database` (it is called by the `Resource` finalizer), and
-calling it directly still works — see [Option 3](#option-3----resource-allocated-discard-finalizer-call-dbclose-directly)
+calling it directly still works — see [Option 3](#option-3----makedatabase-call-dbclose-directly)
 above. However, the preferred migration is to wrap your program in `Resource.use` and let the
 finalizer handle cleanup, or to use `Resource.allocated` and keep the `closeDb` effect:
 
@@ -477,7 +501,7 @@ try program(db).onComplete(_ => db.close())
 finally Await.result(db.shutdown, Duration.Inf)
 
 // Slick 4 — preferred
-Database.forConfig[IO]("mydb").use(db => program(db))
+DatabaseConfig.forConfig[MyProfile]("mydb").asResource[IO].use(db => program(db))
 ```
 
 ### `db.stream(action, bufferNext)` overload
@@ -537,9 +561,12 @@ instance for ZIO's `Task` type.
 
 ```scala
 import zio.interop.catz.*
+import slick.api.DatabaseConfig
+import slick.jdbc.PostgresProfile
 
 // Database[Task] — fully ZIO-native
-val dbResource: Resource[Task, Database[Task]] = Database.forConfig[Task]("mydb")
+val dc = DatabaseConfig.forConfig[PostgresProfile]("mydb")
+val dbResource: Resource[Task, Database[Task]] = dc.asResource[Task]
 
 dbResource.use { db =>
   db.run(users.result)   // Task[Seq[User]]
@@ -582,15 +609,17 @@ import scala.concurrent.ExecutionContext.parasitic
 
 Keep any `ExecutionContext` imports that are used for non-Slick `Future` code in the same file.
 
-### 3. `Database` construction
+### 3. Database construction
+
+`Database.forXxx` is deprecated. Replace with `DatabaseConfig.forXxx`:
 
 | Pattern (Slick 3) | Replacement (Slick 4) |
 |-------------------|-----------------------|
-| `Database.forConfig("p")` | `Database.forConfig[IO]("p")` → `Resource[IO, Database[IO]]` |
-| `Database.forURL(url, driver=d)` | `Database.forURL[IO](url, driver=d)` → `Resource[IO, Database[IO]]` |
-| `Database.forDataSource(ds, Some(n))` | `Database.forDataSource[IO](ds, Some(n))` → `Resource[IO, Database[IO]]` |
-| `Database.forName(jndi, Some(n))` | `Database.forName[IO](jndi, Some(n))` → `Resource[IO, Database[IO]]` |
-| `DatabaseConfig.forConfig[P]("p")` | `DatabaseConfig.forConfig[P, IO]("p")` → `Resource[IO, LoadedDatabaseConfig[P, IO]]` |
+| `Database.forConfig("p")` | `DatabaseConfig.forConfig[MyProfile]("p")` → then `.asResource[IO]` or `.makeDatabase[IO]` |
+| `Database.forURL(url, driver=d)` | `DatabaseConfig.forURL(MyProfile, url, driver=d)` → then `.asResource[IO]` or `.makeDatabase[IO]` |
+| `Database.forDataSource(ds, Some(n))` | `DatabaseConfig.forDataSource(MyProfile, ds, Some(n))` → then `.asResource[IO]` or `.makeDatabase[IO]` |
+| `Database.forName(jndi, Some(n))` | `DatabaseConfig.forName(MyProfile, jndi, Some(n))` → then `.asResource[IO]` or `.makeDatabase[IO]` |
+| `DatabaseConfig.forConfig[P]("p")` (Slick 3 — returned `DatabaseConfig[P]`) | `DatabaseConfig.forConfig[P]("p")` (Slick 4 — now returns `BasicDatabaseConfig[P]`; call `.asResource[IO]` or `.makeDatabase[IO]` on it) |
 
 ### 4. Database lifecycle
 
@@ -598,9 +627,9 @@ In order of preference:
 
 | Pattern (Slick 3) | Replacement (Slick 4) | Option |
 |-------------------|-----------------------|--------|
-| `val db = Database.forConfig("p")` + `db.shutdown` / `db.close()` | `Database.forConfig[IO]("p").use { db => program(db) }` | 1 — preferred |
-| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val (db, closeDb) = Database.forConfig[IO]("p").allocated.unsafeRunSync()` + `closeDb.unsafeRunSync()` on shutdown | 2 — migration step |
-| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val (db, _) = Database.forConfig[IO]("p").allocated.unsafeRunSync()` + `db.close()` on shutdown | 3 — minimal change |
+| `val db = Database.forConfig("p")` + `db.shutdown` / `db.close()` | `DatabaseConfig.forConfig[P]("p").asResource[IO].use { db => program(db) }` | 1 — preferred |
+| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val (db, closeDb) = DatabaseConfig.forConfig[P]("p").asResource[IO].allocated.unsafeRunSync()` + `closeDb.unsafeRunSync()` on shutdown | 2 — migration step |
+| `val db = Database.forConfig("p")` + `db.close()` on shutdown | `val db = DatabaseConfig.forConfig[P]("p").makeDatabase[IO].unsafeRunSync()` + `db.close()` on shutdown | 3 — minimal change |
 | `Await.result(db.shutdown, ...)` | Remove — use one of the options above | — |
 
 ### 5. `db.run`
@@ -656,8 +685,8 @@ error. If it was implicit it will simply no longer be required.
 | Pattern (Slick 3) | Replacement (Slick 4) |
 |-------------------|-----------------------|
 | `AsyncExecutor("name", n, n, m, n)` | Remove entirely |
-| `Database.forURL(url, executor=ae)` | `Database.forURL[IO](url)` — no executor parameter |
-| `Database.forDataSource(ds, Some(n), executor=ae)` | `Database.forDataSource[IO](ds, Some(n))` |
+| `Database.forURL(url, executor=ae)` | `DatabaseConfig.forURL(profile, url)` — no executor parameter |
+| `Database.forDataSource(ds, Some(n), executor=ae)` | `DatabaseConfig.forDataSource(profile, ds, Some(n))` |
 
 ### 11. `ioExecutionContext`
 
@@ -684,5 +713,5 @@ If your project fails to compile after upgrading, use this table:
 | `value shutdown is not a member of Database` | method removed | Use `Resource.use`, `Resource.allocated` + `closeDb`, or `db.close()` — see [Database Construction](#2-database-construction) |
 | `object AsyncExecutor is not a member of package slick.util` | class removed | Remove all `AsyncExecutor` usage |
 | `value ioExecutionContext is not a member of Database` | field removed | Use `db.io(thunk)` |
-| `could not find implicit value for parameter …: ClassTag[F]` on `DatabaseConfig.forConfig` | missing type parameter | Add `[P, IO]` type arguments |
-| `class JdbcDatabaseDef takes type parameters` on a variable type annotation | explicit `JdbcDatabaseDef` type annotation from Slick 3 | Change `val db: JdbcDatabaseDef` to `val db: Database[IO]` and `Database.forURL(...)` to `Database.forURL[IO](...)` |
+| `object Database is not a member of package slick.jdbc` or deprecation on `Database.forXxx` | `Database.forXxx` deprecated | Use `DatabaseConfig.forXxx` — see [Database Construction](#2-database-construction) |
+| `class JdbcDatabaseDef takes type parameters` on a variable type annotation | explicit `JdbcDatabaseDef` type annotation from Slick 3 | Change `val db: JdbcDatabaseDef` to `val db: Database[IO]` and migrate factory call to `DatabaseConfig` |

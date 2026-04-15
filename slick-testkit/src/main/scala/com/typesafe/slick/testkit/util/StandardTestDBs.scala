@@ -6,6 +6,8 @@ import java.util.logging.{Level, Logger}
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 
+import slick.cats
+import slick.jdbc.DatabaseConfig
 import slick.basic.Capability
 import slick.compiler.Phase
 import slick.dbio.*
@@ -13,6 +15,7 @@ import slick.jdbc.*
 import slick.jdbc.GetResult.*
 import slick.jdbc.meta.MTable
 import slick.memory.MemoryProfile
+import slick.util.ClassLoaderUtil
 import slick.util.ConfigExtensionMethods.*
 
 import org.junit.Assert
@@ -93,7 +96,8 @@ object StandardTestDBs {
       super.cleanUpBefore()
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
       try {
-        runIO(profile.backend.Database.forURL[IO](dropUrl, driver = jdbcDriver).use { db =>
+        val dc = DatabaseConfig.forURL(profile, dropUrl, driver = jdbcDriver)
+        runIO(cats.Database.resource(dc).use { db =>
           db.run(SimpleJdbcAction(_.connection))
         })
       }
@@ -108,7 +112,8 @@ object StandardTestDBs {
       super.cleanUpBefore()
       val dropUrl = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";shutdown=true"
       try {
-        runIO(profile.backend.Database.forURL[IO](dropUrl, driver = jdbcDriver).use { db =>
+        val dc = DatabaseConfig.forURL(profile, dropUrl, driver = jdbcDriver)
+        runIO(cats.Database.resource(dc).use { db =>
           db.run(SimpleJdbcAction(_.connection))
         })
       }
@@ -263,8 +268,11 @@ abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJd
   val jdbcDriver = "org.h2.Driver"
   override def capabilities =
     super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
-  override def createDB(): IODatabase =
-    database.forURL[IO](url, driver = jdbcDriver, keepAliveConnection = keepAlive).allocated.unsafeRunSync()._1
+  override def createDB(): IODatabase = {
+    val p: profile.type = profile
+    val dc: JdbcDatabaseConfig[p.type] = DatabaseConfig.forURL(p, url, null, null, null, jdbcDriver, keepAlive, ClassLoaderUtil.defaultClassLoader)
+    p.backend.makeDatabase[IO](dc).unsafeRunSync()
+  }
 }
 
 class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(confName) {

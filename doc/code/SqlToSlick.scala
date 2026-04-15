@@ -1,7 +1,11 @@
 package com.typesafe.slick.docs
 
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
+import _root_.cats.effect.IO
+import _root_.cats.effect.unsafe.implicits.global
+import slick.basic.BasicDatabaseConfig
+import slick.cats
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
 
 
@@ -42,7 +46,9 @@ object SqlToSlick {
   )
 
   def main(args: Array[String]): Unit = {
-    Database.forConfig[IO]("h2mem1").use { db =>
+    val dc: BasicDatabaseConfig[H2Profile] = DatabaseConfig.forProfileConfig(H2Profile, "h2mem1")
+
+    cats.Database.resource(dc).use { db =>
       db.run(DBIO.seq(
         addresses.schema.create,
         people.schema.create,
@@ -86,7 +92,8 @@ object SqlToSlick {
           //#SlickPlainSQL
           /*
           //#SlickPlainSQL
-          val db = Database.forConfig[IO]("h2mem1")
+          val dc = DatabaseConfig.forConfig[H2Profile]("h2mem1")
+          val db = dc.asResource[IO]
           //#SlickPlainSQL
           */
           //#SlickPlainSQL
@@ -102,7 +109,8 @@ object SqlToSlick {
           //#SlickTypesafeQuery
           /*
           //#SlickTypesafeQuery
-          val db = Database.forConfig[IO]("h2mem1")
+          val dc = DatabaseConfig.forConfig[H2Profile]("h2mem1")
+          val db = dc.asResource[IO]
           //#SlickTypesafeQuery
           */
           //#SlickTypesafeQuery

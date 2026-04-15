@@ -2,10 +2,11 @@ package com.typesafe.slick.docs
 
 //#imports
 // Use H2Profile to connect to an H2 database
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-
-import slick.jdbc.H2Profile.api.*
+import _root_.cats.effect.IO
+import _root_.cats.effect.unsafe.implicits.global
+import slick.cats
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 //#imports
 import scala.collection.mutable.ArrayBuffer
 
@@ -16,6 +17,9 @@ import scala.collection.mutable.ArrayBuffer
  */
 object FirstExample {
   def main(args: Array[String]): Unit = {
+    val dc = DatabaseConfig.forProfileConfig(H2Profile, "h2mem1")
+    import dc.profile.api.*
+
     val lines = new ArrayBuffer[Any]()
     def println(s: Any) = lines += s
 
@@ -49,7 +53,7 @@ object FirstExample {
 
     // Connect to the database and execute the following block within a session
     //#setup
-    Database.forConfig[IO]("h2mem1").use { db =>
+    cats.Database.resource(dc).use { db =>
     //#setup
 
       //#create
