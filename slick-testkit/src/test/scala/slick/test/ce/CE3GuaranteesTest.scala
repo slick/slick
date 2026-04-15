@@ -2,15 +2,18 @@ package slick.test.ce
 
 import java.util.concurrent.CancellationException
 
-import cats.effect.{Async, Deferred, IO, Ref, Resource}
-import cats.syntax.parallel.*
+import cats.effect.{Deferred, IO, Ref, Resource}
+import _root_.cats.syntax.parallel.*
 import munit.CatsEffectSuite
-import slick.basic.ConcurrencyControl.Controls
 
 import scala.concurrent.duration._
 import slick.SlickException
+import com.typesafe.config.ConfigFactory
+import slick.cats
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api.*
-import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource, JdbcBackend}
+import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource}
 
 /** Tests for CE3-specific guarantees in the Slick 4 interpreter.
   *
@@ -21,7 +24,6 @@ import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource, JdbcBackend}
   *   - `DBIO.from` / `DBIO.liftF` lifting CE3 effects into DBIO
   */
 class CE3GuaranteesTest extends CatsEffectSuite {
-  private val ioAsync: Async[IO] = Async[IO]
 
   class Items(tag: Tag) extends Table[Int](tag, "ITEMS") {
     def v = column[Int]("V")
@@ -35,55 +37,66 @@ class CE3GuaranteesTest extends CatsEffectSuite {
   }
 
   /** A database with a single connection slot — easy to saturate for backpressure tests. */
-  val singleSlotDb = ResourceFunFixture(
-    JdbcBackend.Database.forSource[IO](h2Source("ce3test_single"), maxConnections = Some(1))
-  )
+  private val singleSlotResource: Resource[IO, cats.Database] =
+    cats.Database.resource(DatabaseConfig.forSource(H2Profile, h2Source("ce3test_single"), maxConnections = Some(1)))
+  val singleSlotDb = ResourceFunFixture(singleSlotResource)
 
   /** A database with several connection slots for concurrency tests. */
-  val multiSlotDb = ResourceFunFixture(
-    JdbcBackend.Database.forSource[IO](h2Source("ce3test_multi"), maxConnections = Some(4))
-  )
+  private val multiSlotResource: Resource[IO, cats.Database] =
+    cats.Database.resource(DatabaseConfig.forSource(H2Profile, h2Source("ce3test_multi"), maxConnections = Some(4)))
+  val multiSlotDb = ResourceFunFixture(multiSlotResource)
 
   /** A database with strict admission controls for inflight/queue tests. */
   val admissionDb = ResourceFunFixture(
-    // TODO(slick4-rebase): Replace this ad-hoc Controls.create + JdbcDatabaseDef construction
-    // with the real public DatabaseConfig/JDBC API once that API is available again in the
-    // reordered commit sequence.
-    Resource.make(
-      Controls.create[IO](1L, 1L, 1L).map { controls =>
-        new JdbcBackend.JdbcDatabaseDef[IO](h2Source("ce3test_admission"), controls) {
-          override implicit val asyncF: Async[IO] = ioAsync
-        }
-      }
-    )(db => IO.blocking(db.close()))
+    cats.Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
+      """
+        |db {
+        |  dataSourceClass = "org.h2.jdbcx.JdbcDataSource"
+        |  properties {
+        |    URL = "jdbc:h2:mem:ce3test_admission;DB_CLOSE_DELAY=-1"
+        |  }
+        |  maxConnections = 1
+        |  maxInflightActions = 1
+        |  queueSize = 1
+        |}
+        |""".stripMargin
+    )))
   )
 
   /** A database with short inflight admission timeout for timeout behavior tests. */
   val inflightTimeoutDb = ResourceFunFixture(
-    // TODO(slick4-rebase): Replace this ad-hoc Controls.create + JdbcDatabaseDef construction
-    // with the real public DatabaseConfig/JDBC API once that API is available again in the
-    // reordered commit sequence.
-    Resource.make(
-      Controls.create[IO](1L, 1L, 1L, Some(200.millis), None).map { controls =>
-        new JdbcBackend.JdbcDatabaseDef[IO](h2Source("ce3test_inflight_timeout"), controls) {
-          override implicit val asyncF: Async[IO] = ioAsync
-        }
-      }
-    )(db => IO.blocking(db.close()))
+    cats.Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
+      """
+        |db {
+        |  dataSourceClass = "org.h2.jdbcx.JdbcDataSource"
+        |  properties {
+        |    URL = "jdbc:h2:mem:ce3test_inflight_timeout;DB_CLOSE_DELAY=-1"
+        |  }
+        |  maxConnections = 1
+        |  maxInflightActions = 1
+        |  queueSize = 1
+        |  inflightAdmissionTimeout = 200ms
+        |}
+        |""".stripMargin
+    )))
   )
 
   /** A database with short connection acquire timeout for timeout behavior tests. */
   val connectionTimeoutDb = ResourceFunFixture(
-    // TODO(slick4-rebase): Replace this ad-hoc Controls.create + JdbcDatabaseDef construction
-    // with the real public DatabaseConfig/JDBC API once that API is available again in the
-    // reordered commit sequence.
-    Resource.make(
-      Controls.create[IO](1L, 1L, 2L, None, Some(200.millis)).map { controls =>
-        new JdbcBackend.JdbcDatabaseDef[IO](h2Source("ce3test_connection_timeout"), controls) {
-          override implicit val asyncF: Async[IO] = ioAsync
-        }
-      }
-    )(db => IO.blocking(db.close()))
+    cats.Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
+      """
+        |db {
+        |  dataSourceClass = "org.h2.jdbcx.JdbcDataSource"
+        |  properties {
+        |    URL = "jdbc:h2:mem:ce3test_connection_timeout;DB_CLOSE_DELAY=-1"
+        |  }
+        |  maxConnections = 1
+        |  maxInflightActions = 2
+        |  queueSize = 1
+        |  connectionAcquireTimeout = 200ms
+        |}
+        |""".stripMargin
+    )))
   )
 
   // ---------------------------------------------------------------------------
@@ -165,7 +178,8 @@ class CE3GuaranteesTest extends CatsEffectSuite {
 
   admissionDb.test("queueSize bounds callers waiting for inflight admission") { db =>
     def waitUntilQueueFull(deadline: FiniteDuration): IO[Unit] =
-      db.availableAdmissionQueueSlots.flatMap { n =>
+      db.controlStatus.flatMap { s =>
+        val n = s.availableAdmissionQueueSlots
         if (n == 0L) IO.unit
         else if (deadline <= Duration.Zero) IO.raiseError(new RuntimeException("timed out waiting for queue to fill"))
         else IO.sleep(20.millis) >> waitUntilQueueFull(deadline - 20.millis)

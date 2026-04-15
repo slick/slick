@@ -4,13 +4,14 @@ import cats.effect.IO
 import com.typesafe.config.ConfigFactory
 import munit.CatsEffectSuite
 
-import slick.basic.DatabaseConfig
+import slick.cats
+import slick.jdbc.DatabaseConfig
 import slick.jdbc.JdbcProfile
 
-/** Tests for [[DatabaseConfig.forConfig]] and [[DatabaseConfig.open]].
+/** Tests for [[DatabaseConfig.forConfig]] and database loading.
   *
   * Covers the fix for issue #3: `DatabaseConfig.forConfig[P]` returns a
-  * configuration that can be opened via `.open[F]` to get a live database.
+  * configuration that can be used to create a live database.
   */
 class DatabaseConfigTest extends CatsEffectSuite {
 
@@ -37,18 +38,18 @@ class DatabaseConfigTest extends CatsEffectSuite {
   }
 
   // ---------------------------------------------------------------------------
-  // open[F] — opening a database from a DatabaseConfig
+  // Loading a database from a DatabaseConfig
   // ---------------------------------------------------------------------------
 
   val dc = DatabaseConfig.forConfig[JdbcProfile]("mydb", h2Config)
 
-  val loadedDb = ResourceFunFixture(dc.open[IO])
+  val loadedDb = ResourceFunFixture(cats.Database.resource(dc))
 
-  loadedDb.test("open[F] returns a live database") { db =>
+  loadedDb.test("resource returns a live database") { db =>
     IO(assertEquals(dc.profileName, "slick.jdbc.H2Profile"))
   }
 
-  loadedDb.test("db from open[F] can execute DBIO actions") { db =>
+  loadedDb.test("loaded db can execute DBIO actions") { db =>
     import dc.profile.api.*
     class Rows(tag: Tag) extends Table[Int](tag, "DBCONFIG_ROWS") {
       def v = column[Int]("V")
