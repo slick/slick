@@ -8,7 +8,9 @@ import java.util.zip.GZIPInputStream
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 
+import slick.jdbc.DatabaseConfig
 import slick.basic.{BasicProfile, Capability}
+import slick.util.ClassLoaderUtil
 import slick.dbio.{DBIO, DBIOAction, Effect, NoStream}
 import slick.jdbc.{JdbcDataSource, JdbcProfile, ResultSetAction}
 import slick.jdbc.GetResult.*
@@ -109,8 +111,8 @@ trait TestDB {
   /** The profile for the database */
   val profile: Profile
 
-  /** A type alias for the Database with F fixed to IO */
-  type IODatabase = profile.backend.Database[IO]
+  /** A type alias for the raw backend Database with F fixed to IO */
+  type IODatabase = profile.backend.BasicDatabaseDef[IO]
 
   /** Indicates whether the database persists after closing the last connection */
   def isPersistent = true
@@ -154,7 +156,6 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   import profile.api.actionBasedSQLInterpolation
 
   type Profile = JdbcProfile
-  lazy val database = profile.backend.Database
   val jdbcDriver: String
   final def getLocalTables(implicit session: profile.backend.Session) = blockingRunOnSession(localTables)
   final def getLocalSequences(implicit session: profile.backend.Session) =
@@ -194,7 +195,8 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
       def close(): Unit = ()
       val maxConnections: Option[Int] = Some(1)
     }
-    database.forSource[IO](source).allocated.unsafeRunSync()._1
+    val dc = DatabaseConfig.forSource[profile.type](profile, source)
+    profile.backend.makeDatabase[IO](dc).unsafeRunSync()
   }
 
   final def blockingRunOnSession[R](a: DBIOAction[R, NoStream, Nothing])
@@ -208,8 +210,10 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
 
 abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) { self =>
   val url: String
-  def createDB(): IODatabase =
-    database.forURL[IO](url, driver = jdbcDriver).allocated.unsafeRunSync()._1
+  def createDB(): IODatabase = {
+    val dc = DatabaseConfig.forURL[profile.type](profile, url, null, null, null, jdbcDriver, false, ClassLoaderUtil.defaultClassLoader)
+    profile.backend.makeDatabase[IO](dc).unsafeRunSync()
+  }
   override def toString = url
 }
 
@@ -232,8 +236,10 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
       .map(_.map(n => Class.forName(n).asInstanceOf[Class[? <: AsyncTest[? >: Null <: TestDB]]]))
       .getOrElse(super.testClasses)
 
-  def databaseFor(path: String): IODatabase =
-    database.forConfig[IO](path, config).allocated.unsafeRunSync()._1
+  def databaseFor(path: String): IODatabase = {
+    val dc = DatabaseConfig.forProfileConfig[profile.type](profile, path, config, ClassLoaderUtil.defaultClassLoader)
+    profile.backend.makeDatabase[IO](dc).unsafeRunSync()
+  }
 
   override def createDB() = databaseFor("testConn")
 

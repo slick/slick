@@ -6,10 +6,10 @@ import cats.effect.{Async, Ref, Resource}
 import cats.effect.kernel.Outcome
 import cats.syntax.all.*
 import cats.effect.syntax.all.*
-import fs2.Stream
 
 
 import slick.SlickException
+import slick.ControlStatus
 import slick.compat.collection.*
 import slick.dbio.*
 import slick.util.*
@@ -46,6 +46,9 @@ trait BasicBackend { self =>
   /** The database factory */
   val Database: DatabaseFactory
 
+  /** Create a Database instance from a [[slick.basic.BasicDatabaseConfig]]. */
+  def makeDatabase[F[_]: Async](config: BasicDatabaseConfig[?]): F[Database[F]]
+
   /** Create a Database instance through [[https://github.com/typesafehub/config Typesafe Config]].
     * The supported config keys are backend-specific. This method is used by `DatabaseConfig`.
     *
@@ -56,6 +59,7 @@ trait BasicBackend { self =>
     * @param config The `Config` object to read from.
     * @param classLoader The ClassLoader to use for loading custom classes.
     */
+  @deprecated("Use profile.backend.makeDatabase(slick.basic.DatabaseConfig.forConfig(...))", "4.0")
   def createDatabase[F[_]: Async](config: Config, path: String, classLoader: ClassLoader = defaultClassLoader): Resource[F, Database[F]]
 
   // -----------------------------------------------------------------------
@@ -144,32 +148,21 @@ trait BasicBackend { self =>
         }
       }
 
-    /** Stream results of a streaming DBIOAction as an FS2 Stream.
-      * Back-pressure is structural — the fiber suspends when the consumer is slow. */
-    final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): Stream[F, T] =
-      Stream.bracketCase(acquireStreamContextAndIterator(a)) { case ((ctx, it), exitCase) =>
+    /** Open a streaming DBIOAction as a Resource-backed Iterator.
+      *
+      * Finalizer order is:
+      *   1) iterator.close()
+      *   2) transactional / pin-scope cleanup
+      *   3) session / permit release
+      *   4) inflight-release
+      */
+    final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): Resource[F, Iterator[T]] =
+      Resource.makeCase(acquireStreamContextAndIterator(a)) { case ((ctx, it), exitCase) =>
         closeStreamIteratorAndRelease(ctx, it, exitCase)
-      }.flatMap { case (_, it) =>
-        Stream.repeatEval(asyncF.blocking {
-          if (it.hasNext) Some(it.next()) else None
-        }).unNoneTerminate
-      }
+      }.map(_._2)
 
-    /** Number of currently free connection slots managed by the connection arbiter. */
-    final def availableConnectionSlots: F[Long] =
-      connectionArbiter.available
-
-    /** Number of callers currently waiting in the connection arbiter queue. */
-    final def pendingConnectionSlots: F[Int] =
-      connectionArbiter.pending
-
-    /** Number of free admission-queue slots. */
-    final def availableAdmissionQueueSlots: F[Long] =
-      admissionControl.queueAvailable
-
-    /** Number of free inflight slots. */
-    final def availableInflightSlots: F[Long] =
-      admissionControl.inflightAvailable
+    final def controlStatus: F[ControlStatus] =
+      controls.controlStatus
 
     // ------------------------------------------------------------------
     // Interpreter
