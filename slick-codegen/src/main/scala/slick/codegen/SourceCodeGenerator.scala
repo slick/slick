@@ -5,7 +5,8 @@ import java.net.URI
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 
-import slick.basic.DatabaseConfig
+import slick.cats.Database
+import slick.jdbc.DatabaseConfig
 import slick.{model => m}
 import slick.jdbc.JdbcProfile
 import slick.model.Model
@@ -87,11 +88,12 @@ object SourceCodeGenerator {
 
   def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = true, outputToMultipleFiles: Boolean = false): Unit = {
     val dc = DatabaseConfig.forURI[JdbcProfile](uri)
-    val pkg = dc.config.getString("codegen.package")
-    val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
+    val cfg = dc.config
+    val pkg = cfg.getString("codegen.package")
+    val out = outputDir.getOrElse(cfg.getStringOr("codegen.outputDir", "."))
     val profile = if(dc.profileIsObject) dc.profileName else "new " + dc.profileName
 
-    dc.open[IO].use { db =>
+    Database.resource(dc).use { db =>
       db.run(dc.profile.createModel(None, ignoreInvalidDefaults).withPinnedSession)
         .map { m =>
           val generator = new SourceCodeGenerator(m)
@@ -136,7 +138,7 @@ object SourceCodeGenerator {
             |  password: database connection password
             |
             |When using a config file, in addition to the standard config parameters from
-            |slick.basic.DatabaseConfig you can set "codegen.package" and
+            |slick.jdbc.DatabaseConfig you can set "codegen.package" and
             |"codegen.outputDir". The latter can be overridden on the command line.
           """.stripMargin.trim)
         System.exit(1)

@@ -15,7 +15,20 @@ object ConcurrencyControl {
   final case class Controls[F[_]](
     admissionControl: AdmissionControl[F],
     connectionArbiter: ConnectionArbiter[F]
-  )
+  ) {
+    def controlStatus(implicit F: Async[F]): F[slick.ControlStatus] =
+      for {
+        availableConnectionSlots <- connectionArbiter.available
+        pendingConnectionSlots <- connectionArbiter.pending
+        availableAdmissionQueueSlots <- admissionControl.queueAvailable
+        availableInflightSlots <- admissionControl.inflightAvailable
+      } yield slick.ControlStatus(
+        availableConnectionSlots = availableConnectionSlots,
+        pendingConnectionSlots = pendingConnectionSlots,
+        availableAdmissionQueueSlots = availableAdmissionQueueSlots,
+        availableInflightSlots = availableInflightSlots
+      )
+  }
 
   object Controls {
     def create[F[_]](

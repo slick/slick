@@ -29,7 +29,7 @@ trait JdbcDataSource extends Closeable {
 }
 
 object JdbcDataSource extends Logging {
-  /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
+  /** Create a JdbcDataSource from a `Config`. See [[slick.jdbc.DatabaseConfig]]
     * for documentation of the supported configuration parameters. */
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): JdbcDataSource = {
     def loadFactory(name: String): JdbcDataSourceFactory = {
@@ -50,7 +50,7 @@ object JdbcDataSource extends Logging {
 
 /** Create a [[JdbcDataSource]] from a `Config` object and an optional JDBC `Driver`.
   * This is used with the "connectionPool" configuration option in
-  * [[JdbcBackend.DatabaseFactoryDef.forConfig]]. */
+  * [[slick.jdbc.DatabaseConfig]]. */
 trait JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): JdbcDataSource
 }

@@ -11,6 +11,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import fs2.Stream
 
+import slick.cats
 import slick.SlickTreeException
 import slick.basic.Capability
 import slick.dbio.*
@@ -119,13 +120,15 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
 
   val reuseInstance = false
 
-  lazy val db: tdb.IODatabase = {
+  lazy val rawDb: tdb.IODatabase = {
     val d = tdb.createDB()
     keepAliveSession = d.createSession()
     if(!tdb.isPersistent && tdb.isShared)
       keepAliveSession.force() // keep the database in memory with an extra connection
     d
   }
+
+  lazy val db: cats.Database = cats.Database.fromCore(rawDb)
 
   final def cleanup() = if(keepAliveSession ne null) {
     try if(tdb.isPersistent) tdb.dropUserArtifacts(keepAliveSession)

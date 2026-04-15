@@ -26,8 +26,14 @@ trait HeapBackend extends RelationalBackend with Logging {
   val Database = new HeapDatabaseFactoryDef
   val backend: HeapBackend = this
 
-  def createDatabase[F[_]](config: Config, path: String, classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader)(implicit AF: Async[F]): Resource[F, Database[F]] =
-    Resource.eval(AF.flatMap(Controls.create[F](Long.MaxValue, Long.MaxValue, Long.MaxValue))(c => AF.pure(new HeapDatabaseDef[F](c))))
+  @deprecated("Use slick.jdbc.DatabaseConfig.forConfig(...).makeDatabase", "4.0")
+  override def createDatabase[F[_]](config: Config, path: String, classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader)(implicit AF: Async[F]): Resource[F, Database[F]] = {
+    val dc = slick.basic.DatabaseConfig.forConfig[slick.memory.MemoryProfile](path, config, classLoader)
+    Resource.eval(makeDatabase[F](dc))
+  }
+
+  override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
+    Async[F].flatMap(Controls.create[F](Long.MaxValue, Long.MaxValue, Long.MaxValue))(c => Async[F].pure(new HeapDatabaseDef[F](c)))
 
   /** Non-parameterized base for HeapDatabaseDef, providing table management operations
     * that do not depend on the effect type F. Used by HeapSessionDef. */
