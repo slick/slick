@@ -2,10 +2,10 @@ package com.typesafe.slick.docs
 
 import scala.collection.mutable.ArrayBuffer
 
-import _root_.cats.effect.unsafe.implicits.global
+import cats.effect.unsafe.implicits.global
 
 //#imports
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api.*
@@ -33,7 +33,7 @@ object PlainSQL {
     implicit val getCoffeeResult: GetResult[Coffee] = GetResult(r => Coffee(r.<<, r.<<, r.<<, r.<<, r.<<))
     //#getresult
 
-    cats.Database.resource(dc).use { db =>
+    Database.resource(dc).use { db =>
       val a: DBIO[Unit] = DBIO.seq(
         createSuppliers,
         createCoffees,

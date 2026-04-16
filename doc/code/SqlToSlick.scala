@@ -1,9 +1,9 @@
 package com.typesafe.slick.docs
 
-import _root_.cats.effect.IO
-import _root_.cats.effect.unsafe.implicits.global
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import slick.basic.BasicDatabaseConfig
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
@@ -48,7 +48,7 @@ object SqlToSlick {
   def main(args: Array[String]): Unit = {
     val dc: BasicDatabaseConfig[H2Profile] = DatabaseConfig.forProfileConfig(H2Profile, "h2mem1")
 
-    cats.Database.resource(dc).use { db =>
+    Database.resource(dc).use { db =>
       db.run(DBIO.seq(
         addresses.schema.create,
         people.schema.create,

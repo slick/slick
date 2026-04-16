@@ -11,7 +11,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import fs2.Stream
 
-import slick.cats
+import slick.cats.Database
 import slick.SlickTreeException
 import slick.basic.Capability
 import slick.dbio.*
@@ -128,7 +128,7 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     d
   }
 
-  lazy val db: cats.Database = cats.Database.fromCore(rawDb)
+  lazy val db: Database = Database.fromCore(rawDb)
 
   final def cleanup() = if(keepAliveSession ne null) {
     try if(tdb.isPersistent) tdb.dropUserArtifacts(keepAliveSession)

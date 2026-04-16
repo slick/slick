@@ -3,9 +3,9 @@ package com.typesafe.slick.docs
 //#imports
 import java.sql.Date
 
-import _root_.cats.effect.IO
-import _root_.cats.effect.unsafe.implicits.global
-import slick.cats
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import scala.reflect.ClassTag
 
@@ -173,7 +173,7 @@ object LiftedEmbedding {
     //#primarykey
     //#index
 
-    cats.Database.resource(dc).use { db =>
+    Database.resource(dc).use { db =>
       //#ddl
       val schema = coffees.schema ++ suppliers.schema
       //#ddl

@@ -6,7 +6,7 @@ import java.util.logging.{Level, Logger}
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.basic.Capability
 import slick.compiler.Phase
@@ -97,7 +97,7 @@ object StandardTestDBs {
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
       try {
         val dc = DatabaseConfig.forURL(profile, dropUrl, driver = jdbcDriver)
-        runIO(cats.Database.resource(dc).use { db =>
+        runIO(Database.resource(dc).use { db =>
           db.run(SimpleJdbcAction(_.connection))
         })
       }
@@ -113,7 +113,7 @@ object StandardTestDBs {
       val dropUrl = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";shutdown=true"
       try {
         val dc = DatabaseConfig.forURL(profile, dropUrl, driver = jdbcDriver)
-        runIO(cats.Database.resource(dc).use { db =>
+        runIO(Database.resource(dc).use { db =>
           db.run(SimpleJdbcAction(_.connection))
         })
       }
