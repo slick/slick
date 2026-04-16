@@ -1,8 +1,8 @@
 package com.typesafe.slick.docs
 
-import _root_.cats.effect.IO
-import _root_.cats.effect.unsafe.implicits.global
-import slick.cats
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
@@ -55,7 +55,7 @@ object OrmToSlick {
       def disjunction = new Criteria
     }
 
-    cats.Database.resource(dc).use { db =>
+    Database.resource(dc).use { db =>
       val setup = DBIO.seq(
         addresses.schema.create,
         people.schema.create,

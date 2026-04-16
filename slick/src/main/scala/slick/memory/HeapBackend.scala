@@ -14,7 +14,6 @@ import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
 import slick.util.Logging
 
-import com.typesafe.config.Config
 
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends RelationalBackend with Logging {
@@ -25,12 +24,6 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   val Database = new HeapDatabaseFactoryDef
   val backend: HeapBackend = this
-
-  @deprecated("Use slick.jdbc.DatabaseConfig.forConfig(...).makeDatabase", "4.0")
-  override def createDatabase[F[_]](config: Config, path: String, classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader)(implicit AF: Async[F]): Resource[F, Database[F]] = {
-    val dc = slick.basic.DatabaseConfig.forConfig[slick.memory.MemoryProfile](path, config, classLoader)
-    Resource.eval(makeDatabase[F](dc))
-  }
 
   override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
     Async[F].flatMap(Controls.create[F](Long.MaxValue, Long.MaxValue, Long.MaxValue))(c => Async[F].pure(new HeapDatabaseDef[F](c)))

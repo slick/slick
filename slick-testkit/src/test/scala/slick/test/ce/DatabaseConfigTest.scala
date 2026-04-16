@@ -4,7 +4,7 @@ import cats.effect.IO
 import com.typesafe.config.ConfigFactory
 import munit.CatsEffectSuite
 
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.JdbcProfile
 
@@ -43,7 +43,7 @@ class DatabaseConfigTest extends CatsEffectSuite {
 
   val dc = DatabaseConfig.forConfig[JdbcProfile]("mydb", h2Config)
 
-  val loadedDb = ResourceFunFixture(cats.Database.resource(dc))
+  val loadedDb = ResourceFunFixture(Database.resource(dc))
 
   loadedDb.test("resource returns a live database") { db =>
     IO(assertEquals(dc.profileName, "slick.jdbc.H2Profile"))

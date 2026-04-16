@@ -1,8 +1,8 @@
 package com.typesafe.slick.docs
 
-import _root_.cats.effect.IO
-import _root_.cats.effect.unsafe.implicits.global
-import slick.cats
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 
@@ -30,7 +30,7 @@ object GettingStartedOverview {
     val coffees = TableQuery[Coffees]
     //#quick-schema
 
-    cats.Database.resource(dc).use { db =>
+    Database.resource(dc).use { db =>
 
       //#quick-query
       db.run(

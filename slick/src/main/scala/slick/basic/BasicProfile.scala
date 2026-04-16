@@ -36,8 +36,6 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
   }
 
   trait BasicAPI extends Aliases with ExtensionMethodConversions {
-    type Database[F[_]] = backend.Database[F]
-    val Database = backend.Database
     type Session = backend.Session
     type SlickException = slick.SlickException
 
@@ -60,8 +58,8 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
   }
 
   /** The API for using the query language with a single import
-    * statement. This provides the profile's implicits, the Database API
-    * and commonly used query language types and objects. */
+    * statement. This provides the profile's implicits and commonly
+    * used query language types and objects. */
   val api: BasicAPI
 
   /** The compiler used for queries */

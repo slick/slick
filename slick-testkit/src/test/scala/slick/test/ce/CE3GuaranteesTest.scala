@@ -3,13 +3,13 @@ package slick.test.ce
 import java.util.concurrent.CancellationException
 
 import cats.effect.{Deferred, IO, Ref, Resource}
-import _root_.cats.syntax.parallel.*
+import cats.syntax.parallel.*
 import munit.CatsEffectSuite
 
 import scala.concurrent.duration._
 import slick.SlickException
 import com.typesafe.config.ConfigFactory
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api.*
@@ -37,18 +37,18 @@ class CE3GuaranteesTest extends CatsEffectSuite {
   }
 
   /** A database with a single connection slot — easy to saturate for backpressure tests. */
-  private val singleSlotResource: Resource[IO, cats.Database] =
-    cats.Database.resource(DatabaseConfig.forSource(H2Profile, h2Source("ce3test_single"), maxConnections = Some(1)))
+  private val singleSlotResource: Resource[IO, Database] =
+    Database.resource(DatabaseConfig.forSource(H2Profile, h2Source("ce3test_single"), maxConnections = Some(1)))
   val singleSlotDb = ResourceFunFixture(singleSlotResource)
 
   /** A database with several connection slots for concurrency tests. */
-  private val multiSlotResource: Resource[IO, cats.Database] =
-    cats.Database.resource(DatabaseConfig.forSource(H2Profile, h2Source("ce3test_multi"), maxConnections = Some(4)))
+  private val multiSlotResource: Resource[IO, Database] =
+    Database.resource(DatabaseConfig.forSource(H2Profile, h2Source("ce3test_multi"), maxConnections = Some(4)))
   val multiSlotDb = ResourceFunFixture(multiSlotResource)
 
   /** A database with strict admission controls for inflight/queue tests. */
   val admissionDb = ResourceFunFixture(
-    cats.Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
+    Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
       """
         |db {
         |  dataSourceClass = "org.h2.jdbcx.JdbcDataSource"
@@ -65,7 +65,7 @@ class CE3GuaranteesTest extends CatsEffectSuite {
 
   /** A database with short inflight admission timeout for timeout behavior tests. */
   val inflightTimeoutDb = ResourceFunFixture(
-    cats.Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
+    Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
       """
         |db {
         |  dataSourceClass = "org.h2.jdbcx.JdbcDataSource"
@@ -83,7 +83,7 @@ class CE3GuaranteesTest extends CatsEffectSuite {
 
   /** A database with short connection acquire timeout for timeout behavior tests. */
   val connectionTimeoutDb = ResourceFunFixture(
-    cats.Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
+    Database.resource(DatabaseConfig.forProfileConfig(H2Profile, "db", ConfigFactory.parseString(
       """
         |db {
         |  dataSourceClass = "org.h2.jdbcx.JdbcDataSource"

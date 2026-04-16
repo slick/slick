@@ -15,14 +15,11 @@ import slick.dbio.*
 import slick.util.*
 import slick.basic.ConcurrencyControl.*
 
-import com.typesafe.config.Config
 import org.slf4j.LoggerFactory
 
-import ClassLoaderUtil.defaultClassLoader
-
 /** Backend for the basic database and session handling features.
-  * Concrete backends like `JdbcBackend` extend this type and provide concrete
-  * types for `Database`, `DatabaseFactory` and `Session`. */
+   * Concrete backends like `JdbcBackend` extend this type and provide concrete
+   * types for `Database` and `Session`. */
 trait BasicBackend { self =>
   protected lazy val actionLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".action"))
   protected lazy val streamLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".stream"))
@@ -36,32 +33,13 @@ trait BasicBackend { self =>
 
   /** The type of database objects used by this backend, parameterized by effect type. */
   type Database[F[_]] >: Null <: BasicDatabaseDef[F]
-  /** The type of the database factory used by this backend. */
-  type DatabaseFactory >: Null
   /** The type of session objects used by this backend. */
   type Session >: Null <: BasicSessionDef
   /** The type of the context used for running SynchronousDatabaseActions */
   type Context >: Null <: BasicActionContext
 
-  /** The database factory */
-  val Database: DatabaseFactory
-
   /** Create a Database instance from a [[slick.basic.BasicDatabaseConfig]]. */
   def makeDatabase[F[_]: Async](config: BasicDatabaseConfig[?]): F[Database[F]]
-
-  /** Create a Database instance through [[https://github.com/typesafehub/config Typesafe Config]].
-    * The supported config keys are backend-specific. This method is used by `DatabaseConfig`.
-    *
-    * Returns a `Resource[F, Database[F]]` that manages the database lifecycle.
-    *
-    * @param path The path in the configuration file for the database configuration, or an empty
-    *             string for the top level of the `Config` object.
-    * @param config The `Config` object to read from.
-    * @param classLoader The ClassLoader to use for loading custom classes.
-    */
-  @deprecated("Use profile.backend.makeDatabase(slick.basic.DatabaseConfig.forConfig(...))", "4.0")
-  def createDatabase[F[_]: Async](config: Config, path: String, classLoader: ClassLoader = defaultClassLoader): Resource[F, Database[F]]
-
   // -----------------------------------------------------------------------
   // Execution state
   // -----------------------------------------------------------------------

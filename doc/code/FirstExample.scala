@@ -2,9 +2,9 @@ package com.typesafe.slick.docs
 
 //#imports
 // Use H2Profile to connect to an H2 database
-import _root_.cats.effect.IO
-import _root_.cats.effect.unsafe.implicits.global
-import slick.cats
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 //#imports
@@ -53,7 +53,7 @@ object FirstExample {
 
     // Connect to the database and execute the following block within a session
     //#setup
-    cats.Database.resource(dc).use { db =>
+    Database.resource(dc).use { db =>
     //#setup
 
       //#create

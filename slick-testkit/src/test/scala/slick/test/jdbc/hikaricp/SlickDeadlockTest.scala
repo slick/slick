@@ -5,11 +5,11 @@ import javax.sql.rowset.serial.SerialBlob
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import _root_.cats.syntax.parallel.*
+import cats.syntax.parallel.*
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import org.junit.{After, Before, Test}
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
@@ -31,7 +31,7 @@ class SlickDeadlockTest extends AsyncTest[JdbcTestDB] {
   }
 
 
-  var database: cats.Database = _
+  var database: Database = _
   var dbClose: IO[Unit] = _
   val testTable: TableQuery[TestTable] = TableQuery[TestTable]
   val blobTable: TableQuery[BlobTable] = TableQuery[BlobTable]
@@ -39,7 +39,7 @@ class SlickDeadlockTest extends AsyncTest[JdbcTestDB] {
   @Before
   def openDatabase() = {
     val dc = DatabaseConfig.forProfileConfig(H2Profile, "h2mem1")
-    val (db, close) = cats.Database.resource(dc).allocated.unsafeRunSync()
+    val (db, close) = Database.resource(dc).allocated.unsafeRunSync()
     database = db
     dbClose = close
     database.run((testTable.schema ++ blobTable.schema).create).unsafeRunSync()

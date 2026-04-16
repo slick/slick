@@ -2,7 +2,6 @@ package slick.codegen
 
 import java.net.URI
 
-import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 
 import slick.cats.Database
@@ -67,12 +66,12 @@ object SourceCodeGenerator {
   def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String], outputToMultipleFiles: Boolean): Unit = {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
-    val dbFactory = profileInstance.api.Database
-    dbFactory.forURL[IO](url, driver = jdbcDriver,
-                         user = user.getOrElse(null),
-                         password = password.getOrElse(null),
-                         keepAliveConnection = true
-    ).use { db =>
+    val dc = DatabaseConfig.forURL(profileInstance, url, driver = jdbcDriver,
+                                   user = user.getOrElse(null),
+                                   password = password.getOrElse(null),
+                                   keepAliveConnection = true)
+
+    Database.resource(dc).use { db =>
       db.run(profileInstance.createModel(None, ignoreInvalidDefaults).withPinnedSession)
         .map { m =>
           val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")

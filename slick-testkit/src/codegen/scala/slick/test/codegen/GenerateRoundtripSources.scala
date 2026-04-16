@@ -2,7 +2,7 @@ package slick.test.codegen
 
 import cats.effect.unsafe.implicits.global
 
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.codegen.SourceCodeGenerator
 import slick.jdbc.{H2Profile, JdbcProfile}
@@ -44,7 +44,7 @@ object GenerateRoundtripSources {
     })
     val a3 = profile.createModel(ignoreInvalidDefaults = false).map(m => new SourceCodeGenerator(m))
     val dc = DatabaseConfig.forURL(H2Profile, url = url, driver = jdbcDriver, keepAliveConnection = true)
-    val ((gen,gen2),gen3) = cats.Database.resource(dc).use { db =>
+    val ((gen,gen2),gen3) = Database.resource(dc).use { db =>
       db.run(ddl.create >> ((a1 zip a2) zip a3))
     }.unsafeRunSync()
     val pkg = "slick.test.codegen.roundtrip"

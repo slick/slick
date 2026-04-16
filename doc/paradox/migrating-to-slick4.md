@@ -38,8 +38,7 @@ only composes queries and runs them, the migration is largely mechanical.
 |------|-----------------|-----------------|
 | `db.run(a)` return type | `Future[R]` | `F[R]` (e.g. `IO[R]`) |
 | `db.stream(a)` return type | `DatabasePublisher[T]` | `Stream[F, T]` |
-| `Database` construction | `Database.forConfig("p")` returns `Database` | `DatabaseConfig.forConfig[P]("p").asResource[F]` returns `Resource[F, Database[F]]` |
-| `map`/`flatMap`/`filter`/`cleanUp`/`zipWith`/`DBIO.fold` | require `(implicit ec: ExecutionContext)` | no EC parameter |
+| `Database` construction | `Database.forConfig("p")` returns `Database` | `DatabaseConfig.forConfig[P]("p").asResource[F]` returns `Resource[F, Database[F]]` || `map`/`flatMap`/`filter`/`cleanUp`/`zipWith`/`DBIO.fold` | require `(implicit ec: ExecutionContext)` | no EC parameter |
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts any `F[R]` (CE3 effect) |
 | `DBIO.liftF` | did not exist | alias for `DBIO.from` |
 | `AsyncExecutor` | required for thread pool config | **removed** entirely |
@@ -482,7 +481,7 @@ HikariCP pool size can be set to whatever your database server supports.
 ### `Database.forXxx` factory methods
 
 `Database.forConfig`, `Database.forURL`, `Database.forDataSource`, and `Database.forName` are
-**deprecated** in Slick 4. Use `DatabaseConfig.forXxx` instead — see
+**removed** in Slick 4. Use `DatabaseConfig.forXxx` instead — see
 [Database Construction](#2-database-construction).
 
 ### `db.shutdown` and `db.close()`
@@ -713,5 +712,5 @@ If your project fails to compile after upgrading, use this table:
 | `value shutdown is not a member of Database` | method removed | Use `Resource.use`, `Resource.allocated` + `closeDb`, or `db.close()` — see [Database Construction](#2-database-construction) |
 | `object AsyncExecutor is not a member of package slick.util` | class removed | Remove all `AsyncExecutor` usage |
 | `value ioExecutionContext is not a member of Database` | field removed | Use `db.io(thunk)` |
-| `object Database is not a member of package slick.jdbc` or deprecation on `Database.forXxx` | `Database.forXxx` deprecated | Use `DatabaseConfig.forXxx` — see [Database Construction](#2-database-construction) |
+| `object Database is not a member of package slick.jdbc` or `value forConfig is not a member of ...` | `Database.forXxx` removed | Use `DatabaseConfig.forXxx` — see [Database Construction](#2-database-construction) |
 | `class JdbcDatabaseDef takes type parameters` on a variable type annotation | explicit `JdbcDatabaseDef` type annotation from Slick 3 | Change `val db: JdbcDatabaseDef` to `val db: Database[IO]` and migrate factory call to `DatabaseConfig` |
