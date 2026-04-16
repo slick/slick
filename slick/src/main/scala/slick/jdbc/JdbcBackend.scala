@@ -3,37 +3,24 @@ package slick.jdbc
 import scala.util.control.NonFatal
 import scala.concurrent.duration.FiniteDuration
 
-import java.util.Properties
 import java.sql.{Array => _, *}
-import javax.sql.DataSource
-import javax.naming.InitialContext
 
-import cats.effect.{Async, Resource}
+import cats.effect.Async
 
-import slick.SlickException
 import slick.relational.RelationalBackend
 import slick.basic.ConcurrencyControl.*
 import slick.util.*
 import slick.util.ConfigExtensionMethods.*
 
 import org.slf4j.LoggerFactory
-import com.typesafe.config.{ConfigFactory, Config}
 
 /** A JDBC-based database back-end that is used by [[slick.jdbc.JdbcProfile]]. */
 trait JdbcBackend extends RelationalBackend {
   type Database[F[_]] = JdbcDatabaseDef[F]
   type Session = JdbcSessionDef
-  type DatabaseFactory = DatabaseFactoryDef
   type Context = JdbcActionContext
 
-  val Database: DatabaseFactory = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
-
-  @deprecated("Use makeDatabase(slick.basic.DatabaseConfig.forConfig(...))", "4.0")
-  override def createDatabase[F[_]: Async](config: Config, path: String, classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Resource[F, Database[F]] = {
-    val dc = slick.basic.DatabaseConfig.forConfig[slick.jdbc.JdbcProfile](path, config, classLoader)
-    Resource.eval(makeDatabase[F](dc))
-  }
 
   override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] = {
     // If the config has a "db" sub-section use it (the {profile=..., db={...}} format),
@@ -83,7 +70,7 @@ trait JdbcBackend extends RelationalBackend {
   /** A JDBC database connected to a given DataSource.
     *
     * `F[_]` is the effect type (e.g. `cats.effect.IO`).
-    * Construct via `Database.forConfig[IO](...)` etc. — this returns a `Resource[IO, Database[IO]]`
+    * Construct via `DatabaseConfig.forConfig[IO](...)` etc. — this returns a `Resource[IO, Database[IO]]`
     * that manages connection pool lifecycle.
     */
   abstract class JdbcDatabaseDef[F[_]](
@@ -102,12 +89,6 @@ trait JdbcBackend extends RelationalBackend {
     /** Free all resources allocated by Slick for this Database object.
       * If this object represents a connection pool managed directly by Slick, it is also closed. */
     def close(): Unit = source.close()
-
-    /** Run a blocking thunk on the CE3 blocking thread pool.
-      *
-      * Useful for blocking JDBC work (e.g. materializing a LOB) that needs to happen outside
-      * a DBIO action. Equivalent to `cats.effect.Async[F].blocking(thunk)`. */
-    final def io[T](thunk: => T): F[T] = asyncF.blocking(thunk)
 
     // ------------------------------------------------------------------
     // Transaction helpers — called by the interpreter
@@ -152,149 +133,6 @@ trait JdbcBackend extends RelationalBackend {
       }
     }
 
-  }
-
-  // --------------------------------------------------------------------------
-  // DatabaseFactory
-  // --------------------------------------------------------------------------
-
-  @deprecated("Use slick.jdbc.DatabaseConfig factories with makeDatabase(...)", "4.0")
-  trait DatabaseFactoryDef {
-
-    /** Create a Database backed by a [[JdbcDataSource]].
-      * Returns a `Resource[G, Database[G]]` that manages source lifecycle.
-      *
-      * @param source          The underlying data source.
-      * @param maxConnections  The maximum number of concurrent connections available for work.
-      *                        When the source is a [[DataSourceJdbcDataSource]] with
-      *                        `keepAliveConnection` enabled, one additional connection is opened
-      *                        to keep named in-memory databases (e.g. H2, HSQLDB) alive; that
-      *                        connection is not counted against this limit.  If the underlying
-      *                        `DataSource` in that case is bounded (e.g. a connection pool), it
-      *                        must be sized to at least `maxConnections + 1` to accommodate the
-      *                        keep-alive connection.
-      */
-    def forSource[G[_]](
-      source: JdbcDataSource,
-      maxConnections: Option[Int] = None,
-      queueSize: Int = 1000,
-      maxInflightActions: Option[Int] = None,
-      inflightAdmissionTimeout: Option[FiniteDuration] = None,
-      connectionAcquireTimeout: Option[FiniteDuration] = None
-    )(implicit AG: Async[G]): Resource[G, Database[G]] = {
-      val n = maxConnections.getOrElse(20)
-      val maxInflight = math.max(n, maxInflightActions.getOrElse(n * 2))
-      require(n > 0, s"maxConnections must be > 0, got $n")
-      Resource.make(
-        AG.flatMap(Controls.create[G](n.toLong, queueSize.toLong, maxInflight.toLong, inflightAdmissionTimeout, connectionAcquireTimeout)) { controls =>
-          AG.pure(new JdbcDatabaseDef[G](source, controls)(AG) {})
-        }
-      )(db => AG.blocking(db.close())).evalTap { _ =>
-        // The keep-alive connection prevents named in-memory databases (e.g. H2, HSQLDB)
-        // from being destroyed when no other connections are open.  It is opened eagerly
-        // here so that the database survives the period between pool construction and the
-        // first DBIO action.  This connection is held for the lifetime of the database and
-        // is separate from the maxConnections working connections.
-        source match {
-          case ds: DataSourceJdbcDataSource if ds.keepAliveConnection =>
-            AG.blocking(ds.openKeepAlive())
-          case _ => AG.unit
-        }
-      }
-    }
-
-    /** Create a Database from a `javax.sql.DataSource`. */
-    def forDataSource[G[_]: Async](
-      ds: DataSource,
-      maxConnections: Option[Int],
-      keepAliveConnection: Boolean = false
-    ): Resource[G, Database[G]] =
-      forSource[G](new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections), maxConnections = maxConnections)
-
-    /** Create a Database based on the JNDI name of a DataSource. */
-    def forName[G[_]: Async](name: String, maxConnections: Option[Int]): Resource[G, Database[G]] =
-      new InitialContext().lookup(name) match {
-        case ds: DataSource =>
-          forDataSource[G](ds, maxConnections)
-        case x =>
-          throw new SlickException("Expected a DataSource for JNDI name " + name + ", but got " + x)
-      }
-
-    /** Create a Database using the DriverManager to open new connections. */
-    def forURL[G[_]: Async](
-      url: String,
-      user: String = null,
-      password: String = null,
-      prop: Properties = null,
-      driver: String = null,
-      keepAliveConnection: Boolean = false,
-      classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader
-    ): Resource[G, Database[G]] =
-      forDataSource[G](
-        new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader),
-        maxConnections = None,
-        keepAliveConnection = keepAliveConnection
-      )
-
-    /** Create a Database using the DriverManager with a property map. */
-    def forURL[G[_]: Async](url: String, prop: Map[String, String]): Resource[G, Database[G]] = {
-      val p = new Properties
-      if (prop ne null)
-        for ((k, v) <- prop) if (k.ne(null) && v.ne(null)) p.setProperty(k, v)
-      forURL[G](url, prop = p, driver = null)
-    }
-
-    /** Create a Database that directly uses a Driver to open new connections. */
-    def forDriver[G[_]: Async](
-      driver: Driver,
-      url: String,
-      user: String = null,
-      password: String = null,
-      prop: Properties = null
-    ): Resource[G, Database[G]] =
-      forDataSource[G](new DriverDataSource(url, user, password, prop, driverObject = driver), None)
-
-    /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
-      *
-      * Returns a `Resource[G, Database[G]]` — the Resource finalizer closes the connection pool.
-      *
-      * Supported config keys:
-      * <ul>
-      *   <li>`maxConnections` (Int, default 20) — max concurrent JDBC connections</li>
-      *   <li>`numThreads` (Int, legacy fallback) — treated as `maxConnections` when `maxConnections` is not set</li>
-      *   <li>`poolName` (String, optional) — name for logging</li>
-      * </ul>
-      *
-      * @param path   The path in the config file (e.g. `"mydb"`), or empty string for root.
-      * @param config The `Config` object to read from (defaults to `ConfigFactory.load()`).
-      * @param driver An optional JDBC driver to call directly.
-      * @param classLoader ClassLoader for custom classes.
-      */
-    def forConfig[G[_]: Async](
-      path: String,
-      config: Config = null,
-      driver: Driver = null,
-      classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader
-    ): Resource[G, Database[G]] = {
-      val initializedConfig = if (config eq null) ConfigFactory.load(classLoader) else config
-      val usedConfig = if (path.isEmpty) initializedConfig else initializedConfig.getConfig(path)
-      val source = JdbcDataSource.forConfig(usedConfig, driver, path, classLoader)
-      val configuredMaxConnections = usedConfig.getIntOpt("maxConnections").orElse(usedConfig.getIntOpt("numThreads")).getOrElse(20)
-      val maxConnections = source.maxConnections.getOrElse(configuredMaxConnections)
-      val queueSize = usedConfig.getIntOr("queueSize", 1000)
-      val maxInflightActions = usedConfig.getIntOpt("maxInflightActions")
-      val inflightAdmissionTimeout = usedConfig.getFiniteDurationOpt("inflightAdmissionTimeout")
-      val connectionAcquireTimeout = usedConfig.getFiniteDurationOpt("connectionAcquireTimeout")
-
-      forSource[G](
-        source,
-        maxConnections = Some(maxConnections),
-        queueSize = queueSize,
-        maxInflightActions = maxInflightActions,
-        inflightAdmissionTimeout = inflightAdmissionTimeout,
-        connectionAcquireTimeout = connectionAcquireTimeout
-      )
-    }
   }
 
   // --------------------------------------------------------------------------

@@ -11,7 +11,7 @@ import com.typesafe.config.ConfigFactory
 import org.junit.Assert.*
 import org.junit.Test
 import slick.basic.BasicDatabaseConfig
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.{H2Profile, JdbcProfile}
 
@@ -20,9 +20,9 @@ class DataSourceTest {
     MockDriver.getLast.getOrElse(throw new AssertionError("No connection data recorded"))
 
   private def withDb[P <: JdbcProfile, A](dc: BasicDatabaseConfig[P])
-                                   (f: (dc.profile.backend.Database[IO], cats.Database) => IO[A]): A = {
+                                   (f: (dc.profile.backend.Database[IO], Database) => IO[A]): A = {
     val rawDb = dc.profile.backend.makeDatabase[IO](dc).unsafeRunSync()
-    val db = cats.Database.fromCore(rawDb)
+    val db = Database.fromCore(rawDb)
     try f(rawDb, db).unsafeRunSync()
     finally rawDb.close()
   }

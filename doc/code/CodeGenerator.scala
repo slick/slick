@@ -4,7 +4,7 @@ package com.typesafe.slick.docs
 import slick.jdbc.H2Profile
 //#imports
 
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.codegen.SourceCodeGenerator
 
@@ -21,7 +21,7 @@ object CodeGenerator {
     if(false){
       implicit val runtime: _root_.cats.effect.unsafe.IORuntime = _root_.cats.effect.unsafe.IORuntime.global
       val dc = DatabaseConfig.forURL(H2Profile, "jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
-      cats.Database.resource(dc).use { db =>
+      Database.resource(dc).use { db =>
         //#default-runner-uri
         slick.codegen.SourceCodeGenerator.main(
           Array(uri, outputFolder)
