@@ -13,7 +13,6 @@ import slick.relational.RelationalBackend
 import slick.util.{CloseableIterator, Logging}
 import slick.basic.ConcurrencyControl.Controls
 
-import com.typesafe.config.Config
 
 /** The backend for DistributedProfile. */
 trait DistributedBackend extends RelationalBackend with Logging {
@@ -27,10 +26,6 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
   override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
     Async[F].raiseError(new SlickException("DistributedBackend cannot be configured with an external config file"))
-
-  @deprecated("Use slick.jdbc.DatabaseConfig.forConfig(...).makeDatabase", "4.0")
-  override def createDatabase[F[_]: Async](config: Config, path: String, classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader): Resource[F, Database[F]] =
-    Resource.eval(Async[F].raiseError(new SlickException("DistributedBackend cannot be configured with an external config file")))
 
   class DistributedDatabaseDef[F[_]](val dbs: Vector[BasicBackend#AnyDatabaseDef], override val controls: Controls[F])(implicit override val asyncF: cats.effect.Async[F])
     extends BasicDatabaseDef[F] {

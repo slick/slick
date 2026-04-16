@@ -7,7 +7,7 @@ import cats.effect.IO
 import cats.effect.Resource
 import cats.effect.unsafe.implicits.global
 
-import slick.cats
+import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.JdbcProfile
 import slick.memory.{DistributedBackend, DistributedProfile}
@@ -49,8 +49,8 @@ class DistributedQueryingTest {
     } yield (rawDb1, rawDb2)
 
     program.use { case (rawDb1, rawDb2) =>
-      val db1 = cats.Database.fromCore(rawDb1)
-      val db2 = cats.Database.fromCore(rawDb2)
+      val db1 = Database.fromCore(rawDb1)
+      val db2 = Database.fromCore(rawDb2)
       DistributedBackend.Database(Seq(rawDb1, rawDb2)).use { distributedDb =>
         for {
           _ <- {
