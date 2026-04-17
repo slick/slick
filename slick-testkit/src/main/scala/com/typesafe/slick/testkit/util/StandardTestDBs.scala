@@ -300,11 +300,12 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
       for {
         _ <- sqlu"""create table "__derby_dummy"(x integer primary key)""".asTry
         constraints <- sql"""select c.constraintname, t.tablename
-                             from sys.sysconstraints c, sys.sysschemas s, sys.systables t
-                             where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
-                          """.as[(String, String)]
+                              from sys.sysconstraints c, sys.sysschemas s, sys.systables t
+                              where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
+                              order by case when c.type = 'F' then 0 else 1 end, c.constraintname
+                           """.as[(String, String)]
         _ <- DBIO.seq((for ((c, t) <- constraints if !c.startsWith("SQL"))
-          yield sqlu"""alter table ${profile.quoteIdentifier(t)} drop constraint ${profile.quoteIdentifier(c)}""") *)
+          yield sqlu"""alter table #${profile.quoteIdentifier(t)} drop constraint #${profile.quoteIdentifier(c)}""") *)
         tables <- localTables
         sequences <- localSequences
         _ <- DBIO.sequence(
