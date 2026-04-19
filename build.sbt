@@ -325,6 +325,30 @@ lazy val hikaricp =
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
     )
 
+lazy val slickFuture =
+  project
+    .in(file("slick-future"))
+    .dependsOn(slick)
+    .settings(
+      slickGeneralSettings,
+      extTarget("slick-future"),
+      name := "Slick-Future",
+      description := "Future integration for Slick",
+      scaladocSourceUrl("slick-future"),
+      libraryDependencies ++=
+        Dependencies.junit ++:
+          Seq(
+            Dependencies.reactiveStreamsTCK,
+            Dependencies.scalatestplusTestNG,
+            Dependencies.logback,
+            Dependencies.h2,
+          ).map(_ % Test),
+      testFrameworks += new TestFramework("org.scalatest.tools.Framework"),
+      testOptions += Tests.Argument(Some(TestFrameworks.JUnit), List("-q", "-v", "-s", "-a")),
+      Test / parallelExecution := false,
+      commonTestResourcesSetting
+    )
+
 def writeToGitHubOutput(text: String, logger: Logger) = {
   val string = s"result=$text\n"
   logger.info(s"Writing to GitHub Actions output file: $string")
@@ -390,7 +414,7 @@ lazy val site: Project =
 lazy val root =
   project
     .in(file("."))
-    .aggregate(slick, codegen, hikaricp, testkit, site)
+    .aggregate(slick, codegen, hikaricp, testkit, slickFuture, site)
     .settings(
       name := "slick-root",
       slickGeneralSettings,
@@ -408,6 +432,7 @@ lazy val root =
         Def.sequential(
           testkit / Test / test,
           testkit / DocTest / test,
+          slickFuture / Test / test,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
