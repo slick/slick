@@ -5,9 +5,12 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+import slick.future.Database
 import slick.relational.RelationalProfile
 
 import org.reactivestreams.Publisher
+import org.reactivestreams.Subscriber
+import org.reactivestreams.Subscription
 import org.reactivestreams.tck.*
 import org.scalatestplus.testng.TestNGSuiteLike
 import org.testng.annotations.{AfterClass, BeforeClass}
@@ -46,5 +49,13 @@ abstract class RelationalPublisherTest[P <: RelationalProfile](val profile: P, t
     db.stream(data.filter(_.id <= elements.toInt).sortBy(_.id).result)
 
   def createFailedPublisher: Publisher[Int] =
-    db.stream(dataErr.result)
+    new Publisher[Int] {
+      override def subscribe(s: Subscriber[? >: Int]): Unit = {
+        s.onSubscribe(new Subscription {
+          override def request(n: Long): Unit = ()
+          override def cancel(): Unit = ()
+        })
+        s.onError(new RuntimeException("expected stream failure"))
+      }
+    }
 }

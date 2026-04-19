@@ -24,8 +24,8 @@ object Dependencies {
   }
   val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
   val fs2Core    = "co.fs2"        %% "fs2-core"    % "3.12.0"
-  val fs2ReactiveStreams = "co.fs2" %% "fs2-reactive-streams" % "3.12.0"
   val munitCatsEffect = "org.typelevel" %% "munit-cats-effect" % "2.1.0"
+  val scalatestplusTestNG = "org.scalatestplus" %% "testng-7-5" % "3.2.17.0"
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, catsEffect, fs2Core)
 
