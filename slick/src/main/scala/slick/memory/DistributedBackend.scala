@@ -55,12 +55,6 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
     def close(): Unit = ()
 
-    override protected def streamFromSDA[T](
-      a: slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], Context, Nothing],
-      session: Session,
-      state: ExecState
-    ): fs2.Stream[F, T] =
-      fs2.Stream.raiseError[F](new SlickException("DistributedBackend does not support streaming"))
   }
 
   class DistributedDatabaseFactoryDef {

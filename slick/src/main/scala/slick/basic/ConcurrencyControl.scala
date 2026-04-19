@@ -3,8 +3,8 @@ package slick.basic
 import cats.effect.kernel.Deferred
 import cats.effect.std.Semaphore
 import cats.effect.{Async, Ref}
-import cats.syntax.all.*
-import cats.effect.syntax.all.*
+import cats.syntax.all._
+import cats.effect.syntax.all._
 
 import scala.collection.immutable.TreeMap
 import scala.concurrent.duration.FiniteDuration

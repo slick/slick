@@ -143,12 +143,12 @@ trait BasicBackend { self =>
     /** Stream results of a streaming DBIOAction as an FS2 Stream.
       * Back-pressure is structural — the fiber suspends when the consumer is slow. */
     final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): Stream[F, T] =
-      Stream.bracketCase(admissionControl.inflightAcquire >> connectionArbiter.allocateOrdinal) { (_, _) =>
-        admissionControl.inflightRelease
-      }.flatMap { ordinal =>
-        Stream.eval(asyncF.ref(ExecState.initial(ordinal))).flatMap { ctx =>
-          streamInterpret[T](a, ctx)
-        }
+      Stream.bracketCase(acquireStreamContextAndIterator(a)) { case ((ctx, it), exitCase) =>
+        closeStreamIteratorAndRelease(ctx, it, exitCase)
+      }.flatMap { case (_, it) =>
+        Stream.repeatEval(asyncF.blocking {
+          if (it.hasNext) Some(it.next()) else None
+        }).unNoneTerminate
       }
 
     /** Number of currently free connection slots managed by the connection arbiter. */
@@ -360,15 +360,130 @@ trait BasicBackend { self =>
             F.uncancelable { poll =>
               acquiredSessionR(state.ordinal).allocated.flatMap { case (session, releaseAcquired) =>
                 installSession(ctx, state, session, releaseAcquired).flatMap { s1 =>
-                  poll(f(session, s1)).guarantee {
-                    ctx.get.flatMap { s2 =>
-                      if (!s2.pinned) releaseSession(ctx) else F.unit
-                    }
+                  val releaseIfUnpinned = ctx.get.flatMap { s2 =>
+                    if (!s2.pinned) releaseSession(ctx) else F.unit
                   }
+                  poll(f(session, s1)).guarantee(releaseIfUnpinned)
                 }
               }
             }
         }
+      }
+    }
+
+    /** Ensure that a session is installed in ExecState, acquiring one if needed.
+      *
+      * Unlike `withSession`, this does not scope the session to a callback. The session is
+      * left installed in `ctx` and must be released later via `releaseSession(ctx)`.
+      */
+    private def ensureSession(ctx: Ref[F, ExecState]): F[(Session, ExecState)] = {
+      val F = asyncF
+      ctx.get.flatMap { state =>
+        state.session match {
+          case Some(session) =>
+            F.pure((session.asInstanceOf[Session], state))
+
+          case None =>
+            F.uncancelable { _ =>
+              acquiredSessionR(state.ordinal).allocated.flatMap { case (session, releaseAcquired) =>
+                installSession(ctx, state, session, releaseAcquired).map(s1 => (session, s1))
+              }
+            }
+        }
+      }
+    }
+
+    private def acquireStreamContextAndIterator[T](a: DBIOAction[?, Streaming[T], Nothing]): F[(Ref[F, ExecState], CloseableIterator[T])] = {
+      val F = asyncF
+      F.uncancelable { _ =>
+        val acquire =
+          admissionControl.inflightAcquire >>
+            connectionArbiter.allocateOrdinal.flatMap { ordinal =>
+              F.ref(ExecState.initial(ordinal)).flatMap { ctx =>
+                interpretStream(a, ctx)
+                  .map(it => (ctx, it))
+                  .onError { case _ =>
+                    releaseStreamResources(ctx, succeeded = false, releaseInflight = false).attempt.void
+                  }
+                }
+            }
+
+        acquire.handleErrorWith { e =>
+          admissionControl.inflightRelease >> F.raiseError(e)
+        }
+      }
+    }
+
+    private def closeStreamIteratorAndRelease[T](ctx: Ref[F, ExecState], iterator: CloseableIterator[T], exitCase: Resource.ExitCase): F[Unit] = {
+      val succeeded = exitCase == Resource.ExitCase.Succeeded
+      asyncF.blocking(iterator.close()).attempt.void >>
+        releaseStreamResources(ctx, succeeded)
+    }
+
+    private def releaseStreamResources(ctx: Ref[F, ExecState], succeeded: Boolean, releaseInflight: Boolean = true): F[Unit] = {
+      val F = asyncF
+
+      def clearPinned: F[Unit] =
+        ctx.update(s => if (s.pinnedDepth == 0) s else s.copy(pinnedDepth = 0))
+
+      def unwindTx: F[Unit] =
+        ctx.get.flatMap { s =>
+          if (s.transactionDepth <= 0) F.unit
+          else exitTransactionScope(ctx, succeeded) >> unwindTx
+        }
+
+      unwindTx.attempt.void >>
+        clearPinned.attempt.void >>
+        releaseSession(ctx).attempt.void >>
+        (if (releaseInflight) admissionControl.inflightRelease else F.unit)
+    }
+
+    private def interpretStream[T](
+      a: DBIOAction[?, Streaming[T], Nothing],
+      ctx: Ref[F, ExecState]
+    ): F[CloseableIterator[T]] = {
+      val F = asyncF
+      a match {
+        case sa: SynchronousDatabaseAction[?, ?, ?, ?] if sa.supportsStreaming =>
+          ensureSession(ctx).flatMap { case (session, state) =>
+            F.blocking {
+              sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
+                .openStream(sessionAsContext(session, state))
+                .asInstanceOf[CloseableIterator[T]]
+            }
+          }
+
+        case sa: SynchronousDatabaseAction[?, ?, ?, ?] =>
+          interpretStream(
+            sa.nonFusedEquivalentAction.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]],
+            ctx
+          )
+
+        case AndThenAction(actions) =>
+          val prefix = actions.init.asInstanceOf[IndexedSeq[DBIOAction[Any, NoStream, Nothing]]]
+          val last = actions.last.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]]
+          val runPrefix = prefix.foldLeft(F.unit)((acc, act) => acc >> interpret[Any](act, ctx).void)
+          runPrefix >> interpretStream(last, ctx)
+
+        case FlatMapAction(base, f) =>
+          interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).flatMap { v =>
+            val next = f.asInstanceOf[Any => DBIOAction[?, Streaming[T], Nothing]](v)
+            interpretStream(next, ctx)
+          }
+
+        case NamedAction(inner, _) =>
+          interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
+
+        case PinnedSessionAction(inner) =>
+          ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth + 1)) >>
+            interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
+
+        case TransactionalAction(inner, isolationLevel) =>
+          enterTransactionScope(ctx, isolationLevel) >>
+            interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
+
+        case other =>
+          F.raiseError(new SlickException(s"Unsupported streaming action $other for $this"))
       }
     }
 
@@ -531,129 +646,6 @@ trait BasicBackend { self =>
       }
       } // end F.defer
     }
-
-    /** Like `withSession` but for streaming: acquires/reuses a session and passes it to `f`
-      * which returns a `Stream[F, T]`. The session is released (unless pinned) when the
-      * stream finishes, errors, or is cancelled.
-      *
-      * Uses `Stream.bracketCase` for the acquire-new-session path so that release is
-      * registered structurally at acquisition time, closing the cancellation windows that
-      * existed when staged `flatMap` + `onFinalize` were used:
-      *   - the gap between `acquiredSessionR.allocated` returning and `installSession`
-      *     completing (A3), and
-      *   - the gap between `installSession` completing and `onFinalize` being attached to
-      *     the downstream stream (A4). */
-    private def withSessionStream[T](
-      ctx: Ref[F, ExecState]
-    )(f: (Session, ExecState) => Stream[F, T]): Stream[F, T] = {
-      val F = asyncF
-      Stream.eval(ctx.get).flatMap { state =>
-        state.session match {
-          case Some(session) =>
-            // Reuse existing pinned/transactional session
-            f(session.asInstanceOf[Session], state)
-
-          case None =>
-            // bracketCase: acquire = allocated + install; release = releaseSession if unpinned.
-            // Both acquire and release are uncancelable by bracketCase semantics, so no gap
-            // can exist between the two.
-            Stream.bracketCase(
-              acquire = acquiredSessionR(state.ordinal).allocated.flatMap { case (session, releaseAcquired) =>
-                installSession(ctx, state, session, releaseAcquired).map(s1 => (session, s1))
-              }
-            )(
-              release = (_, _) =>
-                ctx.get.flatMap { s =>
-                  if (!s.pinned) releaseSession(ctx) else F.unit
-                }
-            ).flatMap { case (session, updatedState) =>
-              f(session, updatedState)
-            }
-        }
-      }
-    }
-
-    protected def streamInterpret[T](
-      a: DBIOAction[?, Streaming[T], Nothing],
-      ctx: Ref[F, ExecState]
-    ): Stream[F, T] = {
-      val F = asyncF
-      a match {
-        case sa: SynchronousDatabaseAction[?, ?, ?, ?]
-            if sa.supportsStreaming =>
-          withSessionStream[T](ctx) { (session, state) =>
-            val sda = sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
-            streamFromSDA[T](sda, session, state)
-          }
-
-        case sa: SynchronousDatabaseAction[?, ?, ?, ?] =>
-          // FusedAndThenAction (supportsStreaming = false): unfuse and recurse so that prefix
-          // actions run through the interpreter and the final streaming action is streamed.
-          streamInterpret[T](
-            sa.nonFusedEquivalentAction.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
-
-        case AndThenAction(actions) =>
-          // Run all prefix actions through the interpreter, then stream the last one.
-          val prefix = actions.init.asInstanceOf[IndexedSeq[DBIOAction[Any, NoStream, Nothing]]]
-          val last   = actions.last.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]]
-          if (prefix.isEmpty) streamInterpret[T](last, ctx)
-          else
-            Stream.eval(prefix.foldLeft(F.unit)((acc, act) =>
-              acc >> interpret[Any](act, ctx).void
-            )) >> streamInterpret[T](last, ctx)
-
-        case PinnedSessionAction(inner) =>
-          // bracketCase pairs the increment and decrement structurally, mirroring the
-          // TransactionalAction stream path.  Without this, cancellation between the
-          // Stream.eval(increment) and onFinalize attachment could leave pinnedDepth
-          // permanently > 0, preventing releaseSession from ever running.
-          Stream.bracketCase(
-            acquire = ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth + 1))
-          ) { (_, _) =>
-            ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth - 1)) >>
-            ctx.get.flatMap { s =>
-              if (!s.pinned) releaseSession(ctx) else F.unit
-            }
-          } >> streamInterpret[T](inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
-
-        case TransactionalAction(inner, isolationLevel) =>
-          // bracketCase pairs enterTransactionScope and exitTransactionScope structurally,
-          // closing the cancellation race window where depth was incremented but the
-          // finalizer was not yet registered.
-          Stream.bracketCase(enterTransactionScope(ctx, isolationLevel)) { (_, exitCase) =>
-            exitTransactionScope(ctx, succeeded = exitCase == Resource.ExitCase.Succeeded)
-          } >> streamInterpret[T](inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
-
-        case FlatMapAction(base, f) =>
-          // Run the (non-streaming) base through the interpreter, then recurse into
-          // streamInterpret for the produced streaming action.
-          Stream.eval(
-            interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
-          ).flatMap { v =>
-            val next = f.asInstanceOf[Any => DBIOAction[?, Streaming[T], Nothing]](v)
-            streamInterpret[T](next, ctx)
-          }
-
-        case NamedAction(inner, _) =>
-          streamInterpret[T](inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
-
-        case _ =>
-          // Non-SDA streaming action — fall back to running through interpreter and collecting.
-          // This path should not be reached for any first-class action type; it exists as a
-          // safety net for third-party DBIOAction subclasses that are not natively streamable.
-          Stream.eval(interpret[Seq[T]](
-            a.asInstanceOf[DBIOAction[Seq[T], NoStream, Nothing]], ctx
-          )).flatMap(seq => Stream.emits(seq))
-      }
-    }
-
-    /** Build an FS2 Stream from a SynchronousDatabaseAction.
-      * Must be implemented by each backend that supports streaming. */
-    protected def streamFromSDA[T](
-      a: SynchronousDatabaseAction[?, Streaming[T], Context, Nothing],
-      session: Session,
-      state: ExecState
-    ): Stream[F, T]
 
     /** Wrap a Session and ExecState as a Context for passing to SynchronousDatabaseAction.run. */
     protected def sessionAsContext(session: Session, state: ExecState): Context
