@@ -1,6 +1,5 @@
 import com.jsuereth.sbtpgp.PgpKeys
 
-
 val testAll = taskKey[Unit]("Run all tests")
 
 val cleanCompileTimeTests =
@@ -349,6 +348,32 @@ lazy val slickFuture =
       commonTestResourcesSetting
     )
 
+lazy val slickZio =
+  project
+    .in(file("slick-zio"))
+    .dependsOn(slick)
+    .settings(
+      slickGeneralSettings,
+      extTarget("slick-zio"),
+      name := "Slick-ZIO",
+      description := "ZIO integration for Slick",
+      scaladocSourceUrl("slick-zio"),
+      libraryDependencies ++= Seq(
+        Dependencies.zio,
+        Dependencies.zioStreams,
+        Dependencies.zioInteropCats,
+      ),
+      libraryDependencies ++= Seq(
+        Dependencies.zioTest,
+        Dependencies.zioTestSbt,
+        Dependencies.logback,
+        Dependencies.h2,
+      ).map(_ % Test),
+      testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+      Test / parallelExecution := false,
+      commonTestResourcesSetting
+    )
+
 def writeToGitHubOutput(text: String, logger: Logger) = {
   val string = s"result=$text\n"
   logger.info(s"Writing to GitHub Actions output file: $string")
@@ -414,7 +439,7 @@ lazy val site: Project =
 lazy val root =
   project
     .in(file("."))
-    .aggregate(slick, codegen, hikaricp, testkit, slickFuture, site)
+    .aggregate(slick, codegen, hikaricp, testkit, slickFuture, slickZio, site)
     .settings(
       name := "slick-root",
       slickGeneralSettings,
@@ -433,6 +458,7 @@ lazy val root =
           testkit / Test / test,
           testkit / DocTest / test,
           slickFuture / Test / test,
+          slickZio / Test / test,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
