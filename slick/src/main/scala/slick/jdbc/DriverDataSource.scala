@@ -128,7 +128,8 @@ class DriverDataSource(
 
   def close(): Unit = synchronized {
     if(registered && deregisterDriver && (driver ne null)) {
-      DriverManager.deregisterDriver(driver)
+      val isRegistered = DriverManager.getDrivers.asScala.exists(_ eq driver)
+      if(isRegistered) DriverManager.deregisterDriver(driver)
       registered = false
     }
   }
