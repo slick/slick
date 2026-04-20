@@ -282,7 +282,7 @@ All references to `drivers` from now on refer to JDBC drivers. Slick `profiles` 
 (like @scaladoc[JdbcProfile](slick.jdbc.JdbcProfile)) or concrete (like @scaladoc[H2Profile](slick.jdbc.H2Profile)). The old names are still
 available as deprecated forwarders.
 
-The renaming also affects configuration parameters (for example, for  @ref:[Databaseconfig](database.md#databaseconfig)).
+The renaming also affects configuration parameters (for example, in the @ref:[Database](database.md) chapter).
 The old parameter names are still supported but their use will generate warnings at runtime.
 
 ### Slick Extensions

@@ -53,6 +53,15 @@ object Connection {
       val dc = DatabaseConfig.forProfileConfig(H2Profile, "mydb")
       val db = Database.resource(dc)
       //#forConfig
+
+      //#catsManaged
+      val managedDb: Resource[IO, Database] = Database.resource(dc)
+      //#catsManaged
+
+      //#catsUnmanaged
+      val openedDb: IO[Database] = Database.make(dc)
+      //#catsUnmanaged
+
       // use `db` as a Resource: db.use { ... }
     }
     ;{
