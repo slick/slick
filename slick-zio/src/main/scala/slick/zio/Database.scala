@@ -67,8 +67,8 @@ object Database {
   // what the mutator object represents, so we intentionally do not buffer here.
   private def fromIteratorNoBuffering[T](it: Iterator[T]): ZStream[Any, Throwable, T] =
     ZStream.unfoldZIO(it) { i =>
-      ZIO.attempt(i.hasNext).flatMap { hasNext =>
-        if (hasNext) ZIO.attempt(Some((i.next(), i)))
+      ZIO.attemptBlocking(i.hasNext).flatMap { hasNext =>
+        if (hasNext) ZIO.attemptBlocking(Some((i.next(), i)))
         else ZIO.succeed(None)
       }
     }
