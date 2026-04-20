@@ -3,13 +3,14 @@ package slick.memory
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Try}
 
-import cats.effect.{Async, IO, Resource}
+import cats.effect.{Async, IO, Ref, Resource}
 
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.compat.collection.*
+import slick.dbio.{DBIOAction, Streaming}
 import slick.relational.RelationalBackend
-import slick.util.Logging
+import slick.util.{CloseableIterator, Logging}
 import slick.basic.ConcurrencyControl.Controls
 
 import com.typesafe.config.Config
@@ -54,6 +55,12 @@ trait DistributedBackend extends RelationalBackend with Logging {
     }
 
     def close(): Unit = ()
+
+    override protected def interpretStream[T](
+      a: DBIOAction[?, Streaming[T], Nothing],
+      ctx: Ref[F, ExecState]
+    ): F[CloseableIterator[T]] =
+      asyncF.raiseError(new SlickException("DistributedBackend does not support streaming"))
 
   }
 

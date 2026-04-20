@@ -438,7 +438,7 @@ trait BasicBackend { self =>
         (if (releaseInflight) admissionControl.inflightRelease else F.unit)
     }
 
-    private def interpretStream[T](
+    protected def interpretStream[T](
       a: DBIOAction[?, Streaming[T], Nothing],
       ctx: Ref[F, ExecState]
     ): F[CloseableIterator[T]] = {
@@ -483,7 +483,12 @@ trait BasicBackend { self =>
             interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
 
         case other =>
-          F.raiseError(new SlickException(s"Unsupported streaming action $other for $this"))
+          // Non-first-class / third-party streaming action: fall back to running through the
+          // regular interpreter, collecting results, and wrapping in a CloseableIterator.
+          // This preserves prior behaviour for library users whose DBIOAction subclasses do
+          // not match any of the known structural cases above.
+          interpret[Seq[T]](other.asInstanceOf[DBIOAction[Seq[T], NoStream, Nothing]], ctx)
+            .map(seq => CloseableIterator.wrap(seq.iterator))
       }
     }
 
