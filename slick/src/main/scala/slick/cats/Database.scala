@@ -7,7 +7,29 @@ import slick.ControlStatus
 import slick.dbio.{DBIOAction, NoStream, Streaming}
 
 /** Cats Effect / fs2 facade for Slick's effect-polymorphic database API. */
-trait Database extends slick.Database[IO, Database.StreamIO]
+trait Database extends slick.Database[IO, Database.StreamIO] {
+  /**
+    * Run a non-streaming action as `IO[R]`.
+    *
+    * The returned `IO` is lazy: the underlying `DBIOAction` starts when the `IO` is run,
+    * not when it is created.
+    *
+    * If the same `IO` value is run multiple times, each run performs a fresh, independent
+    * execution of the action.
+    */
+  override def run[R](a: DBIOAction[R, NoStream, Nothing]): IO[R]
+
+  /**
+    * Open a streaming action as an `fs2.Stream[IO, T]`.
+    *
+    * The returned stream is lazy: the underlying `DBIOAction` starts when the stream is
+    * consumed, not when it is created.
+    *
+    * If the same stream value is consumed multiple times, each consumption performs a fresh,
+    * independent execution of the action.
+    */
+  override def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): fs2.Stream[IO, T]
+}
 
 object Database {
   type StreamIO[A] = fs2.Stream[IO, A]
@@ -18,7 +40,7 @@ object Database {
     * This is a low-level escape hatch intended for integration points that already
     * have a `BasicBackend#BasicDatabaseDef[IO]`.
     *
-    * In regular application code, prefer [[resource]].
+    * In regular application code, prefer `resource`.
     */
   def fromCore(db: slick.basic.BasicBackend#BasicDatabaseDef[IO]): Database =
     new Database {
@@ -42,10 +64,10 @@ object Database {
   /**
     * Create a new database instance from a basic profile configuration.
     *
-    * The returned [[cats.effect.IO]] yields a fresh [[slick.cats.Database]].
+    * The returned `cats.effect.IO` yields a fresh [[slick.cats.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[resource]].
+    * If you want automatic lifecycle management, prefer `resource`.
     */
   def make[P <: slick.basic.BasicProfile](config: slick.basic.BasicDatabaseConfig[P]): IO[Database] =
     config.profile.backend.makeDatabase[IO](config).map(fromCore)
@@ -53,10 +75,10 @@ object Database {
   /**
     * Create a new database instance from a JDBC profile configuration.
     *
-    * The returned [[cats.effect.IO]] yields a fresh [[slick.cats.Database]].
+    * The returned `cats.effect.IO` yields a fresh [[slick.cats.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[resource]].
+    * If you want automatic lifecycle management, prefer `resource`.
     */
   def make[P <: slick.jdbc.JdbcProfile](config: slick.jdbc.JdbcDatabaseConfig[P]): IO[Database] =
     config.profile.backend.makeDatabase[IO](config).map(fromCore)

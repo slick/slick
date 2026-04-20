@@ -4,6 +4,13 @@ Queries
 This chapter describes how to write type-safe queries for selecting, inserting, updating and
 deleting data with Slick's Scala-based query API.
 
+In this chapter:
+
+- Build query expressions with `Rep` and `Query`.
+- Filter, sort, join, zip, union, and aggregate data.
+- Turn queries into executable actions.
+- Perform data modification operations (`insert`, `update`, `delete`).
+
 @@@ note
 In the code examples below we assume the following imports:
 
@@ -34,6 +41,8 @@ give us enough information for translating those computations to SQL.
 
 Expressions
 -----------
+
+Start here to understand the core query-building types and operators.
 
 Scalar (non-record, non-collection) values are represented by type `Rep[T]` for which an implicit
 `TypedType[T]` exists.
@@ -68,6 +77,8 @@ implicit conversion to `SingleColumnQueryExtensionMethods`.
 Sorting and Filtering
 ---------------------
 
+Use these operators to narrow and order result sets.
+
 There are various methods with sorting/filtering semantics (i.e. they take a
 `Query` and return a new `Query` of the same type), for example:
 
@@ -75,6 +86,8 @@ There are various methods with sorting/filtering semantics (i.e. they take a
 
 Joining and Zipping
 -------------------
+
+Use joins to combine data from multiple tables.
 
 Joins are used to combine two different tables or queries into a single query.
 There are two different ways of writing joins: *Applicative* and *monadic*.
@@ -139,6 +152,8 @@ so `zipWithIndex` is supported as a primitive operator:
 Unions
 ------
 
+Use unions to concatenate compatible query results.
+
 Two queries can be concatenated with the `++` (or `unionAll`) and `union`
 operators if they have compatible types:
 
@@ -149,6 +164,8 @@ the results of the individual queries, which is usually more efficient.
 
 Aggregation
 -----------
+
+Use aggregations to compute summary values such as counts and averages.
 
 The simplest form of aggregation consists of computing a primitive value from a
 Query that returns a single column, usually with a numeric type, e.g.:
@@ -175,6 +192,8 @@ as done in `q2`.
 Querying
 --------
 
+This is the bridge from query descriptions to executable `DBIOAction`s.
+
 A Query can be converted into an @scaladoc[Action](slick.dbio.DBIOAction) by calling its
 `result` method. The Action can then be  @ref:[executed](dbio.md#executing-database-actions) directly in a
 streaming or fully materialized way, or composed further with other Actions:
@@ -185,6 +204,8 @@ If you only want a single result value, you can call `head` or `headOption` on t
 
 Deleting
 --------
+
+Delete rows by first describing them with a query.
 
 Deleting works very similarly to querying. You write a query which selects the
 rows to delete and then get an Action by calling the `delete` method on it:
@@ -200,6 +221,8 @@ If you need to perform a join, you can `filter` based on another `Query`:
 
 Inserting
 ---------
+
+Insert rows from client values or from server-side query results.
 
 Inserts are done based on a projection of columns from a single table. When you use the table
 directly, the insert is performed against its `*` projection. Omitting some of a table's columns
@@ -257,6 +280,8 @@ In these cases, `AutoInc` columns are *not* ignored.
 Updating
 --------
 
+Update rows by selecting them with a query and applying an update projection.
+
 Updates are performed by writing a query that selects the data to update and
 then replacing it with new data. The query must only return raw columns (no
 computed values) selected from a single table. The relevant methods for
@@ -275,6 +300,8 @@ When you want to update multiple columns at once, just map to a tuple first:
 Upserting
 ---------
 
+Use upserts when you want "insert if absent, update if present" semantics.
+
 Upserting is performed by supplying a row to be either inserted or updated. The
 object must contain the table's primary key, since the update portion needs to
 be able to find a uniquely matching row.
@@ -283,6 +310,8 @@ be able to find a uniquely matching row.
 
 Compiled Queries
 ----------------
+
+Use compiled queries for frequently executed, parameterized query shapes.
 
 Database queries typically depend on some parameters, e.g. an ID for which
 you want to retrieve a matching database row. You can write a regular Scala

@@ -15,7 +15,7 @@ trait Database extends slick.Database[Future, DatabasePublisher] {
   /**
     * Run a non-streaming action as `Future[R]`.
     *
-    * Calling `run` executes the underlying `DBIOAction` immediately and returns a `Future`
+    * Calling `run` executes the underlying [[slick.dbio.DBIOAction]] immediately and returns a `Future`
     * for its completion.
     *
     * Calling `run` multiple times executes the action multiple times.
@@ -23,9 +23,9 @@ trait Database extends slick.Database[Future, DatabasePublisher] {
   override def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R]
 
   /**
-    * Open a streaming action as a Reactive Streams `DatabasePublisher[T]`.
+    * Open a streaming action as a Reactive Streams [[slick.future.DatabasePublisher]]`[T]`.
     *
-    * The underlying `DBIOAction` does not start until a `Subscriber` subscribes
+    * The underlying [[slick.dbio.DBIOAction]] does not start until a `Subscriber` subscribes
     * to the returned publisher.  Each subscription triggers an independent
     * execution of the action — subscribing to the same publisher twice runs the
     * action twice and produces two independent result streams.
@@ -61,7 +61,7 @@ object Database {
     * This is a low-level escape hatch intended for integration points that already
     * have a `BasicBackend#BasicDatabaseDef[IO]`.
     *
-    * In regular application code, prefer [[open]] or [[use]].
+    * In regular application code, prefer `open` or `use`.
     */
   def fromCore(db: slick.basic.BasicBackend#BasicDatabaseDef[IO]): Database =
     new Database {
@@ -104,22 +104,22 @@ object Database {
 
   /** Open a new database instance from a basic profile configuration.
     *
-    * The returned [[scala.concurrent.Future]] completes with a fresh
+    * The returned `scala.concurrent.Future` completes with a fresh
     * [[slick.future.Database]]. The caller is responsible for closing it by
     * calling `close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[use]].
+    * If you want automatic lifecycle management, prefer `use`.
     */
   def open[P <: BasicProfile](config: BasicDatabaseConfig[P]): Future[Database] =
     config.profile.backend.makeDatabase[IO](config).map(fromCore).unsafeToFuture()
 
   /** Open a new database instance from a JDBC profile configuration.
     *
-    * The returned [[scala.concurrent.Future]] completes with a fresh
+    * The returned `scala.concurrent.Future` completes with a fresh
     * [[slick.future.Database]]. The caller is responsible for closing it by
     * calling `close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[use]].
+    * If you want automatic lifecycle management, prefer `use`.
     */
   def open[P <: JdbcProfile](config: JdbcDatabaseConfig[P]): Future[Database] =
     config.profile.backend.makeDatabase[IO](config).map(fromCore).unsafeToFuture()
