@@ -21,8 +21,14 @@ trait DatabasePublisher[T] extends Publisher[T] { self =>
 
 /** A `DatabasePublisher` backed by an iterator and a release action.
   *
-  * Pass the tuple from `BasicDatabaseDef#stream(a).allocated` — `(Iterator[T], F[Unit])` —
-  * converted to `(Iterator[T], () => Unit)` by the caller.
+  * '''Internal use only.''' Instances are created exclusively by
+  * [[slick.future.Database.fromCore]] via `lazyPublisher`; each instance is
+  * single-use (one `subscribe` or one `foreach`).  A second `subscribe` call
+  * will signal `onError` to the second subscriber per the single-subscription
+  * contract.  Calling `foreach` and `subscribe` on the same instance, or
+  * calling `mapResult` and then subscribing to both the original and the
+  * derived publisher, is undefined behaviour — `it` and `release` are not
+  * safe for concurrent or repeated traversal.
   *
   * Elements are emitted strictly one at a time: `it.next()` is called only to produce the value
   * passed to the immediately following `subscriber.onNext(...)` call.  The iterator does not
@@ -31,15 +37,16 @@ trait DatabasePublisher[T] extends Publisher[T] { self =>
   * `java.sql.Blob`/`Clob` handles and `ResultSetMutator` objects remain valid during `onNext`.
   *
   * `release` is called exactly once when the stream completes, is cancelled, or errors.
-  *
-  * Single-subscription: a second `subscribe` call delivers an immediate `onError`.
+  * The caller must ensure `release` is idempotent.
   */
-final class DatabasePublisherImpl[T](
+private[future] final class DatabasePublisherImpl[T](
   it: Iterator[T],
   release: () => Unit
 ) extends DatabasePublisher[T] {
 
   private val subscribed = new AtomicBoolean(false)
+
+  private def tryRelease(): Unit = try release() catch { case _: Throwable => () }
 
   override def mapResult[U](f: T => U): DatabasePublisher[U] =
     new DatabasePublisherImpl[U](it.map(f), release)
@@ -47,7 +54,7 @@ final class DatabasePublisherImpl[T](
   override def foreach[U](f: T => U)(implicit ec: ExecutionContext): Future[Unit] =
     Future {
       try { it.foreach(f) }
-      finally { release() }
+      finally { tryRelease() }
     }
 
   override def subscribe(s: Subscriber[? >: T]): Unit = {
@@ -77,7 +84,7 @@ final class DatabasePublisherImpl[T](
         if (n <= 0) {
           if (!done) {
             done = true
-            try release() catch { case _: Throwable => () }
+            tryRelease()
             s.onError(new IllegalArgumentException(
               s"request must be called with a positive demand but got $n (Reactive Streams rule 3.9)"))
           }
@@ -92,35 +99,55 @@ final class DatabasePublisherImpl[T](
         // call from onNext), just return — the loop will see the updated demand and continue.
         if (!emitting.compareAndSet(false, true)) return
 
-        try {
-          // Emit one element at a time, consuming exactly one demand unit per element.
-          while (!cancelled && !done && demand.get() > 0 && it.hasNext) {
-            demand.decrementAndGet()
-            val elem = it.next()  // advance cursor …
-            s.onNext(elem)        // … immediately deliver to subscriber
-          }
-          if (!cancelled && !done && !it.hasNext) {
-            done = true
-            try release() catch { case _: Throwable => () }
-            s.onComplete()
-          }
-        } catch {
-          case t: Throwable =>
-            if (!done) {
-              done = true
-              try release() catch { case _: Throwable => () }
-              s.onError(t)
+        // Drain loop: after releasing the CAS we re-check whether demand arrived
+        // concurrently and re-enter if so, closing the window where a request()
+        // call sees emitting==true, backs off, but we have already decided to exit.
+        var continue = true
+        while (continue) {
+          try {
+            // Emit one element at a time, consuming exactly one demand unit per element.
+            while (!cancelled && !done && demand.get() > 0 && it.hasNext) {
+              demand.decrementAndGet()
+              s.onNext(it.next()) // advance cursor and immediately deliver to subscriber
             }
-        } finally {
+            if (!cancelled && !done && !it.hasNext) {
+              done = true
+              tryRelease()
+              s.onComplete()
+            } else if (cancelled && !done) {
+              done = true
+              tryRelease()
+            }
+          } catch {
+            case t: Throwable =>
+              if (!done) {
+                done = true
+                tryRelease()
+                s.onError(t)
+              }
+          }
+          // Release the CAS, then check if there is new demand (or the stream is
+          // already terminal). If so, try to re-acquire immediately so no pending
+          // request() call is left stranded with no thread to serve it.
           emitting.set(false)
+          continue = !done && !cancelled && demand.get() > 0 && it.hasNext &&
+            emitting.compareAndSet(false, true)
         }
       }
 
       override def cancel(): Unit = {
         cancelled = true
-        if (!done) {
+        // If the emit loop is running it will observe cancelled==true on its next
+        // iteration and call tryRelease() itself when it exits.  We only need to
+        // release here when no loop is running, which we detect by successfully
+        // claiming the emitting CAS.  If we cannot claim it the loop is active and
+        // will take care of cleanup.
+        if (!done && emitting.compareAndSet(false, true)) {
+          // We own the emitting flag now; no loop will start. Release and hand
+          // the flag back.
           done = true
-          try release() catch { case _: Throwable => () }
+          emitting.set(false)
+          tryRelease()
         }
       }
     }

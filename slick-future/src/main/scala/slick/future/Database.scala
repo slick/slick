@@ -76,10 +76,22 @@ object Database {
 
       private def lazyPublisher[T](acquire: () => DatabasePublisher[T]): DatabasePublisher[T] =
         new DatabasePublisher[T] {
-          override def subscribe(s: org.reactivestreams.Subscriber[? >: T]): Unit =
-            acquire().subscribe(s)
+          override def subscribe(s: org.reactivestreams.Subscriber[? >: T]): Unit = {
+            val pub =
+              try acquire()
+              catch {
+                case t: Throwable =>
+                  s.onSubscribe(new org.reactivestreams.Subscription {
+                    override def request(n: Long): Unit = ()
+                    override def cancel(): Unit = ()
+                  })
+                  s.onError(t)
+                  return
+              }
+            pub.subscribe(s)
+          }
           override def foreach[U](f: T => U)(implicit ec: ExecutionContext): Future[Unit] =
-            acquire().foreach(f)
+            Future(acquire()).flatMap(_.foreach(f))
           override def mapResult[U](f: T => U): DatabasePublisher[U] =
             lazyPublisher(() => acquire().mapResult(f))
         }
@@ -136,12 +148,10 @@ object Database {
 
   private def withOpened[T](opened: => Future[Database])(f: Database => Future[T])(implicit ec: ExecutionContext): Future[T] =
     opened.flatMap { db =>
+      def tryClose(): Unit = try db.close() catch { case _: Throwable => () }
       val fut =
         try f(db)
         catch { case t: Throwable => Future.failed(t) }
-      fut.transform(
-        { s => db.close(); s },
-        { e => db.close(); e }
-      )
+      fut.andThen { case _ => tryClose() }
     }
 }
