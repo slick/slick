@@ -12,7 +12,7 @@ import slick.basic.ConcurrencyControl.Controls
 import slick.compat.collection.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
-import slick.util.{CloseableIterator, Logging}
+import slick.util.Logging
 
 import com.typesafe.config.Config
 
@@ -53,25 +53,6 @@ trait HeapBackend extends RelationalBackend with Logging {
         override def session: Session = s
         override def transactionDepth: Int = depth
         override def isPinned: Boolean = pinned
-      }
-    }
-
-    override protected def streamFromSDA[T](
-      a: slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], Context, Nothing],
-      session: Session,
-      state: ExecState
-    ): fs2.Stream[F, T] = {
-      val sda = a.asInstanceOf[slick.dbio.SynchronousDatabaseAction[?, slick.dbio.Streaming[T], BasicActionContext, Nothing]]
-      val ctx = sessionAsContext(session, state)
-
-      fs2.Stream.resource(
-        Resource.make(
-          asyncF.blocking(sda.openStream(ctx).asInstanceOf[CloseableIterator[T]])
-        )(it => asyncF.blocking(it.close()))
-      ).flatMap { it =>
-        fs2.Stream.repeatEval(asyncF.blocking {
-          if (it.hasNext) Some(it.next()) else None
-        }).unNoneTerminate
       }
     }
 

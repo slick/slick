@@ -10,9 +10,6 @@ import javax.naming.InitialContext
 
 import cats.effect.{Async, Resource}
 
-import fs2.Stream
-
-import slick.dbio.*
 import slick.SlickException
 import slick.relational.RelationalBackend
 import slick.basic.ConcurrencyControl.*
@@ -107,29 +104,6 @@ trait JdbcBackend extends RelationalBackend {
       }
     }
 
-    // ------------------------------------------------------------------
-    // Streaming
-    // ------------------------------------------------------------------
-
-    override protected def streamFromSDA[T](
-      a: SynchronousDatabaseAction[?, Streaming[T], Context, Nothing],
-      session: Session,
-      state: ExecState
-    ): Stream[F, T] = {
-      val F = asyncF
-      val sda = a.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], JdbcActionContext, Nothing]]
-      val ctx = sessionAsContext(session, state)
-
-      Stream.resource(
-        Resource.make(
-          F.blocking(sda.openStream(ctx).asInstanceOf[CloseableIterator[T]])
-        )(it => F.blocking(it.close()))
-      ).flatMap { it =>
-        Stream.repeatEval(F.blocking {
-          if (it.hasNext) Some(it.next()) else None
-        }).unNoneTerminate
-      }
-    }
   }
 
   // --------------------------------------------------------------------------
