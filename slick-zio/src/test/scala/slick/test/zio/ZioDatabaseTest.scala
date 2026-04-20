@@ -38,12 +38,16 @@ class ZioDatabaseTest extends ZIOSpecDefault {
         ZIO.scoped {
           for {
             db <- Database.scoped(dc)
-            _ <- db.run(rows.schema.create)
-            _ <- db.run(DBIO.sequence((1 to 5).map(rows += _)))
-            runResult <- db.run(rows.sortBy(_.v).result)
-            streamResult <- db.stream(rows.sortBy(_.v).result).runCollect
-            _ <- db.run(rows.schema.drop)
-          } yield assertTrue(runResult == Vector(1, 2, 3, 4, 5), streamResult.toVector == Vector(1, 2, 3, 4, 5))
+            result <- (
+              for {
+                _ <- db.run(rows.schema.dropIfExists)
+                _ <- db.run(rows.schema.createIfNotExists)
+                _ <- db.run(DBIO.sequence((1 to 5).map(rows += _)))
+                runResult <- db.run(rows.sortBy(_.v).result)
+                streamResult <- db.stream(rows.sortBy(_.v).result).runCollect
+              } yield assertTrue(runResult == Vector(1, 2, 3, 4, 5), streamResult.toVector == Vector(1, 2, 3, 4, 5))
+            ).ensuring(db.run(rows.schema.dropIfExists).ignore)
+          } yield result
         }
       }
     )
