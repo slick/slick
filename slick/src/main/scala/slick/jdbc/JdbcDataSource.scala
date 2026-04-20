@@ -79,8 +79,11 @@ class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Bool
     c
   }
 
-  def close(): Unit = {
-    try if(keepAliveConnection && (openedKeepAliveConnection ne null)) openedKeepAliveConnection.close()
+  def close(): Unit = synchronized {
+    try if(keepAliveConnection && (openedKeepAliveConnection ne null)) {
+      openedKeepAliveConnection.close()
+      openedKeepAliveConnection = null
+    }
     finally ds match {
       case ds: Closeable => ds.close()
       case _ =>

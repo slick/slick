@@ -56,7 +56,7 @@ class DriverDataSource(
   def setDriver(s: String): Unit = driverClassName = s
 
   // State that gets initialized by `init`
-  @volatile private[this] var registered: Boolean = false
+  private[this] var registered: Boolean = false
   @volatile private[this] var initialized = false
   @volatile private[this] var driver: Driver = _
   @volatile private[this] var connectionProps: Properties = _
@@ -123,9 +123,11 @@ class DriverDataSource(
     driver.connect(url, propsWithUserAndPassword(connectionProps, username, password))
   }
 
-  def close(): Unit = if(registered && deregisterDriver && (driver ne null)) {
-    DriverManager.deregisterDriver(driver)
-    registered = false
+  def close(): Unit = synchronized {
+    if(registered && deregisterDriver && (driver ne null)) {
+      DriverManager.deregisterDriver(driver)
+      registered = false
+    }
   }
 
   def getLoginTimeout: Int = DriverManager.getLoginTimeout
