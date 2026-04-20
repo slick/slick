@@ -35,6 +35,21 @@ inThisBuild(
   )
 )
 
+// Add cross-module scaladoc links from a dependent module back to the core slick API.
+// For Scala 2, -doc-external-doc maps a classpath entry (the slick classes dir) to its scaladoc URL.
+// For Scala 3, -external-mappings does the equivalent.
+def scaladocSlickLinks =
+  Compile / doc / scalacOptions ++= {
+    val slickClasses = (slick / Compile / classDirectory).value
+    val slickApi     = (slick / Compile / doc / target).value
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((3, _)) =>
+        Seq(s"-external-mappings:${slickClasses.toURI}::${slickApi.toURI}")
+      case _ =>
+        Seq(s"-doc-external-doc:${slickClasses.getAbsolutePath}#${slickApi.toURI}")
+    }
+  }
+
 def scaladocSourceUrl(dir: String) =
   Compile / doc / scalacOptions ++= {
     val ref = Versioning.currentRef(baseDirectory.value)
@@ -326,6 +341,7 @@ lazy val hikaricp =
       name := "Slick-HikariCP",
       description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-hikaricp"),
+      scaladocSlickLinks,
       test := {}, testOnly := {}, // suppress test status output
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
     )
@@ -340,6 +356,7 @@ lazy val slickFuture =
       name := "Slick-Future",
       description := "Future integration for Slick",
       scaladocSourceUrl("slick-future"),
+      scaladocSlickLinks,
       libraryDependencies ++=
         Dependencies.junit ++:
           Seq(
@@ -364,6 +381,7 @@ lazy val slickZio =
       name := "Slick-ZIO",
       description := "ZIO integration for Slick",
       scaladocSourceUrl("slick-zio"),
+      scaladocSlickLinks,
       libraryDependencies ++= Seq(
         Dependencies.zio,
         Dependencies.zioStreams,
