@@ -73,15 +73,20 @@ class DriverDataSource(
                 DriverManager.getDrivers.asScala.find(_.getClass.getName == driverClassName).getOrElse {
                   logger.debug(s"Driver $driverClassName not already registered; trying to load it")
                   val cl = classLoader.loadClass(driverClassName)
-                  registered = true
-                  DriverManager.getDrivers.asScala.find(_.getClass.getName == driverClassName).getOrElse {
-                    logger.debug(s"Loaded driver $driverClassName but it did not register with DriverManager; trying to instantiate directly")
-                    try cl.getConstructor().newInstance().asInstanceOf[Driver] catch { case ex: Exception =>
-                      logger.debug(s"Instantiating driver class $driverClassName failed; asking DriverManager to handle URL $url", ex)
-                      try DriverManager.getDriver(url) catch { case ex: Exception =>
-                        throw new SlickException(s"Driver $driverClassName does not know how to handle URL $url", ex)
+                  DriverManager.getDrivers.asScala.find(_.getClass.getName == driverClassName) match {
+                    case Some(d) =>
+                      registered = true
+                      d
+                    case None =>
+                      logger.debug(s"Loaded driver $driverClassName but it did not register with DriverManager; trying to instantiate directly")
+                      val d = try cl.getConstructor().newInstance().asInstanceOf[Driver] catch { case ex: Exception =>
+                        logger.debug(s"Instantiating driver class $driverClassName failed; asking DriverManager to handle URL $url", ex)
+                        try DriverManager.getDriver(url) catch { case ex: Exception =>
+                          throw new SlickException(s"Driver $driverClassName does not know how to handle URL $url", ex)
+                        }
                       }
-                    }
+                      registered = true
+                      d
                   }
                 }
               } else try DriverManager.getDriver(url) catch { case ex: Exception =>
@@ -123,9 +128,12 @@ class DriverDataSource(
     driver.connect(url, propsWithUserAndPassword(connectionProps, username, password))
   }
 
-  def close(): Unit = if(registered && deregisterDriver && (driver ne null)) {
-    DriverManager.deregisterDriver(driver)
-    registered = false
+  def close(): Unit = synchronized {
+    if(registered && deregisterDriver && (driver ne null)) {
+      val isRegistered = DriverManager.getDrivers.asScala.exists(_ eq driver)
+      if(isRegistered) DriverManager.deregisterDriver(driver)
+      registered = false
+    }
   }
 
   def getLoginTimeout: Int = DriverManager.getLoginTimeout

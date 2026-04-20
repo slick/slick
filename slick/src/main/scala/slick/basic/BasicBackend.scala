@@ -123,7 +123,11 @@ trait BasicBackend { self =>
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
-    /** Free all resources allocated by Slick for this Database. */
+    /** Free all resources allocated by Slick for this Database.
+      *
+      * Implementations must be idempotent (safe to call more than once) and thread-safe
+      * (safe to call concurrently from multiple threads). A second or concurrent call must
+      * not throw an exception and must not corrupt the state of any remaining resources. */
     override def close(): Unit
 
     // ------------------------------------------------------------------
