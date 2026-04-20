@@ -16,7 +16,8 @@ sample plus an @extref[sbt](sbt:) launcher.
 * The @extref[**TestKit** sample](samplerepo:slick-testkit-example) shows you how to use Slick TestKit to test your own
   database profiles.
 
-## Hello Slick
+Hello Slick
+-----------
 
 The *Hello Slick* sample contains simple Scala application, `HelloSlick.scala`, that does basic FRM operations with
 Slick. You can run it out of the box with `sbt run`. To make things simple this project uses an embedded in-memory
@@ -30,7 +31,8 @@ The example code in this app has intentionally verbose type information. In norm
 is used more extensively but to assist with learning the type information was included. 
 @@@
 
-## Adding Slick to Your Project
+Adding Slick to Your Project
+----------------------------
 
 To include Slick in an existing project use the library published on Maven Central. Add the following to your
 build definition (`build.sbt` for @extref[sbt](sbt:) or `pom.xml` for Maven):
@@ -84,12 +86,17 @@ implementation. *Hello Slick* uses `slf4j-nop` to disable logging. You have
 to replace this with a real logging framework like @extref[Logback](logback:) if you want to see
 log output.
 
+This guide uses the `slick.cats.Database` facade (`IO` + FS2). If you prefer
+`scala.concurrent.Future` or ZIO, see @ref:[Database](database.md) for equivalent
+setup and usage with `slick.future.Database` and `slick.zio.Database`.
+
 If you want to use Slick's connection pool support for @extref[HikariCP](hikaricp:), you need to add
 the `slick-hikaricp` module as a dependency as shown above. It will automatically
 provide a compatible version of HikariCP as a transitive dependency. Otherwise, you
 might need to disable connection pooling or specify a third-party connection pool.
 
-## Quick Introduction
+Quick Introduction
+------------------
 
 To use Slick you first need to import the API for the database you will be using, like:
 
@@ -116,10 +123,11 @@ The `keepAliveConnection` option (which is only available without a connection p
 open for the lifetime of the `Database` object in the application. This ensures that the
 database does not get dropped while we are using it.
 
-*Hello Slick* is a standalone command-line application. `DatabaseConfig.forConfig[JdbcProfile]`
-returns a `DatabaseConfig`, and `.asResource[IO]` returns a `Resource[IO, Database[IO]]` that
-manages the connection pool lifecycle. We use `.use` to run the
-program with the database and release all resources automatically:
+*Hello Slick* is a standalone command-line application. `DatabaseConfig.forProfileConfig`
+returns a `DatabaseConfig`, and `Database.resource(dc)` returns a
+`Resource[IO, Database]` that manages the connection pool lifecycle. We use
+`.use` to run the program with the database and release all resources
+automatically:
 
 @@snip [FirstExample.scala](../code/FirstExample.scala) { #setup }
 
@@ -213,7 +221,7 @@ only the resulting concatenated string is shipped to the client. Note that we av
 there is no automatic conversion of other argument types to strings. This has to be done explicitly with the
 type conversion method `asColumnOf`.
 
-This time we also use @extref[FS2](fs2:) streaming to get elements from the database one at a time instead of
+This time we also use streaming to get elements from the database one at a time instead of
 materializing the whole result set upfront.
 
 Joining and filtering tables is done the same way as when working with Scala collections:

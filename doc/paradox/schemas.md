@@ -6,6 +6,13 @@ them manually, which is useful when you start writing an application without a p
 If you already have a schema in the database, you can also use the  @ref:[code generator](code-generation.md)
 to take this work off your hands.
 
+In this chapter:
+
+- Define tables and columns.
+- Map table rows to tuples or case classes.
+- Declare constraints and indexes.
+- Generate and inspect DDL statements.
+
 @@@ note
 In the code examples below we assume the following imports:
 
@@ -16,6 +23,8 @@ If you're new to Slick, please start with the  @ref:[Getting Started](gettingsta
 
 Table Rows
 ----------
+
+Start here to define table structure and column types.
 
 In order to use the Scala API for type-safe queries, you need to
 define `Table` row classes for your database schema. These describe the
@@ -84,6 +93,8 @@ name for a table in front of the table name, wrapped in `Some()`:
 Table Query
 -----------
 
+Create `TableQuery` values to represent and query table collections.
+
 Alongside the `Table` row class you also need a `TableQuery` value
 which represents the actual database table:
 
@@ -100,6 +111,8 @@ additional functionality associated with the table:
 
 Mapped Tables
 -------------
+
+Use mapped tables when your `*` projection should be a case class or custom type.
 
 It is possible to define a mapped table that uses a custom type for its `*`
 projection by adding a bi-directional mapping to the custom type.
@@ -161,6 +174,8 @@ object User {
 Constraints
 -----------
 
+Define foreign keys, primary keys, and indexes close to your table definitions.
+
 A foreign key constraint can be defined with a Table's
 @scaladoc[foreignKey](slick.relational.RelationalTableComponent$Table#foreignKey[P,PU,TT%3C:AbstractTable[_],U](String,P,TableQuery[TT])((TT)=%3EP,ForeignKeyAction,ForeignKeyAction)(Shape[_%3C:FlatShapeLevel,TT,U,_],Shape[_%3C:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U])
 method. It first takes a name for the constraint, the referencing column(s) and the referenced table. The second
@@ -195,6 +210,8 @@ can be customized by overriding the `tableConstraints` method.
 
 Data Definition Language
 ------------------------
+
+Use schema DDL actions to create, drop, and inspect database objects.
 
 DDL statements for a table can be created with its `TableQuery`'s `schema` method. Multiple
 `DDL` objects can be concatenated with `++` to get a compound `DDL` object which can create

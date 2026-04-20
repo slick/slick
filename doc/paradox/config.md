@@ -57,11 +57,11 @@ Slick does not expose its own JMX bean in Slick 4. Observability is provided at 
 
 1. **Connection pool (HikariCP)**: When a @ref:[Database](database.md) object has the `registerMbeans` option
    enabled, the @extref[HikariCP](hikaricp:) pool implementation registers @extref[JMX](jmx:) management beans.
-   See [HikariCP Monitoring] in the HikariCP documentation for details.
+   See the @extref[HikariCP monitoring documentation](hikaricp:) for details.
 
-2. **Effect runtime**: Cats Effect 3 runtimes (including the default `IORuntime`) expose metrics through
-   standard JVM tooling. If you are using a framework like http4s, refer to its documentation for
-   integrating metrics (e.g., via Micrometer or Prometheus) with the CE3 runtime.
+2. **Application runtime**: Runtime-level metrics depend on the facade and runtime you use (for example,
+   Cats Effect, ZIO, or framework-provided runtime tooling). Use your runtime's standard observability
+   integration (for example, Micrometer or Prometheus).
 
 In addition to pool/runtime observability, Slick 4's execution limits are configured directly on
 the database config section:
@@ -80,7 +80,8 @@ When configured timeout limits are exceeded, Slick fails with `SlickException` a
 - `SlickException("Timed out waiting for inflight admission after ...")`
 - `SlickException("Timed out waiting for connection slot after ...")`
 
-Slick also exposes runtime concurrency gauges on `Database[F]`:
+Slick exposes runtime concurrency counters through `Database[F].controlStatus`.
+The returned snapshot contains:
 
 - `availableConnectionSlots`: free connection slots in the connection arbiter.
 - `pendingConnectionSlots`: callers currently waiting for a connection slot.

@@ -16,7 +16,7 @@ trait Database extends slick.Database[Task, Database.StreamTask] {
   /**
     * Run a non-streaming action as `Task[R]`.
     *
-    * The returned `Task` is lazy: the underlying `DBIOAction` starts when the `Task` is run,
+    * The returned `Task` is lazy: the underlying [[slick.dbio.DBIOAction]] starts when the `Task` is run,
     * not when it is created.
     *
     * If the same `Task` value is run multiple times, each run performs a fresh, independent
@@ -27,7 +27,7 @@ trait Database extends slick.Database[Task, Database.StreamTask] {
   /**
     * Open a streaming action as a `ZStream[Any, Throwable, T]`.
     *
-    * The returned stream is lazy: the underlying `DBIOAction` starts when the stream is
+    * The returned stream is lazy: the underlying [[slick.dbio.DBIOAction]] starts when the stream is
     * consumed, not when it is created.
     *
     * If the same stream value is consumed multiple times, each consumption performs a fresh,
@@ -45,7 +45,7 @@ object Database {
     * This is a low-level escape hatch intended for integration points that already
     * have a `BasicBackend#BasicDatabaseDef[Task]`.
     *
-    * In regular application code, prefer [[scoped]].
+    * In regular application code, prefer `scoped`.
     */
   def fromCore(db: slick.basic.BasicBackend#BasicDatabaseDef[Task]): Database =
     new Database {
@@ -76,10 +76,10 @@ object Database {
   /**
     * Create a new database instance from a basic profile configuration.
     *
-    * The returned [[zio.Task]] yields a fresh [[slick.zio.Database]].
+    * The returned `zio.Task` yields a fresh [[slick.zio.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[scoped]].
+    * If you want automatic lifecycle management, prefer `scoped`.
     */
   def make[P <: BasicProfile](config: BasicDatabaseConfig[P]): Task[Database] =
     config.profile.backend.makeDatabase[Task](config).map(fromCore)
@@ -87,10 +87,10 @@ object Database {
   /**
     * Create a new database instance from a JDBC profile configuration.
     *
-    * The returned [[zio.Task]] yields a fresh [[slick.zio.Database]].
+    * The returned `zio.Task` yields a fresh [[slick.zio.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[scoped]].
+    * If you want automatic lifecycle management, prefer `scoped`.
     */
   def make[P <: JdbcProfile](config: JdbcDatabaseConfig[P]): Task[Database] =
     config.profile.backend.makeDatabase[Task](config).map(fromCore)

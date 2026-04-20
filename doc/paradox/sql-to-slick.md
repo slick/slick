@@ -46,8 +46,8 @@ management optimized for asynchronous execution, looks like this:
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #SlickPlainSQL }
 
-`.list` returns a list of results. `.first` a single result. `.foreach` can be used to iterate over the results without
-ever materializing all results at once.
+Use `db.run(action)` to materialize results, or `db.stream(action)` to process
+results incrementally.
 
 ### Slick type-safe, composable queries
 
@@ -64,7 +64,8 @@ The same query written as a type-safe Slick query looks like this:
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #SlickTypesafeQuery }
 
-`.run` automatically returns a Seq for collection-like queries and a single value for scalar queries. `.list`, `.first` and `.foreach` are also available.
+`db.run(query.result)` returns results in your facade's effect type (for example,
+`IO[Seq[R]]` in the Cats facade). Use `db.stream(query.result)` for streaming.
 
 A key benefit compared to SQL strings is, that you can easily transform the query by calling more methods on it. E.g. `query.filter(_.age > 18)` returns transformed query which further restricts the results. This allows to build libraries of queries, which re-use each other become much more maintainable. You can abstract over join conditions, pagination, filters, etc.
 
@@ -126,23 +127,21 @@ This section shows an overview over the most important types of SQL queries and 
 
 ### SELECT *
 
-```raw
-<h4>SQL</h4>
-```
+#### SQL
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryProjectionWildcard }
 
-<h4>Slick</h4>
+#### Slick
 The Slick equivalent of `SELECT *` is the `result` of the plain TableQuery:
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryProjectionWildcard }
 
 ### SELECT
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryProjection }
 
-<h4>Slick</h4>
+#### Slick
 Scala's equivalent for `SELECT` is `map`. Columns can be referenced similarly and functions operating on columns can be accessed using their Scala equivalents (but allowing only `++` for String concatenation, not `+`).
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryProjection }
@@ -151,10 +150,10 @@ Scala's equivalent for `SELECT` is `map`. Columns can be referenced similarly an
 
 ### WHERE
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryFilter }
 
-<h4>Slick</h4>
+#### Slick
 Scala's equivalent for `WHERE` is
 @scaladoc[`filter`](slick.lifted.Query#filter[T](f:E=%3ET)(implicitwt:slick.lifted.CanBeQueryCondition[T]):slick.lifted.Query[E,U,C]).
 There are also the convenience variations
@@ -178,20 +177,20 @@ Make sure to use `===` instead of `==` for comparison, so that Slick can convert
 
 ### ORDER BY
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryOrderBy }
 
-<h4>Slick</h4>
+#### Slick
 Scala's equivalent for `ORDER BY` is `sortBy`. Provide a tuple to sort by multiple columns. Slick's `.asc` and `.desc` methods affect the ordering. Be aware that a single `ORDER BY` with multiple columns is not equivalent to multiple `.sortBy` calls but to a single `.sortBy` call passing a tuple.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryOrderBy }
 
 ### Aggregations (max, etc.)
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryAggregate }
 
-<h4>Slick</h4>
+#### Slick
 Aggregations are collection methods in Scala. In SQL they are called on a column, but in Slick they are called on a collection-like value e.g. a complete query, which people coming from SQL easily trip over. They return a scalar value, which can be run individually. Aggregation methods such as `max` that can return `NULL` return Options in Slick.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryAggregate }
@@ -200,10 +199,10 @@ Aggregations are collection methods in Scala. In SQL they are called on a column
 
 People coming from SQL often seem to have trouble understanding Scala's and Slick's `groupBy`, because of the different signatures involved. SQL's `GROUP BY` can be seen as an operation that turns all columns that weren't part of the grouping key into collections of all the elements in a group. SQL requires the use of its aggregation operations like `avg` to compute single values out of these collections.
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryGroupBy }
 
-<h4>Slick</h4>
+#### Slick
 Scala's groupBy returns a Map of grouping keys to Lists of the rows for each group. There is no automatic conversion of individual columns into collections. This has to be done explicitly in Scala, by mapping from the group to the desired column, which then allows SQL-like aggregation.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryGroupBy }
@@ -212,40 +211,40 @@ SQL requires aggregation of grouped values. We require the same in Slick for now
 
 ### HAVING
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryHaving }
 
-<h4>Slick</h4>
+#### Slick
 Slick does not have different methods for `WHERE` and `HAVING`. For achieving semantics equivalent to `HAVING`, just use `filter` after `groupBy` and the following `map`.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryHaving }
 
 ### Implicit inner joins
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryImplicitJoin }
 
-<h4>Slick</h4>
+#### Slick
 Slick generates SQL using implicit joins for `flatMap` and `map` or the corresponding for-expression syntax.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryImplicitJoin }
 
 ### Explicit inner joins
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryExplicitJoin }
 
-<h4>Slick</h4>
+#### Slick
 Slick offers a small DSL for explicit joins.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryExplicitJoin }
 
 ### Outer joins (left/right/full)
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryLeftJoin }
 
-<h4>Slick</h4>
+#### Slick
 Outer joins are done using Slick's explicit join DSL. Be aware that in case of an outer join SQL changes the type of
 outer joined, non-nullable columns into nullable columns. In order to represent this in a clean way even in the
 presence of mapped types, Slick lifts the whole side of the join into an `Option`. This goes a bit further than the
@@ -256,10 +255,10 @@ matched but already contained nothing but NULL values.
 
 ### Subquery
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryCollectionSubQuery }
 
-<h4>Slick</h4>
+#### Slick
 Slick queries are composable. Subqueries can be simply composed, where the types work out, just like any other Scala code.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryCollectionSubQuery }
@@ -268,20 +267,20 @@ The method `.in` expects a sub query. For an in-memory Scala collection, the met
 
 ### Scalar value subquery / custom function
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQuerySemiRandomChoose }
 
-<h4>Slick</h4>
+#### Slick
 This code shows a subquery computing a single value in combination with a  @ref:[user-defined database function](userdefined.md).
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQuerySemiRandomChoose }
 
 ### insert
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryInsert }
 
-<h4>Slick</h4>
+#### Slick
 Inserts can be a bit surprising at first, when coming from SQL, because unlike SQL, Slick re-uses the same syntax that
 is used for querying to select which columns should be inserted into. So basically, you first write a query and instead
 of creating an Action that gets the result of this query, you call `+=` on with value to be inserted, which gives you
@@ -293,20 +292,20 @@ auto-incremented columns.
 
 ### update
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryUpdate }
 
-<h4>Slick</h4>
+#### Slick
 Just like inserts, updates are based on queries that select and filter what should be updated and instead of running the query and fetching the data `.update` is used to replace it.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickQueryUpdate }
 
 ### delete
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlQueryDelete }
 
-<h4>Slick</h4>
+#### Slick
 Just like inserts, deletes are based on queries that filter what should be deleted. Instead of getting the query result
 of the query, `.delete` is used to obtain an Action that deletes the selected rows.
 
@@ -314,10 +313,10 @@ of the query, `.delete` is used to obtain an Action that deletes the selected ro
 
 ### CASE
 
-<h4>SQL</h4>
+#### SQL
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #sqlCase }
 
-<h4>Slick</h4>
+#### Slick
 Slick uses @scaladoc[a small DSL](slick.lifted.Case$) to allow `CASE` like case distinctions.
 
 @@snip [SqlToSlick.scala](../code/SqlToSlick.scala) { #slickCase }
