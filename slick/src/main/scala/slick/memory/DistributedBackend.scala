@@ -6,6 +6,7 @@ import scala.util.{Failure, Try}
 import cats.effect.{Async, IO, Ref, Resource}
 
 import slick.SlickException
+import slick.basic.ActionListener
 import slick.basic.BasicBackend
 import slick.compat.collection.*
 import slick.dbio.{DBIOAction, Streaming}
@@ -25,10 +26,17 @@ trait DistributedBackend extends RelationalBackend with Logging {
   val Database = new DistributedDatabaseFactoryDef
   val backend: DistributedBackend = this
 
-  override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
+  override def makeDatabase[F[_]: Async](
+    config: slick.basic.BasicDatabaseConfig[?],
+    actionListener: ActionListener[F] = ActionListener.noop[F]
+  ): F[Database[F]] =
     Async[F].raiseError(new SlickException("DistributedBackend cannot be configured with an external config file"))
 
-  class DistributedDatabaseDef[F[_]](val dbs: Vector[BasicBackend#AnyDatabaseDef], override val controls: Controls[F])(implicit override val asyncF: cats.effect.Async[F])
+  class DistributedDatabaseDef[F[_]](
+    val dbs: Vector[BasicBackend#AnyDatabaseDef],
+    override val controls: Controls[F],
+    override val actionListener: ActionListener[F] = ActionListener.noop[F]
+  )(implicit override val asyncF: cats.effect.Async[F])
     extends BasicDatabaseDef[F] {
 
     /** DistributedBackend always uses cats.effect.IO as its effect type. */

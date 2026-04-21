@@ -39,7 +39,10 @@ trait BasicBackend { self =>
   type Context >: Null <: BasicActionContext
 
   /** Create a Database instance from a [[slick.basic.BasicDatabaseConfig]]. */
-  def makeDatabase[F[_]: Async](config: BasicDatabaseConfig[?]): F[Database[F]]
+  def makeDatabase[F[_]: Async](
+    config: BasicDatabaseConfig[?],
+    actionListener: ActionListener[F] = ActionListener.noop[F]
+  ): F[Database[F]]
   // -----------------------------------------------------------------------
   // Execution state
   // -----------------------------------------------------------------------
@@ -98,6 +101,7 @@ trait BasicBackend { self =>
 
     /** Concurrency controls for admission and connection-slot arbitration. */
     val controls: Controls[F]
+    val actionListener: ActionListener[F]
 
     protected final def admissionControl: AdmissionControl[F] = controls.admissionControl
     protected final def connectionArbiter: ConnectionArbiter[F] = controls.connectionArbiter
@@ -418,7 +422,7 @@ trait BasicBackend { self =>
       ctx: Ref[F, ExecState]
     ): F[CloseableIterator[T]] = {
       val F = asyncF
-      a match {
+      val streamExec: F[CloseableIterator[T]] = a match {
         case sa: SynchronousDatabaseAction[?, ?, ?, ?] if sa.supportsStreaming =>
           ensureSession(ctx).flatMap { case (session, state) =>
             F.blocking {
@@ -465,6 +469,7 @@ trait BasicBackend { self =>
           interpret[Seq[T]](other.asInstanceOf[DBIOAction[Seq[T], NoStream, Nothing]], ctx)
             .map(seq => CloseableIterator.wrap(seq.iterator))
       }
+      actionListener.around(a, streamExec)
     }
 
     /** Set up a transaction on a freshly-acquired connection.
@@ -498,132 +503,134 @@ trait BasicBackend { self =>
       // (e.g. 10,000+ levels) would cause a StackOverflowError.  CE3's defer pushes the
       // continuation onto the run-loop instead of building Scala frames.
       F.defer {
-      a match {
-        case SuccessAction(v) =>
-          F.pure(v)
+        val exec: F[R] = a match {
+          case SuccessAction(v) =>
+            F.pure(v)
 
-        case FailureAction(t) =>
-          F.raiseError(t)
+          case FailureAction(t) =>
+            F.raiseError(t)
 
-        case LiftFAction(fa) =>
-          // fa is already an F[R]; type safety guaranteed by DBIO.liftF
-          fa.asInstanceOf[F[R]]
+          case LiftFAction(fa) =>
+            // fa is already an F[R]; type safety guaranteed by DBIO.liftF
+            fa.asInstanceOf[F[R]]
 
-        case FlatMapAction(base, f) =>
-          interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
-            .flatMap { v =>
-              val next = f.asInstanceOf[Any => DBIOAction[R, NoStream, Nothing]](v)
-              interpret[R](next, ctx)
-            }
-
-        case AndThenAction(actions) =>
-          val last = actions.length - 1
-          def run(pos: Int): F[Any] = {
-            val fi = interpret[Any](actions(pos).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
-            if (pos == last) fi
-            else fi.flatMap(_ => run(pos + 1))
-          }
-          run(0).asInstanceOf[F[R]]
-
-        case sa @ SequenceAction(actions) =>
-          val len = actions.length
-          def run(pos: Int, acc: Vector[Any]): F[Vector[Any]] = {
-            if (pos == len) F.pure(acc)
-            else
-              interpret[Any](actions(pos).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
-                .flatMap(v => run(pos + 1, acc :+ v))
-          }
-          run(0, Vector.empty).map { results =>
-            val b = sa.cbf.asInstanceOf[Factory[Any, R]].newBuilder
-            results.foreach(b += _)
-            b.result()
-          }
-
-        case CleanUpAction(base, f, keepFailure) =>
-          // Use uncancelable+poll so that:
-          //   - the base action runs cancelably (via poll),
-          //   - the cleanup action f(...) always runs, even on cancellation,
-          //   - after cleanup, the original outcome is restored.
-          // On cancellation, f receives Some(CancellationException) so user code can
-          // distinguish cancel from normal errors.
-          F.uncancelable { poll =>
-            poll(interpret[R](base.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
-              .guaranteeCase {
-                case Outcome.Succeeded(_) =>
-                  interpret[Any](f(None).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
-                case Outcome.Errored(err) =>
-                  // Run cleanup with the error. Re-raise original unless keepFailure=false
-                  // and cleanup itself also fails (cleanup error takes precedence).
-                  interpret[Any](f(Some(err)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
-                    .recoverWith { case cleanupErr if !keepFailure => F.raiseError(cleanupErr) }
-                case Outcome.Canceled() =>
-                  // Run cleanup with a CancellationException so user code can react to cancel.
-                  // Errors from cleanup are swallowed so as not to mask the cancellation.
-                  interpret[Any](
-                    f(Some(new java.util.concurrent.CancellationException("DBIO action canceled")))
-                      .asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).attempt.void
+          case FlatMapAction(base, f) =>
+            interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+              .flatMap { v =>
+                val next = f.asInstanceOf[Any => DBIOAction[R, NoStream, Nothing]](v)
+                interpret[R](next, ctx)
               }
-          }
 
-        case FailedAction(inner) =>
-          interpret[Any](inner.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
-            .attempt
-            .flatMap {
-              case Left(t)  => F.pure(t.asInstanceOf[R])
-              case Right(_) => F.raiseError(new NoSuchElementException("Action.failed did not fail"))
+          case AndThenAction(actions) =>
+            val last = actions.length - 1
+            def run(pos: Int): F[Any] = {
+              val fi = interpret[Any](actions(pos).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+              if (pos == last) fi
+              else fi.flatMap(_ => run(pos + 1))
+            }
+            run(0).asInstanceOf[F[R]]
+
+          case sa @ SequenceAction(actions) =>
+            val len = actions.length
+            def run(pos: Int, acc: Vector[Any]): F[Vector[Any]] = {
+              if (pos == len) F.pure(acc)
+              else
+                interpret[Any](actions(pos).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+                  .flatMap(v => run(pos + 1, acc :+ v))
+            }
+            run(0, Vector.empty).map { results =>
+              val b = sa.cbf.asInstanceOf[Factory[Any, R]].newBuilder
+              results.foreach(b += _)
+              b.result()
             }
 
-        case AsTryAction(inner) =>
-          interpret[Any](inner.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
-            .attempt
-            .map {
-              case Right(v) => scala.util.Success(v).asInstanceOf[R]
-              case Left(t)  => scala.util.Failure(t).asInstanceOf[R]
-            }
-
-        case NamedAction(inner, _) =>
-          interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx)
-
-        case TransactionalAction(inner, isolationLevel) =>
-          // uncancelable ensures enterTransactionScope and guaranteeCase registration are
-          // atomic: a cancellation between them would leave transactionDepth incremented
-          // with no finalizer to decrement it.  The inner action runs cancelably via poll.
-          asyncF.uncancelable { poll =>
-            enterTransactionScope(ctx, isolationLevel) >>
-            poll(interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
-              .guaranteeCase { outcome =>
-                exitTransactionScope(ctx, succeeded = outcome.isSuccess)
-              }
-          }
-
-        case PinnedSessionAction(inner) =>
-          // uncancelable pairs the increment and the guarantee registration atomically,
-          // mirroring the TransactionalAction pattern.  Without this, cancellation between
-          // the increment and the guarantee could leave pinnedDepth permanently > 0,
-          // preventing releaseSession from ever running.  Inner action runs cancelably via poll.
-          asyncF.uncancelable { poll =>
-            ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth + 1)) >>
-            poll(interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
-              .guarantee {
-                ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth - 1)) >>
-                ctx.get.flatMap { s =>
-                  // Only release the connection if there are no more pins or transactions
-                  if (!s.pinned) releaseSession(ctx) else asyncF.unit
+          case CleanUpAction(base, f, keepFailure) =>
+            // Use uncancelable+poll so that:
+            //   - the base action runs cancelably (via poll),
+            //   - the cleanup action f(...) always runs, even on cancellation,
+            //   - after cleanup, the original outcome is restored.
+            // On cancellation, f receives Some(CancellationException) so user code can
+            // distinguish cancel from normal errors.
+            F.uncancelable { poll =>
+              poll(interpret[R](base.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
+                .guaranteeCase {
+                  case Outcome.Succeeded(_) =>
+                    interpret[Any](f(None).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
+                  case Outcome.Errored(err) =>
+                    // Run cleanup with the error. Re-raise original unless keepFailure=false
+                    // and cleanup itself also fails (cleanup error takes precedence).
+                    interpret[Any](f(Some(err)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
+                      .recoverWith { case cleanupErr if !keepFailure => F.raiseError(cleanupErr) }
+                  case Outcome.Canceled() =>
+                    // Run cleanup with a CancellationException so user code can react to cancel.
+                    // Errors from cleanup are swallowed so as not to mask the cancellation.
+                    interpret[Any](
+                      f(Some(new java.util.concurrent.CancellationException("DBIO action canceled")))
+                        .asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).attempt.void
                 }
-              }
-          }
-
-        case a: SynchronousDatabaseAction[?, ?, ?, ?] =>
-          withSession[R](ctx) { (session, state) =>
-            F.blocking {
-              a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, Nothing]]
-               .run(sessionAsContext(session, state))
             }
-          }
 
-        case a: DBIOAction[?, ?, ?] =>
-          F.raiseError(new SlickException(s"Unsupported database action $a for $this"))
-      }
+          case FailedAction(inner) =>
+            interpret[Any](inner.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+              .attempt
+              .flatMap {
+                case Left(t)  => F.pure(t.asInstanceOf[R])
+                case Right(_) => F.raiseError(new NoSuchElementException("Action.failed did not fail"))
+              }
+
+          case AsTryAction(inner) =>
+            interpret[Any](inner.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+              .attempt
+              .map {
+                case Right(v) => scala.util.Success(v).asInstanceOf[R]
+                case Left(t)  => scala.util.Failure(t).asInstanceOf[R]
+              }
+
+          case NamedAction(inner, _) =>
+            interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx)
+
+          case TransactionalAction(inner, isolationLevel) =>
+            // uncancelable ensures enterTransactionScope and guaranteeCase registration are
+            // atomic: a cancellation between them would leave transactionDepth incremented
+            // with no finalizer to decrement it.  The inner action runs cancelably via poll.
+            asyncF.uncancelable { poll =>
+              enterTransactionScope(ctx, isolationLevel) >>
+              poll(interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
+                .guaranteeCase { outcome =>
+                  exitTransactionScope(ctx, succeeded = outcome.isSuccess)
+                }
+            }
+
+          case PinnedSessionAction(inner) =>
+            // uncancelable pairs the increment and the guarantee registration atomically,
+            // mirroring the TransactionalAction pattern.  Without this, cancellation between
+            // the increment and the guarantee could leave pinnedDepth permanently > 0,
+            // preventing releaseSession from ever running.  Inner action runs cancelably via poll.
+            asyncF.uncancelable { poll =>
+              ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth + 1)) >>
+              poll(interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
+                .guarantee {
+                  ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth - 1)) >>
+                  ctx.get.flatMap { s =>
+                    // Only release the connection if there are no more pins or transactions
+                    if (!s.pinned) releaseSession(ctx) else asyncF.unit
+                  }
+                }
+            }
+
+          case a: SynchronousDatabaseAction[?, ?, ?, ?] =>
+            withSession[R](ctx) { (session, state) =>
+              F.blocking {
+                a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, Nothing]]
+                  .run(sessionAsContext(session, state))
+              }
+            }
+
+          case a: DBIOAction[?, ?, ?] =>
+            F.raiseError(new SlickException(s"Unsupported database action $a for $this"))
+        }
+
+        actionListener.around(a, exec)
       } // end F.defer
     }
 
