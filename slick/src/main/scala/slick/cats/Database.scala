@@ -40,7 +40,7 @@ object Database {
     * This is a low-level escape hatch intended for integration points that already
     * have a `BasicBackend#BasicDatabaseDef[IO]`.
     *
-    * In regular application code, prefer [[resource]].
+    * In regular application code, prefer `resource`.
     */
   def fromCore(db: slick.basic.BasicBackend#BasicDatabaseDef[IO]): Database =
     new Database {
@@ -64,10 +64,10 @@ object Database {
   /**
     * Create a new database instance from a basic profile configuration.
     *
-    * The returned [[cats.effect.IO]] yields a fresh [[slick.cats.Database]].
+    * The returned `cats.effect.IO` yields a fresh [[slick.cats.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[resource]].
+    * If you want automatic lifecycle management, prefer `resource`.
     */
   def make[P <: slick.basic.BasicProfile](config: slick.basic.BasicDatabaseConfig[P]): IO[Database] =
     config.profile.backend.makeDatabase[IO](config).map(fromCore)
@@ -75,10 +75,10 @@ object Database {
   /**
     * Create a new database instance from a JDBC profile configuration.
     *
-    * The returned [[cats.effect.IO]] yields a fresh [[slick.cats.Database]].
+    * The returned `cats.effect.IO` yields a fresh [[slick.cats.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
-    * If you want automatic lifecycle management, prefer [[resource]].
+    * If you want automatic lifecycle management, prefer `resource`.
     */
   def make[P <: slick.jdbc.JdbcProfile](config: slick.jdbc.JdbcDatabaseConfig[P]): IO[Database] =
     config.profile.backend.makeDatabase[IO](config).map(fromCore)
