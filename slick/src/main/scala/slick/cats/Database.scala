@@ -7,7 +7,7 @@ import slick.ControlStatus
 import slick.dbio.{DBIOAction, NoStream, Streaming}
 
 /** Cats Effect / fs2 facade for Slick's effect-polymorphic database API. */
-trait Database extends slick.Database[IO, Database.StreamIO]
+trait Database extends slick.Database[IO, Database.StreamIO] {
   /**
     * Run a non-streaming action as `IO[R]`.
     *
