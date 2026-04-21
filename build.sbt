@@ -225,7 +225,13 @@ lazy val testkit =
   project
     .in(file("slick-testkit"))
     .configs(DocTest)
-    .dependsOn(slick, codegen % s"compile->compile;${TypeProviders.TypeProvidersConfig.name}->test", hikaricp)
+    .dependsOn(
+      slick,
+      codegen % s"compile->compile;${TypeProviders.TypeProvidersConfig.name}->test",
+      hikaricp,
+      slickFuture,
+      slickZio
+    )
     .settings(
       slickGeneralSettings,
       compilerDependencySetting(Provided.name),

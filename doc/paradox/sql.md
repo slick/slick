@@ -136,7 +136,7 @@ classpath, not just the source path or the runtime classpath. Depending on the b
 may not be possible, so it's usually better to use a relative `file:` URL.
 @@@
 
-You can also retrieve the statically configured @scaladoc[DatabaseConfig](slick.api.DatabaseConfig) at runtime:
+You can also retrieve the statically configured @scaladoc[DatabaseConfig](slick.basic.DatabaseConfig) at runtime:
 
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #staticdatabaseconfig }
 
