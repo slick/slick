@@ -26,6 +26,12 @@ object Dependencies {
   val fs2Core    = "co.fs2"        %% "fs2-core"    % "3.12.0"
   val munitCatsEffect = "org.typelevel" %% "munit-cats-effect" % "2.1.0"
   val scalatestplusTestNG = "org.scalatestplus" %% "testng-7-5" % "3.2.17.0"
+  val zioVersion = "2.1.19"
+  val zio = "dev.zio" %% "zio" % zioVersion
+  val zioStreams = "dev.zio" %% "zio-streams" % zioVersion
+  val zioInteropCats = "dev.zio" %% "zio-interop-cats" % "23.1.0.5"
+  val zioTest = "dev.zio" %% "zio-test" % zioVersion
+  val zioTestSbt = "dev.zio" %% "zio-test-sbt" % zioVersion
 
   def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, catsEffect, fs2Core)
 
