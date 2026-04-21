@@ -4,14 +4,15 @@ import java.io.Closeable
 import scala.util.control.NonFatal
 
 /**
- * An Iterator with a `close` method to close the underlying data source.
- * Implementers must close the data source when `hasNext` returns `false`.
+ * An Iterator with a `close` method to close the underlying resources.
+ * Implementers must close the underlying resources when `hasNext` returns `false`.
  */
 trait CloseableIterator[+T] extends Iterator[T] with Closeable { self =>
 
   /**
-   * Close the underlying data source. The behaviour of any methods of this
-   * object after closing it is undefined.
+   * Close the underlying resources. This method must be idempotent — calling
+   * it more than once must have no additional effect. The behaviour of any
+   * other methods of this object after closing it is undefined.
    */
   override def close(): Unit
 
