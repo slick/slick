@@ -1,6 +1,15 @@
 Database I/O Actions
 ====================
 
+This chapter explains how to execute, compose, and control `DBIOAction` values.
+
+In this chapter:
+
+- Execute actions with `run` (materialized) or `stream` (streaming).
+- Compose actions with sequencing and error-handling combinators.
+- Control transaction/session behavior with `transactionally` and `withPinnedSession`.
+- Drop down to JDBC when needed with `SimpleDBIO`.
+
 Anything that you can execute on a database, whether it is a getting the result of a query
 (`myQuery.result`), creating a table (`myTable.schema.create`), inserting data
 (`myTable += item`) or something else, is an instance of
@@ -28,6 +37,8 @@ If you're new to Slick, please start with the  @ref:[Getting Started](gettingsta
 Executing Database Actions
 ------------------------------
 
+Start here if you want to run a query or action and get results back.
+
 `DBIOAction`s can be executed either with the goal of producing a fully materialized result or streaming
 data back from the database.
 
@@ -47,12 +58,13 @@ asynchronously and can be composed with the rest of your effect-based program:
 ### Streaming
 
 Collection-valued queries also support streaming results. In this case, the actual collection type
-is ignored and elements are streamed directly from the result set through an @extref[FS2](fs2:)
-`Stream[F, T]`, which provides structural back-pressure without requiring any Reactive Streams
-subscription protocol.
+is ignored and elements are streamed directly from the result set through the streaming type of the
+selected Slick facade.
 
-Execution of the `DBIOAction` does not start until the `Stream` is consumed. If the `Stream` is
-consumed multiple times, each consumption triggers an *independent execution* of the action.
+Execution of the `DBIOAction` does not start until the stream is consumed.
+
+Repeated-consumption semantics depend on the selected facade stream type. See the facade-specific
+Scaladoc for `slick.cats.Database` and `slick.zio.Database`.
 
 Stream elements are signaled as soon as they become available in the streaming part of the `DBIOAction`. The end of
 the stream is signaled only after the *entire action* has completed. For example, when streaming inside a transaction
@@ -77,6 +89,8 @@ caching all data at once in memory on the client side. For example, @extref[Post
 
 Composing Database I/O Actions
 ------------------------------
+
+This section covers how to build larger workflows from smaller actions.
 
 `DBIOAction`s describe sequences of individual actions to execute in strictly sequential order on
 one database session (at least conceptually), therefore the most commonly used combinators deal with
@@ -211,6 +225,8 @@ In case you want to force a rollback, you can return `DBIO.failed` within a `DBI
 
 JDBC Interoperability
 ---------------------
+
+Use this when you need JDBC functionality that is not directly modeled in Slick.
 
 In order to drop down to the JDBC level for functionality that is not available in Slick, you can
 use a `SimpleDBIO` action which is run on a database thread and gets access to the JDBC `Connection`:

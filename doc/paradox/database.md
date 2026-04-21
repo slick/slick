@@ -1,32 +1,33 @@
-Database Configuration
-======================
+Database
+========
 
-You can tell Slick how to connect to the JDBC database of your choice by creating a
-@scaladoc[Database](slick.basic.BasicBackend#Database:Database) object, which encapsulates the information. Use
-@scaladoc[factory methods](slick.api.DatabaseConfigFactory) on `slick.api.DatabaseConfig` depending on what
-connection data you have available.
+Working with a database in Slick involves two steps:
 
-`DatabaseConfig` factory methods return a `DatabaseConfig[P]` value. Call `.asResource[F]` to get
-`Resource[F, Database[F]]`, where `F` is your effect type (e.g. `cats.effect.IO`). The `Resource`
-manages the full lifecycle of the connection pool: it is acquired when used and released when the
-resource scope ends. You never need to call `close()` or `shutdown()` manually.
+1. Build a `DatabaseConfig[P]` — this describes which database profile to use and how to
+   connect. Several construction methods are available depending on how your connection
+   details are provided.
+2. Open a `Database` value from that config using one of Slick's three API facades,
+   which adapt Slick's execution model to your chosen effect system:
+   - `slick.cats.Database` (Cats Effect + FS2)
+   - `slick.future.Database` (Scala Future + Reactive Streams)
+   - `slick.zio.Database` (ZIO + ZStream)
 
-Using Typesafe Config
----------------------
+Building a DatabaseConfig
+--------------------------
 
-The preferred way to configure database connections is through @extref[Typesafe Config](typesafe-config:) in your
+### Using Typesafe Config
+
+The easiest way to configure database connections is through @extref[Typesafe Config](typesafe-config:) in your
 `application.conf`, which is also used by @extref[Play](play:) and @extref[Akka](akka:) for their configuration.
 
-Such a configuration can be loaded with `DatabaseConfig.forConfig` (see the
-@scaladoc[API documentation](slick.api.DatabaseConfig$#forConfig[P](path:String,config:com.typesafe.config.Config,classLoader:ClassLoader)(implicitP:scala.reflect.ClassTag[P]):slick.basic.BasicDatabaseConfig[P])
+Such a configuration can be loaded with `DatabaseConfig.forProfileConfig` (see the
+@scaladoc[API documentation](slick.basic.DatabaseConfig$#forProfileConfig[P](profile:P,path:String,config:com.typesafe.config.Config,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type])
 of this method for details on the configuration parameters). It returns a `DatabaseConfig` value
-whose `asResource` method yields `Resource[F, Database[F]]`.
+that you can open with any of the three facades.
 
 @@snip [Connection.scala](../code/Connection.scala) { #forConfig }
 
-#### Examples
-
-##### PostgreSQL
+#### PostgreSQL
 @@snip [application.conf](../code/application.conf) { #postgres }
 
 When specifying a dataSourceClass you will need to bring in the sbt dependency for that class. The following is an example for the `org.postgresql.ds.PGSimpleDataSource` data source class:
@@ -39,7 +40,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick-hikaricp" % "$project.version$",
   "org.postgresql" % "postgresql" % "42.2.5" //org.postgresql.ds.PGSimpleDataSource dependency
 )
-``` 
+```
 @@@
 
 Note, some examples on the internet point to the 9.4.X versions of the
@@ -50,7 +51,7 @@ requirements (running old applications or JVMs), this is the driver you should
 be using." See https://jdbc.postgresql.org/download.html for more information
 about when you may want to use the 9.4 line.
 
-##### MySQL
+#### MySQL
 
 Very simple example without a connection pool and using the driver directly:
 
@@ -62,7 +63,8 @@ To use the MySQL driver, the following library dependency needs to be configured
 libraryDependencies += "com.mysql" % "mysql-connector-j" % "8.0.33"
 ```
 
-##### Generic JDBC
+#### Generic JDBC
+
 Sometimes a database system provides a JDBC driver, but no specific profile for its dialect has been implemented
 for Slick, yet. It is still possible to connect to such a database with not much effort and use the generic JDBC
 feature set.
@@ -84,11 +86,10 @@ Now this profile can be used in the configuration.
 Connection parameters for database systems can differ significantly.
 Please refer to the respective documentation.
 
-Using a JDBC URL
-----------------
+### Using a JDBC URL
 
 You can pass a JDBC URL to
-@scaladoc[forURL](slick.api.DatabaseConfigFactory#forURL[P%3C:slick.jdbc.JdbcProfile](profile:P,url:String,user:String,password:String,prop:java.util.Properties,driver:String,keepAliveConnection:Boolean,classLoader:ClassLoader):DC[profile.type]).
+@scaladoc[forURL](slick.jdbc.DatabaseConfig$#forURL[P%3C:slick.jdbc.JdbcProfile](profile:P,url:String,user:String,password:String,prop:java.util.Properties,driver:String,keepAliveConnection:Boolean,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type]).
 (see your database's JDBC driver's documentation for the correct URL syntax).
 
 @@snip [Connection.scala](../code/Connection.scala) { #forURL }
@@ -118,8 +119,7 @@ dc.profile.backend.makeDatabase[IO](dc).unsafeRunSync()
 On Scala 2.13 and 3.x the simpler form works fine even with a type parameter profile.
 @@@
 
-Using a Database URL
---------------------
+### Using a Database URL
 
 A Database URL, a platform independent URL in the form `vendor://user:password@host:port/db`, is often provided by
 platforms such as Heroku. You can use a Database URL in Typesafe Config as shown here:
@@ -131,53 +131,101 @@ property if the `DATABASE_URL` environment variable is set. You may also define 
 standard Typesafe Config syntax, such as `${?MYSQL_DATABASE_URL}`.
 
 Or you may pass a @scaladoc[DatabaseUrlDataSource](slick.jdbc.DatabaseUrlDataSource) object to
-@scaladoc[forDataSource](slick.api.DatabaseConfigFactory#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):DC[profile.type])
+@scaladoc[forDataSource](slick.jdbc.DatabaseConfig$#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type])
 .
 
 @@snip [Connection.scala](../code/Connection.scala) { #forDatabaseURL }
 
-Using a DataSource
-------------------
+### Using a DataSource
 
 You can pass a @javadoc[DataSource](javax.sql.DataSource) object to
-@scaladoc[forDataSource](slick.api.DatabaseConfigFactory#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):DC[profile.type]).
+@scaladoc[forDataSource](slick.jdbc.DatabaseConfig$#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type]).
 If you got it from the connection pool of your application framework, this plugs the pool into Slick. If the pool has
 a size limit, the correct size should always be specified.
 
 @@snip [Connection.scala](../code/Connection.scala) { #forDataSource }
 
-Using a JNDI Name
------------------
+### Using a JNDI Name
 
 If you are using @extref[JNDI](wikipedia:JNDI) you can pass a JNDI name to
-@scaladoc[forName](slick.api.DatabaseConfigFactory#forName[P%3C:slick.jdbc.JdbcProfile](profile:P,name:String,maxConnections:scala.Option[Int],classLoader:ClassLoader):DC[profile.type])
+@scaladoc[forName](slick.jdbc.DatabaseConfig$#forName[P%3C:slick.jdbc.JdbcProfile](profile:P,name:String,maxConnections:scala.Option[Int],classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type])
 under which a @javadoc[DataSource](javax.sql.DataSource) object can be looked up. If the data source has
 a limit in the number of connections it can provide, the correct size should always be specified.
 
 @@snip [Connection.scala](../code/Connection.scala) { #forName }
 
-Database lifecycle
+Opening a Database
 ------------------
 
-Every `DatabaseConfig` factory method returns a `DatabaseConfig[P]`. `DatabaseConfig.asResource` yields
-`Resource[F, Database[F]]`. The `Resource` allocates the connection pool when
-acquired and shuts it down when released. The recommended pattern is to acquire the `Resource` once at
-application startup and keep the `Database` value alive for the lifetime of the application:
+Once you have a `DatabaseConfig`, open a `Database` using the facade for your effect system.
+All three facades expose the same operations: `run` for materialized query execution,
+`stream` for streaming, and `close` for unmanaged lifecycles.
 
+### Cats Effect / FS2 (`slick.cats.Database`)
+
+The Cats facade is part of the core `slick` module.
+
+Use `Database.resource` for managed lifecycle (recommended):
+
+@@snip [Connection.scala](../code/Connection.scala) { #catsManaged }
+
+If you need manual lifecycle control, use `Database.make` and call `close()` yourself:
+
+@@snip [Connection.scala](../code/Connection.scala) { #catsUnmanaged }
+
+Run and stream queries:
+
+@@snip [Connection.scala](../code/Connection.scala) { #materialize }
+
+@@snip [Connection.scala](../code/Connection.scala) { #stream }
+
+### Future / Reactive Streams (`slick.future.Database`)
+
+Add the Future facade module:
+
+@@@ vars
 ```scala
-val dbResource: Resource[IO, Database[IO]] =
-  DatabaseConfig.forConfig[JdbcProfile]("mydb").asResource[IO]
-
-// In your main entry point:
-dbResource.use { db =>
-  // run your entire application here
-  myApp(db)
-}
+libraryDependencies += "com.typesafe.slick" %% "slick-future" % "$project.version$"
 ```
+@@@
 
-You do not need to call `close()` or any shutdown method manually — the `Resource` finalizer handles it. If you are
-using a framework such as http4s or Tapir, you can convert the `Resource` into the framework's service lifecycle
-using standard Cats Effect `Resource` combinators.
+Use `Database.use` for managed lifecycle (recommended):
+
+@@snip [ConnectingFuture.scala](../code/ConnectingFuture.scala) { #futureManaged }
+
+If you need manual lifecycle control, use `Database.open` and call `close()` yourself:
+
+@@snip [ConnectingFuture.scala](../code/ConnectingFuture.scala) { #futureUnmanaged }
+
+Run and stream queries:
+
+@@snip [ConnectingFuture.scala](../code/ConnectingFuture.scala) { #futureRun }
+
+@@snip [ConnectingFuture.scala](../code/ConnectingFuture.scala) { #futureStream }
+
+### ZIO (`slick.zio.Database`)
+
+Add the ZIO facade module:
+
+@@@ vars
+```scala
+libraryDependencies += "com.typesafe.slick" %% "slick-zio" % "$project.version$"
+```
+@@@
+
+Use `Database.scoped` for managed lifecycle (recommended):
+
+@@snip [ConnectingZio.scala](../code/ConnectingZio.scala) { #zioManaged }
+
+If you need manual lifecycle control, use `Database.make` and call `close()` yourself:
+
+@@snip [ConnectingZio.scala](../code/ConnectingZio.scala) { #zioUnmanaged }
+
+Run and stream queries:
+
+@@snip [ConnectingZio.scala](../code/ConnectingZio.scala) { #zioRun }
+
+@@snip [ConnectingZio.scala](../code/ConnectingZio.scala) { #zioStream }
 
 Connection pools
 ----------------
@@ -192,7 +240,7 @@ efficiently. Because Slick's execution model is non-blocking, you do not need to
 @extref[About Pool Sizing](about-pool-sizing:) in the HikariCP documentation for background.
 
 Note that reasonable defaults for the connection pool sizes are calculated automatically when using
-@scaladoc[DatabaseConfig.forConfig](slick.api.DatabaseConfig$#forConfig[P](path:String,config:com.typesafe.config.Config,classLoader:ClassLoader)(implicitP:scala.reflect.ClassTag[P]):slick.basic.BasicDatabaseConfig[P]).
+@scaladoc[DatabaseConfig.forConfig](slick.basic.DatabaseConfig$#forConfig[P](path:String,config:com.typesafe.config.Config,classLoader:ClassLoader)(implicitP:scala.reflect.ClassTag[P]):slick.basic.BasicDatabaseConfig[P]).
 
 Slick uses *prepared* statements wherever possible but it does not cache them on its own. You
 should therefore enable prepared statement caching in the connection pool's configuration.
@@ -263,125 +311,3 @@ When the queue is full, new calls fail fast with:
 This is intentional back-pressure. Typical responses are to retry with jittered backoff, shed load,
 or increase capacity (`queueSize`, `maxInflightActions`, and/or database connection pool size)
 based on measured behavior.
-
-DatabaseConfig
---------------
-
-@@@ note
-
-This section is based on the @extref[**MultiDB** sample](samplerepo:slick-multidb) which provides ready-to-run apps to
-demonstrate the features.
-
-@@@
-
-On top of the configuration syntax for `Database`, there is another layer in the form of
-@scaladoc[DatabaseConfig](slick.api.DatabaseConfig) which allows you to configure a Slick profile plus a
-matching `Database` together. This makes it easy to abstract over different kinds of
-database systems by simply changing a configuration file.
-
-You can see it in action in `SimpleExample.scala`. First we load the DatabaseConfig and then import the
-Slick API from its profile:
-
-@@snip [SimpleExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/databaseconfig/SimpleExample.scala) { #dc }
-
-The `JdbcProfile` type annotation specifies the profile level whose API you get. You have to configure a profile of
-a matching type in the external configuration file. Since we're using the basic `forConfig` method with only a path
-("h2_dc"), the configuration must be located in the global application config, usually found in `application.conf`:
-
-@@snip [application.conf](samples/slick-multidb/src/main/resources/application.conf) { #doc-h2_db }
-
-You can use different database systems in your application by either switching out or overriding the application
-config (e.g. different `application.conf` files for development and production) or by passing a config path into
-the application. This way of implementing multi-database support is also used when building a Play app with Slick.
-
-Other Multi-DB Patterns
------------------------
-
-@@@ note
-
-This section is based on the @extref[**MultiDB** sample](samplerepo:slick-multidb) which provides ready-to-run apps to
-demonstrate the features.
-
-@@@
-
-`DatabaseConfig` (see [above](#databaseconfig)) is the recommended solution.
-More complex scenarios (for example, where you need to map custom functions differently for different database
-systems, or where you cannot use the simple application.conf syntax) may require abstracting over databases in Scala
-code. The following sections explain two different ways of accomplishing this.
-
-### A DAO Class
-
-We start with a simple DAO (data access object) class, `DAO.scala`. It contains some database-related definitions
-(for a `PROPS` table that acts as a simple key/value store) and methods (for storing and reading entries).
-
-The class is parameterized by a concrete `JdbcProfile` and it imports all API features from this profile's api object:
-
-@@snip [DAO.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/DAO.scala) { #dao }
-
-Slick has multiple abstract profiles but in most cases you will want to use `JdbcProfile` which contains all the
-features that you also get when importing directly from one of Slick's concrete profiles for JDBC databases.
-
-Outside of the DAO class, you can still refer to its profile and the other features, but you have to get the imports
-from the profile in order to work with queries. This can be seen in `DAOHelper.scala`. It defines a new method
-`restrictKey` which we could have also put directly into the DAO class.
-
-To gain access to all of the profile's features, we parameterize the `DAOHelper` with the `DAO` and import from its
-profile:
-
-@@snip [DAOHelper.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/DAOHelper.scala) { #daohelper }
-
-Note the use of the type projection `DAO#Props` in the definition of `restrictKey`. This points to the `Props` type
-coming from any `DAO` instance. This is less type-safe than using a path-dependent type like `dao.Props` but
-generally easier to use. You still need to ensure not to mix drivers when you do this.
-
-We are using the `DAO` and `DAOHelper` in `MultiDBExample.scala`. The `run` method is parameterized with both,
-a Slick profile and a matching JDBC `Database`:
-
-@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/MultiDBExample.scala) { #run }
-
-Since we don't have the convenience of a single profile's `api._` import at this point, we need to import the
-`Database` and `DBIO` types directly:
-
-@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/MultiDBExample.scala) { #imports }
-
-In the body of `MultiDBExample`, we create two `DAO` instances with matching `Database` objects in order to run the
-same code on both, H2 and SQLite:
-
-@@snip [MultiDBExample.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/basic/MultiDBExample.scala) { #create }
-
-### The Cake Pattern
-
-In more complex designs where you want to split up the database code into separate modules that deal with different
-database entities, but still have dependencies between these modules, you can use the Cake Pattern to structure your
-code.
-
-We are doing this here in the app `MultiDBCakeExample.scala`. From the point of view of this main app, the new
-approach looks exactly like the previous one: You create a DAL (data access layer) object with a Slick profile, and
-use it together with a matching `Database`.
-
-The most basic slice of the cake is the `ProfileComponent`. It provides a `JdbcProfile` which is kept abstract at
-this point:
-
-@@snip [ProfileComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/ProfileComponent.scala)
-
-Through the use of a self-type, the `PictureComponent` requires a `ProfileComponent` to me mixed in, so that it can
-import the query language features from the profile:
-
-@@snip [PictureComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/PictureComponent.scala) { #outline }
-
-Using the imported features, `PictureComponent` provides definitions and methods for working with `Picture` objects
-in the database. `UserComponent` does the same for `User` entities. In addition to `ProfileComponent` it also
-requires `PictureComponent`:
-
-@@snip [UserComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/UserComponent.scala) { #outline }
-
-The `PictureComponent` dependency allows `UserComponent` to insert a new `Picture` when needed:
-
-@@snip [UserComponent.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/UserComponent.scala) { #insert }
-
-We put all slices of the cake together in `DAL.scala`. The `DAL` class inherits from all components and adds the
-missing profile through a field in the constructor:
-
-@@snip [DAL.scala](samples/slick-multidb/src/main/scala/slick/examples/multidb/cake/DAL.scala)
-
-This is also a good place to add functionality that affects all components, like the `create` method.
