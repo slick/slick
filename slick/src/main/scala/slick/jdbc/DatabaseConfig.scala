@@ -11,18 +11,16 @@ trait DatabaseConfig extends slick.basic.DatabaseConfig {
 
   def forSource[P <: JdbcProfile](
     profile: P,
-    source: JdbcDataSource,
-    maxConnections: Option[Int] = None
+    source: JdbcDataSource
   ): JdbcDatabaseConfig[P] =
-    new JdbcDatabaseConfig(profile, source, maxConnections)
+    new JdbcDatabaseConfig(profile, source)
 
   def forDataSource[P <: JdbcProfile](
     profile: P,
     ds: DataSource,
-    maxConnections: Option[Int],
     keepAliveConnection: Boolean = false
   ): JdbcDatabaseConfig[P] =
-    forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections), maxConnections)
+    forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections = None))
 
   def forURL[P <: JdbcProfile](
     profile: P,
@@ -35,7 +33,7 @@ trait DatabaseConfig extends slick.basic.DatabaseConfig {
     classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader
   ): JdbcDatabaseConfig[P] = {
     val ds = new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader)
-    forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections = None), None)
+    forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection, maxConnections = None))
   }
 
   def forDriver[P <: JdbcProfile](
@@ -48,17 +46,16 @@ trait DatabaseConfig extends slick.basic.DatabaseConfig {
     classLoader: ClassLoader = slick.util.ClassLoaderUtil.defaultClassLoader
   ): JdbcDatabaseConfig[P] = {
     val ds = new DriverDataSource(url, user, password, prop, driverObject = driver)
-    forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection = false, maxConnections = None), None)
+    forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection = false, maxConnections = None))
   }
 
   def forName[P <: JdbcProfile](
     profile: P,
-    name: String,
-    maxConnections: Option[Int]
+    name: String
   ): JdbcDatabaseConfig[P] = {
     new InitialContext().lookup(name) match {
       case ds: DataSource =>
-        forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection = false, maxConnections), maxConnections)
+        forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection = false, maxConnections = None))
       case x =>
         throw new SlickException("Expected a DataSource for JNDI name " + name + ", but got " + x)
     }

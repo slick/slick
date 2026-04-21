@@ -131,7 +131,7 @@ property if the `DATABASE_URL` environment variable is set. You may also define 
 standard Typesafe Config syntax, such as `${?MYSQL_DATABASE_URL}`.
 
 Or you may pass a @scaladoc[DatabaseUrlDataSource](slick.jdbc.DatabaseUrlDataSource) object to
-@scaladoc[forDataSource](slick.jdbc.DatabaseConfig$#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type])
+@scaladoc[forDataSource](slick.jdbc.DatabaseConfig$#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,keepAliveConnection:Boolean):slick.jdbc.JdbcDatabaseConfig[P])
 .
 
 @@snip [Connection.scala](../code/Connection.scala) { #forDatabaseURL }
@@ -139,18 +139,18 @@ Or you may pass a @scaladoc[DatabaseUrlDataSource](slick.jdbc.DatabaseUrlDataSou
 ### Using a DataSource
 
 You can pass a @javadoc[DataSource](javax.sql.DataSource) object to
-@scaladoc[forDataSource](slick.jdbc.DatabaseConfig$#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,maxConnections:scala.Option[Int],keepAliveConnection:Boolean,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type]).
+@scaladoc[forDataSource](slick.jdbc.DatabaseConfig$#forDataSource[P%3C:slick.jdbc.JdbcProfile](profile:P,ds:javax.sql.DataSource,keepAliveConnection:Boolean):slick.jdbc.JdbcDatabaseConfig[P]).
 If you got it from the connection pool of your application framework, this plugs the pool into Slick. If the pool has
-a size limit, the correct size should always be specified.
+a size limit, pass the size via `.withControls`:
 
 @@snip [Connection.scala](../code/Connection.scala) { #forDataSource }
 
 ### Using a JNDI Name
 
 If you are using @extref[JNDI](wikipedia:JNDI) you can pass a JNDI name to
-@scaladoc[forName](slick.jdbc.DatabaseConfig$#forName[P%3C:slick.jdbc.JdbcProfile](profile:P,name:String,maxConnections:scala.Option[Int],classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type])
+@scaladoc[forName](slick.jdbc.DatabaseConfig$#forName[P%3C:slick.jdbc.JdbcProfile](profile:P,name:String):slick.jdbc.JdbcDatabaseConfig[P])
 under which a @javadoc[DataSource](javax.sql.DataSource) object can be looked up. If the data source has
-a limit in the number of connections it can provide, the correct size should always be specified.
+a limit in the number of connections it can provide, pass the size via `.withControls`:
 
 @@snip [Connection.scala](../code/Connection.scala) { #forName }
 
@@ -267,7 +267,16 @@ while still allowing some headroom when actions do non-DB work between JDBC step
 
 ### Configuration keys
 
-These keys are read from the same database config section used by `Database.forConfig`:
+These keys are read from the same database config section used by `DatabaseConfig.forConfig` /
+`forProfileConfig`. For programmatic configs (`forDataSource`, `forSource`, `forName`, `forURL`)
+use @scaladoc[ControlsConfig](slick.ControlsConfig) and `.withControls` instead:
+
+```scala
+DatabaseConfig.forDataSource(MyProfile, ds)
+  .withControls(ControlsConfig(maxConnections = 10, queueSize = 500))
+```
+
+Config-file keys (for `forConfig` / `forProfileConfig`):
 
 - `maxConnections`: maximum concurrent JDBC connections (existing key).
 - `queueSize`: maximum number of callers waiting for in-flight admission (default: `1000`).
