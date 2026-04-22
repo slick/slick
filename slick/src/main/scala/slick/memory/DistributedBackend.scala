@@ -12,6 +12,7 @@ import slick.dbio.{DBIOAction, Streaming}
 import slick.relational.RelationalBackend
 import slick.util.{CloseableIterator, Logging}
 import slick.basic.ConcurrencyControl.Controls
+import slick.ControlsConfig
 
 
 /** The backend for DistributedProfile. */
@@ -67,7 +68,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     /** Create a new distributed database instance. */
     def apply(dbs: IterableOnce[BasicBackend#AnyDatabaseDef]): Resource[IO, Database[IO]] =
       Resource.eval(
-        Controls.create[IO](Long.MaxValue, Long.MaxValue, Long.MaxValue).map(c => new DistributedDatabaseDef[IO](Vector.from(dbs), c))
+        Controls.create[IO](ControlsConfig.unbounded).map(c => new DistributedDatabaseDef[IO](Vector.from(dbs), c))
       )
   }
 

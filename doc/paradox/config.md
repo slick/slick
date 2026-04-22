@@ -64,13 +64,21 @@ Slick does not expose its own JMX bean in Slick 4. Observability is provided at 
    integration (for example, Micrometer or Prometheus).
 
 In addition to pool/runtime observability, Slick 4's execution limits are configured directly on
-the database config section:
+the database config section (for `DatabaseConfig.forConfig` / `forProfileConfig`):
 
 - `maxConnections`: maximum concurrent JDBC connections.
 - `maxInflightActions` (default `2 * maxConnections`): maximum concurrently running DBIO chains.
 - `queueSize` (default `1000`): maximum callers waiting for in-flight admission.
 - `inflightAdmissionTimeout` (optional): max time waiting for an in-flight slot.
 - `connectionAcquireTimeout` (optional): max time waiting for a connection slot.
+
+For programmatic configs (`forDataSource`, `forSource`, `forName`, `forURL`) use
+`ControlsConfig` and `.withControls` instead of config-file keys:
+
+```scala
+DatabaseConfig.forDataSource(MyProfile, ds)
+  .withControls(ControlsConfig(maxConnections = 10, queueSize = 500))
+```
 
 When `queueSize` is exhausted, Slick rejects immediately with
 `SlickException("DBIOAction queue full")`.

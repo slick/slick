@@ -6,9 +6,8 @@ import scala.concurrent.ExecutionContext
 import cats.effect.IO
 
 import slick.ControlStatus
-import slick.basic.{BasicDatabaseConfig, BasicProfile}
+import slick.DatabaseConfig
 import slick.dbio.{DBIOAction, NoStream, Streaming}
-import slick.jdbc.{JdbcDatabaseConfig, JdbcProfile}
 
 /** Future/Reactive Streams facade for Slick's effect-polymorphic database API. */
 trait Database extends slick.Database[Future, DatabasePublisher] {
@@ -102,7 +101,7 @@ object Database {
       override def close(): Unit = db.close()
     }
 
-  /** Open a new database instance from a basic profile configuration.
+  /** Open a new database instance from a database configuration.
     *
     * The returned `scala.concurrent.Future` completes with a fresh
     * [[slick.future.Database]]. The caller is responsible for closing it by
@@ -110,19 +109,8 @@ object Database {
     *
     * If you want automatic lifecycle management, prefer `use`.
     */
-  def open[P <: BasicProfile](config: BasicDatabaseConfig[P]): Future[Database] =
-    config.profile.backend.makeDatabase[IO](config).map(fromCore).unsafeToFuture()
-
-  /** Open a new database instance from a JDBC profile configuration.
-    *
-    * The returned `scala.concurrent.Future` completes with a fresh
-    * [[slick.future.Database]]. The caller is responsible for closing it by
-    * calling `close()` when done.
-    *
-    * If you want automatic lifecycle management, prefer `use`.
-    */
-  def open[P <: JdbcProfile](config: JdbcDatabaseConfig[P]): Future[Database] =
-    config.profile.backend.makeDatabase[IO](config).map(fromCore).unsafeToFuture()
+  def open(config: DatabaseConfig): Future[Database] =
+    config.makeDatabase[IO]().map(fromCore).unsafeToFuture()
 
   /** Open a new database, run a program, and always close the database.
     *
@@ -132,18 +120,7 @@ object Database {
     * Acquire this once at the top-most level and pass it down. In normal
     * application usage, keep only one opened database at a time.
     */
-  def use[P <: BasicProfile, T](config: BasicDatabaseConfig[P])(f: Database => Future[T])(implicit ec: ExecutionContext): Future[T] =
-    withOpened(open(config))(f)
-
-  /** Open a new JDBC database, run a program, and always close the database.
-    *
-    * Each invocation opens a new database instance, so this should usually wrap the
-    * whole program that needs a database, not individual queries.
-    *
-    * Acquire this once at the top-most level and pass it down. In normal
-    * application usage, keep only one opened database at a time.
-    */
-  def use[P <: JdbcProfile, T](config: JdbcDatabaseConfig[P])(f: Database => Future[T])(implicit ec: ExecutionContext): Future[T] =
+  def use[T](config: DatabaseConfig)(f: Database => Future[T])(implicit ec: ExecutionContext): Future[T] =
     withOpened(open(config))(f)
 
   private def withOpened[T](opened: => Future[Database])(f: Database => Future[T])(implicit ec: ExecutionContext): Future[T] =

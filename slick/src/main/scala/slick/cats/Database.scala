@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.effect.Resource
 
 import slick.ControlStatus
+import slick.DatabaseConfig
 import slick.dbio.{DBIOAction, NoStream, Streaming}
 
 /** Cats Effect / fs2 facade for Slick's effect-polymorphic database API. */
@@ -62,26 +63,15 @@ object Database {
     }
 
   /**
-    * Create a new database instance from a basic profile configuration.
+    * Create a new database instance from a database configuration.
     *
     * The returned `cats.effect.IO` yields a fresh [[slick.cats.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
     * If you want automatic lifecycle management, prefer `resource`.
     */
-  def make[P <: slick.basic.BasicProfile](config: slick.basic.BasicDatabaseConfig[P]): IO[Database] =
-    config.profile.backend.makeDatabase[IO](config).map(fromCore)
-
-  /**
-    * Create a new database instance from a JDBC profile configuration.
-    *
-    * The returned `cats.effect.IO` yields a fresh [[slick.cats.Database]].
-    * The caller owns the lifecycle and must call `db.close()` when done.
-    *
-    * If you want automatic lifecycle management, prefer `resource`.
-    */
-  def make[P <: slick.jdbc.JdbcProfile](config: slick.jdbc.JdbcDatabaseConfig[P]): IO[Database] =
-    config.profile.backend.makeDatabase[IO](config).map(fromCore)
+  def make(config: DatabaseConfig): IO[Database] =
+    config.makeDatabase[IO]().map(fromCore)
 
   /**
     * Open a new database as a `Resource` and always close it.
@@ -92,18 +82,6 @@ object Database {
     * Acquire this once at the top-most level and pass it down. In normal
     * application usage, keep only one opened database at a time.
     */
-  def resource[P <: slick.basic.BasicProfile](config: slick.basic.BasicDatabaseConfig[P]): Resource[IO, Database] =
-    Resource.make(make(config))(db => IO.blocking(db.close()).attempt.void)
-
-  /**
-    * Open a new JDBC database as a `Resource` and always close it.
-    *
-    * Each invocation opens a new database instance, so this should usually wrap
-    * the whole program that needs a database, not individual queries.
-    *
-    * Acquire this once at the top-most level and pass it down. In normal
-    * application usage, keep only one opened database at a time.
-    */
-  def resource[P <: slick.jdbc.JdbcProfile](config: slick.jdbc.JdbcDatabaseConfig[P]): Resource[IO, Database] =
+  def resource(config: DatabaseConfig): Resource[IO, Database] =
     Resource.make(make(config))(db => IO.blocking(db.close()).attempt.void)
 }

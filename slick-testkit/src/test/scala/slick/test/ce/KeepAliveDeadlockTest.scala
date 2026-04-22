@@ -11,6 +11,7 @@ import scala.concurrent.duration.*
 import munit.CatsEffectSuite
 
 import slick.cats.Database
+import slick.ControlsConfig
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.{DataSourceJdbcDataSource, DriverDataSource, H2Profile}
 import slick.jdbc.H2Profile.api.*
@@ -163,7 +164,7 @@ class KeepAliveDeadlockTest extends CatsEffectSuite {
     val bounded = new BoundedDataSource(rawDs, maxSize = 2)
     val source = new DataSourceJdbcDataSource(bounded, keepAliveConnection = true, maxConnections = Some(1))
 
-    Database.resource(DatabaseConfig.forSource(H2Profile, source, maxConnections = Some(1))).use { db =>
+    Database.resource(DatabaseConfig.forSource(H2Profile, source).withControls(ControlsConfig(maxConnections = 1))).use { db =>
       db.run(sql"SELECT 1".as[Int].head).map { r =>
         assertEquals(r, 1)
       }
@@ -179,7 +180,7 @@ class KeepAliveDeadlockTest extends CatsEffectSuite {
     val bounded = new BoundedDataSource(rawDs, maxSize = 3)
     val source = new DataSourceJdbcDataSource(bounded, keepAliveConnection = true, maxConnections = Some(2))
 
-    Database.resource(DatabaseConfig.forSource(H2Profile, source, maxConnections = Some(2))).use { db =>
+    Database.resource(DatabaseConfig.forSource(H2Profile, source).withControls(ControlsConfig(maxConnections = 2))).use { db =>
       import cats.syntax.parallel.*
       (
         db.run(sql"SELECT 1".as[Int].head),
@@ -201,7 +202,7 @@ class KeepAliveDeadlockTest extends CatsEffectSuite {
     val bounded = new BoundedDataSource(rawDs, maxSize = 1)
     val source = new DataSourceJdbcDataSource(bounded, keepAliveConnection = true, maxConnections = Some(1))
 
-    Database.resource(DatabaseConfig.forSource(H2Profile, source, maxConnections = Some(1))).use { db =>
+    Database.resource(DatabaseConfig.forSource(H2Profile, source).withControls(ControlsConfig(maxConnections = 1))).use { db =>
       db.run(sql"SELECT 1".as[Int].head).attempt.map {
         case Left(e: SQLException) if e.getMessage.contains("pool exhausted") =>
           // Expected: the pool is undersized — it should have been maxConnections + 1.

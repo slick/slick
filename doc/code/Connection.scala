@@ -15,6 +15,7 @@ import slick.cats.Database
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
+import slick.ControlsConfig
 //#imports
 
 object Connection {
@@ -29,14 +30,15 @@ object Connection {
       val dataSource = null.asInstanceOf[javax.sql.DataSource]
       val size = 42
       //#forDataSource
-      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: javax.sql.DataSource, Some(size: Int))
+      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: javax.sql.DataSource)
+        .withControls(ControlsConfig(maxConnections = size: Int))
       val db: Resource[IO, Database] = Database.resource(dc)
       //#forDataSource
     }
     if (false){
       val dataSource = null.asInstanceOf[slick.jdbc.DatabaseUrlDataSource]
       //#forDatabaseURL
-      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: slick.jdbc.DatabaseUrlDataSource, None)
+      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: slick.jdbc.DatabaseUrlDataSource)
       val db = Database.resource(dc)
       //#forDatabaseURL
     }
@@ -44,7 +46,8 @@ object Connection {
       val jndiName = ""
       val size = 42
       //#forName
-      val dc = DatabaseConfig.forName(H2Profile, jndiName: String, Some(size: Int))
+      val dc = DatabaseConfig.forName(H2Profile, jndiName: String)
+        .withControls(ControlsConfig(maxConnections = size: Int))
       val db = Database.resource(dc)
       //#forName
     }

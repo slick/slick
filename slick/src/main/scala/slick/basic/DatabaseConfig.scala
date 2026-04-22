@@ -5,7 +5,7 @@ import java.net.URI
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
-import slick.SlickException
+import slick.{ControlsConfig, SlickException}
 import slick.util.{ClassLoaderUtil, SlickLogger}
 import slick.util.ConfigExtensionMethods.configExtensionMethods
 
@@ -66,15 +66,36 @@ trait DatabaseConfig {
     path: String,
     config: Config = ConfigFactory.load(),
     classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader
-  ): BasicDatabaseConfig[P] =
+  ): BasicDatabaseConfig[P] = {
+    val profileConfig = if (path.isEmpty) config else config.getConfig(path)
+    // Read concurrency settings from the optional "db" sub-section (or the profile config itself
+    // for the flat format), mirroring the key names used by the legacy numThreads/maxConnections
+    // config style.  These become the initial ControlsConfig; callers may override via
+    // BasicDatabaseConfig#withControls.
+    val dbConfig = if (profileConfig.hasPath("db")) profileConfig.getConfig("db") else profileConfig
+    val configuredMaxConnections =
+      dbConfig.getIntOpt("maxConnections").orElse(dbConfig.getIntOpt("numThreads")).getOrElse(ControlsConfig().maxConnections)
+    val queueSize    = dbConfig.getIntOr("queueSize", ControlsConfig().queueSize)
+    val maxInflight  = dbConfig.getIntOpt("maxInflightActions")
+    val inflightAdmissionTimeout = dbConfig.getFiniteDurationOpt("inflightAdmissionTimeout")
+    val connectionAcquireTimeout = dbConfig.getFiniteDurationOpt("connectionAcquireTimeout")
+    val controls = ControlsConfig(
+      maxConnections           = configuredMaxConnections,
+      queueSize                = queueSize,
+      maxInflight              = maxInflight,
+      inflightAdmissionTimeout = inflightAdmissionTimeout,
+      connectionAcquireTimeout = connectionAcquireTimeout
+    )
     new BasicDatabaseConfig[P](
       profile,
-      if (path.isEmpty) config else config.getConfig(path),
+      profileConfig,
       path,
       config,
       classLoader,
-      profile.getClass.getName
+      profile.getClass.getName,
+      controls
     )
+  }
 
   protected def splitURI(uri: URI): (String, String) = {
     val f = uri.getRawFragment

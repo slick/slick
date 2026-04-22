@@ -31,22 +31,19 @@ object ConcurrencyControl {
   }
 
   object Controls {
-    def create[F[_]](
-      maxConnections: Long,
-      queueSize: Long,
-      maxInflight: Long,
-      inflightAdmissionTimeout: Option[FiniteDuration] = None,
-      connectionAcquireTimeout: Option[FiniteDuration] = None
-    )(implicit F: Async[F]): F[Controls[F]] = {
+    def create[F[_]](config: slick.ControlsConfig)(implicit F: Async[F]): F[Controls[F]] = {
+      val maxConnections = config.maxConnections.toLong
+      val queueSize      = config.queueSize.toLong
+      // Default to 2× maxConnections; always at least maxConnections.
+      val maxInflight    = math.max(maxConnections, config.maxInflight.getOrElse(config.maxConnections * 2).toLong)
       require(maxConnections > 0, s"maxConnections must be > 0, got $maxConnections")
       require(queueSize >= 0, s"queueSize must be >= 0, got $queueSize")
-      require(maxInflight > 0, s"maxInflight must be > 0, got $maxInflight")
-      inflightAdmissionTimeout.foreach(t => require(t.length > 0L, s"inflightAdmissionTimeout must be > 0, got $t"))
-      connectionAcquireTimeout.foreach(t => require(t.length > 0L, s"connectionAcquireTimeout must be > 0, got $t"))
+      config.inflightAdmissionTimeout.foreach(t => require(t.length > 0L, s"inflightAdmissionTimeout must be > 0, got $t"))
+      config.connectionAcquireTimeout.foreach(t => require(t.length > 0L, s"connectionAcquireTimeout must be > 0, got $t"))
       F.flatMap(Semaphore[F](queueSize)) { queueSem =>
         F.flatMap(Semaphore[F](maxInflight)) { inflightSem =>
-          F.map(ConnectionArbiter.create[F](maxConnections, connectionAcquireTimeout)) { arbiter =>
-            Controls(new AdmissionControl[F](queueSem, inflightSem, inflightAdmissionTimeout), arbiter)
+          F.map(ConnectionArbiter.create[F](maxConnections, config.connectionAcquireTimeout)) { arbiter =>
+            Controls(new AdmissionControl[F](queueSem, inflightSem, config.inflightAdmissionTimeout), arbiter)
           }
         }
       }
