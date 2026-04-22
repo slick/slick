@@ -29,7 +29,7 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   override def makeDatabase[F[_]: Async](
     config: slick.basic.BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = ActionListener.noop[F]
+    actionListener: ActionListener[F] = defaultActionLogger[F]
   ): F[Database[F]] =
     Async[F].flatMap(Controls.create[F](ControlsConfig.unbounded))(c => Async[F].pure(new HeapDatabaseDef[F](c)))
 
