@@ -28,7 +28,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
   override def makeDatabase[F[_]: Async](
     config: slick.basic.BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = ActionListener.noop[F]
+    actionListener: ActionListener[F] = defaultActionLogger[F]
   ): F[Database[F]] =
     Async[F].raiseError(new SlickException("DistributedBackend cannot be configured with an external config file"))
 

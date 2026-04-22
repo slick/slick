@@ -24,6 +24,32 @@ trait BasicBackend { self =>
   protected lazy val actionLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".action"))
   protected lazy val streamLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".stream"))
 
+  protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing]): Unit = {
+    if (actionLogger.isDebugEnabled && a.isLogged) {
+      val logA = a.nonFusedEquivalentAction
+      val aPrefix = if (a eq logA) "" else "[fused] "
+      val dump = new TreePrinter(prefix = "    ", firstPrefix = aPrefix, narrow = {
+        case a: DBIOAction[?, ?, ?] => a.nonFusedEquivalentAction
+        case o                      => o
+      }).get(logA)
+      val msg = DumpInfo.highlight(dump.substring(0, dump.length - 1))
+      actionLogger.debug(msg)
+    }
+  }
+
+  private[this] type AnyK[A] = Any
+
+  private[this] lazy val defaultActionLoggerAny: ActionListener[AnyK] =
+    new ActionListener[AnyK] {
+      override def around[R, H](a: DBIOAction[R, _, _], exec: Any): Any = {
+        logAction(a.asInstanceOf[DBIOAction[?, NoStream, Nothing]])
+        exec
+      }
+    }
+
+  protected final def defaultActionLogger[F[_]]: ActionListener[F] =
+    defaultActionLoggerAny.asInstanceOf[ActionListener[F]]
+
   /** Non-parameterized marker trait for any database instance, regardless of effect type.
     * Use this type when you need to refer to "any database" without knowing the effect type. */
   trait AnyDatabaseDef extends Closeable {
@@ -41,7 +67,7 @@ trait BasicBackend { self =>
   /** Create a Database instance from a [[slick.basic.BasicDatabaseConfig]]. */
   def makeDatabase[F[_]: Async](
     config: BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = ActionListener.noop[F]
+    actionListener: ActionListener[F] = defaultActionLogger[F]
   ): F[Database[F]]
   // -----------------------------------------------------------------------
   // Execution state
@@ -497,7 +523,6 @@ trait BasicBackend { self =>
       ctx: Ref[F, ExecState]
     ): F[R] = {
       val F = asyncF
-      logAction(a)
       // Wrap in F.defer so that recursive calls to interpret do not consume Scala stack
       // frames. Without this, deeply nested FlatMapAction / AndThenAction structures
       // (e.g. 10,000+ levels) would cause a StackOverflowError.  CE3's defer pushes the
@@ -641,18 +666,6 @@ trait BasicBackend { self =>
     // Logging
     // ------------------------------------------------------------------
 
-    protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing]): Unit = {
-      if (actionLogger.isDebugEnabled && a.isLogged) {
-        val logA = a.nonFusedEquivalentAction
-        val aPrefix = if (a eq logA) "" else "[fused] "
-        val dump = new TreePrinter(prefix = "    ", firstPrefix = aPrefix, narrow = {
-          case a: DBIOAction[?, ?, ?] => a.nonFusedEquivalentAction
-          case o                      => o
-        }).get(logA)
-        val msg = DumpInfo.highlight(dump.substring(0, dump.length - 1))
-        actionLogger.debug(msg)
-      }
-    }
   }
 
   // -----------------------------------------------------------------------
