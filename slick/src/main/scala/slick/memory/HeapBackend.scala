@@ -13,6 +13,7 @@ import slick.compat.collection.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
 import slick.util.Logging
+import slick.ControlsConfig
 
 
 /** A simple database engine that stores data in heap data structures. */
@@ -26,7 +27,7 @@ trait HeapBackend extends RelationalBackend with Logging {
   val backend: HeapBackend = this
 
   override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
-    Async[F].flatMap(Controls.create[F](Long.MaxValue, Long.MaxValue, Long.MaxValue))(c => Async[F].pure(new HeapDatabaseDef[F](c)))
+    Async[F].flatMap(Controls.create[F](ControlsConfig.unbounded))(c => Async[F].pure(new HeapDatabaseDef[F](c)))
 
   /** Non-parameterized base for HeapDatabaseDef, providing table management operations
     * that do not depend on the effect type F. Used by HeapSessionDef. */
@@ -114,7 +115,7 @@ trait HeapBackend extends RelationalBackend with Logging {
     /** Create a new heap database instance. */
     def apply(): Resource[IO, Database[IO]] =
       Resource.eval(
-        Controls.create[IO](Long.MaxValue, Long.MaxValue, Long.MaxValue).map(c => new HeapDatabaseDef[IO](c))
+        Controls.create[IO](ControlsConfig.unbounded).map(c => new HeapDatabaseDef[IO](c))
       )
   }
 

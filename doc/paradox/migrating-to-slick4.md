@@ -99,10 +99,17 @@ import slick.future.Database
 | Method | Description |
 |--------|-------------|
 | `DatabaseConfig.forURL(H2Profile, url, ...)` | JDBC URL |
-| `DatabaseConfig.forDataSource(H2Profile, ds, maxConn)` | Existing `DataSource` |
-| `DatabaseConfig.forName(H2Profile, jndi, maxConn)` | JNDI name |
+| `DatabaseConfig.forDataSource(H2Profile, ds)` | Existing `DataSource` |
+| `DatabaseConfig.forName(H2Profile, jndi)` | JNDI name |
 | `DatabaseConfig.forProfileConfig(H2Profile, "mydb")` | Typesafe Config path with a concrete profile |
 | `DatabaseConfig.forConfig[H2Profile.type]("mydb")` | Typesafe Config path, profile class loaded from config |
+
+To set the connection pool size for programmatic configs, chain `.withControls`:
+
+```scala
+DatabaseConfig.forDataSource(H2Profile, ds)
+  .withControls(ControlsConfig(maxConnections = n))
+```
 
 All of these return a `JdbcDatabaseConfig` that you pass to `Database.open` or `Database.use`.
 
@@ -356,8 +363,8 @@ import scala.concurrent.ExecutionContext.parasitic
 |-------------------|-----------------------------------------|
 | `Database.forConfig("p")` | `DatabaseConfig.forProfileConfig(MyProfile, "p")` or `DatabaseConfig.forConfig[MyProfile.type]("p")` |
 | `Database.forURL(url, driver=d)` | `DatabaseConfig.forURL(MyProfile, url, driver=d)` |
-| `Database.forDataSource(ds, Some(n))` | `DatabaseConfig.forDataSource(MyProfile, ds, Some(n))` |
-| `Database.forName(jndi, Some(n))` | `DatabaseConfig.forName(MyProfile, jndi, Some(n))` |
+| `Database.forDataSource(ds, Some(n))` | `DatabaseConfig.forDataSource(MyProfile, ds).withControls(ControlsConfig(maxConnections = n))` |
+| `Database.forName(jndi, Some(n))` | `DatabaseConfig.forName(MyProfile, jndi).withControls(ControlsConfig(maxConnections = n))` |
 
 ### 5. Database lifecycle
 
@@ -414,7 +421,7 @@ No change needed. `DBIO.from(future: Future[R])` is unchanged in `slick-future`.
 |-------------------|-----------------------|
 | `AsyncExecutor("name", n, n, m, n)` | Remove entirely |
 | `Database.forURL(url, executor=ae)` | `DatabaseConfig.forURL(profile, url)` — no executor parameter |
-| `Database.forDataSource(ds, Some(n), executor=ae)` | `DatabaseConfig.forDataSource(profile, ds, Some(n))` |
+| `Database.forDataSource(ds, Some(n), executor=ae)` | `DatabaseConfig.forDataSource(profile, ds).withControls(ControlsConfig(maxConnections = n))` |
 
 ### 11. JMX bean name
 

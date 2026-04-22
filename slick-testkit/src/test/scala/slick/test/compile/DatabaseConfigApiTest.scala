@@ -3,6 +3,7 @@ package slick.test.compile
 import cats.effect.IO
 
 import slick.cats.Database
+import slick.ControlsConfig
 import slick.jdbc.DatabaseConfig
 import slick.jdbc.H2Profile
 
@@ -43,7 +44,7 @@ object DatabaseConfigApiTest {
   // forDataSource — Database.resource.use pattern
   locally {
     val ds = new org.h2.jdbcx.JdbcDataSource()
-    val dc = DatabaseConfig.forDataSource(P, ds, maxConnections = Some(4))
+    val dc = DatabaseConfig.forDataSource(P, ds).withControls(ControlsConfig(maxConnections = 4))
     val _result: IO[Int] = Database.resource(dc).use(db => db.run(DBIO.successful(1)))
   }
 

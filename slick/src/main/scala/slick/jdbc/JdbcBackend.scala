@@ -1,7 +1,6 @@
 package slick.jdbc
 
 import scala.util.control.NonFatal
-import scala.concurrent.duration.FiniteDuration
 
 import java.sql.{Array => _, *}
 
@@ -27,19 +26,15 @@ trait JdbcBackend extends RelationalBackend {
     // otherwise use the config directly (flat format where datasource keys are at the top level).
     val dbConfig = config.config.getConfigOr("db", config.config)
     val source = JdbcDataSource.forConfig(dbConfig, null, config.path, config.classLoader)
-    val configuredMaxConnections = dbConfig.getIntOpt("maxConnections").orElse(dbConfig.getIntOpt("numThreads")).getOrElse(20)
-    val n = source.maxConnections.getOrElse(configuredMaxConnections)
-    val queueSize = dbConfig.getIntOr("queueSize", 1000)
-    val configuredInflight = dbConfig.getIntOpt("maxInflightActions")
-    val maxInflight = math.max(n, configuredInflight.getOrElse(n * 2))
-    val inflightAdmissionTimeout = dbConfig.getFiniteDurationOpt("inflightAdmissionTimeout")
-    val connectionAcquireTimeout = dbConfig.getFiniteDurationOpt("connectionAcquireTimeout")
-    makeDatabaseWithSource[F](source, n, queueSize, maxInflight, inflightAdmissionTimeout, connectionAcquireTimeout)
+    val cc = config.controls
+    val n  = source.maxConnections.getOrElse(cc.maxConnections)
+    makeDatabaseWithSource[F](source, cc.copy(maxConnections = n))
   }
 
   def makeDatabase[F[_]: Async](config: JdbcDatabaseConfig[?]): F[Database[F]] = {
-    val n = config.maxConnections.getOrElse(20)
-    makeDatabaseWithSource[F](config.source, n, 1000, n * 2, None, None)
+    val cc = config.controls
+    val n  = config.source.maxConnections.getOrElse(cc.maxConnections)
+    makeDatabaseWithSource[F](config.source, cc.copy(maxConnections = n))
   }
 
   /** Construct a [[Database]] from a [[JdbcDataSource]] and open the keepalive connection if
@@ -47,16 +42,11 @@ trait JdbcBackend extends RelationalBackend {
     * responsible for calling [[JdbcDatabaseDef.close]] when done. */
   private def makeDatabaseWithSource[F[_]: Async](
     source: JdbcDataSource,
-    maxConnections: Int,
-    queueSize: Int,
-    maxInflight: Int,
-    inflightAdmissionTimeout: Option[FiniteDuration],
-    connectionAcquireTimeout: Option[FiniteDuration]
+    controls: slick.ControlsConfig
   ): F[Database[F]] = {
-    require(maxConnections > 0, s"maxConnections must be > 0, got $maxConnections")
-    Async[F].flatMap(Controls.create[F](maxConnections.toLong, queueSize.toLong, maxInflight.toLong, inflightAdmissionTimeout, connectionAcquireTimeout)) { controls =>
+    Async[F].flatMap(Controls.create[F](controls)) { c =>
       val ag = Async[F]
-      val db = new JdbcDatabaseDef[F](source, controls)(ag) {}
+      val db = new JdbcDatabaseDef[F](source, c)(ag) {}
       val keepAlive: F[Unit] = source match {
         case ds: DataSourceJdbcDataSource if ds.keepAliveConnection =>
           Async[F].blocking(ds.openKeepAlive())

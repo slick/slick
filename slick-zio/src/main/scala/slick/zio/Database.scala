@@ -7,9 +7,8 @@ import zio.interop.catz.*
 import zio.stream.ZStream
 
 import slick.ControlStatus
-import slick.basic.{BasicDatabaseConfig, BasicProfile}
+import slick.DatabaseConfig
 import slick.dbio.{DBIOAction, NoStream, Streaming}
-import slick.jdbc.{JdbcDatabaseConfig, JdbcProfile}
 
 /** ZIO facade for Slick's effect-polymorphic database API. */
 trait Database extends slick.Database[Task, Database.StreamTask] {
@@ -74,26 +73,15 @@ object Database {
     }
 
   /**
-    * Create a new database instance from a basic profile configuration.
+    * Create a new database instance from a database configuration.
     *
     * The returned `zio.Task` yields a fresh [[slick.zio.Database]].
     * The caller owns the lifecycle and must call `db.close()` when done.
     *
     * If you want automatic lifecycle management, prefer `scoped`.
     */
-  def make[P <: BasicProfile](config: BasicDatabaseConfig[P]): Task[Database] =
-    config.profile.backend.makeDatabase[Task](config).map(fromCore)
-
-  /**
-    * Create a new database instance from a JDBC profile configuration.
-    *
-    * The returned `zio.Task` yields a fresh [[slick.zio.Database]].
-    * The caller owns the lifecycle and must call `db.close()` when done.
-    *
-    * If you want automatic lifecycle management, prefer `scoped`.
-    */
-  def make[P <: JdbcProfile](config: JdbcDatabaseConfig[P]): Task[Database] =
-    config.profile.backend.makeDatabase[Task](config).map(fromCore)
+  def make(config: DatabaseConfig): Task[Database] =
+    config.makeDatabase[Task]().map(fromCore)
 
   /**
     * Open a new database under scope and always close it.
@@ -104,18 +92,6 @@ object Database {
     * Acquire this once at the top-most level and pass it down. In normal
     * application usage, keep only one opened database at a time.
     */
-  def scoped[P <: BasicProfile](config: BasicDatabaseConfig[P]): ZIO[Scope, Throwable, Database] =
-    Resource.make(make(config))(db => ZIO.attemptBlocking(db.close()).ignore).toScopedZIO
-
-  /**
-    * Open a new JDBC database under scope and always close it.
-    *
-    * Each invocation opens a new database instance, so this should usually wrap
-    * the whole program that needs a database, not individual queries.
-    *
-    * Acquire this once at the top-most level and pass it down. In normal
-    * application usage, keep only one opened database at a time.
-    */
-  def scoped[P <: JdbcProfile](config: JdbcDatabaseConfig[P]): ZIO[Scope, Throwable, Database] =
+  def scoped(config: DatabaseConfig): ZIO[Scope, Throwable, Database] =
     Resource.make(make(config))(db => ZIO.attemptBlocking(db.close()).ignore).toScopedZIO
 }
