@@ -24,7 +24,7 @@ trait JdbcBackend extends RelationalBackend {
 
   override def makeDatabase[F[_]: Async](
     config: slick.basic.BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = ActionListener.noop[F]
+    actionListener: ActionListener[F] = defaultActionLogger[F]
   ): F[Database[F]] = {
     // If the config has a "db" sub-section use it (the {profile=..., db={...}} format),
     // otherwise use the config directly (flat format where datasource keys are at the top level).
