@@ -303,6 +303,17 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       () => randomLocalDateTime().toLocalTime
     )
 
+  def testLocalTimeFormatCompatibility =
+    roundTrip[LocalTime](
+      List(
+        LocalTime.of(12, 34),
+        LocalTime.of(12, 34, 56),
+        LocalTime.of(12, 34, 56, 123000000)
+      ),
+      () => LocalTime.of(12, 34),
+      tableNameSuffix = "_format_compat"
+    )
+
   def testInstant =
     roundTrip[Instant](
       List(LocalDateTime.parse("2018-03-25T01:37:40", formatter).toInstant(ZoneOffset.UTC),

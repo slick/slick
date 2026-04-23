@@ -2,6 +2,8 @@ package slick.jdbc
 
 import java.sql.{Array as _, *}
 import java.time.*
+import java.time.format.DateTimeFormatterBuilder
+import java.time.temporal.ChronoField
 import java.util.UUID
 
 import scala.reflect.ClassTag
@@ -216,7 +218,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         java.sql.Types.VARCHAR
       }
       override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
+        p.setString(idx, localTimeFormatter.format(v))
       }
       override def getValue(r: ResultSet, idx: Int) : LocalTime = {
         r.getString(idx) match {
@@ -225,12 +227,20 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         }
       }
       override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = {
-        r.updateString(idx, v.toString)
+        r.updateString(idx, localTimeFormatter.format(v))
       }
 
       override def valueToSQLLiteral(value: LocalTime) = {
-        s"'${value.toString}'"
+        s"'${localTimeFormatter.format(value)}'"
       }
+
+      private[this] val localTimeFormatter =
+        new DateTimeFormatterBuilder()
+          .appendPattern("HH:mm:ss")
+          .optionalStart()
+          .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+          .optionalEnd()
+          .toFormatter()
     }
 
     class LocalDateTimeJdbcType extends DriverJdbcType[LocalDateTime] {
