@@ -8,6 +8,7 @@ import cats.effect.{Async, IO, Resource}
 
 import slick.SlickException
 import slick.ast.*
+import slick.basic.ActionListener
 import slick.basic.ConcurrencyControl.Controls
 import slick.compat.collection.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
@@ -26,7 +27,10 @@ trait HeapBackend extends RelationalBackend with Logging {
   val Database = new HeapDatabaseFactoryDef
   val backend: HeapBackend = this
 
-  override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
+  override def makeDatabase[F[_]: Async](
+    config: slick.basic.BasicDatabaseConfig[?],
+    actionListener: ActionListener[F] = defaultActionLogger[F]
+  ): F[Database[F]] =
     Async[F].flatMap(Controls.create[F](ControlsConfig.unbounded))(c => Async[F].pure(new HeapDatabaseDef[F](c)))
 
   /** Non-parameterized base for HeapDatabaseDef, providing table management operations
@@ -43,7 +47,10 @@ trait HeapBackend extends RelationalBackend with Logging {
     def getTables: IndexedSeq[HeapTable]
   }
 
-  class HeapDatabaseDef[F[_]](override val controls: Controls[F])(implicit override val asyncF: cats.effect.Async[F]) extends BasicDatabaseDef[F] with AnyHeapDatabaseDef {
+  class HeapDatabaseDef[F[_]](
+    override val controls: Controls[F],
+    override val actionListener: ActionListener[F] = ActionListener.noop[F]
+  )(implicit override val asyncF: cats.effect.Async[F]) extends BasicDatabaseDef[F] with AnyHeapDatabaseDef {
 
     override protected def sessionAsContext(session: Session, state: ExecState): Context = {
       val s = session

@@ -7,6 +7,7 @@ import java.sql.{Array => _, *}
 import cats.effect.Async
 
 import slick.relational.RelationalBackend
+import slick.basic.ActionListener
 import slick.basic.ConcurrencyControl.*
 import slick.util.*
 import slick.util.ConfigExtensionMethods.*
@@ -21,32 +22,42 @@ trait JdbcBackend extends RelationalBackend {
 
   val backend: JdbcBackend = this
 
-  override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] = {
+  override def makeDatabase[F[_]: Async](
+    config: slick.basic.BasicDatabaseConfig[?],
+    actionListener: ActionListener[F] = defaultActionLogger[F]
+  ): F[Database[F]] = {
     // If the config has a "db" sub-section use it (the {profile=..., db={...}} format),
     // otherwise use the config directly (flat format where datasource keys are at the top level).
     val dbConfig = config.config.getConfigOr("db", config.config)
     val source = JdbcDataSource.forConfig(dbConfig, null, config.path, config.classLoader)
     val cc = config.controls
     val n  = source.maxConnections.getOrElse(cc.maxConnections)
-    makeDatabaseWithSource[F](source, cc.copy(maxConnections = n))
+    makeDatabaseWithSource[F](source, cc.copy(maxConnections = n), actionListener)
   }
 
-  def makeDatabase[F[_]: Async](config: JdbcDatabaseConfig[?]): F[Database[F]] = {
+  def makeDatabase[F[_]: Async](
+    config: JdbcDatabaseConfig[?],
+    actionListener: ActionListener[F]
+  ): F[Database[F]] = {
     val cc = config.controls
     val n  = config.source.maxConnections.getOrElse(cc.maxConnections)
-    makeDatabaseWithSource[F](config.source, cc.copy(maxConnections = n))
+    makeDatabaseWithSource[F](config.source, cc.copy(maxConnections = n), actionListener)
   }
+
+  def makeDatabase[F[_]: Async](config: JdbcDatabaseConfig[?]): F[Database[F]] =
+    makeDatabase(config, ActionListener.noop[F])
 
   /** Construct a [[Database]] from a [[JdbcDataSource]] and open the keepalive connection if
     * configured.  This is the primitive used by both [[makeDatabase]] overloads.  The caller is
     * responsible for calling [[JdbcDatabaseDef.close]] when done. */
   private def makeDatabaseWithSource[F[_]: Async](
     source: JdbcDataSource,
-    controls: slick.ControlsConfig
+    controls: slick.ControlsConfig,
+    listener: ActionListener[F]
   ): F[Database[F]] = {
     Async[F].flatMap(Controls.create[F](controls)) { c =>
       val ag = Async[F]
-      val db = new JdbcDatabaseDef[F](source, c)(ag) {}
+      val db = new JdbcDatabaseDef[F](source, c, listener)(ag) {}
       val keepAlive: F[Unit] = source match {
         case ds: DataSourceJdbcDataSource if ds.keepAliveConnection =>
           Async[F].blocking(ds.openKeepAlive())
@@ -65,7 +76,8 @@ trait JdbcBackend extends RelationalBackend {
     */
   abstract class JdbcDatabaseDef[F[_]](
     val source: JdbcDataSource,
-    override val controls: Controls[F]
+    override val controls: Controls[F],
+    override val actionListener: ActionListener[F]
   )(
     override implicit val asyncF: Async[F]
   ) extends BasicDatabaseDef[F] {
