@@ -22,7 +22,6 @@ import org.slf4j.LoggerFactory
    * types for `Database` and `Session`. */
 trait BasicBackend { self =>
   protected lazy val actionLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".action"))
-  protected lazy val streamLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".stream"))
 
   protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing]): Unit = {
     if (actionLogger.isDebugEnabled && a.isLogged) {
