@@ -26,7 +26,6 @@ class DataSourceTest {
     try f(rawDb, db).unsafeRunSync()
     finally rawDb.close()
   }
-
   @Test def testDataSourceJdbcDataSource: Unit = {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds1")
     import dc.profile.api.*
@@ -44,7 +43,6 @@ class DataSourceTest {
         .map(r => assertEquals("PostgreSQL", r))
     }
   }
-
   @Test def testDatabaseUrlDataSource: Unit = {
     import slick.jdbc.H2Profile.api.actionBasedSQLInterpolation
     MockDriver.reset
@@ -126,13 +124,14 @@ class DataSourceTest {
   }
 
   @Test def testMaxConnections: Unit = {
-    MockDriver.reset
     val dc = DatabaseConfig.forProfileConfig(H2Profile, "databaseUrl", ConfigFactory.parseString(
       """
         |databaseUrl {
         |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
         |  maxConnections = 20
-        |  url = "postgres://user:pass@host/dbname"
+        |  properties {
+        |    url = "postgres://user:pass@host/dbname"
+        |  }
         |}
         |""".stripMargin
     ))
@@ -149,7 +148,9 @@ class DataSourceTest {
         |databaseUrl {
         |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
         |  numThreads = 10
-        |  url = "postgres://user:pass@host/dbname"
+        |  properties {
+        |    url = "postgres://user:pass@host/dbname"
+        |  }
         |}
         |""".stripMargin
     ))
@@ -170,7 +171,9 @@ class DataSourceTest {
         |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
         |  maxConnections = 12
         |  numThreads = 10
-        |  url = "postgres://user:pass@host/dbname"
+        |  properties {
+        |    url = "postgres://user:pass@host/dbname"
+        |  }
         |}
         |""".stripMargin
     ))
@@ -192,7 +195,9 @@ class DataSourceTest {
         |  maxConnections = 10
         |  maxInflightActions = 5
         |  queueSize = 42
-        |  url = "postgres://user:pass@host/dbname"
+        |  properties {
+        |    url = "postgres://user:pass@host/dbname"
+        |  }
         |}
         |""".stripMargin
     ))
@@ -204,7 +209,6 @@ class DataSourceTest {
       IO.unit
     }
   }
-
   @Test def testAdmissionAndConnectionTimeoutConfig: Unit = {
     MockDriver.reset
     val dc = DatabaseConfig.forProfileConfig(H2Profile, "databaseUrl", ConfigFactory.parseString(
@@ -216,7 +220,9 @@ class DataSourceTest {
         |  queueSize = 42
         |  inflightAdmissionTimeout = 250ms
         |  connectionAcquireTimeout = 500ms
-        |  url = "postgres://user:pass@host/dbname"
+        |  properties {
+        |    url = "postgres://user:pass@host/dbname"
+        |  }
         |}
         |""".stripMargin
     ))
@@ -228,7 +234,6 @@ class DataSourceTest {
   }
 
   @Test def testTimeoutsMustBePositive: Unit = {
-    MockDriver.reset
     val inflightEx = try {
       val dc = DatabaseConfig.forProfileConfig(H2Profile, "databaseUrl", ConfigFactory.parseString(
         """
@@ -236,7 +241,9 @@ class DataSourceTest {
           |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
           |  maxConnections = 10
           |  inflightAdmissionTimeout = 0ms
-          |  url = "postgres://user:pass@host/dbname"
+          |  properties {
+          |    url = "postgres://user:pass@host/dbname"
+          |  }
           |}
           |""".stripMargin
       ))
@@ -257,7 +264,9 @@ class DataSourceTest {
           |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
           |  maxConnections = 10
           |  connectionAcquireTimeout = 0ms
-          |  url = "postgres://user:pass@host/dbname"
+          |  properties {
+          |    url = "postgres://user:pass@host/dbname"
+          |  }
           |}
           |""".stripMargin
       ))
@@ -271,7 +280,6 @@ class DataSourceTest {
     assertTrue("zero connection timeout should be rejected", connectionEx != null)
     assertTrue("must mention positive connection timeout", connectionEx.getMessage.contains("connectionAcquireTimeout must be > 0"))
   }
-
   @Test def testConnectionPoolDisabled: Unit = {
     MockDriver.reset
     val dc = DatabaseConfig.forProfileConfig(H2Profile, "databaseUrl", ConfigFactory.parseString(
@@ -279,7 +287,9 @@ class DataSourceTest {
         |databaseUrl {
         |  dataSourceClass = "slick.jdbc.DatabaseUrlDataSource"
         |  connectionPool = "disabled"
-        |  url = "postgres://user:pass@host/dbname"
+        |  properties {
+        |    url = "postgres://user:pass@host/dbname"
+        |  }
         |}
         |
       """.stripMargin
