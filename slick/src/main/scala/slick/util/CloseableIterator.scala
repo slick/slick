@@ -4,14 +4,15 @@ import java.io.Closeable
 import scala.util.control.NonFatal
 
 /**
- * An Iterator with a `close` method to close the underlying data source.
- * Implementers must close the data source when `hasNext` returns `false`.
+ * An Iterator with a `close` method to close the underlying resources.
+ * Implementers must close the underlying resources when `hasNext` returns `false`.
  */
 trait CloseableIterator[+T] extends Iterator[T] with Closeable { self =>
 
   /**
-   * Close the underlying data source. The behaviour of any methods of this
-   * object after closing it is undefined.
+   * Close the underlying resources. This method must be idempotent — calling
+   * it more than once must have no additional effect. The behaviour of any
+   * other methods of this object after closing it is undefined.
    */
   override def close(): Unit
 
@@ -59,6 +60,25 @@ object CloseableIterator {
     def hasNext = more
     def next() = if(more) { more = false; item } else noNext
     def close: Unit = {}
+  }
+
+  /** Wrap a plain Iterator as a CloseableIterator with a custom close action.
+    * The close action is called automatically when `hasNext` returns `false` (auto-close),
+    * and must be idempotent. */
+  def from[T](it: Iterator[T], onClose: () => Unit): CloseableIterator[T] = new CloseableIterator[T] {
+    def hasNext: Boolean = {
+      if (it.hasNext) true
+      else { onClose(); false }
+    }
+    def next(): T = it.next()
+    def close(): Unit = onClose()
+  }
+
+  /** Wrap a plain Iterator as a CloseableIterator with a no-op close. */
+  def wrap[T](it: Iterator[T]): CloseableIterator[T] = new CloseableIterator[T] {
+    def hasNext: Boolean = it.hasNext
+    def next(): T = it.next()
+    def close(): Unit = ()
   }
 
   /**

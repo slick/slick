@@ -53,17 +53,54 @@ The following loggers are particularly interesting:
 Monitoring
 ----------
 
-When a  @ref:[Database](database.md) object has the `registerMbeans` option enabled (see
-@scaladoc[Database.forConfig](slick.jdbc.JdbcBackend$DatabaseFactoryDef#forConfig(String,Config,Driver,ClassLoader):Database),
-Slick registers a @extref[JMX](jmx:) management bean of type @scaladoc[AsyncExecutorMXBean](slick.util.AsyncExecutorMXBean) that provides information about the
-current workload of the database I/O thread pool and the task queue.
+Slick does not expose its own JMX bean in Slick 4. Observability is provided at two levels:
 
-Connection pool implementations may also honor this option and register additional management beans. In particular,
-the default @extref[HikariCP](hikaricp:) pool implementation does this. See [HikariCP Monitoring] in the HikariCP documentation for
-details.
+1. **Connection pool (HikariCP)**: When a @ref:[Database](database.md) object has the `registerMbeans` option
+   enabled, the @extref[HikariCP](hikaricp:) pool implementation registers @extref[JMX](jmx:) management beans.
+   See the @extref[HikariCP monitoring documentation](hikaricp:) for details.
 
-The management bean names are qualified with the `poolName` from the database configuration, or the config path
-if the `poolName` has not been set explicitly.
+2. **Application runtime**: Runtime-level metrics depend on the facade and runtime you use (for example,
+   Cats Effect, ZIO, or framework-provided runtime tooling). Use your runtime's standard observability
+   integration (for example, Micrometer or Prometheus).
+
+In addition to pool/runtime observability, Slick 4's execution limits are configured directly on
+the database config section (for `DatabaseConfig.forConfig` / `forProfileConfig`):
+
+- `maxConnections`: maximum concurrent JDBC connections.
+- `maxInflightActions` (default `2 * maxConnections`): maximum concurrently running DBIO chains.
+- `queueSize` (default `1000`): maximum callers waiting for in-flight admission.
+- `inflightAdmissionTimeout` (optional): max time waiting for an in-flight slot.
+- `connectionAcquireTimeout` (optional): max time waiting for a connection slot.
+
+For programmatic configs (`forDataSource`, `forSource`, `forName`, `forURL`) use
+`ControlsConfig` and `.withControls` instead of config-file keys:
+
+```scala
+DatabaseConfig.forDataSource(MyProfile, ds)
+  .withControls(ControlsConfig(maxConnections = 10, queueSize = 500))
+```
+
+When `queueSize` is exhausted, Slick rejects immediately with
+`SlickException("DBIOAction queue full")`.
+
+When configured timeout limits are exceeded, Slick fails with `SlickException` as well:
+
+- `SlickException("Timed out waiting for inflight admission after ...")`
+- `SlickException("Timed out waiting for connection slot after ...")`
+
+Slick exposes runtime concurrency counters through `Database[F].controlStatus`.
+The returned snapshot contains:
+
+- `availableConnectionSlots`: free connection slots in the connection arbiter.
+- `pendingConnectionSlots`: callers currently waiting for a connection slot.
+- `availableAdmissionQueueSlots`: free waiting-room slots before queue-full rejection.
+- `availableInflightSlots`: free in-flight DBIO action slots.
+
+These values are useful to distinguish pressure points: admission saturation, inflight saturation,
+or connection-slot contention.
+
+The management bean names registered by HikariCP are qualified with the `poolName` from the database
+configuration, or the config path if `poolName` has not been set explicitly.
 
 Example: Including the following configuration options in the database configuration
 
@@ -73,8 +110,7 @@ registerMbeans = true
 poolName = "myDb"
 ```
 
-results in these three management beans being registered:
+results in these two HikariCP management beans being registered:
 
-- `slick:type=AsyncExecutor,name=myDb`
 - `com.zaxxer.hikari:type=PoolConfig (myDb)`
 - `com.zaxxer.hikari:type=Pool (myDb)`

@@ -3,43 +3,63 @@ package slick.memory
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
-import scala.concurrent.{ExecutionContext, Future}
+
+import cats.effect.{Async, IO, Resource}
 
 import slick.SlickException
 import slick.ast.*
+import slick.basic.ConcurrencyControl.Controls
 import slick.compat.collection.*
 import slick.lifted.{Constraint, Index, PrimaryKey}
 import slick.relational.{RelationalBackend, RelationalProfile}
 import slick.util.Logging
+import slick.ControlsConfig
 
-import com.typesafe.config.Config
-import org.reactivestreams.Subscriber
 
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends RelationalBackend with Logging {
-  type Database = HeapDatabaseDef
+  type Database[F[_]] = HeapDatabaseDef[F]
   type Session = HeapSessionDef
   type DatabaseFactory = HeapDatabaseFactoryDef
   type Context = BasicActionContext
-  type StreamingContext = BasicStreamingActionContext
 
   val Database = new HeapDatabaseFactoryDef
   val backend: HeapBackend = this
 
-  def createDatabase(config: Config, path: String): Database = Database.apply(ExecutionContext.global)
+  override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
+    Async[F].flatMap(Controls.create[F](ControlsConfig.unbounded))(c => Async[F].pure(new HeapDatabaseDef[F](c)))
 
-  class HeapDatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends BasicDatabaseDef {
-    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
-      new BasicActionContext { val useSameThread = _useSameThread }
+  /** Non-parameterized base for HeapDatabaseDef, providing table management operations
+    * that do not depend on the effect type F. Used by HeapSessionDef. */
+  trait AnyHeapDatabaseDef extends AnyDatabaseDef {
+    def getTable(name: String): HeapTable
+    def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
+                    indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable
+    def createTableIfNotExists(name: String, columns: IndexedSeq[HeapBackend.Column],
+                    indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable
+    def dropTable(name: String): Unit
+    def dropTableIfExists(name: String): Unit
+    def truncateTable(name: String): Unit
+    def getTables: IndexedSeq[HeapTable]
+  }
 
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T],
-                                                                useSameThread: Boolean): StreamingContext =
-      new BasicStreamingActionContext(s, useSameThread, this)
+  class HeapDatabaseDef[F[_]](override val controls: Controls[F])(implicit override val asyncF: cats.effect.Async[F]) extends BasicDatabaseDef[F] with AnyHeapDatabaseDef {
+
+    override protected def sessionAsContext(session: Session, state: ExecState): Context = {
+      val s = session
+      val depth = state.transactionDepth
+      val pinned = state.pinned
+      new BasicActionContext {
+        override def session: Session = s
+        override def transactionDepth: Int = depth
+        override def isPinned: Boolean = pinned
+      }
+    }
 
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new HeapSessionDef(this)
-    override def shutdown: Future[Unit] = Future.successful(())
-    def close: Unit = ()
+    def close(): Unit = ()
+
     def getTable(name: String): HeapTable = synchronized {
       tables.get(name).getOrElse(throw new SlickException(s"Table $name does not exist"))
     }
@@ -72,24 +92,34 @@ trait HeapBackend extends RelationalBackend with Logging {
     }
   }
 
-  def createEmptyDatabase: Database = {
+  def createEmptyDatabase: AnyHeapDatabaseDef = {
     def err = throw new SlickException("Unsupported operation for empty heap database")
-    new HeapDatabaseDef(new ExecutionContext {
-      def reportFailure(t: Throwable): Unit = err
-      def execute(runnable: Runnable): Unit = err
-    }) {
+    // Use an unlimited semaphore (Long.MaxValue permits) — the empty database throws on all
+    // meaningful operations anyway; we just need a valid Database instance.
+    new AnyHeapDatabaseDef {
+      override def createSession(): BasicSessionDef = new HeapSessionDef(this)
+      override def close(): Unit = ()
+      override def getTable(name: String): HeapTable = err
       override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
                                indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable = err
+      override def createTableIfNotExists(name: String, columns: IndexedSeq[HeapBackend.Column],
+                                          indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]): HeapTable = err
+      override def dropTable(name: String): Unit = err
+      override def dropTableIfExists(name: String): Unit = err
+      override def truncateTable(name: String): Unit = err
+      override def getTables: IndexedSeq[HeapTable] = err
     }
   }
 
   class HeapDatabaseFactoryDef {
-    /** Create a new heap database instance that uses the supplied ExecutionContext for
-      * asynchronous execution of database actions. */
-    def apply(executionContext: ExecutionContext): Database = new HeapDatabaseDef(executionContext)
+    /** Create a new heap database instance. */
+    def apply(): Resource[IO, Database[IO]] =
+      Resource.eval(
+        Controls.create[IO](ControlsConfig.unbounded).map(c => new HeapDatabaseDef[IO](c))
+      )
   }
 
-  class HeapSessionDef(val database: Database) extends BasicSessionDef {
+  class HeapSessionDef(val database: AnyHeapDatabaseDef) extends BasicSessionDef {
     def close(): Unit = {}
 
     def rollback() =

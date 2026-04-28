@@ -5,12 +5,17 @@ import java.sql.Blob
 import javax.sql.rowset.serial.SerialBlob
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future, Await}
-import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
-import slick.basic.DatabasePublisher
+
+import cats.effect.IO
+import cats.effect.Resource
+import cats.effect.unsafe.implicits.global
+
+import slick.cats.Database
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
+import slick.ControlsConfig
 //#imports
 
 object Connection {
@@ -25,125 +30,142 @@ object Connection {
       val dataSource = null.asInstanceOf[javax.sql.DataSource]
       val size = 42
       //#forDataSource
-      val db = Database.forDataSource(dataSource: javax.sql.DataSource,
-                                      Some(size: Int))
+      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: javax.sql.DataSource)
+        .withControls(ControlsConfig(maxConnections = size: Int))
+      val db: Resource[IO, Database] = Database.resource(dc)
       //#forDataSource
     }
     if (false){
       val dataSource = null.asInstanceOf[slick.jdbc.DatabaseUrlDataSource]
       //#forDatabaseURL
-      val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource,
-                                      None)
+      val dc = DatabaseConfig.forDataSource(H2Profile, dataSource: slick.jdbc.DatabaseUrlDataSource)
+      val db = Database.resource(dc)
       //#forDatabaseURL
     }
     if(false) {
       val jndiName = ""
       val size = 42
       //#forName
-      val db = Database.forName(jndiName: String, Some(size: Int))
+      val dc = DatabaseConfig.forName(H2Profile, jndiName: String)
+        .withControls(ControlsConfig(maxConnections = size: Int))
+      val db = Database.resource(dc)
       //#forName
     }
     ;{
       //#forConfig
-      val db = Database.forConfig("mydb")
+      val dc = DatabaseConfig.forProfileConfig(H2Profile, "mydb")
+      val db = Database.resource(dc)
       //#forConfig
-      db.close
+
+      //#catsManaged
+      val managedDb: Resource[IO, Database] = Database.resource(dc)
+      //#catsManaged
+
+      //#catsUnmanaged
+      val openedDb: IO[Database] = Database.make(dc)
+      //#catsUnmanaged
+
+      // use `db` as a Resource: db.use { ... }
     }
     ;{
       //#forURL
-      val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1",
-                               driver="org.h2.Driver")
+      val dc = DatabaseConfig.forURL(H2Profile, "jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
+      val db = Database.resource(dc)
       //#forURL
-      db.close
+      // use `db` as a Resource: db.use { ... }
     }
-    ;{
-      //#forURL2
-      val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1",
-                               driver="org.h2.Driver",
-                               executor = AsyncExecutor("test1", numThreads=10, queueSize=1000))
-      //#forURL2
-      db.close
-    }
-    val db = Database.forURL("jdbc:h2:mem:test2;INIT="+coffees.schema.createStatements.mkString("\\;"), driver="org.h2.Driver")
-    try {
+
+    val urlDc = DatabaseConfig.forURL(
+      H2Profile,
+      "jdbc:h2:mem:test2;INIT=" + coffees.schema.createStatements.mkString("\\;"),
+      driver = "org.h2.Driver"
+    )
+    val dbResource = Database.resource(urlDc)
+    dbResource.use { db =>
       val lines = new ArrayBuffer[Any]()
       def println(s: Any) = lines += s
+
       ;{
         //#materialize
         val q = for (c <- coffees) yield c.name
         val a = q.result
-        val f: Future[Seq[String]] = db.run(a)
+        val f: IO[Seq[String]] = db.run(a)
 
-        f.onComplete {
-          case Success(s) => println(s"Result: $s")
-          case Failure(t) => t.printStackTrace()
+        f.map {
+          case s => println(s"Result: $s")
         }
         //#materialize
-        Await.result(f, Duration.Inf)
-      };{
-        //#stream
-        val q = for (c <- coffees) yield c.name
-        val a = q.result
-        val p: DatabasePublisher[String] = db.stream(a)
-
-        // .foreach is a convenience method on DatabasePublisher.
-        // Use Akka Streams for more elaborate stream processing.
-        //#stream
-        val f =
+      }.flatMap { _ =>
+        ;{
           //#stream
-          p.foreach { s => println(s"Element: $s") }
-        //#stream
-        Await.result(f, Duration.Inf)
-      };{
-        //#streamblob
-        val q = for (c <- coffees) yield c.image
-        val a = q.result
-        val p1: DatabasePublisher[Blob] = db.stream(a)
-        val p2: DatabasePublisher[Array[Byte]] = p1.mapResult { b =>
-          // Executed synchronously on the database thread
-          b.getBytes(0, b.length().toInt)
+          val q = for (c <- coffees) yield c.name
+          val a = q.result
+          val s: fs2.Stream[IO, String] = db.stream(a)
+
+          // Use FS2 combinators to process the stream:
+          s.evalMap(name => IO(println(s"Element: $name")))
+            .compile
+            .drain
+          //#stream
+        }.flatMap { _ =>
+          ;{
+            //#streamblob
+            val q = for (c <- coffees) yield c.image
+            val a = q.result
+            val s: fs2.Stream[IO, Blob] = db.stream(a)
+            val bytesStream: fs2.Stream[IO, Array[Byte]] =
+              s.map(b => b.getBytes(0, b.length().toInt))
+            //#streamblob
+            bytesStream.compile.drain
+          }.flatMap { _ =>
+            ;{
+              //#transaction
+              val a = (for {
+                ns <- coffees.filter(_.name.startsWith("ESPRESSO")).map(_.name).result
+                _ <- DBIO.seq(ns.map(n => coffees.filter(_.name === n).delete): _*)
+              } yield ()).transactionally
+
+              val f: IO[Unit] = db.run(a)
+              //#transaction
+              f
+            }.flatMap { _ =>
+              ;{
+                //#rollback
+                val countAction = coffees.length.result
+
+                val rollbackAction = (coffees ++= Seq(
+                  ("Cold_Drip", new SerialBlob(Array[Byte](101))),
+                  ("Dutch_Coffee", new SerialBlob(Array[Byte](49)))
+                )).flatMap { _ =>
+                  DBIO.failed(new Exception("Roll it back"))
+                }.transactionally
+
+                val errorHandleAction = rollbackAction.asTry.flatMap {
+                  case Failure(e: Throwable) => DBIO.successful(e.getMessage)
+                  case Success(_) => DBIO.successful("never reached")
+                }
+
+                // Here we show that that coffee count is the same before and after the attempted insert.
+                // We also show that the result of the action is filled in with the exception's message.
+                val f = db.run(countAction zip errorHandleAction zip countAction).map {
+                  case ((initialCount, result), finalCount) =>
+                    // init: 5, final: 5, result: Roll it back
+                    println(s"init: ${initialCount}, final: ${finalCount}, result: ${result}")
+                    result
+                }
+
+                //#rollback
+                f.map { result =>
+                  assert(result == "Roll it back")
+                }
+              }
+            }
+          }
         }
-        //#streamblob
-      };{
-        //#transaction
-        val a = (for {
-                   ns <- coffees.filter(_.name.startsWith("ESPRESSO")).map(_.name).result
-                   _ <- DBIO.seq(ns.map(n => coffees.filter(_.name === n).delete): _*)
-                 } yield ()).transactionally
-
-        val f: Future[Unit] = db.run(a)
-        //#transaction
-        Await.result(f, Duration.Inf)
-      };{
-        //#rollback
-        val countAction = coffees.length.result
-
-        val rollbackAction = (coffees ++= Seq(
-                                ("Cold_Drip", new SerialBlob(Array[Byte](101))),
-                                ("Dutch_Coffee", new SerialBlob(Array[Byte](49)))
-                              )).flatMap { _ =>
-          DBIO.failed(new Exception("Roll it back"))
-        }.transactionally
-
-        val errorHandleAction = rollbackAction.asTry.flatMap {
-          case Failure(e: Throwable) => DBIO.successful(e.getMessage)
-          case Success(_) => DBIO.successful("never reached")
-        }
-
-        // Here we show that that coffee count is the same before and after the attempted insert.
-        // We also show that the result of the action is filled in with the exception's message.
-        val f = db.run(countAction zip errorHandleAction zip countAction).map {
-          case ((initialCount, result), finalCount) =>
-            // init: 5, final: 5, result: Roll it back
-            println(s"init: ${initialCount}, final: ${finalCount}, result: ${result}")
-            result
-        }
-
-        //#rollback
-        assert(Await.result(f, Duration.Inf) == "Roll it back")
+      }.map { _ =>
+        lines.foreach(Predef.println _)
       }
-      lines.foreach(Predef.println _)
-    } finally db.close
+    }.unsafeRunSync()
 
     //#simpleaction
     val getAutoCommit = SimpleDBIO[Boolean](_.connection.getAutoCommit)

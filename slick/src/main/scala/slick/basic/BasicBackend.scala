@@ -1,483 +1,656 @@
 package slick.basic
 
 import java.io.Closeable
-import java.util.concurrent.atomic.{AtomicLong, AtomicReferenceArray}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
-import scala.util.control.NonFatal
+import cats.effect.{Async, Ref, Resource}
+import cats.effect.kernel.Outcome
+import cats.syntax.all.*
+import cats.effect.syntax.all.*
+
 
 import slick.SlickException
+import slick.ControlStatus
 import slick.compat.collection.*
 import slick.dbio.*
 import slick.util.*
-import slick.util.AsyncExecutor.{Continuation, Fresh, Priority, WithConnection}
+import slick.basic.ConcurrencyControl.*
 
-import com.typesafe.config.Config
-import org.reactivestreams.*
 import org.slf4j.LoggerFactory
 
 /** Backend for the basic database and session handling features.
-  * Concrete backends like `JdbcBackend` extend this type and provide concrete
-  * types for `Database`, `DatabaseFactory` and `Session`. */
+   * Concrete backends like `JdbcBackend` extend this type and provide concrete
+   * types for `Database` and `Session`. */
 trait BasicBackend { self =>
   protected lazy val actionLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".action"))
   protected lazy val streamLogger = new SlickLogger(LoggerFactory.getLogger(classOf[BasicBackend].getName+".stream"))
 
-  /** The type of database objects used by this backend. */
-  type Database >: Null <: BasicDatabaseDef
-  /** The type of the database factory used by this backend. */
-  type DatabaseFactory >: Null
+  /** Non-parameterized marker trait for any database instance, regardless of effect type.
+    * Use this type when you need to refer to "any database" without knowing the effect type. */
+  trait AnyDatabaseDef extends Closeable {
+    /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
+    def createSession(): BasicSessionDef
+  }
+
+  /** The type of database objects used by this backend, parameterized by effect type. */
+  type Database[F[_]] >: Null <: BasicDatabaseDef[F]
   /** The type of session objects used by this backend. */
   type Session >: Null <: BasicSessionDef
   /** The type of the context used for running SynchronousDatabaseActions */
   type Context >: Null <: BasicActionContext
-  /** The type of the context used for streaming SynchronousDatabaseActions */
-  type StreamingContext >: Null <: Context & BasicStreamingActionContext
 
-  /** The database factory */
-  val Database: DatabaseFactory
+  /** Create a Database instance from a [[slick.basic.BasicDatabaseConfig]]. */
+  def makeDatabase[F[_]: Async](config: BasicDatabaseConfig[?]): F[Database[F]]
+  // -----------------------------------------------------------------------
+  // Execution state
+  // -----------------------------------------------------------------------
 
-  /** Create a Database instance through [[https://github.com/typesafehub/config Typesafe Config]].
-    * The supported config keys are backend-specific. This method is used by `DatabaseConfig`.
+  /** Per-`db.run` execution state carried through the interpreter via a CE3 `Ref`.
     *
-    * @param path The path in the configuration file for the database configuration, or an empty
-    *             string for the top level of the `Config` object.
-    * @param config The `Config` object to read from.
-    */
-  def createDatabase(config: Config, path: String): Database
+    * `session` is typed as `Option[AnyRef]` rather than `Option[Session]` to avoid
+    * path-dependent type issues with the abstract `Session` type member in Scala 2.13.
+    * Callers cast to `Session` as needed.
+    *
+    * `sessionRelease` holds the finalizer produced by `Resource.allocated` for the
+    * currently-open session + semaphore permit pair.  It is set when a session is first
+    * acquired and cleared (and run) when the session is released. */
+  case class ExecState(
+    ordinal:               Long,             // globally assigned submission order for this DBIO chain
+    session:               Option[AnyRef],   // None = no JDBC connection acquired yet; cast to Session; AnyRef avoids Scala 2.13 path-dependent type issues with abstract type member Session
+    sessionRelease:        Option[AnyRef],   // None = no session open; Some(F[Unit]) = finalizer to close session + release connection slot; AnyRef for the same reason as session
+    transactionDepth:      Int,              // nesting depth of .transactionally scopes (0 = no transaction)
+    isolationLevel:        Option[Int],      // None = database default
+    previousIsolationLevel: Option[Int],     // isolation level to restore after outermost transaction ends
+    pinnedDepth:           Int               // nesting depth of withPinnedSession scopes (0 = not pinned)
+  ) {
+    def inTransaction: Boolean = transactionDepth > 0
+    /** The session must be held open if there is an active transaction or pinned scope. */
+    def pinned: Boolean = pinnedDepth > 0 || transactionDepth > 0
+  }
 
-  /** A database instance to which connections can be created. */
-  trait BasicDatabaseDef extends Closeable { this: Database =>
+  object ExecState {
+    def initial(ordinal: Long): ExecState = ExecState(
+      ordinal                = ordinal,
+      session                = None,
+      sessionRelease         = None,
+      transactionDepth       = 0,
+      isolationLevel         = None,
+      previousIsolationLevel = None,
+      pinnedDepth            = 0
+    )
+  }
+
+  // -----------------------------------------------------------------------
+  // Database definition
+  // -----------------------------------------------------------------------
+
+  /** A database instance to which connections can be created.
+    *
+    * `F[_]` is the effect type (e.g. `cats.effect.IO`).
+    * All `run` and `stream` calls on a given database instance use the same effect type.
+    *
+    * Concrete subclasses supply:
+    *   - `asyncF`
+    *   - `controls` (admission control + connection arbiter)
+    */
+  trait BasicDatabaseDef[F[_]] extends AnyDatabaseDef { this: Database[F] =>
+
+    implicit val asyncF: Async[F]
+
+    /** Concurrency controls for admission and connection-slot arbitration. */
+    val controls: Controls[F]
+
+    protected final def admissionControl: AdmissionControl[F] = controls.admissionControl
+    protected final def connectionArbiter: ConnectionArbiter[F] = controls.connectionArbiter
+
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
-    /** Free all resources allocated by Slick for this Database. This is done asynchronously, so
-      * you need to wait for the returned `Future` to complete in order to ensure that everything
-      * has been shut down. */
-    def shutdown: Future[Unit] = Future(close())(ExecutionContext.fromExecutor(AsyncExecutor.shutdownExecutor))
-
-    /** Free all resources allocated by Slick for this Database, blocking the current thread until
-      * everything has been shut down.
+    /** Free all resources allocated by Slick for this Database.
       *
-      * Backend implementations which are based on a naturally blocking shutdown procedure can
-      * simply implement this method and get `shutdown` as an asynchronous wrapper for free. If
-      * the underlying shutdown procedure is asynchronous, you should implement `shutdown` instead
-      * and wrap it with `Await.result` in this method. */
+      * Implementations must be idempotent (safe to call more than once) and thread-safe
+      * (safe to call concurrently from multiple threads). A second or concurrent call must
+      * not throw an exception and must not corrupt the state of any remaining resources. */
     override def close(): Unit
 
-    protected def prioritizedRunnable(priority: => Priority,
-                                      run: AsyncExecutor.PrioritizedRunnable.SetConnectionReleased => Unit
-                                     ): AsyncExecutor.PrioritizedRunnable =
-      AsyncExecutor.PrioritizedRunnable(priority, run)
+    // ------------------------------------------------------------------
+    // Public API
+    // ------------------------------------------------------------------
 
-    /** Run an Action asynchronously and return the result as a Future. */
-    final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, useSameThread = false)
-
-    private[slick] final def runInternal[R](a: DBIOAction[R, NoStream, Nothing], useSameThread: Boolean): Future[R] =
-      try runInContext(a, createDatabaseActionContext(useSameThread), streaming = false, topLevel = true)
-      catch { case NonFatal(ex) => Future.failed(ex) }
-
-    /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
-      * `DBIOAction` and return the result directly as a stream without buffering everything first.
-      * This method is only supported for streaming actions.
-      *
-      * The Publisher itself is just a stub that holds a reference to the action and this Database.
-      * The action does not actually start to run until the call to `onSubscribe` returns, after
-      * which the Subscriber is responsible for reading the full response or cancelling the
-      * Subscription. The created Publisher can be reused to serve a multiple Subscribers,
-      * each time triggering a new execution of the action.
-      *
-      * For the purpose of combinators such as `cleanup` which can run after a stream has been
-      * produced, cancellation of a stream by the Subscriber is not considered an error. For
-      * example, there is no way for the Subscriber to cause a rollback when streaming the
-      * results of `someQuery.result.transactionally`.
-      *
-      * When using a JDBC back-end, all `onNext` calls are done synchronously and the ResultSet row
-      * is not advanced before `onNext` returns. This allows the Subscriber to access LOB pointers
-      * from within `onNext`. If streaming is interrupted due to back-pressure signaling, the next
-      * row will be prefetched (in order to buffer the next result page from the server when a page
-      * boundary has been reached). */
-    final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): DatabasePublisher[T] =
-      streamInternal(a, useSameThread = false)
-
-    private[slick] final def streamInternal[T](a: DBIOAction[?, Streaming[T], Nothing],
-                                               useSameThread: Boolean): DatabasePublisher[T] =
-      createPublisher(a, s => createStreamingDatabaseActionContext(s, useSameThread))
-
-    /** Create a Reactive Streams `Publisher` using the given context factory. */
-    protected[this] def createPublisher[T](a: DBIOAction[?, Streaming[T], Nothing],
-                                           createCtx: Subscriber[? >: T] => StreamingContext): DatabasePublisher[T] =
-    { (s: Subscriber[? >: T]) =>
-      if (s eq null) throw new NullPointerException("Subscriber is null")
-      val ctx = createCtx(s)
-      if (streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
-      val subscribed = try {
-        s.onSubscribe(ctx.subscription)
-        true
-      } catch {
-        case NonFatal(ex) =>
-          streamLogger.warn("Subscriber.onSubscribe failed unexpectedly", ex)
-          false
+    /** Run a DBIOAction and return the result in F[R]. */
+    final def run[R](a: DBIOAction[R, NoStream, Nothing]): F[R] =
+      admissionControl.withInflight {
+        connectionArbiter.allocateOrdinal.flatMap { ordinal =>
+          asyncF.ref(ExecState.initial(ordinal)).flatMap { ctx =>
+            interpret[R](a, ctx)
+          }
+        }
       }
-      if (subscribed) {
-        try {
-          runInContext(a, ctx, streaming = true, topLevel = true).onComplete {
-            case Success(_) => ctx.tryOnComplete
-            case Failure(t) => ctx.tryOnError(t)
-          }(DBIO.sameThreadExecutionContext)
-        } catch {
-          case NonFatal(ex) => ctx.tryOnError(ex)
+
+    /** Open a streaming DBIOAction as a Resource-backed Iterator.
+      *
+      * Finalizer order is:
+      *   1) iterator.close()
+      *   2) transactional / pin-scope cleanup
+      *   3) session / permit release
+      *   4) inflight-release
+      */
+    final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): Resource[F, Iterator[T]] =
+      Resource.makeCase(acquireStreamContextAndIterator(a)) { case ((ctx, it), exitCase) =>
+        closeStreamIteratorAndRelease(ctx, it, exitCase)
+      }.map(_._2)
+
+    final def controlStatus: F[ControlStatus] =
+      controls.controlStatus
+
+    // ------------------------------------------------------------------
+    // Interpreter
+    // ------------------------------------------------------------------
+
+    /** A `Resource` that acquires one connection-arbiter permit and releases it in its finalizer.
+      * The finalizer always runs regardless of how the `use`/`allocated` body completes. */
+    private def permitR(ordinal: Long): Resource[F, Unit] =
+      Resource.make(connectionArbiter.acquire(ordinal))(_ => connectionArbiter.release)
+
+    /** A `Resource` that opens a new session and closes it (best-effort) in its finalizer.
+      * Close is wrapped in `.attempt` so a JDBC exception during close does not suppress
+      * the original error or prevent subsequent Resource finalizers from running. */
+    private def sessionR: Resource[F, Session] =
+      Resource.make(asyncF.blocking(createSession()))(s => asyncF.blocking(s.close()).attempt.void)
+
+    /** A `Resource` that acquires a connection slot *and* opens a session.
+      * Finalizers run in reverse acquisition order: session is closed first, then the
+      * slot is released — so the slot is always returned to the arbiter even if
+      * `session.close()` throws. */
+    private def acquiredSessionR(ordinal: Long): Resource[F, Session] = permitR(ordinal).flatMap(_ => sessionR)
+
+    /** Atomically take the `sessionRelease` finalizer out of `ExecState` and run it.
+      * The take-and-clear is a single `Ref.modify` so it is idempotent: a second call
+      * after the first has already cleared the field is a no-op.  This is the single
+      * release path used by `withSession`, `PinnedSessionAction`, and `TransactionalAction`. */
+    private def releaseSession(ctx: Ref[F, ExecState]): F[Unit] =
+      ctx.modify { s =>
+        (s.copy(session = None, sessionRelease = None), s.sessionRelease)
+      }.flatMap {
+        case Some(rel) => rel.asInstanceOf[F[Unit]]
+        case None      => asyncF.unit
+      }
+
+    /** Install a freshly-acquired session into `ExecState` and run transaction setup if needed.
+      * Returns the updated `ExecState` on success.
+      *
+      * On error or cancellation the session + permit are released via `releaseAcquired` and
+      * `ExecState` is rolled back to remove the session-instance fields that were written during
+      * this call (`session`, `sessionRelease`, `previousIsolationLevel`). The transaction-scope
+      * fields (`transactionDepth`, `isolationLevel`) are left untouched because they belong to
+      * the outer scope, not to this session handoff. */
+    private def installSession(
+      ctx:             Ref[F, ExecState],
+      state:           ExecState,
+      session:         Session,
+      releaseAcquired: F[Unit]
+    ): F[ExecState] = {
+      val F = asyncF
+      val install: F[Unit] =
+        ctx.update(_.copy(
+          session        = Some(session),
+          sessionRelease = Some(releaseAcquired.asInstanceOf[AnyRef])
+        ))
+      val setupTx: F[Unit] =
+        if (state.inTransaction)
+          F.blocking(setupTransaction(session, state.isolationLevel)).flatMap { prev =>
+            ctx.update(_.copy(previousIsolationLevel = prev))
+          }
+        else F.unit
+
+      // On failed handoff: release the resource and roll back only the session-instance
+      // fields. Identity-check on the session object guards against clearing a session that
+      // was installed by a later successful acquire in the same ctx (shouldn't happen, but
+      // is a safe guard against double-clean in unexpected recovery flows).
+      F.guaranteeCase(install >> setupTx >> ctx.get) {
+        case Outcome.Succeeded(_) =>
+          F.unit
+        case _ =>
+          releaseAcquired.attempt.void >>
+          ctx.update { s =>
+            s.session match {
+              case Some(curr) if curr eq session.asInstanceOf[AnyRef] =>
+                s.copy(session = None, sessionRelease = None, previousIsolationLevel = None)
+              case _ =>
+                s
+            }
+          }
+      }
+    }
+
+    /** Enter a transaction scope: run `setupTransaction` on the JDBC connection (if a
+      * session is already open and this is the outermost scope), then increment
+      * `transactionDepth` and record the isolation level.
+      *
+      * '''Must be called in an uncancelable region''' (e.g. inside
+      * `asyncF.uncancelable` or as the acquire of `Stream.bracketCase`).
+      * `setupTransaction` mutates the JDBC connection (`setAutoCommit(false)`,
+      * `setTransactionIsolation`) and the subsequent `ctx.update` records that
+      * a transaction is active.  If cancellation could land between these two
+      * steps, the connection would be left in a transactional state with no
+      * matching `exitTransactionScope` to commit/rollback and restore it. */
+    private def enterTransactionScope(
+      ctx: Ref[F, ExecState],
+      isolationLevel: Option[Int]
+    ): F[Unit] =
+      ctx.get.flatMap { s =>
+        val isOutermost = s.transactionDepth == 0
+        // Run setupTransaction *before* incrementing transactionDepth so that a
+        // JDBC failure (e.g. broken connection, unsupported isolation level) does
+        // not leave the depth incremented with no matching decrement.  The callers
+        // (interpret / streamInterpret) only register exitTransactionScope as a
+        // finalizer *after* enterTransactionScope succeeds, so any state mutation
+        // that happens here must be safe to leave behind on failure.
+        val setup: F[Option[Int]] =
+          if (isOutermost) {
+            s.session match {
+              case Some(sess) =>
+                asyncF.blocking(setupTransaction(sess.asInstanceOf[Session], isolationLevel))
+              case None =>
+                asyncF.pure(None) // no session yet; setupTransaction called in installSession
+            }
+          } else asyncF.pure(None)
+
+        setup.flatMap { prevIsolation =>
+          ctx.update(s => s.copy(
+            transactionDepth       = s.transactionDepth + 1,
+            isolationLevel         = if (isOutermost) isolationLevel else s.isolationLevel,
+            previousIsolationLevel = if (isOutermost) prevIsolation.orElse(s.previousIsolationLevel) else s.previousIsolationLevel
+          ))
+        }
+      }
+
+    /** Exit a transaction scope: commit or rollback (outermost only), decrement depth,
+      * release the session if no longer pinned.  Commit/rollback failure is re-raised
+      * *after* decrement and release so cleanup always happens. */
+    private def exitTransactionScope(
+      ctx: Ref[F, ExecState],
+      succeeded: Boolean
+    ): F[Unit] =
+      ctx.get.flatMap { s =>
+        val commitOrRollback: F[Unit] =
+          if (s.transactionDepth == 1) {
+            s.session match {
+              case Some(sess) =>
+                if (succeeded)
+                  asyncF.blocking(commitTransaction(sess.asInstanceOf[Session], s.previousIsolationLevel))
+                else
+                  asyncF.blocking(rollbackTransaction(sess.asInstanceOf[Session], s.previousIsolationLevel))
+              case None => asyncF.unit
+            }
+          } else asyncF.unit
+
+        val decrementDepth: F[Unit] =
+          ctx.update(s => s.copy(
+            transactionDepth       = math.max(0, s.transactionDepth - 1),
+            isolationLevel         = if (s.transactionDepth <= 1) None else s.isolationLevel,
+            previousIsolationLevel = if (s.transactionDepth <= 1) None else s.previousIsolationLevel
+          )) >> (if (s.transactionDepth == 0)
+            asyncF.delay(actionLogger.warn("exitTransactionScope called with transactionDepth == 0; this is a bug"))
+          else asyncF.unit)
+
+        val releaseIfUnpinned: F[Unit] =
+          ctx.get.flatMap(s2 => if (!s2.pinned) releaseSession(ctx) else asyncF.unit)
+
+        commitOrRollback.attempt.flatMap { commitResult =>
+          decrementDepth >> releaseIfUnpinned >>
+          commitResult.fold(asyncF.raiseError, _ => asyncF.unit)
+        }
+      }
+
+    /** Acquire a session lazily (only when actually needed by a SynchronousDatabaseAction),
+      * run `f` with it (also providing the current ExecState snapshot), and release it
+      * unless the session is pinned (transaction or withPinnedSession scope active).
+      *
+      * Ownership model:
+      *   - The acquire + install region is wrapped in `uncancelable` so that cancellation
+      *     cannot land between `acquiredSessionR.allocated` returning and `installSession`
+      *     writing the finalizer into `ExecState`.  Only the user action `f` runs cancelably
+      *     (via `poll`).
+      *   - `releaseAcquired` is stored in `ExecState.sessionRelease` so that whichever scope
+      *     ends last (this call for unpinned, an outer pin/tx for pinned) can invoke it via
+      *     `releaseSession(ctx)`.
+      *   - If `installSession` fails or is canceled it rolls back `ExecState` and calls
+      *     `releaseAcquired` itself so neither the session nor the permit leaks.
+      *   - `releaseSession` is idempotent (atomic take-and-clear), so there is no
+      *     double-close or double-release regardless of which path runs. */
+    private def withSession[R](
+      ctx: Ref[F, ExecState]
+    )(f: (Session, ExecState) => F[R]): F[R] = {
+      val F = asyncF
+      ctx.get.flatMap { state =>
+        state.session match {
+          case Some(session) =>
+            // Connection already acquired (pinned or in-transaction) — reuse it
+            f(session.asInstanceOf[Session], state)
+
+          case None =>
+            // Acquire + install are uncancelable so that a cancellation between
+            // `allocated` returning and `installSession` completing cannot orphan the
+            // resource.  User work runs cancelably via poll.
+            F.uncancelable { poll =>
+              acquiredSessionR(state.ordinal).allocated.flatMap { case (session, releaseAcquired) =>
+                installSession(ctx, state, session, releaseAcquired).flatMap { s1 =>
+                  val releaseIfUnpinned = ctx.get.flatMap { s2 =>
+                    if (!s2.pinned) releaseSession(ctx) else F.unit
+                  }
+                  poll(f(session, s1)).guarantee(releaseIfUnpinned)
+                }
+              }
+            }
         }
       }
     }
 
-    /** Create the default DatabaseActionContext for this backend. */
-    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context
-
-    /** Create the default StreamingDatabaseActionContext for this backend. */
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T],
-                                                                useSameThread: Boolean): StreamingContext
-
-    /** Run an Action in an existing DatabaseActionContext. This method can be overridden in
-      * subclasses to support new DatabaseActions which cannot be expressed through
-      * SynchronousDatabaseAction.
+    /** Ensure that a session is installed in ExecState, acquiring one if needed.
       *
-      * @param streaming Whether to return the result as a stream. In this case, the context must
-      *                  be a `StreamingDatabaseActionContext` and the Future result should be
-      *                  completed with `null` or failed after streaming has finished. This
-      *                  method should not call any `Subscriber` method other than `onNext`. */
-    protected[this] def runInContext[R](a: DBIOAction[R, NoStream, Nothing],
-                                        ctx: Context,
-                                        streaming: Boolean,
-                                        topLevel: Boolean): Future[R] =
-      runInContextSafe(a, ctx, streaming, topLevel, stackLevel = 0)
+      * Unlike `withSession`, this does not scope the session to a callback. The session is
+      * left installed in `ctx` and must be released later via `releaseSession(ctx)`.
+      */
+    private def ensureSession(ctx: Ref[F, ExecState]): F[(Session, ExecState)] = {
+      val F = asyncF
+      ctx.get.flatMap { state =>
+        state.session match {
+          case Some(session) =>
+            F.pure((session.asInstanceOf[Session], state))
 
-    // If recursion has reached the limit then run next batch in trampoline
-    private[this] def runInContextSafe[R](a: DBIOAction[R, NoStream, Nothing],
-                                          ctx: Context,
-                                          streaming: Boolean,
-                                          topLevel: Boolean,
-                                          stackLevel: Int): Future[R] =
-      if (stackLevel < 100)
-        runInContextInline(a, ctx, streaming, topLevel, stackLevel + 1)
-      else {
-        val promise = Promise[R]()
-        val runnable = new Runnable {
-          override def run() = {
-            try {
-              promise.completeWith(runInContextInline(a, ctx, streaming, topLevel, stackLevel = 1))
-            } catch {
-              case NonFatal(ex) => promise.failure(ex)
+          case None =>
+            F.uncancelable { _ =>
+              acquiredSessionR(state.ordinal).allocated.flatMap { case (session, releaseAcquired) =>
+                installSession(ctx, state, session, releaseAcquired).map(s1 => (session, s1))
+              }
+            }
+        }
+      }
+    }
+
+    private def acquireStreamContextAndIterator[T](a: DBIOAction[?, Streaming[T], Nothing]): F[(Ref[F, ExecState], CloseableIterator[T])] = {
+      val F = asyncF
+      F.uncancelable { _ =>
+        val acquire =
+          admissionControl.inflightAcquire >>
+            connectionArbiter.allocateOrdinal.flatMap { ordinal =>
+              F.ref(ExecState.initial(ordinal)).flatMap { ctx =>
+                interpretStream(a, ctx)
+                  .map(it => (ctx, it))
+                  .onError { case _ =>
+                    releaseStreamResources(ctx, succeeded = false, releaseInflight = false).attempt.void
+                  }
+                }
+            }
+
+        acquire.handleErrorWith { e =>
+          admissionControl.inflightRelease >> F.raiseError(e)
+        }
+      }
+    }
+
+    private def closeStreamIteratorAndRelease[T](ctx: Ref[F, ExecState], iterator: CloseableIterator[T], exitCase: Resource.ExitCase): F[Unit] = {
+      val succeeded = exitCase == Resource.ExitCase.Succeeded
+      asyncF.blocking(iterator.close()).attempt.void >>
+        releaseStreamResources(ctx, succeeded)
+    }
+
+    private def releaseStreamResources(ctx: Ref[F, ExecState], succeeded: Boolean, releaseInflight: Boolean = true): F[Unit] = {
+      val F = asyncF
+
+      def clearPinned: F[Unit] =
+        ctx.update(s => if (s.pinnedDepth == 0) s else s.copy(pinnedDepth = 0))
+
+      def unwindTx: F[Unit] =
+        ctx.get.flatMap { s =>
+          if (s.transactionDepth <= 0) F.unit
+          else exitTransactionScope(ctx, succeeded) >> unwindTx
+        }
+
+      unwindTx.attempt.void >>
+        clearPinned.attempt.void >>
+        releaseSession(ctx).attempt.void >>
+        (if (releaseInflight) admissionControl.inflightRelease else F.unit)
+    }
+
+    protected def interpretStream[T](
+      a: DBIOAction[?, Streaming[T], Nothing],
+      ctx: Ref[F, ExecState]
+    ): F[CloseableIterator[T]] = {
+      val F = asyncF
+      a match {
+        case sa: SynchronousDatabaseAction[?, ?, ?, ?] if sa.supportsStreaming =>
+          ensureSession(ctx).flatMap { case (session, state) =>
+            F.blocking {
+              sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
+                .openStream(sessionAsContext(session, state))
+                .asInstanceOf[CloseableIterator[T]]
             }
           }
-        }
-        DBIO.sameThreadExecutionContext.execute(runnable)
-        promise.future
-      }
 
-    private[this] def runInContextInline[R](a: DBIOAction[R, NoStream, Nothing],
-                                            ctx: Context,
-                                            streaming: Boolean,
-                                            topLevel: Boolean,
-                                            stackLevel: Int): Future[R] = {
-      logAction(a, ctx)
+        case sa: SynchronousDatabaseAction[?, ?, ?, ?] =>
+          interpretStream(
+            sa.nonFusedEquivalentAction.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]],
+            ctx
+          )
+
+        case AndThenAction(actions) =>
+          val prefix = actions.init.asInstanceOf[IndexedSeq[DBIOAction[Any, NoStream, Nothing]]]
+          val last = actions.last.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]]
+          val runPrefix = prefix.foldLeft(F.unit)((acc, act) => acc >> interpret[Any](act, ctx).void)
+          runPrefix >> interpretStream(last, ctx)
+
+        case FlatMapAction(base, f) =>
+          interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).flatMap { v =>
+            val next = f.asInstanceOf[Any => DBIOAction[?, Streaming[T], Nothing]](v)
+            interpretStream(next, ctx)
+          }
+
+        case NamedAction(inner, _) =>
+          interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
+
+        case PinnedSessionAction(inner) =>
+          ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth + 1)) >>
+            interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
+
+        case TransactionalAction(inner, isolationLevel) =>
+          enterTransactionScope(ctx, isolationLevel) >>
+            interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
+
+        case other =>
+          // Non-first-class / third-party streaming action: fall back to running through the
+          // regular interpreter, collecting results, and wrapping in a CloseableIterator.
+          // This preserves prior behaviour for library users whose DBIOAction subclasses do
+          // not match any of the known structural cases above.
+          interpret[Seq[T]](other.asInstanceOf[DBIOAction[Seq[T], NoStream, Nothing]], ctx)
+            .map(seq => CloseableIterator.wrap(seq.iterator))
+      }
+    }
+
+    /** Set up a transaction on a freshly-acquired connection.
+      * Returns the previous isolation level (to be restored after the transaction ends),
+      * or None if the isolation level was not changed. Override in JdbcBackend. */
+    protected def setupTransaction(session: Session, isolationLevel: Option[Int]): Option[Int] = None
+
+    /** Commit the transaction on the session, restoring the given isolation level if provided.
+      * Override in JdbcBackend. */
+    protected def commitTransaction(session: Session, previousIsolationLevel: Option[Int]): Unit = ()
+
+    /** Rollback the transaction on the session, restoring the given isolation level if provided.
+      * Override in JdbcBackend. */
+    protected def rollbackTransaction(session: Session, previousIsolationLevel: Option[Int]): Unit = ()
+
+    /** The core recursive interpreter for `DBIOAction` values.
+      *
+      * - `SynchronousDatabaseAction` steps run in `F.blocking` on the CE3 blocking pool.
+      * - No explicit stack-level tracking: CE3 `flatMap` is stack-safe.
+      * - Execution state (session, transaction depth, pinning) is tracked in a `Ref[F, ExecState]`.
+      * - Cancellation triggers rollback via `guaranteeCase`.
+      */
+    protected def interpret[R](
+      a: DBIOAction[R, NoStream, Nothing],
+      ctx: Ref[F, ExecState]
+    ): F[R] = {
+      val F = asyncF
+      logAction(a)
+      // Wrap in F.defer so that recursive calls to interpret do not consume Scala stack
+      // frames. Without this, deeply nested FlatMapAction / AndThenAction structures
+      // (e.g. 10,000+ levels) would cause a StackOverflowError.  CE3's defer pushes the
+      // continuation onto the run-loop instead of building Scala frames.
+      F.defer {
       a match {
-        case SuccessAction(v) => Future.successful(v)
-        case FailureAction(t) => Future.failed(t)
-        case FutureAction(f) => f
-        case FlatMapAction(base, f, ec) =>
-          runInContextSafe(base, ctx, streaming = false, topLevel = topLevel, stackLevel)
-            .flatMap(v => runInContext(f(v), ctx, streaming, topLevel = false))(ctx.getEC(ec))
+        case SuccessAction(v) =>
+          F.pure(v)
+
+        case FailureAction(t) =>
+          F.raiseError(t)
+
+        case LiftFAction(fa) =>
+          // fa is already an F[R]; type safety guaranteed by DBIO.liftF
+          fa.asInstanceOf[F[R]]
+
+        case FlatMapAction(base, f) =>
+          interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+            .flatMap { v =>
+              val next = f.asInstanceOf[Any => DBIOAction[R, NoStream, Nothing]](v)
+              interpret[R](next, ctx)
+            }
+
         case AndThenAction(actions) =>
           val last = actions.length - 1
-
-          def run(pos: Int, v: Any): Future[Any] = {
-            val f1 = runInContextSafe(actions(pos), ctx, streaming && pos == last, topLevel && pos == 0, stackLevel)
-
-            if(pos == last) f1
-            else f1.flatMap(run(pos + 1, _))(DBIO.sameThreadExecutionContext)
+          def run(pos: Int): F[Any] = {
+            val fi = interpret[Any](actions(pos).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+            if (pos == last) fi
+            else fi.flatMap(_ => run(pos + 1))
           }
+          run(0).asInstanceOf[F[R]]
 
-          run(0, null).asInstanceOf[Future[R]]
-        case sa@SequenceAction(actions) =>
+        case sa @ SequenceAction(actions) =>
           val len = actions.length
-          val results = new AtomicReferenceArray[Any](len)
-
-          def run(pos: Int): Future[Any] = {
-            if (pos == len) Future.successful {
-              val b = sa.cbf.asInstanceOf[Factory[Any, R]].newBuilder
-              var i = 0
-              while (i < len) {
-                b += results.get(i)
-                i += 1
-              }
-              b.result()
-            }
+          def run(pos: Int, acc: Vector[Any]): F[Vector[Any]] = {
+            if (pos == len) F.pure(acc)
             else
-              runInContextSafe(actions(pos), ctx, streaming = false, topLevel = topLevel && pos == 0, stackLevel)
-                .flatMap { (v: Any) =>
-                  results.set(pos, v)
-                  run(pos + 1)
-                }(DBIO.sameThreadExecutionContext)
+              interpret[Any](actions(pos).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+                .flatMap(v => run(pos + 1, acc :+ v))
+          }
+          run(0, Vector.empty).map { results =>
+            val b = sa.cbf.asInstanceOf[Factory[Any, R]].newBuilder
+            results.foreach(b += _)
+            b.result()
           }
 
-          run(0).asInstanceOf[Future[R]]
-        case CleanUpAction(base, f, keepFailure, ec) =>
-          val p = Promise[R]()
-          runInContextSafe(base, ctx, streaming, topLevel, stackLevel).onComplete { t1 =>
-            try {
-              val a2 = f(t1 match {
-                case Success(_) => None
-                case Failure(t) => Some(t)
-              })
-              runInContext(a2, ctx, streaming = false, topLevel = false).onComplete { t2 =>
-                if (t2.isFailure && (t1.isSuccess || !keepFailure)) p.complete(t2.asInstanceOf[Failure[R]])
-                else p.complete(t1)
-              }(DBIO.sameThreadExecutionContext)
-            } catch {
-              case NonFatal(ex) =>
-                val e = t1 match {
-                  case Failure(t) if keepFailure => t
-                  case _ => ex
-                }
-
-                if (!p.tryFailure(e)) {
-                  actionLogger.warn("Exception after promise completed", e)
-                }
-            }
-          }(ctx.getEC(ec))
-          p.future
-        case FailedAction(a) =>
-          runInContextSafe(a, ctx, streaming = false, topLevel = topLevel, stackLevel).failed.asInstanceOf[Future[R]]
-        case AsTryAction(a) =>
-          val p = Promise[R]()
-          runInContextSafe(a, ctx, streaming = false, topLevel = topLevel, stackLevel)
-            .onComplete(v => p.success(v.asInstanceOf[R]))(DBIO.sameThreadExecutionContext)
-          p.future
-        case NamedAction(a, _) =>
-          runInContextSafe(a, ctx, streaming, topLevel, stackLevel)
-        case a: SynchronousDatabaseAction[?, ?, ?, ?, ?] =>
-          if (streaming) {
-            if (a.supportsStreaming)
-              streamSynchronousDatabaseAction(
-                a.asInstanceOf[SynchronousDatabaseAction[?, ? <: NoStream, Context, StreamingContext, ? <: Effect]],
-                ctx.asInstanceOf[StreamingContext],
-                !topLevel
-              ).asInstanceOf[Future[R]]
-            else
-              runInContextSafe(
-                CleanUpAction(
-                  AndThenAction(Vector(DBIO.Pin, a.nonFusedEquivalentAction)),
-                  _ => DBIO.Unpin,
-                  keepFailure = true,
-                  DBIO.sameThreadExecutionContext),
-                ctx,
-                streaming,
-                topLevel,
-                stackLevel)
+        case CleanUpAction(base, f, keepFailure) =>
+          // Use uncancelable+poll so that:
+          //   - the base action runs cancelably (via poll),
+          //   - the cleanup action f(...) always runs, even on cancellation,
+          //   - after cleanup, the original outcome is restored.
+          // On cancellation, f receives Some(CancellationException) so user code can
+          // distinguish cancel from normal errors.
+          F.uncancelable { poll =>
+            poll(interpret[R](base.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
+              .guaranteeCase {
+                case Outcome.Succeeded(_) =>
+                  interpret[Any](f(None).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
+                case Outcome.Errored(err) =>
+                  // Run cleanup with the error. Re-raise original unless keepFailure=false
+                  // and cleanup itself also fails (cleanup error takes precedence).
+                  interpret[Any](f(Some(err)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
+                    .recoverWith { case cleanupErr if !keepFailure => F.raiseError(cleanupErr) }
+                case Outcome.Canceled() =>
+                  // Run cleanup with a CancellationException so user code can react to cancel.
+                  // Errors from cleanup are swallowed so as not to mask the cancellation.
+                  interpret[Any](
+                    f(Some(new java.util.concurrent.CancellationException("DBIO action canceled")))
+                      .asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).attempt.void
+              }
           }
-          else
-            runSynchronousDatabaseAction(
-              a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, StreamingContext, ?]],
-              ctx,
-              !topLevel
-            )
-        case a: DatabaseAction[?, ?, ?]               =>
-          throw new SlickException(s"Unsupported database action $a for $this")
-      }
-    }
 
-    /** Within a synchronous execution, ensure that a Session is available. */
-    protected[this] final def acquireSession(ctx: Context): Unit =
-      if(!ctx.isPinned) ctx.currentSession = createSession()
-
-    /** Within a synchronous execution, close the current Session unless it is pinned.
-     *
-     * @param handleCloseError What to do with non-fatal errors that arise while closing the Session. */
-    protected[this] final def releaseSession(ctx: Context,
-                                             handleCloseError: PartialFunction[Throwable, Unit] = PartialFunction.empty
-                                            ): Unit =
-      if (!ctx.isPinned) {
-        val session = ctx.currentSession
-        ctx.currentSession = null
-        if (session != null)
-          try session.close() catch handleCloseError
-      }
-
-    /** Run a `SynchronousDatabaseAction` on this database. */
-    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, Context, StreamingContext, ?],
-                                                        ctx: Context,
-                                                        continuation: Boolean): Future[R] = {
-      val promise = Promise[R]()
-      ctx.getEC(synchronousExecutionContext).execute(prioritizedRunnable(
-        priority = {
-          ctx.readSync
-          ctx.priority(continuation)
-        },
-        run = { setConnectionReleased =>
-          try {
-            ctx.readSync
-            val res = try {
-              acquireSession(ctx)
-              val res = try a.run(ctx) catch { case NonFatal(ex) =>
-                releaseSession(ctx, { case NonFatal(ex) => actionLogger.warn("Exception while closing session", ex) })
-                throw ex
-              }
-              releaseSession(ctx)
-              res
-            } finally {
-              if (!ctx.isPinned && ctx.priority(continuation) != WithConnection) setConnectionReleased()
-              ctx.sync = 0
+        case FailedAction(inner) =>
+          interpret[Any](inner.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+            .attempt
+            .flatMap {
+              case Left(t)  => F.pure(t.asInstanceOf[R])
+              case Right(_) => F.raiseError(new NoSuchElementException("Action.failed did not fail"))
             }
-            promise.success(res)
-          } catch { case NonFatal(ex) => promise.tryFailure(ex) }
-        }
-      ))
-      promise.future
-    }
 
-    /** Stream a `SynchronousDatabaseAction` on this database. */
-    protected[this]
-    def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[?, ? <: NoStream, Context, StreamingContext, ? <: Effect],
-                                        ctx: StreamingContext,
-                                        continuation: Boolean): Future[Null] = {
-      ctx.streamingAction = a
-      scheduleSynchronousStreaming(a, ctx, continuation)(null)
-      ctx.streamingResultPromise.future
-    }
+        case AsTryAction(inner) =>
+          interpret[Any](inner.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+            .attempt
+            .map {
+              case Right(v) => scala.util.Success(v).asInstanceOf[R]
+              case Left(t)  => scala.util.Failure(t).asInstanceOf[R]
+            }
 
-    /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[BasicBackend]
-    def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[?, ? <: NoStream, Context, StreamingContext, ? <: Effect],
-                                     ctx: StreamingContext,
-                                     continuation: Boolean)
-                                    (initialState: a.StreamState): Unit =
-      try {
-        def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
-        ctx.getEC(synchronousExecutionContext).execute(prioritizedRunnable (
-          priority = {
-            ctx.readSync
-            ctx.priority(continuation)
-          },
-          run = { setConnectionReleased =>
-            try {
-              val debug = streamLogger.isDebugEnabled
-              var state = initialState
-              ctx.readSync
+        case NamedAction(inner, _) =>
+          interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx)
 
-              if(state eq null) {
-                try {
-                  acquireSession(ctx)
-                } catch { case NonFatal(ex) =>
-                  if (!ctx.isPinned) setConnectionReleased()
-                  throw ex
+        case TransactionalAction(inner, isolationLevel) =>
+          // uncancelable ensures enterTransactionScope and guaranteeCase registration are
+          // atomic: a cancellation between them would leave transactionDepth incremented
+          // with no finalizer to decrement it.  The inner action runs cancelably via poll.
+          asyncF.uncancelable { poll =>
+            enterTransactionScope(ctx, isolationLevel) >>
+            poll(interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
+              .guaranteeCase { outcome =>
+                exitTransactionScope(ctx, succeeded = outcome.isSuccess)
+              }
+          }
+
+        case PinnedSessionAction(inner) =>
+          // uncancelable pairs the increment and the guarantee registration atomically,
+          // mirroring the TransactionalAction pattern.  Without this, cancellation between
+          // the increment and the guarantee could leave pinnedDepth permanently > 0,
+          // preventing releaseSession from ever running.  Inner action runs cancelably via poll.
+          asyncF.uncancelable { poll =>
+            ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth + 1)) >>
+            poll(interpret[R](inner.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
+              .guarantee {
+                ctx.update(s => s.copy(pinnedDepth = s.pinnedDepth - 1)) >>
+                ctx.get.flatMap { s =>
+                  // Only release the connection if there are no more pins or transactions
+                  if (!s.pinned) releaseSession(ctx) else asyncF.unit
                 }
               }
-              var demand = ctx.demandBatch
-              var realDemand = if(demand < 0) demand - Long.MinValue else demand
+          }
 
-              while({
-                try {
-                  if(debug)
-                    streamLogger.debug(
-                      (if(state eq null) "Starting initial" else "Restarting ") +
-                        " streaming action, realDemand = " +
-                        str(realDemand)
-                    )
-
-                  if(ctx.cancelled) {
-                    if(ctx.deferredError ne null) throw ctx.deferredError
-                    if(state ne null) { // streaming cancelled before finishing
-                      val oldState = state
-                      state = null
-                      a.cancelStream(ctx, oldState)
-                    }
-                  } else if(realDemand > 0 || (state eq null)) {
-                    val oldState = state
-                    state = null
-                    state = a.emitStream(ctx, realDemand, oldState)
-                  }
-
-                  if(state eq null) { // streaming finished and cleaned up
-                    releaseSession(
-                      ctx = ctx,
-                      handleCloseError = {
-                        case NonFatal(ex) => streamLogger.warn("Exception while closing session", ex)
-                      }
-                    )
-                    if(!ctx.isPinned) setConnectionReleased()
-                    ctx.sync = 0
-                    ctx.streamingResultPromise.trySuccess(null)
-                  }
-
-                } catch { case NonFatal(ex) =>
-                  if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
-                  releaseSession(ctx, { case NonFatal(ex) => streamLogger.warn("Exception while closing session", ex) })
-                  if (!ctx.isPinned) setConnectionReleased()
-                  ctx.sync = 0
-                  throw ex
-
-                } finally {
-                  ctx.streamState = state
-                  ctx.sync = 0
-                }
-
-                if(debug) {
-                  if(state eq null)
-                    streamLogger.debug(
-                      s"Sent up to ${str(realDemand)} elements - Stream " +
-                        (if(ctx.cancelled) "cancelled" else "completely delivered")
-                    )
-                  else
-                    streamLogger.debug(
-                      s"Sent ${str(realDemand)} elements, more available - Performing atomic state transition"
-                    )
-                }
-
-                demand = ctx.delivered(demand)
-                realDemand = if(demand < 0) demand - Long.MinValue else demand
-
-                ((state ne null) && realDemand > 0)
-              }) ()
-
-              if(debug) {
-                if(state ne null)
-                  streamLogger.debug("Suspending streaming action with continuation (more data available)")
-                else
-                  streamLogger.debug("Finished streaming action")
-              }
-
-            } catch {
-              case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex)
+        case a: SynchronousDatabaseAction[?, ?, ?, ?] =>
+          withSession[R](ctx) { (session, state) =>
+            F.blocking {
+              a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, Nothing]]
+               .run(sessionAsContext(session, state))
             }
           }
-        ))
-      } catch { case NonFatal(ex) =>
-        streamLogger.warn("Error scheduling synchronous streaming", ex)
-        throw ex
+
+        case a: DBIOAction[?, ?, ?] =>
+          F.raiseError(new SlickException(s"Unsupported database action $a for $this"))
       }
+      } // end F.defer
+    }
 
+    /** Wrap a Session and ExecState as a Context for passing to SynchronousDatabaseAction.run. */
+    protected def sessionAsContext(session: Session, state: ExecState): Context
 
+    // ------------------------------------------------------------------
+    // Logging
+    // ------------------------------------------------------------------
 
-    /** Return the default ExecutionContext for this Database which should be used for running
-      * SynchronousDatabaseActions for asynchronous execution. */
-    protected[this] def synchronousExecutionContext: ExecutionContext
-
-    protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing], ctx: Context): Unit = {
-      if(actionLogger.isDebugEnabled && a.isLogged) {
-        ctx.sequenceCounter += 1
+    protected[this] def logAction(a: DBIOAction[?, NoStream, Nothing]): Unit = {
+      if (actionLogger.isDebugEnabled && a.isLogged) {
         val logA = a.nonFusedEquivalentAction
-        val aPrefix = if(a eq logA) "" else "[fused] "
+        val aPrefix = if (a eq logA) "" else "[fused] "
         val dump = new TreePrinter(prefix = "    ", firstPrefix = aPrefix, narrow = {
           case a: DBIOAction[?, ?, ?] => a.nonFusedEquivalentAction
           case o                      => o
         }).get(logA)
-        val msg = DumpInfo.highlight("#" + ctx.sequenceCounter) + ": " + dump.substring(0, dump.length-1)
+        val msg = DumpInfo.highlight(dump.substring(0, dump.length - 1))
         actionLogger.debug(msg)
       }
     }
   }
+
+  // -----------------------------------------------------------------------
+  // Session definition
+  // -----------------------------------------------------------------------
 
   /** A logical session of a `Database`. The underlying database connection is created lazily on demand. */
   trait BasicSessionDef extends Closeable {
@@ -489,148 +662,19 @@ trait BasicBackend { self =>
     def force(): Unit
   }
 
-  /** The context object passed to database actions by the execution engine. */
-  trait BasicActionContext extends ActionContext {
-    /** Whether to run all operations on the current thread or schedule them normally on the
-      * appropriate ExecutionContext. This is used by the blocking API. */
-    protected[BasicBackend] val useSameThread: Boolean
+  // -----------------------------------------------------------------------
+  // Action context (used by SynchronousDatabaseAction.run)
+  // -----------------------------------------------------------------------
 
-    /** Return the specified ExecutionContext unless running in same-thread mode, in which case
-      * `Action.sameThreadExecutionContext` is returned instead. */
-    private[BasicBackend] def getEC(ec: ExecutionContext): ExecutionContext =
-      if(useSameThread) DBIO.sameThreadExecutionContext else ec
-
-    /** A volatile variable to enforce the happens-before relationship (see
-      * [[https://docs.oracle.com/javase/specs/jls/se7/html/jls-17.html]] and
-      * [[http://gee.cs.oswego.edu/dl/jmm/cookbook.html]]) when executing something in
-      * a synchronous action context. It is read when entering the context and written when leaving
-      * so that all writes to non-volatile variables within the context are visible to the next
-      * synchronous execution. */
-    @volatile private[BasicBackend] var sync = 0
-
-    private[BasicBackend] def readSync = sync // workaround for SI-9053 to avoid warnings
-
-    private[BasicBackend] var currentSession: Session = null
-
-    private[BasicBackend] def priority(continuation: Boolean): Priority = {
-      if (currentSession != null) WithConnection
-      else if (continuation) Continuation
-      else Fresh
-    }
-
-    /** Used for the sequence counter in Action debug output. This variable is volatile because it
-      * is only updated sequentially but not protected by a synchronous action context. */
-    @volatile private[BasicBackend] var sequenceCounter = 0
-
-    def session: Session = currentSession
+  /** The context object passed to `SynchronousDatabaseAction` instances by the execution engine.
+    * The heavy concurrency state lives in [[ExecState]] / `Ref`; this is a thin wrapper that
+    * gives SDAs access to the session and statement parameters. */
+  trait BasicActionContext {
+    def session: Session
+    /** Current transaction nesting depth (0 = no transaction, 1 = one level, etc.) */
+    def transactionDepth: Int
+    /** Whether the session is currently pinned (from ExecState.pinned). */
+    def isPinned: Boolean
   }
 
-  /** A special DatabaseActionContext for streaming execution. */
-  class BasicStreamingActionContext(subscriber: Subscriber[?],
-                                                    override protected[BasicBackend] val useSameThread: Boolean,
-                                                    database: Database)
-    extends BasicActionContext with StreamingActionContext with Subscription {
-    /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
-    private[this] var finished = false
-
-    /** The total number of elements requested and not yet marked as delivered by the synchronous
-      * streaming action. Whenever this value drops to 0, streaming is suspended. When it is raised
-      * up from 0 in `request`, streaming is scheduled to be restarted. It is initially set to
-      * `Long.MinValue` when streaming starts. Any negative value above `Long.MinValue` indicates
-      * the actual demand at that point. It is reset to 0 when the initial streaming ends. */
-    private[this] val remaining = new AtomicLong(Long.MinValue)
-
-    /** An error that will be signaled to the Subscriber when the stream is cancelled or
-      * terminated. This is used for signaling demand overflow in `request()` while guaranteeing
-      * that the `onError` message does not overlap with an active `onNext` call. */
-    private[BasicBackend] var deferredError: Throwable = null
-
-    /** The state for a suspended streaming action. Must only be set from a synchronous action
-      * context. */
-    private[BasicBackend] var streamState: AnyRef = null
-
-    /** The streaming action which may need to be continued with the suspended state */
-    private[BasicBackend] var streamingAction: SynchronousDatabaseAction[?, ? <: NoStream, Context, StreamingContext, ? <: Effect] = null
-
-    @volatile private[this] var cancelRequested = false
-
-    /** The Promise to complete when streaming has finished. */
-    val streamingResultPromise = Promise[Null]()
-
-    /** Indicate that the specified number of elements has been delivered. Returns the remaining
-      * demand. This is an atomic operation. It must only be called from the synchronous action
-      * context which performs the streaming. */
-    def delivered(num: Long): Long = remaining.addAndGet(-num)
-
-    /** Get the current demand that has not yet been marked as delivered and mark it as being in
-      * the current batch. When this value is negative, the initial streaming action is still
-      * running and the real demand can be computed by subtracting `Long.MinValue` from the
-      * returned value. */
-    def demandBatch: Long = remaining.get()
-
-    /** Whether the stream has been cancelled by the Subscriber */
-    def cancelled: Boolean = cancelRequested
-
-    def emit(v: Any): Unit = subscriber.asInstanceOf[Subscriber[Any]].onNext(v)
-
-    /** Finish the stream with `onComplete` if it is not finished yet. May only be called from a
-      * synchronous action context. */
-    def tryOnComplete: Unit = if(!finished && !cancelRequested) {
-      if(streamLogger.isDebugEnabled) streamLogger.debug("Signaling onComplete()")
-      finished = true
-      try subscriber.onComplete() catch {
-        case NonFatal(ex) => streamLogger.warn("Subscriber.onComplete failed unexpectedly", ex)
-      }
-    }
-
-    /** Finish the stream with `onError` if it is not finished yet. May only be called from a
-      * synchronous action context. */
-    def tryOnError(t: Throwable): Unit = if(!finished) {
-      if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onError($t)")
-      finished = true
-      try subscriber.onError(t) catch {
-        case NonFatal(ex) => streamLogger.warn("Subscriber.onError failed unexpectedly", ex)
-      }
-    }
-
-    /** Restart a suspended streaming action. Must only be called from the Subscriber context. */
-    def restartStreaming: Unit = {
-      readSync
-      val s = streamState
-      if(s ne null) {
-        streamState = null
-        if(streamLogger.isDebugEnabled)
-          streamLogger.debug("Scheduling stream continuation after transition from demand = 0")
-        val a = streamingAction
-        database.scheduleSynchronousStreaming(a, this.asInstanceOf[StreamingContext], continuation = true)(
-          s.asInstanceOf[a.StreamState]
-        )
-      } else {
-        if(streamLogger.isDebugEnabled)
-          streamLogger.debug("Saw transition from demand = 0, but no stream continuation available")
-      }
-    }
-
-    override def subscription: BasicStreamingActionContext = this
-
-    ////////////////////////////////////////////////////////////////////////// Subscription methods
-
-    def request(l: Long): Unit = if(!cancelRequested) {
-      if(l <= 0) {
-        deferredError =
-          new IllegalArgumentException("Requested count must not be <= 0 (see Reactive Streams spec, 3.9)")
-        cancel()
-      } else {
-        if(!cancelRequested && remaining.getAndAdd(l) == 0L) restartStreaming
-      }
-    }
-
-    def cancel(): Unit = if(!cancelRequested) {
-      cancelRequested = true
-      // Restart streaming because cancelling requires closing the result set and the session from
-      // within a synchronous action context. This will also complete the result Promise and thus
-      // allow the rest of the scheduled Action to run.
-      if(remaining.getAndSet(Long.MaxValue) == 0L) restartStreaming
-    }
-  }
 }

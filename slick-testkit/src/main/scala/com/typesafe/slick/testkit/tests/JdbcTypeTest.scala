@@ -8,8 +8,9 @@ import java.time.temporal.{ChronoField, ChronoUnit}
 import java.util.UUID
 
 import scala.annotation.tailrec
-import scala.concurrent.Future
 import scala.util.Random
+
+import cats.effect.IO
 
 import slick.ast.FieldSymbol
 import slick.jdbc.PostgresProfile
@@ -61,7 +62,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
-  def testBlob = ifCapF(rcap.typeBlob) {
+  def testBlob: IO[Unit] = ifCapF(rcap.typeBlob) {
     class T(tag: Tag) extends Table[(Int, Blob)](tag, "test3") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
@@ -75,10 +76,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       (ts += (2, new SerialBlob(Array[Byte](4,5)))) >>
       ts.result
     ).transactionally
-    val p1 = db.stream(a1).mapResult { case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }
+    val p1 = db.stream(a1).map { case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }
     materialize(p1).map(_.toSet shouldBe Set((1,"123"), (2,"45"))) flatMap { _ =>
-      val f = materializeAsync[(Int, Blob), (Int, String)](db.stream(ts.result.transactionally, bufferNext = false),
-        { case (id, data) => db.io((id, data.getBytes(1, data.length.toInt).mkString)) })
+      val f = materializeAsync[(Int, Blob), (Int, String)](db.stream(ts.result.transactionally),
+        { case (id, data) => IO.pure((id, data.getBytes(1, data.length.toInt).mkString)) })
       f.map(_.toSet shouldBe Set((1,"123"), (2,"45")))
     }
   }
@@ -126,7 +127,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
                                            dataCreateFn: () => T,
                                            dataCompareFn: (Int, Option[T], Option[T]) => Unit =
                                            (id: Int, l: Option[T], r: Option[T]) => (id, l) shouldBe(id, r),
-                                           tableNameSuffix: String = "") = {
+                                           tableNameSuffix: String = ""): IO[Unit] = {
     // How many random values to generate and test with
     val testValuesSize = 1000
     val rows = (1 to testValuesSize).map(i => (i, Some(dataCreateFn())))
@@ -323,7 +324,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       () => randomLocalDateTime().toInstant(ZoneOffset.UTC)
     )
 
-  def testPostgresInstantWithTimeZone: Future[Unit] = tdb.profile match {
+  def testPostgresInstantWithTimeZone: IO[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       // Slick uses the TIMESTAMP mapping by default for instants, however it should also
       // be possible to read/write Instants as TIMESTAMPTZ (with time zone)
@@ -340,10 +341,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         tableNameSuffix = "_with_time_zone"
       )(withTimeZone)
     case _                  =>
-      Future.successful(())
+      IO.unit
   }
 
-  def testPostgresInstantWithInfiniteValues: Future[Unit] = tdb.profile match {
+  def testPostgresInstantWithInfiniteValues: IO[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[Instant](
         List(
@@ -353,10 +354,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         tableNameSuffix = "_with_infinite_values"
       )
     case _                  =>
-      Future.successful(())
+      IO.unit
   }
 
-  def testPostgresLocalDateTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+  def testPostgresLocalDateTimeWithInfiniteValues: IO[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[LocalDateTime](
         List(
@@ -366,10 +367,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         tableNameSuffix = "_with_infinite_values"
       )
     case _                  =>
-      Future.successful(())
+      IO.unit
   }
 
-  def testPostgresLocalDateWithInfiniteValues: Future[Unit] = tdb.profile match {
+  def testPostgresLocalDateWithInfiniteValues: IO[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[LocalDate](
         List(
@@ -379,10 +380,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         tableNameSuffix = "_with_infinite_values"
       )
     case _                  =>
-      Future.successful(())
+      IO.unit
   }
 
-  def testPostgresLocalTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+  def testPostgresLocalTimeWithInfiniteValues: IO[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[LocalTime](
         List(
@@ -392,10 +393,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         tableNameSuffix = "_with_infinite_values"
       )
     case _                  =>
-      Future.successful(())
+      IO.unit
   }
 
-  def testPostgresOffsetTimeWithInfiniteValues: Future[Unit] = tdb.profile match {
+  def testPostgresOffsetTimeWithInfiniteValues: IO[Unit] = tdb.profile match {
     case _: PostgresProfile =>
       roundTrip[OffsetTime](
         List(
@@ -411,7 +412,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       tableNameSuffix = "_with_infinite_values"
     )
   case _                  =>
-      Future.successful(())
+      IO.unit
   }
 
   private def randomZoneOffset = {
@@ -493,6 +494,6 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     }
     val t1 = TableQuery[T1]
     t1.schema.createStatements.mkString.should(_ contains "_FOO_BAR_")
-    Future.successful(())
+    IO.unit
   }
 }

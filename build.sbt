@@ -1,6 +1,5 @@
 import com.jsuereth.sbtpgp.PgpKeys
 
-
 val testAll = taskKey[Unit]("Run all tests")
 
 val cleanCompileTimeTests =
@@ -35,6 +34,21 @@ inThisBuild(
     scmInfo := Some(ScmInfo(url("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git"))
   )
 )
+
+// Add cross-module scaladoc links from a dependent module back to the core slick API.
+// For Scala 2, -doc-external-doc maps a classpath entry (the slick classes dir) to its scaladoc URL.
+// For Scala 3, -external-mappings does the equivalent.
+def scaladocSlickLinks =
+  Compile / doc / scalacOptions ++= {
+    val slickClasses = (slick / Compile / classDirectory).value
+    val slickApi     = (slick / Compile / doc / target).value
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((3, _)) =>
+        Seq(s"-external-mappings:${slickClasses.toURI}::${slickApi.toURI}")
+      case _ =>
+        Seq(s"-doc-external-doc:${slickClasses.getAbsolutePath}#${slickApi.toURI}")
+    }
+  }
 
 def scaladocSourceUrl(dir: String) =
   Compile / doc / scalacOptions ++= {
@@ -226,7 +240,13 @@ lazy val testkit =
   project
     .in(file("slick-testkit"))
     .configs(DocTest)
-    .dependsOn(slick, codegen % s"compile->compile;${TypeProviders.TypeProvidersConfig.name}->test", hikaricp)
+    .dependsOn(
+      slick,
+      codegen % s"compile->compile;${TypeProviders.TypeProvidersConfig.name}->test",
+      hikaricp,
+      slickFuture,
+      slickZio
+    )
     .settings(
       slickGeneralSettings,
       compilerDependencySetting(Provided.name),
@@ -249,6 +269,7 @@ lazy val testkit =
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
         Dependencies.junit ++:
+          (Dependencies.munitCatsEffect % Test) +:
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
@@ -320,20 +341,59 @@ lazy val hikaricp =
       name := "Slick-HikariCP",
       description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-hikaricp"),
+      scaladocSlickLinks,
       test := {}, testOnly := {}, // suppress test status output
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
     )
 
-lazy val `reactive-streams-tests` =
+lazy val slickFuture =
   project
-    .dependsOn(testkit)
+    .in(file("slick-future"))
+    .dependsOn(slick)
     .settings(
       slickGeneralSettings,
-      name := "Slick-ReactiveStreamsTests",
-      libraryDependencies += "org.scalatestplus" %% "testng-7-5" % "3.2.17.0",
+      extTarget("slick-future"),
+      name := "Slick-Future",
+      description := "Future integration for Slick",
+      scaladocSourceUrl("slick-future"),
+      scaladocSlickLinks,
       libraryDependencies ++=
-        (Dependencies.logback +: Dependencies.testDBs).map(_ % Test),
-      libraryDependencies += Dependencies.reactiveStreamsTCK,
+        Dependencies.junit ++:
+          Seq(
+            Dependencies.reactiveStreamsTCK,
+            Dependencies.scalatestplusTestNG,
+            Dependencies.logback,
+            Dependencies.h2,
+          ).map(_ % Test),
+      testFrameworks += new TestFramework("org.scalatest.tools.Framework"),
+      testOptions += Tests.Argument(Some(TestFrameworks.JUnit), List("-q", "-v", "-s", "-a")),
+      Test / parallelExecution := false,
+      commonTestResourcesSetting
+    )
+
+lazy val slickZio =
+  project
+    .in(file("slick-zio"))
+    .dependsOn(slick)
+    .settings(
+      slickGeneralSettings,
+      extTarget("slick-zio"),
+      name := "Slick-ZIO",
+      description := "ZIO integration for Slick",
+      scaladocSourceUrl("slick-zio"),
+      scaladocSlickLinks,
+      libraryDependencies ++= Seq(
+        Dependencies.zio,
+        Dependencies.zioStreams,
+        Dependencies.zioInteropCats,
+      ),
+      libraryDependencies ++= Seq(
+        Dependencies.zioTest,
+        Dependencies.zioTestSbt,
+        Dependencies.logback,
+        Dependencies.h2,
+      ).map(_ % Test),
+      testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
       Test / parallelExecution := false,
       commonTestResourcesSetting
     )
@@ -403,7 +463,7 @@ lazy val site: Project =
 lazy val root =
   project
     .in(file("."))
-    .aggregate(slick, codegen, hikaricp, testkit, site)
+    .aggregate(slick, codegen, hikaricp, testkit, slickFuture, slickZio, site)
     .settings(
       name := "slick-root",
       slickGeneralSettings,
@@ -421,7 +481,8 @@ lazy val root =
         Def.sequential(
           testkit / Test / test,
           testkit / DocTest / test,
-          `reactive-streams-tests` / Test / test,
+          slickFuture / Test / test,
+          slickZio / Test / test,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,

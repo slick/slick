@@ -14,7 +14,6 @@ object Dependencies {
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
   val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-
   val scalaCollectionCompat = Def.setting {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, n)) if n == 12 =>
@@ -23,8 +22,18 @@ object Dependencies {
         Seq.empty
     }
   }
+  val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
+  val fs2Core    = "co.fs2"        %% "fs2-core"    % "3.12.0"
+  val munitCatsEffect = "org.typelevel" %% "munit-cats-effect" % "2.1.0"
+  val scalatestplusTestNG = "org.scalatestplus" %% "testng-7-5" % "3.2.17.0"
+  val zioVersion = "2.1.19"
+  val zio = "dev.zio" %% "zio" % zioVersion
+  val zioStreams = "dev.zio" %% "zio-streams" % zioVersion
+  val zioInteropCats = "dev.zio" %% "zio-interop-cats" % "23.1.0.5"
+  val zioTest = "dev.zio" %% "zio-test" % zioVersion
+  val zioTestSbt = "dev.zio" %% "zio-test-sbt" % zioVersion
 
-  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
+  def mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams, catsEffect, fs2Core)
 
   val junit = Seq(
     "junit" % "junit-dep" % "4.11",

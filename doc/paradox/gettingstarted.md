@@ -16,7 +16,8 @@ sample plus an @extref[sbt](sbt:) launcher.
 * The @extref[**TestKit** sample](samplerepo:slick-testkit-example) shows you how to use Slick TestKit to test your own
   database profiles.
 
-## Hello Slick
+Hello Slick
+-----------
 
 The *Hello Slick* sample contains simple Scala application, `HelloSlick.scala`, that does basic FRM operations with
 Slick. You can run it out of the box with `sbt run`. To make things simple this project uses an embedded in-memory
@@ -30,7 +31,8 @@ The example code in this app has intentionally verbose type information. In norm
 is used more extensively but to assist with learning the type information was included. 
 @@@
 
-## Adding Slick to Your Project
+Adding Slick to Your Project
+----------------------------
 
 To include Slick in an existing project use the library published on Maven Central. Add the following to your
 build definition (`build.sbt` for @extref[sbt](sbt:) or `pom.xml` for Maven):
@@ -39,19 +41,31 @@ build definition (`build.sbt` for @extref[sbt](sbt:) or `pom.xml` for Maven):
 ```scala
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "$project.version$",
-  "org.slf4j" % "slf4j-nop" % "1.7.26",
+  "org.typelevel"      %% "cats-effect" % "3.6.x",
+  "co.fs2"             %% "fs2-core" % "3.x",
+  "org.slf4j"          % "slf4j-nop" % "1.7.26",
   "com.typesafe.slick" %% "slick-hikaricp" % "$project.version$"
 )
 ```
 
 ```xml
-<!-- Make sure to use the correct Scala version suffix "_2.12" or "_2.13"
+<!-- Make sure to use the correct Scala version suffix "_2.13" or "_3"
      to match your project's Scala version. -->
 <dependencies>
   <dependency>
     <groupId>com.typesafe.slick</groupId>
     <artifactId>slick_2.13</artifactId>
     <version>$project.version$</version>
+  </dependency>
+  <dependency>
+    <groupId>org.typelevel</groupId>
+    <artifactId>cats-effect_2.13</artifactId>
+    <version>3.6.x</version>
+  </dependency>
+  <dependency>
+    <groupId>co.fs2</groupId>
+    <artifactId>fs2-core_2.13</artifactId>
+    <version>3.x</version>
   </dependency>
   <dependency>
     <groupId>org.slf4j</groupId>
@@ -72,14 +86,17 @@ implementation. *Hello Slick* uses `slf4j-nop` to disable logging. You have
 to replace this with a real logging framework like @extref[Logback](logback:) if you want to see
 log output.
 
-The @extref[Reactive Streams](reactive-streams:) API is pulled in automatically as a transitive dependency.
+This guide uses the `slick.cats.Database` facade (`IO` + FS2). If you prefer
+`scala.concurrent.Future` or ZIO, see @ref:[Database](database.md) for equivalent
+setup and usage with `slick.future.Database` and `slick.zio.Database`.
 
 If you want to use Slick's connection pool support for @extref[HikariCP](hikaricp:), you need to add
 the `slick-hikaricp` module as a dependency as shown above. It will automatically
 provide a compatible version of HikariCP as a transitive dependency. Otherwise, you
 might need to disable connection pooling or specify a third-party connection pool.
 
-## Quick Introduction
+Quick Introduction
+------------------
 
 To use Slick you first need to import the API for the database you will be using, like:
 
@@ -87,19 +104,14 @@ To use Slick you first need to import the API for the database you will be using
 
 Since we are using @extref[H2](h2:) as our database system, we need to import features
 from Slick's `H2Profile`. A profile's `api` object contains all commonly
-needed imports from the profile and other parts of Slick such as 
+needed imports from the profile and other parts of Slick such as
 @ref:[database handling](database.md).
-
-Slick's API is fully asynchronous and runs database calls in a separate thread pool. For running
-user code in composition of `DBIOAction` and `Future` values, we import the global
-`ExecutionContext`. When using Slick as part of a larger application (e.g. with @extref[Play](play:) or
-@extref[Akka](akka:)) the framework may provide a better alternative to this default `ExecutionContext`.
 
 ### Database Configuration
 
 In the body of the application we create a `Database` object which specifies how to connect to a
 database. In most cases you will want to configure database connections with @extref[Typesafe Config](typesafe-config:) in
-your `application.conf`, which is also used by @extref[Play](play:) and @extref[Akka](akka:) for their configuration:
+your `application.conf`:
 
 @@snip [application.conf](../code/application.conf) { #h2mem1 }
 
@@ -111,22 +123,19 @@ The `keepAliveConnection` option (which is only available without a connection p
 open for the lifetime of the `Database` object in the application. This ensures that the
 database does not get dropped while we are using it.
 
-*Hello Slick* is a standalone command-line application, not running inside of a container which takes care of
-resource management, so we have to do it ourselves. Since all database calls in Slick are asynchronous, we are
-going to compose Futures throughout the app, but eventually we have to wait for the result. This gives us the
-following scaffolding:
+*Hello Slick* is a standalone command-line application. `DatabaseConfig.forProfileConfig`
+returns a `DatabaseConfig`, and `Database.resource(dc)` returns a
+`Resource[IO, Database]` that manages the connection pool lifecycle. We use
+`.use` to run the program with the database and release all resources
+automatically:
 
 @@snip [FirstExample.scala](../code/FirstExample.scala) { #setup }
 
 @@@ note
-A `Database` object usually manages a thread pool and a connection pool. You should always
-shut it down properly when it is no longer needed (unless the JVM process terminates anyway).
-Do not create a new `Database` for every database operation. A single instance is meant to be kept
-alive for the entire lifetime your your application.
+A `Database` object manages a connection pool. The `Resource` finalizer closes it automatically
+when the `use` block completes, fails, or is cancelled. Do not create a new `Database` for every
+database operation — a single instance is meant to be kept for the lifetime of your application.
 @@@
-
-If you are not familiar with asynchronous, Future-based programming Scala, you can learn more about
-@extref[Futures and Promises](scala-futures:) in the Scala documentation.
 
 ### Schema
 
@@ -169,8 +178,8 @@ eventually produce a value of type `T`).
 
 There are several different combinators for combining multiple `DBIOAction`s into sequences, yielding another action.
 Here we use the simplest one, `DBIO.seq`, which can concatenate any number of actions, discarding the return values
-(i.e. the resulting `DBIOAction` produces a result of type `Unit`). We then execute the setup action asynchronously
-with `db.run`, yielding a `Future[Unit]`.
+(i.e. the resulting `DBIOAction` produces a result of type `Unit`). We then execute the setup action with `db.run`,
+which returns an `IO[Unit]` value that can be composed with the rest of the program.
 
 @@@ note
 Database connections and transactions are managed automatically by Slick. By default
@@ -188,12 +197,6 @@ When inserting data, the database usually returns the number of affected rows, t
 
 We can use the `map` combinator to run some code and compute a new value from the value returned by the action
 (or in this case run it only for its side effects and return `Unit`).
-
-@@@ note
-Note that `map` and all other combinators which run user code (e.g. `flatMap`, `cleanup`, `filter`) take an implicit
-`ExecutionContext` on which to run this code. Slick uses its own `ExecutionContext` internally for running blocking
-database I/O but it always maintains a clean separation and prevents you from running non-I/O code on it.
-@@@
 
 ### Querying
 
@@ -218,8 +221,8 @@ only the resulting concatenated string is shipped to the client. Note that we av
 there is no automatic conversion of other argument types to strings. This has to be done explicitly with the
 type conversion method `asColumnOf`.
 
-This time we also use @extref[Reactive Streams](reactive-streams:) to get a streaming result from the database and print the elements
-as they come in instead of materializing the whole result set upfront.
+This time we also use streaming to get elements from the database one at a time instead of
+materializing the whole result set upfront.
 
 Joining and filtering tables is done the same way as when working with Scala collections:
 

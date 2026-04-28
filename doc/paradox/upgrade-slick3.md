@@ -1,5 +1,12 @@
-Upgrade Guides
-==============
+Slick 3.x Upgrade Notes
+=======================
+
+@@@ note
+This page contains upgrade notes for **Slick 3.x minor versions** (3.1 → 3.2 → 3.3 → 3.4 → 3.5).
+
+If you are **migrating from Slick 3 to Slick 4**, see the dedicated
+@ref:[Migrating to Slick 4](migrating-to-slick4.md) guide instead.
+@@@
 
 Compatibility Policy
 --------------------
@@ -46,7 +53,7 @@ Upgrade from 3.4.x to 3.5.0
 - `MappedProjection` now has 1 type parameter (for the type that it was converting to) rather than 2
   (the second one was for the type that it was converting from).
 
-### Dependency upgrades
+### Dependency upgrades in 3.5.0
 
 Slick 3.5.x drops [scala-collection-compat](https://github.com/scala/scala-collection-compat) for Scala versions
 2.13 and higher. This shouldn't affect end users unless you happen to be transitively relying on
@@ -76,7 +83,7 @@ Upgrade from 3.3.x to 3.4.0
 The full list of bug fixes and changes in version 3.4.0 is
 [available on github](https://github.com/slick/slick/pulls?q=is%3Apr+is%3Amerged+milestone%3A3.4.0). 
 
-### Dependency upgrades
+### Dependency upgrades in 3.4.0
 
 Slick 3.4.0 updates the following upstream dependencies. If you use these libraries as part of your build, 
 you should update your dependency versions to match:
@@ -275,7 +282,7 @@ All references to `drivers` from now on refer to JDBC drivers. Slick `profiles` 
 (like @scaladoc[JdbcProfile](slick.jdbc.JdbcProfile)) or concrete (like @scaladoc[H2Profile](slick.jdbc.H2Profile)). The old names are still
 available as deprecated forwarders.
 
-The renaming also affects configuration parameters (for example, for  @ref:[Databaseconfig](database.md#databaseconfig)).
+The renaming also affects configuration parameters (for example, in the @ref:[Database](database.md) chapter).
 The old parameter names are still supported but their use will generate warnings at runtime.
 
 ### Slick Extensions

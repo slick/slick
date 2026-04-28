@@ -4,8 +4,6 @@ import java.sql.{PreparedStatement, ResultSet, Statement}
 
 import scala.collection.mutable.Builder
 import scala.language.existentials
-import scala.util.control.NonFatal
-
 import slick.SlickException
 import slick.ast.*
 import slick.ast.ColumnOption.PrimaryKey
@@ -16,7 +14,7 @@ import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
 import slick.sql.{FixedSqlAction, FixedSqlStreamingAction, SqlActionComponent}
 import slick.compat.collection.*
-import slick.util.{ignoreFollowOnError, DumpInfo, SQLBuilder}
+import slick.util.{CloseableIterator, DumpInfo, SQLBuilder}
 
 
 trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
@@ -27,7 +25,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   type RowsPerStatement >: slick.jdbc.RowsPerStatement.One.type <: slick.jdbc.RowsPerStatement
   def defaultRowsPerStatement: RowsPerStatement
 
-  abstract class SimpleJdbcProfileAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] with ProfileAction[R, NoStream, Effect] { self =>
+  abstract class SimpleJdbcProfileAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, JdbcBackend#JdbcActionContext, Effect] with ProfileAction[R, NoStream, Effect] { self =>
     def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): R
     final override def getDumpInfo = super.getDumpInfo.copy(name = _name)
     final def run(ctx: JdbcBackend#JdbcActionContext): R = run(ctx, statements)
@@ -36,37 +34,17 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     }
   }
 
-  protected object StartTransaction extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
-    def run(ctx: JdbcBackend#JdbcActionContext): Unit = {
-      ctx.pin
-      ctx.session.startInTransaction
-    }
-    def getDumpInfo = DumpInfo(name = "StartTransaction")
-  }
-
-  protected object Commit extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
-    def run(ctx: JdbcBackend#JdbcActionContext): Unit =
-      try ctx.session.endInTransaction(ctx.session.conn.commit()) finally ctx.unpin
-    def getDumpInfo = DumpInfo(name = "Commit")
-  }
-
-  protected object Rollback extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
-    def run(ctx: JdbcBackend#JdbcActionContext): Unit =
-      try ctx.session.endInTransaction(ctx.session.conn.rollback()) finally ctx.unpin
-    def getDumpInfo = DumpInfo(name = "Rollback")
-  }
-
-  protected class PushStatementParameters(p: JdbcBackend.StatementParameters) extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+  protected class PushStatementParameters(p: JdbcBackend.StatementParameters) extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Unit = ctx.pushStatementParameters(p)
     def getDumpInfo = DumpInfo(name = "PushStatementParameters", mainInfo = p.toString)
   }
 
-  protected object PopStatementParameters extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+  protected object PopStatementParameters extends SynchronousDatabaseAction[Unit, NoStream, JdbcBackend#JdbcActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Unit = ctx.popStatementParameters
     def getDumpInfo = DumpInfo(name = "PopStatementParameters")
   }
 
-  protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Int, NoStream, JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] {
+  protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Int, NoStream, JdbcBackend#JdbcActionContext, Effect] {
     def run(ctx: JdbcBackend#JdbcActionContext): Int = {
       val c = ctx.session.conn
       val old = c.getTransactionIsolation
@@ -80,24 +58,47 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
     /** Run this Action transactionally. This does not guarantee failures to be atomic in the
       * presence of error handling combinators. If multiple `transactionally` combinators are
-      * nested, only the outermost one will be backed by an actual database transaction. Depending
-      * on the outcome of running the Action it surrounds, the transaction is committed if the
-      * wrapped Action succeeds, or rolled back if the wrapped Action fails. When called on a
-      * [[slick.dbio.SynchronousDatabaseAction]], this combinator gets fused into the
-      * action. */
-    def transactionally: DBIOAction[R, S, E with Effect.Transactional] = SynchronousDatabaseAction.fuseUnsafe(
-      StartTransaction.andThen(a).cleanUp(eo => if(eo.isEmpty) Commit else Rollback)(DBIO.sameThreadExecutionContext)
-        .asInstanceOf[DBIOAction[R, S, E with Effect.Transactional]]
-    )
+      * nested, only the outermost will have effect; inner transactions are ignored.
+      *
+      * Depending on the outcome of running the Action it surrounds, the transaction is committed if
+      * the wrapped Action succeeds, or rolled back if the wrapped Action fails or the fiber is
+      * cancelled. */
+    def transactionally: DBIOAction[R, S, E with Effect.Transactional] =
+      TransactionalAction[R, S, E with Effect.Transactional](a, None)
 
-    /** Run this Action with the specified transaction isolation level. This should be used around
-      * the outermost `transactionally` Action. The semantics of using it inside a transaction are
-      * database-dependent. It does not create a transaction by itself but it pins the session. */
+    /** Run this Action transactionally with the specified transaction isolation level.
+      *
+      * If multiple `transactionally` combinators are nested, only the outermost one controls the
+      * real database transaction and its isolation level; inner transactions and isolation-level
+      * requests are ignored.
+      *
+      * The isolation level is configured when the outermost transaction scope is established.
+      */
+    def transactionally(ti: TransactionIsolation): DBIOAction[R, S, E with Effect.Transactional] =
+      TransactionalAction[R, S, E with Effect.Transactional](a, Some(ti.intValue))
+
+    /** Run this Action with a temporarily changed JDBC transaction isolation level.
+      *
+      * This method is retained for backward compatibility and is deprecated in favor of
+      * `transactionally(isolationLevel)`, which has deterministic outermost-transaction semantics.
+      *
+      * Caveats (database/driver dependent):
+      *  - On some databases, changing isolation while a transaction is active fails.
+      *  - On some databases, it does not affect the current transaction and only applies to the
+      *    next transaction.
+      *  - On some databases, changing isolation during an active transaction may implicitly commit
+      *    the current transaction and start a new one.
+      *
+      * In nested Slick `transactionally` scopes, only the outermost scope controls the real
+      * database transaction boundary; this method does not provide portable nested-transaction
+      * behavior.
+      */
+    @deprecated("Use transactionally(isolationLevel) for deterministic transaction isolation semantics", "4.0")
     def withTransactionIsolation(ti: TransactionIsolation): DBIOAction[R, S, E] = {
       val isolated =
-        (new SetTransactionIsolation(ti.intValue)).flatMap(old => a.andFinally(new SetTransactionIsolation(old)))(DBIO.sameThreadExecutionContext)
+        (new SetTransactionIsolation(ti.intValue)).flatMap(old => a.andFinally(new SetTransactionIsolation(old)))
       val fused =
-        if(a.isInstanceOf[SynchronousDatabaseAction[?, ?, ?, ?, ?]]) SynchronousDatabaseAction.fuseUnsafe(isolated)
+        if(a.isInstanceOf[SynchronousDatabaseAction[?, ?, ?, ?]]) SynchronousDatabaseAction.fuseUnsafe(isolated)
         else isolated
       fused.withPinnedSession
     }
@@ -119,8 +120,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
                                 rsHoldability: ResultSetHoldability = null,
                                 statementInit: Statement => Unit = null,
                                 fetchSize: Int = 0): DBIOAction[R, S, E] =
-      (new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit, fetchSize))).
-        andThen(a).andFinally(PopStatementParameters)
+      ((new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit, fetchSize))).
+        andThen(a).andFinally(PopStatementParameters)).withPinnedSession
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,72 +136,33 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
 
-  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Nothing, Streaming[ResultSetMutator[T]], JdbcBackend#JdbcActionContext, JdbcBackend#JdbcStreamingActionContext, Effect] with ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect] { streamingAction =>
-    class Mutator(val prit: PositionedResultIterator[T], val bufferNext: Boolean, val inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
-      val pr = prit.pr
-      val rs = pr.rs
-      var current: T = _
-      /** The state of the stream. 0 = in result set, 1 = before end marker, 2 = after end marker. */
-      var state = 0
-      def row = if(state > 0) throw new SlickException("After end of result set") else current
-      def row_=(value: T): Unit = {
-        if(state > 0) throw new SlickException("After end of result set")
-        pr.restart
-        inv.updateRowValues(pr, value)
-        rs.updateRow()
-      }
-      def += (value: T): Unit = {
-        rs.moveToInsertRow()
-        pr.restart
-        inv.updateRowValues(pr, value)
-        rs.insertRow()
-        if(state == 0) rs.moveToCurrentRow()
-      }
-      def delete: Unit = {
-        if(state > 0) throw new SlickException("After end of result set")
-        rs.deleteRow()
-        if(invokerPreviousAfterDelete) rs.previous()
-      }
-      def emitStream(ctx: JdbcBackend#JdbcStreamingActionContext, limit: Long): this.type = {
-        var count = 0L
-        try {
-          while(count < limit && state == 0) {
-            if(!pr.nextRow) state = if(sendEndMarker) 1 else 2
-            if(state == 0) {
-              current = inv.extractValue(pr)
-              count += 1
-              ctx.emit(this)
-            }
-          }
-          if(count < limit && state == 1) {
-            ctx.emit(this)
-            state = 2
-          }
-        } catch {
-          case NonFatal(ex) =>
-            try prit.close() catch ignoreFollowOnError
-            throw ex
-        }
-        if(state < 2) this else null.asInstanceOf[this.type]
-      }
-      def end = if(state > 1) throw new SlickException("After end of result set") else state > 0
-      override def toString = s"Mutator(state = $state, current = $current)"
+  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Nothing, Streaming[ResultSetMutator[T]], JdbcBackend#JdbcActionContext, Effect] with ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect] { streamingAction =>
+    class Mutator(val current: T, pr: PositionedResult, inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
+      private val rs: ResultSet = pr.rs
+      def row = current
+      def row_=(value: T): Unit = { pr.restart; inv.updateRowValues(pr, value); rs.updateRow() }
+      def +=(value: T): Unit = { rs.moveToInsertRow(); pr.restart; inv.updateRowValues(pr, value); rs.insertRow(); rs.moveToCurrentRow() }
+      def delete: Unit = { rs.deleteRow(); if(invokerPreviousAfterDelete) rs.previous() }
+      def end = false
     }
-    type StreamState = Mutator
+    class EndMutator(pr: PositionedResult, inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
+      def row = throw new SlickException("After end of result set")
+      def row_=(value: T) = throw new SlickException("After end of result set")
+      def +=(value: T): Unit = { val rs = pr.rs; rs.moveToInsertRow(); pr.restart; inv.updateRowValues(pr, value); rs.insertRow() }
+      def delete = throw new SlickException("After end of result set")
+      def end = true
+    }
     override def statements: List[String] = List(sql)
     def run(ctx: JdbcBackend#JdbcActionContext) =
       throw new SlickException("The result of .mutate can only be used in a streaming way")
-    override def emitStream(ctx: JdbcBackend#JdbcStreamingActionContext, limit: Long, state: StreamState): StreamState = {
-      val mu = if(state ne null) state else {
-        val inv = createQueryInvoker[T](rsm, param, sql)
-        new Mutator(
-          inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).getOrElse(throw new NoSuchElementException),
-          ctx.bufferNext,
-          inv)
-      }
-      mu.emitStream(ctx, limit)
+    override def openStream(ctx: JdbcBackend#JdbcActionContext): CloseableIterator[ResultSetMutator[T]] = {
+      val inv = createQueryInvoker[T](rsm, param, sql)
+      val prit = inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType, autoClose = !sendEndMarker)(ctx.session)
+        .getOrElse(throw new NoSuchElementException)
+      val rows: Iterator[ResultSetMutator[T]] = prit.map(value => new Mutator(value, prit.pr, inv))
+      val all = if(sendEndMarker) rows ++ Iterator.single(new EndMutator(prit.pr, inv)) else rows
+      CloseableIterator.from(all, () => prit.close())
     }
-    override def cancelStream(ctx: JdbcBackend#JdbcStreamingActionContext, state: StreamState): Unit = state.prit.close()
     override def getDumpInfo = super.getDumpInfo.copy(name = "mutate")
     def overrideStatements(_statements: Iterable[String]): MutatingResultAction[T] =
       new MutatingResultAction[T](rsm, elemType, collectionType, _statements.head, param, sendEndMarker)
@@ -655,16 +617,22 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         def f: SingleInsertOrUpdateResult =
           if(useServerSideUpsert) nativeUpsert(value, sql.head)(ctx.session) else emulate(value, sql(0), sql(1), sql(2))(ctx.session)
         if(useTransactionForUpsert) {
-          ctx.session.startInTransaction
+          val conn = ctx.session.conn
+          val wasAutoCommit = conn.getAutoCommit
+          if(wasAutoCommit) conn.setAutoCommit(false)
           var done = false
           try {
             val res = f
             done = true
-            ctx.session.endInTransaction(ctx.session.conn.commit())
+            conn.commit()
+            if(wasAutoCommit) conn.setAutoCommit(true)
             res
           } finally {
             if(!done)
-              try ctx.session.endInTransaction(ctx.session.conn.rollback()) catch ignoreFollowOnError
+              try {
+                conn.rollback()
+                if(wasAutoCommit) conn.setAutoCommit(true)
+              } catch { case scala.util.control.NonFatal(_) => () }
           }
         } else f
       }

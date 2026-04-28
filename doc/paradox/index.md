@@ -1,35 +1,38 @@
-# Slick
+# Slick 4
 
-Reactive Functional Relational Mapping for Scala
+Functional Relational Mapping for Scala
 
-## API Documentation (scaladoc)
+API Documentation (scaladoc)
+----------------------------
 
 - @scaladoc[Slick Core](slick.index) (slick)
 - @scaladoc[Code Generator](slick.codegen.index) (slick-codegen)
 - @scaladoc[HikariCP integration](slick.jdbc.hikaricp.index) (slick-hikaricp)
 - @scaladoc[TestKit](com.typesafe.slick.testkit.index) (slick-testkit)
 
-## User Manual
+User Manual
+-----------
 
 @@toc { depth=3 }
 
 @@@ index
 
   * @ref:[.](introduction.md)
-  * @ref:[.](supported-databases.md)
   * @ref:[.](gettingstarted.md)
-  * @ref:[.](concepts.md)
   * @ref:[.](database.md)
+  * @ref:[.](concepts.md)
   * @ref:[.](dbio.md)
-  * @ref:[.](schemas.md)
   * @ref:[.](queries.md)
+  * @ref:[.](schemas.md)
+  * @ref:[.](sql.md)
+  * @ref:[.](supported-databases.md)
   * @ref:[.](code-generation.md)
   * @ref:[.](userdefined.md)
-  * @ref:[.](sql.md)
   * @ref:[.](orm-to-slick.md)
   * @ref:[.](sql-to-slick.md)
   * @ref:[.](cookbook.md)
-  * @ref:[.](upgrade.md)
+  * @ref:[.](migrating-to-slick4.md)
+  * @ref:[.](upgrade-slick3.md)
   * @ref:[.](migrations.md)
   * @ref:[.](testkit.md)
   * @ref:[.](documentation.md)

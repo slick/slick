@@ -2,9 +2,10 @@ package slick.codegen
 
 import java.net.URI
 
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration.Duration
-import slick.basic.DatabaseConfig
+import cats.effect.unsafe.implicits.global
+
+import slick.cats.Database
+import slick.jdbc.DatabaseConfig
 import slick.{model => m}
 import slick.jdbc.JdbcProfile
 import slick.model.Model
@@ -65,34 +66,42 @@ object SourceCodeGenerator {
   def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean, codeGeneratorClass: Option[String], outputToMultipleFiles: Boolean): Unit = {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
-    val dbFactory = profileInstance.api.Database
-    val db = dbFactory.forURL(url, driver = jdbcDriver,
-      user = user.getOrElse(null), password = password.getOrElse(null), keepAliveConnection = true)
-    try {
-      val m = Await.result(db.run(profileInstance.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
-      val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
-      val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[? <: SourceCodeGenerator]]
-      val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
-      if(outputToMultipleFiles)
-        generatorInstance.writeToMultipleFiles(profile, outputDir, pkg)
-      else
-        generatorInstance.writeToFile(profile, outputDir, pkg)
-    } finally db.close
+    val dc = DatabaseConfig.forURL(profileInstance, url, driver = jdbcDriver,
+                                   user = user.getOrElse(null),
+                                   password = password.getOrElse(null),
+                                   keepAliveConnection = true)
+
+    Database.resource(dc).use { db =>
+      db.run(profileInstance.createModel(None, ignoreInvalidDefaults).withPinnedSession)
+        .map { m =>
+          val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
+          val sourceGeneratorClass = Class.forName(codeGenerator).asInstanceOf[Class[? <: SourceCodeGenerator]]
+          val generatorInstance = sourceGeneratorClass.getConstructor(classOf[Model]).newInstance(m)
+          if (outputToMultipleFiles)
+            generatorInstance.writeToMultipleFiles(profile, outputDir, pkg)
+          else
+            generatorInstance.writeToFile(profile, outputDir, pkg)
+        }
+    }.unsafeRunSync()
   }
 
   def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = true, outputToMultipleFiles: Boolean = false): Unit = {
     val dc = DatabaseConfig.forURI[JdbcProfile](uri)
-    val pkg = dc.config.getString("codegen.package")
-    val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
+    val cfg = dc.config
+    val pkg = cfg.getString("codegen.package")
+    val out = outputDir.getOrElse(cfg.getStringOr("codegen.outputDir", "."))
     val profile = if(dc.profileIsObject) dc.profileName else "new " + dc.profileName
-    try {
-      val m = Await.result(dc.db.run(dc.profile.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
-      val generator = new SourceCodeGenerator(m)
-      if(outputToMultipleFiles)
-        generator.writeToMultipleFiles(profile, out, pkg)
-      else
-        generator.writeToFile(profile, out, pkg)
-    } finally dc.db.close
+
+    Database.resource(dc).use { db =>
+      db.run(dc.profile.createModel(None, ignoreInvalidDefaults).withPinnedSession)
+        .map { m =>
+          val generator = new SourceCodeGenerator(m)
+          if (outputToMultipleFiles)
+            generator.writeToMultipleFiles(profile, out, pkg)
+          else
+            generator.writeToFile(profile, out, pkg)
+        }
+    }.unsafeRunSync()
   }
 
   def main(args: Array[String]): Unit = {
@@ -128,7 +137,7 @@ object SourceCodeGenerator {
             |  password: database connection password
             |
             |When using a config file, in addition to the standard config parameters from
-            |slick.basic.DatabaseConfig you can set "codegen.package" and
+            |slick.jdbc.DatabaseConfig you can set "codegen.package" and
             |"codegen.outputDir". The latter can be overridden on the command line.
           """.stripMargin.trim)
         System.exit(1)

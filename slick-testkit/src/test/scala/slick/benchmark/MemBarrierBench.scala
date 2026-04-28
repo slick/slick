@@ -58,12 +58,14 @@ object MemBarrierBench {
     println(name+": "+(t1-t0)+"ms")
   }
 
-  val num = 100000000L
+  def main(args: Array[String]): Unit = {
+    val num = 100000000L
 
-  for(_ <- 1 to 10) {
-    time("Local            ")(pushLocal(num, subscr))
-    time("Local Counting   ")(pushLocalCounting(num, subscr))
-    time("Volatile Counting")(pushVolatileCounting(num, subscr))
-    time("Atomic Counting  ")(pushAtomicCounting(num, subscr))
+    for(_ <- 1 to 10) {
+      time("Local            ")(pushLocal(num, subscr))
+      time("Local Counting   ")(pushLocalCounting(num, subscr))
+      time("Volatile Counting")(pushVolatileCounting(num, subscr))
+      time("Atomic Counting  ")(pushAtomicCounting(num, subscr))
+    }
   }
 }

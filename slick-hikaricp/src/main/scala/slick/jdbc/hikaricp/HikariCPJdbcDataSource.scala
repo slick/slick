@@ -7,7 +7,7 @@ import slick.jdbc.{JdbcDataSource, JdbcDataSourceFactory}
 import slick.util.ConfigExtensionMethods._
 
 /** A JdbcDataSource for a HikariCP connection pool.
-  * See `slick.jdbc.JdbcBackend#Database.forConfig` for documentation on the config parameters. */
+  * See `slick.jdbc.DatabaseConfig` for documentation on the config parameters. */
 class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig)
   extends JdbcDataSource {
 
@@ -46,15 +46,15 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     c.getBooleanOpt("autoCommit").foreach(hconf.setAutoCommit)
     c.getStringOpt("exceptionOverrideClassName").foreach(hconf.setExceptionOverrideClassName)
 
-    val numThreads = c.getIntOr("numThreads", 20)
+    val defaultPoolSize = c.getIntOpt("maxConnections").orElse(c.getIntOpt("numThreads")).getOrElse(20)
 
     hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 30000))
     hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
     hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
     c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
     c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
-    hconf.setMaximumPoolSize(c.getIntOpt("maximumPoolSize").orElse(c.getIntOpt("maxConnections")).getOrElse(numThreads))
-    hconf.setMinimumIdle(c.getIntOpt("minimumIdle").orElse(c.getIntOpt("minConnections")).getOrElse(numThreads))
+    hconf.setMaximumPoolSize(c.getIntOpt("maximumPoolSize").orElse(c.getIntOpt("maxConnections")).getOrElse(defaultPoolSize))
+    hconf.setMinimumIdle(c.getIntOpt("minimumIdle").orElse(c.getIntOpt("minConnections")).getOrElse(defaultPoolSize))
     hconf.setPoolName(c.getStringOr("poolName", name))
     c.getLongOpt("keepAliveTime").foreach(hconf.setKeepaliveTime)
 

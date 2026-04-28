@@ -3,9 +3,11 @@ package com.typesafe.slick.testkit.util
 import java.sql.{DriverManager, SQLException}
 import java.util.logging.{Level, Logger}
 
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration.Duration
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 
+import slick.cats.Database
+import slick.jdbc.DatabaseConfig
 import slick.basic.Capability
 import slick.compiler.Phase
 import slick.dbio.*
@@ -13,6 +15,7 @@ import slick.jdbc.*
 import slick.jdbc.GetResult.*
 import slick.jdbc.meta.MTable
 import slick.memory.MemoryProfile
+import slick.util.ClassLoaderUtil
 import slick.util.ConfigExtensionMethods.*
 
 import org.junit.Assert
@@ -92,7 +95,12 @@ object StandardTestDBs {
     override def cleanUpBefore() = {
       super.cleanUpBefore()
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
-      try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
+      try {
+        val dc = DatabaseConfig.forURL(profile, dropUrl, driver = jdbcDriver)
+        runIO(Database.resource(dc).use { db =>
+          db.run(SimpleJdbcAction(_.connection))
+        })
+      }
       catch { case _: SQLException => }
     }
   }
@@ -103,7 +111,12 @@ object StandardTestDBs {
     override def cleanUpBefore() = {
       super.cleanUpBefore()
       val dropUrl = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";shutdown=true"
-      try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
+      try {
+        val dc = DatabaseConfig.forURL(profile, dropUrl, driver = jdbcDriver)
+        runIO(Database.resource(dc).use { db =>
+          db.run(SimpleJdbcAction(_.connection))
+        })
+      }
       catch { case _: SQLException => }
       TestDB.deleteDBFiles(dbName)
     }
@@ -111,10 +124,10 @@ object StandardTestDBs {
 
   lazy val Postgres = new ExternalJdbcTestDB("postgres") {
     val profile: Profile = PostgresProfile
-    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+    override def localTables: DBIO[Vector[String]] =
       ResultSetAction[(String,String,String, String)](ctx => ctx.conn.getMetaData.getTables(ctx.conn.getCatalog, "public", null, null))
         .map(_.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted)
-    override def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+    override def localSequences: DBIO[Vector[String]] =
       ResultSetAction[(String,String,String, String)](ctx => ctx.conn.getMetaData.getTables(ctx.conn.getCatalog, "public", null, null))
         .map(_.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted)
     override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
@@ -133,7 +146,7 @@ object StandardTestDBs {
     type Profile = MemoryProfile
     val profile: Profile = MemoryProfile
     val confName: String = "heap"
-    override def createDB(): profile.backend.Database = profile.backend.Database(ExecutionContext.global)
+    override def createDB(): IODatabase = profile.backend.Database().allocated.unsafeRunSync()._1
     def dropUserArtifacts(implicit session: profile.backend.Session): Unit = {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))
@@ -161,7 +174,6 @@ object StandardTestDBs {
     lazy val schema = config.getString("schema")
 
     def dropSchema: DBIO[Unit] = {
-      import ExecutionContext.Implicits.global
       for {
         schema <- sql"select schemaname from syscat.schemata where schemaname = '#$schema'".as[String].headOption
         systoolspace <- sql"select TBSPACE from SYSCAT.TABLESPACES where TBSPACE = 'SYSTOOLSPACE'".as[String].headOption
@@ -179,8 +191,7 @@ object StandardTestDBs {
     }
 
     override def cleanUpBefore(): Unit = {
-      import ExecutionContext.Implicits.global
-      await(databaseFor("testConn").run(for {
+      runIO(databaseFor("testConn").run(for {
         _ <- dropSchema
         _ = println(s"[Creating DB2 schema '$schema']")
         _ <- sqlu"create schema #$schema"
@@ -202,11 +213,11 @@ object StandardTestDBs {
     override def capabilities = super.capabilities - TestDB.capabilities.selectForUpdateRowLocking
     val defaultSchema = config.getStringOpt("defaultSchema")
 
-    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] = {
+    override def localTables: DBIO[Vector[String]] = {
       MTable.getTables(None, defaultSchema, None, Some(Seq("TABLE"))).map(_.map(_.name.name).sorted)
     }
 
-    override def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession { implicit ec =>
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession {
       for {
         tables <- localTables
         _ <- DBIO.sequence(tables.map(t => sqlu"exec sp_MSdropconstraints #$t"))
@@ -228,18 +239,17 @@ object StandardTestDBs {
     override def capabilities =
       super.capabilities - TestDB.capabilities.jdbcMetaGetIndexInfo - TestDB.capabilities.transactionIsolation
 
-    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] = {
-      val tableNames = profile.defaultTables.map(_.map(_.name.name)).map(_.toVector)
-      tableNames
+    override def localTables: DBIO[Vector[String]] = {
+      profile.defaultTables.map(_.map(_.name.name)).map(_.toVector)
     }
 
-    override def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] = {
+    override def localSequences: DBIO[Vector[String]] = {
       // user_sequences much quicker than going to metadata if you don't know the schema they are going to be in
       sql"select sequence_Name from user_sequences".as[String]
     }
 
     override def dropUserArtifacts(implicit session: profile.backend.Session) =
-      blockingRunOnSession { implicit ec =>
+      blockingRunOnSession {
         for {
           tables <- localTables
           sequences <- localSequences
@@ -258,8 +268,11 @@ abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJd
   val jdbcDriver = "org.h2.Driver"
   override def capabilities =
     super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
-  override def createDB(): profile.backend.Database =
-    database.forURL(url, driver = jdbcDriver, keepAliveConnection = keepAlive)
+  override def createDB(): IODatabase = {
+    val p: profile.type = profile
+    val dc: JdbcDatabaseConfig[p.type] = DatabaseConfig.forURL(p, url, null, null, null, jdbcDriver, keepAlive, ClassLoaderUtil.defaultClassLoader)
+    p.backend.makeDatabase[IO](dc).unsafeRunSync()
+  }
 }
 
 class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(confName) {
@@ -267,9 +280,9 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
   val profile: SQLiteProfile = SQLiteProfile
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
-  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+  override def localTables: DBIO[Vector[String]] =
     super.localTables.map(_.filter(s => !s.toLowerCase.contains("sqlite_")))
-  override def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession { implicit ec =>
+  override def dropUserArtifacts(implicit session: profile.backend.Session) = blockingRunOnSession {
     for {
       tables <- localTables
       sequences <- localSequences
@@ -291,12 +304,12 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
     // tests don't fail intermittently
     DriverManager.setLoginTimeout(30)
   }
-  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+  override def localTables: DBIO[Vector[String]] =
     ResultSetAction[(String, String, String, String)](_.conn.getMetaData.getTables(null, "APP", null, null)).map { ts =>
       ts.map(_._3).sorted
     }
   override def dropUserArtifacts(implicit session: profile.backend.Session) = try {
-    blockingRunOnSession { implicit ec =>
+    blockingRunOnSession {
       for {
         _ <- sqlu"""create table "__derby_dummy"(x integer primary key)""".asTry
         constraints <- sql"""select c.constraintname, t.tablename
@@ -332,12 +345,12 @@ abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
   // Hsqldb has valid "select for update" syntax, but in testing, it either takes a whole table lock or no exclusive
   // lock at all, so exclude from ForUpdate testing
   override def capabilities = super.capabilities - TestDB.capabilities.selectForUpdateRowLocking
-  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+  override def localTables: DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData.getTables(null, "PUBLIC", null, null))
       .map(ts => ts.map(_._3).sorted)
-  override def createDB(): profile.backend.Database = {
+  override def createDB(): IODatabase = {
     val db = super.createDB()
-    Await.result(db.run(SimpleJdbcAction(_ => ())), Duration.Inf)
+    db.run(SimpleJdbcAction(_ => ())).unsafeRunSync()
     Logger.getLogger("hsqldb.db").setLevel(Level.WARNING)
     Logger.getLogger("org.hsqldb").setLevel(Level.WARNING)
     db

@@ -1,11 +1,8 @@
 package com.typesafe.slick.testkit.util
 
-import java.util.concurrent.ExecutionException
-
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.{Codec, Source}
+
+import cats.effect.unsafe.implicits.global
 
 import slick.codegen.{OutputHelpers, SourceCodeGenerator}
 import slick.dbio.*
@@ -74,9 +71,9 @@ trait TestCodeGenerator {
         }
         val db = tdb.createDB()
         try {
-          val m = Await.result(db.run((init >> generator).withPinnedSession), Duration.Inf)
+          val m = db.run((init >> generator).withPinnedSession).unsafeRunSync()
           m.writeToFile(profile=slickProfile, folder=dir, pkg=packageName, objectName, fileName=objectName+".scala" )
-        } finally db.close
+        } finally db.close()
       }
       finally tdb.cleanUpAfter()
       Some(s"$packageName.$objectName")
@@ -99,7 +96,6 @@ trait TestCodeGenerator {
            |lazy val tdb: $fullTdbName.type = $fullTdbName
            |def test: slick.dbio.DBIO[Any] = {
            |  import org.junit.Assert._
-           |  import scala.concurrent.ExecutionContext.Implicits.global
            |  $testCode
            |}
            |""".stripMargin + super.code
@@ -118,8 +114,7 @@ class TestCodeRunner(tests: TestCodeRunner.AllTests) {
       try {
         val a = t.test
         val db = tdb.createDB()
-        try Await.result(db.run(a.withPinnedSession), Duration.Inf)
-        catch { case e: ExecutionException => throw e.getCause }
+        try db.run(a.withPinnedSession).unsafeRunSync()
         finally db.close()
       } finally tdb.cleanUpAfter()
     } else println("- Test database is disabled")

@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory
   * @param db The in-memory database which is used for resolving Tables
   * @param params The query parameters
   */
-class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
+class QueryInterpreter(db: HeapBackend#AnyHeapDatabaseDef, params: Any) extends Logging {
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
   import QueryInterpreter.*
 

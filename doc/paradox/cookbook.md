@@ -2,7 +2,8 @@
 
 This section of the manual is for solutions to common questions.
 
-## Mapping more than 22 fields
+Mapping more than 22 fields
+---------------------------
 
 <h3>Problem</h3>
 You have a table with more than 22 fields, and the Scala 2 compiler has told you:
@@ -23,7 +24,8 @@ but your default projection ( the ``*`` method) changes:
 
 @@snip [Cookbook.scala](../code/Cookbook.scala) { #example22 }
 
-## Track the Number of Query Compilations
+Track the Number of Query Compilations
+--------------------------------------
 
 <h3>Problem</h3>
 
@@ -44,7 +46,8 @@ The new `QueryCompiler` will have an additional phase, which simply increments a
 
 @@snip [Cookbook.scala](../code/Cookbook.scala) { #exampleTrackNumberOfQueryCompilations }
 
-## Distinguish DBIOActions by Effect type at runtime
+Distinguish DBIOActions by Effect type at runtime
+-------------------------------------------------
 
 <h3>Problem</h3>
 

@@ -1,44 +1,51 @@
 package slick.memory
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{blocking, ExecutionContext, Future}
 import scala.util.{Failure, Try}
+
+import cats.effect.{Async, IO, Ref, Resource}
 
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.compat.collection.*
+import slick.dbio.{DBIOAction, Streaming}
 import slick.relational.RelationalBackend
-import slick.util.Logging
+import slick.util.{CloseableIterator, Logging}
+import slick.basic.ConcurrencyControl.Controls
+import slick.ControlsConfig
 
-import com.typesafe.config.Config
-import org.reactivestreams.Subscriber
 
 /** The backend for DistributedProfile. */
 trait DistributedBackend extends RelationalBackend with Logging {
-  type Database = DistributedDatabaseDef
+  type Database[F[_]] = DistributedDatabaseDef[F]
   type Session = DistributedSessionDef
   type DatabaseFactory = DistributedDatabaseFactoryDef
   type Context = BasicActionContext
-  type StreamingContext = BasicStreamingActionContext
 
   val Database = new DistributedDatabaseFactoryDef
   val backend: DistributedBackend = this
 
-  def createDatabase(config: Config, path: String): Database =
-    throw new SlickException("DistributedBackend cannot be configured with an external config file")
+  override def makeDatabase[F[_]: Async](config: slick.basic.BasicDatabaseConfig[?]): F[Database[F]] =
+    Async[F].raiseError(new SlickException("DistributedBackend cannot be configured with an external config file"))
 
-  class DistributedDatabaseDef(val dbs: Vector[BasicBackend#BasicDatabaseDef], val executionContext: ExecutionContext)
-    extends BasicDatabaseDef {
+  class DistributedDatabaseDef[F[_]](val dbs: Vector[BasicBackend#AnyDatabaseDef], override val controls: Controls[F])(implicit override val asyncF: cats.effect.Async[F])
+    extends BasicDatabaseDef[F] {
 
-    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
-      new BasicActionContext { val useSameThread = _useSameThread }
+    /** DistributedBackend always uses cats.effect.IO as its effect type. */
 
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[? >: T],
-                                                                useSameThread: Boolean): StreamingContext =
-      new BasicStreamingActionContext(s, useSameThread, this)
+    override protected def sessionAsContext(session: Session, state: ExecState): Context = {
+      val s = session
+      val depth = state.transactionDepth
+      val pinned = state.pinned
+      new BasicActionContext {
+        override def session: Session = s
+        override def transactionDepth: Int = depth
+        override def isPinned: Boolean = pinned
+      }
+    }
 
     def createSession(): Session = {
-      val sessions = new ArrayBuffer[BasicBackend#Session]
+      val sessions = new ArrayBuffer[BasicBackend#BasicSessionDef]
       for(db <- dbs)
         sessions += Try(db.createSession()).recoverWith { case ex =>
           sessions.reverseIterator.foreach { s => Try(s.close()) }
@@ -47,25 +54,25 @@ trait DistributedBackend extends RelationalBackend with Logging {
       new DistributedSessionDef(sessions.toVector)
     }
 
-    protected[this] val synchronousExecutionContext: ExecutionContext = new ExecutionContext {
-      def reportFailure(t: Throwable): Unit = executionContext.reportFailure(t)
-      def execute(runnable: Runnable): Unit = executionContext.execute(new Runnable {
-        def run(): Unit = blocking(runnable.run())
-      })
-    }
+    def close(): Unit = ()
 
-    override def shutdown: Future[Unit] = Future.successful(())
-    def close: Unit = ()
+    override protected def interpretStream[T](
+      a: DBIOAction[?, Streaming[T], Nothing],
+      ctx: Ref[F, ExecState]
+    ): F[CloseableIterator[T]] =
+      asyncF.raiseError(new SlickException("DistributedBackend does not support streaming"))
+
   }
 
   class DistributedDatabaseFactoryDef {
-    /** Create a new distributed database instance that uses the supplied ExecutionContext for
-      * asynchronous execution of database actions. */
-    def apply(dbs: IterableOnce[BasicBackend#BasicDatabaseDef], executionContext: ExecutionContext): Database =
-      new DistributedDatabaseDef(Vector.from(dbs), executionContext)
+    /** Create a new distributed database instance. */
+    def apply(dbs: IterableOnce[BasicBackend#AnyDatabaseDef]): Resource[IO, Database[IO]] =
+      Resource.eval(
+        Controls.create[IO](ControlsConfig.unbounded).map(c => new DistributedDatabaseDef[IO](Vector.from(dbs), c))
+      )
   }
 
-  class DistributedSessionDef(val sessions: Vector[BasicBackend#Session]) extends BasicSessionDef {
+  class DistributedSessionDef(val sessions: Vector[BasicBackend#BasicSessionDef]) extends BasicSessionDef {
     def close(): Unit = {
       sessions.map(s => Try(s.close())).collectFirst{ case Failure(t) => t }.foreach(throw _)
     }

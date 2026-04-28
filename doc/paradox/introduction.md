@@ -1,13 +1,14 @@
 # Introduction
 
-## What is Slick?
+What is Slick?
+--------------
 
 Slick ("Scala Language-Integrated Connection Kit") is @extref[Lightbend](lightbend:)'s Functional Relational Mapping
 (FRM) library for Scala that makes it easy to work with relational databases. It allows you to work with stored data
 almost as if you were using Scala collections while at the same time giving you full control over when database access
 happens and which data is transferred. You can also use SQL directly. Execution of database actions is done
-asynchronously, making Slick a perfect fit for your reactive applications based on @extref[Play](play:) and
-@extref[Akka](akka:).
+asynchronously, and Slick provides API facades for Cats Effect/FS2, Scala Future/Reactive Streams,
+and ZIO/ZStream.
 
 @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala){#what-is-slick-micro-example}
 
@@ -19,94 +20,49 @@ your own, using its extensible query compiler.
 See  @ref:[here](supported-databases.md) for an overview of the supported database systems for which
 Slick can generate code.
 
-## Functional Relational Mapping
+Why Slick?
+----------
 
-Functional programmers have long suffered Object-Relational and Object-Math impedance mismatches
-when connecting to relational databases. Slick's new Functional Relational Mapping (FRM) paradigm
-allows mapping to be completed within Scala, with loose-coupling, minimal configuration requirements,
-and a number of other major advantages that abstract the complexities away from connecting with
-relational databases.
+Slick gives you a middle path between writing raw SQL strings everywhere and using a classic ORM:
 
-We don't try to fight the relational model, we embrace it through a functional paradigm. Instead of
-trying to bridge the gap between the object model and the database model, we've brought the database
-model into Scala so developers don't need to write SQL code.
+* **Type-safe, composable queries** built with normal Scala expressions.
+* **Explicit execution model**: query construction and query execution are separate.
+* **Asynchronous execution** with materialized (`run`) and streaming (`stream`) modes.
+* **Direct SQL support** when writing SQL manually is the right tool.
 
 @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #quick-schema }
 
-Slick integrates databases directly into Scala, allowing stored and remote data to be queried and
-processed in the same way as in-memory data, using ordinary Scala classes and collections.
-
 @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #features-scala-collections }
 
-This enables full control over when a database is accessed and which data is transferred. The
-language integrated query model in Slick's FRM is inspired by the LINQ project at Microsoft
-and leverages concepts tracing all the way back to the early work of Mnesia at Ericsson.
+The same type safety applies to mistakes that would otherwise become runtime SQL errors:
 
-Some of the key benefits of Slick's FRM approach for functional programming include:
+@@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #features-type-safe }
 
-* Efficiency with Pre-Optimization
+And queries stay composable as your codebase grows:
 
-    FRM is a more efficient way to connect; unlike ORM it has the ability to pre-optimize its
-  communication with the database - and with FRM you get this out of the box. The road to making an
-  app faster is much shorter with FRM than ORM.
+@@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #features-composable }
 
-* No More Tedious Troubleshooting with Type Safety<br/>
-  
-    FRM brings type safety to building database queries. Developers are more productive because the
-    compiler finds errors automatically versus the typical tedious troubleshooting required of finding
-    errors in untyped strings.
+Effectful Applications
+----------------------
 
-    @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #features-type-safe }
+Slick is built for asynchronous, non-blocking application designs.
 
-    Misspelled the column name ``price``? The compiler will tell you:
+Slick provides three API facades depending on your effect system:
 
-    ```text
-    GettingStartedOverview.scala:89: value prices is not a member of com.typesafe.slick.docs.GettingStartedOverview.Coffees
-          coffees.map(_.prices).result
-                        ^
-    ```
+* **Cats Effect / FS2 (`slick.cats.Database`)** in the core `slick` module
+* **Scala Future / Reactive Streams (`slick.future.Database`)** in `slick-future`
+* **ZIO / ZStream (`slick.zio.Database`)** in `slick-zio`
 
-    The same goes for type errors:
+All three provide the same core operations:
 
-    ```text
-    GettingStartedOverview.scala:89: type mismatch;
-     found   : slick.jdbc.H2Profile.StreamingProfileAction[Seq[String],String,slick.dbio.Effect.Read]
-        (which expands to)  slick.sql.FixedSqlStreamingAction[Seq[String],String,slick.dbio.Effect.Read]
-     required: slick.dbio.DBIOAction[Seq[Double],slick.dbio.NoStream,Nothing]
-            coffees.map(_.name).result
-                                ^
-    ```
+* `db.run(action)` for materialized results
+* `db.stream(action)` for streaming results
 
-* A More Productive, Composable Model for Building Queries
+See @ref:[Database](database.md) for database configuration, dependencies, lifecycle
+management, and complete examples for all three facades.
 
-    FRM supports a composable model for building queries. It's a very natural model to compose pieces
-    together to build a query, and then reuse pieces across your code base.
-
-    @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #features-composable }
-
-## Reactive Applications
-
-Slick is easy to use in asynchronous, non-blocking application designs, and supports building applications according to
-the @extref[Reactive Manifesto](reactive-manifesto:). Unlike simple wrappers around traditional, blocking database APIs,
-Slick gives you:
-
-* Clean separation of I/O and CPU-intensive code: Isolating I/O allows you to keep your main
-  thread pool busy with CPU-intensive parts of the application while waiting for I/O in the
-  background.
-
-* Resilience under load: When a database cannot keep up with the load of your application,
-  Slick will not create more and more threads (thus making the situation worse) or lock out all
-  kinds of I/O. Back-pressure is controlled efficiently through a queue (of configurable size)
-  for database I/O actions, allowing a certain number of requests to build up with very little
-  resource usage and failing immediately once this limit has been reached.
-
-* @extref[Reactive Streams](reactive-streams:) for asynchronous streaming.
-
-* Efficient utilization of database resources: Slick can be tuned easily and precisely for the
-  parallelism (number of concurrent active jobs) and resource usage (number of currently
-  suspended database sessions) of your database server.
-
-## Plain SQL Support
+Plain SQL Support
+-----------------
 
 The Scala-based query API for Slick allows you to write database queries like queries for
 Scala collections. Please see  @ref:[Getting Started](gettingstarted.md) for an introduction. Most of this
@@ -117,13 +73,16 @@ normal Slick queries, you can use the  @ref:[Plain SQL](sql.md) API:
 
 @@snip [GettingStartedOverview.scala](../code/GettingStartedOverview.scala) { #what-is-slick-micro-example-plainsql }
 
-## License
+License
+-------
 
 Slick is released under a BSD-Style free and open source software @github[license](/LICENSE.txt).
 
-## Next Steps
+Next Steps
+----------
 
 * If you are new to Slick, continue to  @ref:[Getting Started](gettingstarted.md)
-* If you have used an older version of Slick, make sure to read the  @ref:[Upgrade Guides](upgrade.md)
+* For database setup and lifecycle management, see @ref:[Database](database.md)
+* If you are migrating from Slick 3, read the  @ref:[Migrating to Slick 4](migrating-to-slick4.md) guide
 * If you have used an ORM before, see  @ref:[Coming from ORM to Slick](orm-to-slick.md)
 * If you are familiar with SQL, see  @ref:[Coming from SQL to Slick](sql-to-slick.md)
