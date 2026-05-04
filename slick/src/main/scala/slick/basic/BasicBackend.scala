@@ -135,8 +135,8 @@ trait BasicBackend { self =>
       *   4) inflight-release
       */
     final def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): Resource[F, Iterator[T]] =
-      Resource.makeCase(acquireStreamContextAndIterator(a)) { case ((ctx, it), exitCase) =>
-        closeStreamIteratorAndRelease(ctx, it, exitCase)
+      Resource.makeCase(acquireStreamContextAndIterator(a)) { case ((ctx, it, cleanup), exitCase) =>
+        closeStreamIteratorAndRelease(ctx, it, cleanup, exitCase)
       }.map(_._2)
 
     final def controlStatus: F[ControlStatus] =
@@ -368,7 +368,7 @@ trait BasicBackend { self =>
       }
     }
 
-    private def acquireStreamContextAndIterator[T](a: DBIOAction[?, Streaming[T], Nothing]): F[(Ref[F, ExecState], CloseableIterator[T])] = {
+    private def acquireStreamContextAndIterator[T](a: DBIOAction[?, Streaming[T], Nothing]): F[(Ref[F, ExecState], CloseableIterator[T], Option[Throwable] => F[Unit])] = {
       val F = asyncF
       F.uncancelable { _ =>
         val acquire =
@@ -376,7 +376,7 @@ trait BasicBackend { self =>
             connectionArbiter.allocateOrdinal.flatMap { ordinal =>
               F.ref(ExecState.initial(ordinal)).flatMap { ctx =>
                 interpretStream(a, ctx)
-                  .map(it => (ctx, it))
+                  .map { case (it, cleanup) => (ctx, it, cleanup) }
                   .onError { case _ =>
                     releaseStreamResources(ctx, succeeded = false, releaseInflight = false).attempt.void
                   }
@@ -389,9 +389,15 @@ trait BasicBackend { self =>
       }
     }
 
-    private def closeStreamIteratorAndRelease[T](ctx: Ref[F, ExecState], iterator: CloseableIterator[T], exitCase: Resource.ExitCase): F[Unit] = {
+    private def closeStreamIteratorAndRelease[T](ctx: Ref[F, ExecState], iterator: CloseableIterator[T], cleanup: Option[Throwable] => F[Unit], exitCase: Resource.ExitCase): F[Unit] = {
+      val error = exitCase match {
+        case Resource.ExitCase.Errored(e) => Some(e)
+        case Resource.ExitCase.Canceled   => Some(new java.util.concurrent.CancellationException("Stream canceled"))
+        case _                            => None
+      }
       val succeeded = exitCase == Resource.ExitCase.Succeeded
       asyncF.blocking(iterator.close()).attempt.void >>
+        cleanup(error).attempt.void >>
         releaseStreamResources(ctx, succeeded)
     }
 
@@ -416,15 +422,21 @@ trait BasicBackend { self =>
     protected def interpretStream[T](
       a: DBIOAction[?, Streaming[T], Nothing],
       ctx: Ref[F, ExecState]
-    ): F[CloseableIterator[T]] = {
+    ): F[(CloseableIterator[T], Option[Throwable] => F[Unit])] = {
       val F = asyncF
+      // Shorthand: wrap an iterator with no cleanup
+      def noCleanup(it: CloseableIterator[T]): (CloseableIterator[T], Option[Throwable] => F[Unit]) =
+        (it, _ => F.unit)
+
       a match {
         case sa: SynchronousDatabaseAction[?, ?, ?, ?] if sa.supportsStreaming =>
           ensureSession(ctx).flatMap { case (session, state) =>
             F.blocking {
-              sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
-                .openStream(sessionAsContext(session, state))
-                .asInstanceOf[CloseableIterator[T]]
+              noCleanup(
+                sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
+                  .openStream(sessionAsContext(session, state))
+                  .asInstanceOf[CloseableIterator[T]]
+              )
             }
           }
 
@@ -457,13 +469,47 @@ trait BasicBackend { self =>
           enterTransactionScope(ctx, isolationLevel) >>
             interpretStream(inner.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
 
+        case CleanUpAction(base, f, keepFailure) =>
+          // Recurse into the base to get a true streaming iterator plus any nested cleanup.
+          // The CleanUpAction's own cleanup (f) is chained after the nested cleanup: it runs
+          // after iterator.close() via the cleanup function threaded through
+          // closeStreamIteratorAndRelease, with the correct error (Some on failure/cancel,
+          // None on success) derived from the Resource ExitCase at that point.
+          // keepFailure semantics apply: if cleanup itself fails and keepFailure=false, the
+          // cleanup error is surfaced; otherwise the original error (if any) is preserved.
+          //
+          // If the base itself fails during setup (before an iterator is returned), we run
+          // the cleanup immediately with Some(error) before re-raising, matching the
+          // semantics of interpret's CleanUpAction handler.
+          interpretStream(base.asInstanceOf[DBIOAction[?, Streaming[T], Nothing]], ctx)
+            .map {
+              case (iter, baseCleanup) =>
+                val combinedCleanup: Option[Throwable] => F[Unit] = err =>
+                  baseCleanup(err) >>
+                    interpret[Any](f(err).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+                      .attempt
+                      .flatMap {
+                        case Left(cleanupErr) if !keepFailure => F.raiseError(cleanupErr)
+                        case _                                => F.unit
+                      }
+                (iter, combinedCleanup)
+            }
+            .recoverWith { case setupErr =>
+              interpret[Any](f(Some(setupErr)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+                .attempt
+                .flatMap {
+                  case Left(cleanupErr) if !keepFailure => F.raiseError(cleanupErr)
+                  case _                                => F.raiseError(setupErr)
+                }
+            }
+
         case other =>
           // Non-first-class / third-party streaming action: fall back to running through the
           // regular interpreter, collecting results, and wrapping in a CloseableIterator.
           // This preserves prior behaviour for library users whose DBIOAction subclasses do
           // not match any of the known structural cases above.
           interpret[Seq[T]](other.asInstanceOf[DBIOAction[Seq[T], NoStream, Nothing]], ctx)
-            .map(seq => CloseableIterator.wrap(seq.iterator))
+            .map(seq => noCleanup(CloseableIterator.wrap(seq.iterator)))
       }
     }
 
