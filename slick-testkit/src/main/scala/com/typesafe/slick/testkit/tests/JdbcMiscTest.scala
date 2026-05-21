@@ -137,11 +137,13 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       // Test mechanics: evalTap fires synchronously for each element pulled from the stream.
       // We take(1) so only the first row reaches the consumer; the other two are never pulled
       // in the true-streaming path (the cursor stays open at that point).
-      statementClosedAtFirstElement <- {
+      result2 <- {
         var closedMidStream = true // overwritten in evalTap
+        var element = -1           // overwritten in evalTap
         db.stream(streamAction)
           .take(1)
           .evalTap(row => IO {
+            element = row
             val st = capturedStmt.get()
             try {
               closedMidStream = if (st != null) st.isClosed else true
@@ -150,8 +152,9 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
             }
           })
           .compile
-          .drain >> IO { closedMidStream }
+          .drain >> IO { (closedMidStream, element) }
       }
+      (statementClosedAtFirstElement, firstElement) = result2
 
       // Assertion 1: statementInit fired — the statement was actually created.
       _ = (capturedStmt.get() != null) shouldBe true
@@ -160,6 +163,9 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       // Fails today because interpretStream falls into `case other`, materialises all rows,
       // closes the statement, and only then hands the wrapped Seq to the consumer.
       _ = statementClosedAtFirstElement shouldBe false
+
+      // Assertion 3: the element delivered was the first (smallest) row inserted.
+      _ = firstElement shouldBe 1
 
     } yield ()
   }
@@ -444,7 +450,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     //   Deferred that the cleanup action completes) so the assertion doesn't race.
     //
     // Actual assertions:
-    //   1. The stream fiber is canceled (joinWithUnit raises/completes as canceled).
+    //   1. The stream fiber ends in a canceled outcome (fiber.join returns Outcome.Canceled).
     //   2. cleanupCalled == true — cleanup ran despite cancellation.
     //   3. cleanupError contains Some(CancellationException) — cleanup was told the
     //      stream ended due to cancellation, not normal completion.
@@ -497,10 +503,14 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       // the finalizer's async cleanup and the assertions below).
       _ <- cleanupDeferred.get
 
-      // Assertion 1: cleanup ran after cancellation
+      // Assertion 1: the fiber ended in a canceled outcome, not success or failure.
+      outcome <- fiber.join
+      _ = outcome.isCanceled shouldBe true
+
+      // Assertion 2: cleanup ran after cancellation
       _ = cleanupCalled.get() shouldBe true
 
-      // Assertion 2: cleanup received Some(CancellationException), not None
+      // Assertion 3: cleanup received Some(CancellationException), not None
       _ = cleanupError.get().isDefined shouldBe true
       _ = cleanupError.get().exists(_.isInstanceOf[java.util.concurrent.CancellationException]) shouldBe true
 
