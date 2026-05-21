@@ -396,9 +396,15 @@ trait BasicBackend { self =>
         case _                            => None
       }
       val succeeded = exitCase == Resource.ExitCase.Succeeded
+      // iterator.close() is always best-effort: its errors are suppressed so they don't
+      // prevent cleanup or resource release from running.
+      // cleanup(error) errors ARE significant (they encode keepFailure semantics), so we
+      // capture the result and re-raise after releasing resources.
       asyncF.blocking(iterator.close()).attempt.void >>
-        cleanup(error).attempt.void >>
-        releaseStreamResources(ctx, succeeded)
+        cleanup(error).attempt.flatMap { cleanupResult =>
+          releaseStreamResources(ctx, succeeded) >>
+            cleanupResult.fold(asyncF.raiseError, _ => asyncF.unit)
+        }
     }
 
     private def releaseStreamResources(ctx: Ref[F, ExecState], succeeded: Boolean, releaseInflight: Boolean = true): F[Unit] = {
@@ -489,8 +495,11 @@ trait BasicBackend { self =>
                     interpret[Any](f(err).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
                       .attempt
                       .flatMap {
-                        case Left(cleanupErr) if !keepFailure => F.raiseError(cleanupErr)
-                        case _                                => F.unit
+                        // Raise cleanup failure when:
+                        //  - the base succeeded (err.isEmpty): cleanup errors must always propagate
+                        //  - keepFailure=false: caller wants cleanup errors surfaced over base errors
+                        case Left(cleanupErr) if !keepFailure || err.isEmpty => F.raiseError(cleanupErr)
+                        case _                                               => F.unit
                       }
                 (iter, combinedCleanup)
             }

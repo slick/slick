@@ -326,6 +326,49 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     } yield ()
   }
 
+  def testStreamingCleanUpFailurePropagatesOnSuccess: IO[Unit] = {
+    // What we're testing:
+    //   keepFailure controls error precedence when the *base* action has already failed.
+    //   When the base stream succeeds, a failing cleanup must always propagate — regardless
+    //   of the keepFailure flag.  With the old code and keepFailure=true, the condition
+    //   `case Left(cleanupErr) if !keepFailure` was false, so execution fell through to
+    //   `case _ => F.unit`, silently swallowing the cleanup error and reporting success.
+    //
+    // Test mechanics:
+    //   We stream 3 rows successfully (no consumer error, no setup error).
+    //   The cleanUp function always fails with a known exception.
+    //   We assert that the overall stream result is a Left containing that exception.
+    //
+    // Actual assertions:
+    //   1. result is Left(cleanupException) — the cleanup error propagated even though
+    //      the base stream completed successfully.
+
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+      def id = column[Int]("id")
+      def * = id
+    }
+    val t = TableQuery[T]
+
+    val cleanupException = new RuntimeException("deliberate cleanup failure on success")
+    val failingCleanup: Option[Throwable] => DBIOAction[Unit, NoStream, Effect] =
+      _ => DBIO.failed(cleanupException)
+
+    // keepFailure = true is the critical flag: it was incorrectly masking cleanup failures
+    // when the base stream succeeded (err = None passed to combinedCleanup).
+    val streamAction = t.sortBy(_.id).result
+      .cleanUp(failingCleanup, keepFailure = true)
+      .withPinnedSession
+
+    for {
+      _ <- db.run(t.schema.create >> (t ++= Seq(1, 2, 3)))
+
+      result <- db.stream(streamAction).compile.drain.attempt
+
+      // The base succeeded but cleanup failed — must propagate regardless of keepFailure
+      _ = result shouldBe Left(cleanupException)
+    } yield ()
+  }
+
   def testStreamingCleanUpCalledOnCancellation: IO[Unit] = {
     // What we're testing:
     //   If a fiber running the stream is canceled mid-iteration, the Resource finalizer
