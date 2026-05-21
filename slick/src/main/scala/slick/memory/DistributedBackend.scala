@@ -59,7 +59,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     override protected def interpretStream[T](
       a: DBIOAction[?, Streaming[T], Nothing],
       ctx: Ref[F, ExecState]
-    ): F[CloseableIterator[T]] =
+    ): F[(CloseableIterator[T], Option[Throwable] => F[Unit])] =
       asyncF.raiseError(new SlickException("DistributedBackend does not support streaming"))
 
   }
