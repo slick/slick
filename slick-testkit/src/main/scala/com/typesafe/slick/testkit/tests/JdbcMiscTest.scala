@@ -2,6 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import java.sql.Statement
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.CountDownLatch
 
 import cats.effect.IO
 
@@ -145,11 +146,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
           .evalTap(row => IO {
             element = row
             val st = capturedStmt.get()
-            try {
-              closedMidStream = if (st != null) st.isClosed else true
-            } catch {
-              case _: Throwable => closedMidStream = true
-            }
+            closedMidStream = if (st != null) st.isClosed else true
           })
           .compile
           .drain >> IO { (closedMidStream, element) }
@@ -456,7 +453,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     //      stream ended due to cancellation, not normal completion.
 
     import cats.effect.Deferred
-    import cats.effect.unsafe.implicits.global
+    import scala.concurrent.duration._
 
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def id = column[Int]("id")
@@ -471,16 +468,17 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       _ <- db.run(t.schema.create >> (t ++= Seq(1, 2, 3)))
 
       // Test mechanics: firstRowDeferred is completed by the stream after row 1 is seen.
-      // cleanupDeferred is completed by the cleanup action so we can wait for it.
+      // cleanupLatch is counted down by the cleanup action so we can wait for it without
+      // using unsafeRunSync() on a DB thread (which risks deadlocks).
       firstRowDeferred <- Deferred[IO, Unit]
-      cleanupDeferred  <- Deferred[IO, Unit]
+      cleanupLatch      = new CountDownLatch(1)
 
       recordCleanup: (Option[Throwable] => DBIOAction[Unit, NoStream, Effect]) =
         err => DBIO.successful(()).map { _ =>
           cleanupCalled.set(true)
           cleanupError.set(err)
-          // Test mechanics: unblock the main fiber so it can assert after cleanup completes.
-          cleanupDeferred.complete(()).unsafeRunSync()
+          // Signal the main fiber using a plain JVM latch — safe to call from a DB thread.
+          cleanupLatch.countDown()
         }
 
       streamAction = t.sortBy(_.id).result
@@ -496,12 +494,12 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
         .start
 
       // Wait until the stream has delivered at least one row, then cancel it.
-      _ <- firstRowDeferred.get
+      _ <- firstRowDeferred.get.timeout(10.seconds)
       _ <- fiber.cancel
 
       // Wait for the cleanup action to complete before asserting (avoids a race between
       // the finalizer's async cleanup and the assertions below).
-      _ <- cleanupDeferred.get
+      _ <- IO.blocking(cleanupLatch.await(10, java.util.concurrent.TimeUnit.SECONDS))
 
       // Assertion 1: the fiber ended in a canceled outcome, not success or failure.
       outcome <- fiber.join
