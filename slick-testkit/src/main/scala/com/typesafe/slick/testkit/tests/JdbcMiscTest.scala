@@ -369,6 +369,67 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     } yield ()
   }
 
+  def testStreamingNestedCleanUpOuterRunsIfInnerFails: IO[Unit] = {
+    // What we're testing:
+    //   With nested cleanUp actions, if the inner cleanup fails, the outer cleanup must
+    //   still run — and must be called with Some(innerException) so it sees the failure.
+    //   The old code used `baseCleanup(err) >> interpret(outerF(err))`, which short-circuits
+    //   on the `>>` if baseCleanup raises, so the outer cleanup was never reached.
+    //
+    //   This mirrors the non-streaming interpreter, where each CleanUpAction is handled
+    //   independently at its own guaranteeCase level: the outer guaranteeCase always fires
+    //   regardless of what the inner one produced.
+    //
+    // Test mechanics:
+    //   base.cleanUp(innerCleanup, keepFailure=true).cleanUp(outerCleanup, keepFailure=true)
+    //   The stream succeeds. innerCleanup fails with innerException.
+    //   We assert that outerCleanup was called (with Some(innerException)).
+    //
+    // Actual assertions:
+    //   1. result is Left — the error propagates.
+    //   2. outerCleanupCalled == true — outer cleanup ran despite inner cleanup failing.
+    //   3. outerCleanupError == Some(innerException) — outer saw inner's failure.
+
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+      def id = column[Int]("id")
+      def * = id
+    }
+    val t = TableQuery[T]
+
+    val innerException    = new RuntimeException("inner cleanup failure")
+    val outerCleanupCalled = new AtomicBoolean(false)
+    val outerCleanupError  = new AtomicReference[Option[Throwable]](None)
+
+    val innerCleanup: Option[Throwable] => DBIOAction[Unit, NoStream, Effect] =
+      _ => DBIO.failed(innerException)
+
+    val outerCleanup: Option[Throwable] => DBIOAction[Unit, NoStream, Effect] =
+      err => DBIO.successful(()).map { _ =>
+        outerCleanupCalled.set(true)
+        outerCleanupError.set(err)
+      }
+
+    val streamAction = t.sortBy(_.id).result
+      .cleanUp(innerCleanup, keepFailure = true)
+      .cleanUp(outerCleanup, keepFailure = true)
+      .withPinnedSession
+
+    for {
+      _ <- db.run(t.schema.create >> (t ++= Seq(1, 2, 3)))
+
+      result <- db.stream(streamAction).compile.drain.attempt
+
+      // Inner cleanup failed — error must propagate
+      _ = result.isLeft shouldBe true
+
+      // Outer cleanup must have run despite inner failing
+      _ = outerCleanupCalled.get() shouldBe true
+
+      // Outer cleanup must have been told about the inner failure
+      _ = outerCleanupError.get() shouldBe Some(innerException)
+    } yield ()
+  }
+
   def testStreamingCleanUpCalledOnCancellation: IO[Unit] = {
     // What we're testing:
     //   If a fiber running the stream is canceled mid-iteration, the Resource finalizer

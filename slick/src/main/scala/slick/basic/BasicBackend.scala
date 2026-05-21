@@ -491,16 +491,29 @@ trait BasicBackend { self =>
             .map {
               case (iter, baseCleanup) =>
                 val combinedCleanup: Option[Throwable] => F[Unit] = err =>
-                  baseCleanup(err) >>
-                    interpret[Any](f(err).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+                  // Run the inner (base) cleanup first, capturing any failure it produces.
+                  // We must NOT short-circuit with >> here: if the inner cleanup fails, the
+                  // outer cleanup still needs to run — with Some(innerErr) as its error argument
+                  // — mirroring the non-streaming interpreter where each CleanUpAction is handled
+                  // independently at its own guaranteeCase level.
+                  baseCleanup(err).attempt.flatMap { baseResult =>
+                    // The error seen by the outer cleanup is: inner's failure (if any), else
+                    // the original stream error.  This is the same precedence the non-streaming
+                    // path uses: the inner outcome becomes the outer's input.
+                    val errForOuter = baseResult.left.toOption.orElse(err)
+                    interpret[Any](f(errForOuter).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
                       .attempt
                       .flatMap {
                         // Raise cleanup failure when:
                         //  - the base succeeded (err.isEmpty): cleanup errors must always propagate
                         //  - keepFailure=false: caller wants cleanup errors surfaced over base errors
-                        case Left(cleanupErr) if !keepFailure || err.isEmpty => F.raiseError(cleanupErr)
-                        case _                                               => F.unit
+                        case Left(outerErr) if !keepFailure || errForOuter.isEmpty => F.raiseError(outerErr)
+                        case _ =>
+                          // No new error to surface from the outer cleanup.  Still re-raise the
+                          // inner cleanup failure if there was one (it is the current "live" error).
+                          baseResult.fold(F.raiseError, _ => F.unit)
                       }
+                  }
                 (iter, combinedCleanup)
             }
             .recoverWith { case setupErr =>
