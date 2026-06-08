@@ -523,4 +523,27 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testDistinctOptionProjection = {
+    // Regression test for issue #1689: `.distinct` on a table whose `*` projection
+    // maps an Option column (via `id.?`) used to shuffle the order of the generated
+    // SQL columns, causing a column-mapping crash (e.g. trying to read a String as a Long).
+    case class User1689(id: Option[Int], name: String, age: Long)
+    class Users1689(tag: Tag) extends Table[User1689](tag, "users_1689") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def age = column[Long]("age")
+      def * = (id.?, name, age).mapTo[User1689]
+    }
+    val users = TableQuery[Users1689]
+
+    val rows = Seq(
+      User1689(Some(1), "John", 30L),
+      User1689(Some(2), "Jane", 25L)
+    )
+
+    users.schema.create >>
+      (users ++= rows) >>
+      users.distinct.result.map(_.toSet shouldBe rows.toSet)
+  }
+
 }
