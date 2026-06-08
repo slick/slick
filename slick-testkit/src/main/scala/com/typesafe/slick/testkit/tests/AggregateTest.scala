@@ -523,4 +523,50 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testGroupByEntityKeySortBy = {
+    // Regression test for issue #1626: groupBy with an entity (whole table row)
+    // in the key, followed by sortBy on a column of that entity, previously
+    // generated invalid SQL (it referenced a column from the wrong table /
+    // by the wrong name). Here we assert the query both runs and is correctly
+    // ordered.
+    case class Plan(id: Long, version: Int, code: String, name: String, stateCode: String)
+    class Plans(tag: Tag) extends Table[Plan](tag, "plans_1626") {
+      def id = column[Long]("id")
+      def version = column[Int]("version")
+      def code = column[String]("code")
+      def name = column[String]("name")
+      def stateCode = column[String]("state_code")
+      def * = (id, version, code, name, stateCode).mapTo[Plan]
+    }
+    val plans = TableQuery[Plans]
+
+    case class State(code: String, name: String)
+    class States(tag: Tag) extends Table[State](tag, "states_1626") {
+      def code = column[String]("code")
+      def name = column[String]("name")
+      def * = (code, name).mapTo[State]
+    }
+    val states = TableQuery[States]
+
+    val q =
+      plans
+        .join(states)
+        .on((p, s) => p.stateCode === s.code)
+        .groupBy(t => (t._2, t._1.version))
+        .map { case (k, g) => (k._1, k._2, g.length) }
+        .sortBy { case (s, v, _) => (s.code, v) }
+
+    (plans.schema ++ states.schema).create >>
+      (states ++= Seq(State("CA", "California"), State("NY", "New York"))) >>
+      (plans ++= Seq(
+        Plan(1, 1, "p1", "Plan1", "CA"),
+        Plan(2, 1, "p2", "Plan2", "CA"),
+        Plan(3, 2, "p3", "Plan3", "NY")
+      )) >>
+      mark("q1626", q.result).map(_ shouldBe Seq(
+        (State("CA", "California"), 1, 2),
+        (State("NY", "New York"), 2, 1)
+      ))
+  }
+
 }
