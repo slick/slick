@@ -516,4 +516,38 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       ts.map(_.auto).to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
     )
   }
+
+  def testMultiColumnUpdateWithMappedDate = {
+    import java.util.Date
+
+    implicit val dateColumnType: BaseColumnType[Date] =
+      MappedColumnType.base[Date, Long](_.getTime, new Date(_))
+
+    case class KV(key: String, value: String, createdAt: Date, modifiedAt: Date)
+
+    class KVTable(tag: Tag) extends Table[KV](tag, "config_1159") {
+      def key = column[String]("key", O.PrimaryKey)
+      def value = column[String]("value")
+      def createdAt = column[Date]("created_at")
+      def modifiedAt = column[Date]("modified_at")
+      def * = (key, value, createdAt, modifiedAt).mapTo[KV]
+    }
+    val kvs = TableQuery[KVTable]
+
+    val stableKey = "software.revision.stable"
+    val initial = new Date(0L)
+    val newDate = new Date(5000000L)
+
+    // The bug: a multi-column update that includes a mapped Date/time column produced
+    // an incorrect row. Updating only a single column worked. Here we update both the
+    // value and the mapped modifiedAt column and assert the row reflects both new values.
+    val updateStableQ = kvs.filter(_.key === stableKey).map(c => (c.value, c.modifiedAt))
+
+    seq(
+      kvs.schema.create,
+      kvs += KV(stableKey, "oldval", initial, initial),
+      updateStableQ.update(("newval", newDate)),
+      kvs.result.head.map(_ shouldBe KV(stableKey, "newval", initial, newDate))
+    )
+  }
 }
