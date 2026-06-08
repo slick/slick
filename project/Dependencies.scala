@@ -22,7 +22,7 @@ object Dependencies {
         Seq.empty
     }
   }
-  val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
+  val catsEffect = "org.typelevel" %% "cats-effect" % "3.7-4972921"
   val fs2Core    = "co.fs2"        %% "fs2-core"    % "3.13.0"
   val munitCatsEffect = "org.typelevel" %% "munit-cats-effect" % "2.1.0"
   val scalatestplusTestNG = "org.scalatestplus" %% "testng-7-5" % "3.2.17.0"
