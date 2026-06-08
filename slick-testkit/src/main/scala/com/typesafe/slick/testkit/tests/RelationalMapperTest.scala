@@ -109,4 +109,41 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
     )
   }
+
+  def testMappedTypeInSubquery842 = {
+    // Regression test for issue #842: a MappedColumnType column referenced via
+    // `column[T](name)` inside an IN subquery filter used to apply the type mapping
+    // in the wrong place, causing a ClassCastException at execution. After the fix
+    // the query runs and returns the correct rows.
+    case class Unfetched(value: Long)
+
+    implicit val unfetchedType: BaseColumnType[Unfetched] =
+      MappedColumnType.base[Unfetched, Long](_.value - 1000, db => Unfetched(db + 1000))
+
+    case class Person(id: Long, name: String)
+
+    class People(tag: Tag) extends Table[Person](tag, "people842") {
+      def id = column[Long]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name).mapTo[Person]
+    }
+    val people = TableQuery[People]
+
+    class Phones(tag: Tag) extends Table[(Long, Long)](tag, "phones842") {
+      def num = column[Long]("num", O.PrimaryKey)
+      def person = column[Long]("person")
+      def * = (num, person)
+    }
+    val phones = TableQuery[Phones]
+
+    // Carol (id 3) has no phone, so the IN-subquery filter must exclude her.
+    val q = people.filter(_.column[Unfetched]("id") in phones.map(_.column[Unfetched]("person")))
+
+    seq(
+      (people.schema ++ phones.schema).create,
+      people ++= Seq(Person(1L, "Alice"), Person(2L, "Bob"), Person(3L, "Carol")),
+      phones ++= Seq((100L, 1L), (101L, 2L)),
+      q.to[Set].result.map(_ shouldBe Set(Person(1L, "Alice"), Person(2L, "Bob")))
+    )
+  }
 }
