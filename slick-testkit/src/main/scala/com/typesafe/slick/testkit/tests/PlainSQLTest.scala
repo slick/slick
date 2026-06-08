@@ -168,4 +168,24 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
 
     seq(create, selectMaxFromEmptyFails)
   }
+
+  def testUpdateWithoutWhereAffectedRows = ifCap(tcap.plainSql) {
+    val create =
+      sqlu"""create table USERS_878(ID int not null primary key, NAME varchar(255))""".map(_ shouldBe 0)
+
+    val populate =
+      DBIO.fold(
+        (for {
+          (id, name) <- List((1, "Stefan"), (2, "Jan Christopher"))
+        } yield sqlu"insert into USERS_878 values ($id, $name)"),
+        0
+      )(_ + _).map(_ shouldBe 2)
+
+    // Bug #878: an UPDATE without a WHERE clause must report the real number of
+    // affected rows (2 here), not always 1.
+    val updateAll =
+      sqlu"update USERS_878 set NAME = 'Unicorn'".map(_ shouldBe 2)
+
+    seq(create, populate, updateAll)
+  }
 }
