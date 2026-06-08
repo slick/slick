@@ -44,6 +44,26 @@ class MySQLDDLTest(testSchema: Option[String]) {
     t2DropStatements.foreach(s => assertTrue("DDL (drop) uses escaped table name: " + s, s contains table2QualifiedName))
     assertTrue("Fk name must be escaped", t2DropStatements.exists(_.contains(fkEscapedName)))
   }
+
+  @Test def testLongStringUsesMediumText: Unit = {
+    class T1687(tag: Tag) extends Table[String](tag, testSchema, "mytable1687") {
+      def bar = column[String]("bar", O.Length(16777215, varying = true))
+
+      def * = bar
+    }
+    val ts = TableQuery[T1687]
+
+    val createStatements = ts.schema.createStatements.mkString("\n")
+    assertTrue("DDL (create) must contain SQL statement(s)", createStatements.nonEmpty)
+    assertTrue(
+      "Long String column must be generated as MEDIUMTEXT, not VARCHAR: " + createStatements,
+      createStatements.contains("MEDIUMTEXT")
+    )
+    assertFalse(
+      "Long String column must not be generated as an over-long VARCHAR: " + createStatements,
+      createStatements.contains("VARCHAR(16777215)")
+    )
+  }
 }
 
 object MySQLDDLTest {
