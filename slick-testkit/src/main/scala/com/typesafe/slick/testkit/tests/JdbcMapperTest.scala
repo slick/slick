@@ -550,4 +550,37 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       kvs.result.head.map(_ shouldBe KV(stableKey, "newval", initial, newDate))
     )
   }
+
+  def testProvenShapeInKeyedTable738 = {
+    // Regression test for issue #738: an abstract table parameterized over U with an
+    // implicit `Shape[_ <: FlatShapeLevel, U, U, _]` bound, whose `*` projection combines a
+    // concrete `Rep` with an abstract `ProvenShape[U]` mapping, must compile and round-trip.
+    import slick.lifted.{FlatShapeLevel, ProvenShape, Shape}
+
+    type KeyedEntity[U] = (Long, U)
+
+    abstract class KeyedTable[U](tag: Tag, name: String)(
+      implicit sh: Shape[_ <: FlatShapeLevel, U, U, _]
+    ) extends Table[KeyedEntity[U]](tag, name) {
+      val id: Rep[Long] = column[Long]("ID", O.AutoInc, O.PrimaryKey)
+      def mapping: ProvenShape[U]
+      def * = (id, mapping)
+    }
+
+    class People(tag: Tag) extends KeyedTable[(String, Int)](tag, "people738") {
+      def name = column[String]("NAME")
+      def age = column[Int]("AGE")
+      def mapping: ProvenShape[(String, Int)] = (name, age)
+    }
+    val people = TableQuery[People]
+
+    for {
+      _ <- people.schema.create
+      _ <- people.map(_.mapping) ++= Seq(("Alice", 30), ("Bob", 40))
+      _ <- people.sortBy(_.id).result.map { rows =>
+        rows.map(_._2).toSet shouldBe Set(("Alice", 30), ("Bob", 40))
+        rows.map(_._1).toSet.size shouldBe 2
+      }
+    } yield ()
+  }
 }
