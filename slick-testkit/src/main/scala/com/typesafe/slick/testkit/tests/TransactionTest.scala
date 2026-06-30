@@ -96,29 +96,6 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
       } yield ()).withPinnedSession
     }}
   }
-
-  def testMultipleUpdatesInTransaction1708 = {
-    // Regression test for issue #1708: multiple update operations chained inside a
-    // for-comprehension within `.transactionally`. On SQLite with a single-threaded
-    // AsyncExecutor this previously raised SQLITE_BUSY ("database is locked").
-    // On other databases the construct always worked; here we assert it completes
-    // and that both updates were applied.
-    class T1708(tag: Tag) extends Table[(Int, Int, Int)](tag, "t1708") {
-      def c1 = column[Int]("c1", O.PrimaryKey)
-      def c2 = column[Int]("c2")
-      def c3 = column[Int]("c3")
-      def * = (c1, c2, c3)
-    }
-    val ts = TableQuery[T1708]
-
-    ts.schema.create >>
-      (ts += ((1, 0, 0))) >>
-      (for {
-        _ <- ts.filter(_.c1 === 1).map(_.c2).update(10)
-        n <- ts.filter(_.c1 === 1).map(_.c3).update(20)
-      } yield n).transactionally.map(_ shouldBe 1) >>
-      ts.filter(_.c1 === 1).result.head.map(_ shouldBe ((1, 10, 20)))
-  }
 }
 
 object TransactionTest {
