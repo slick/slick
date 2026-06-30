@@ -69,24 +69,39 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testUpdate = {
-    case class Data(a: Int, b: Int)
+    import java.util.Date
+
+    // A column with a custom type mapping, to exercise multi-column updates that
+    // include a mapped column (issue #1159: the mapped value must be written
+    // correctly alongside a plain column, not dropped or mis-set).
+    implicit val dateColumnType: BaseColumnType[Date] =
+      MappedColumnType.base[Date, Long](_.getTime, new Date(_))
+
+    case class Data(a: Int, b: Int, at: Date)
 
     class T(tag: Tag) extends Table[Data](tag, "T") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).mapTo[Data]
+      def at = column[Date]("AT")
+      def * = (a, b, at).mapTo[Data]
     }
     val ts = TableQuery[T]
 
+    val d0 = new Date(0L)
+    val d1 = new Date(5000000L)
+
     val updateQ = ts.filter(_.a === 1)
     val updateQ2 = ts.filter(_.a === 3).map(identity)
+    // multi-column update of a plain column together with the mapped column
+    val updateQ3 = ts.filter(_.a === 5).map(t => (t.b, t.at))
 
     seq(
       ts.schema.create,
-      ts ++= Seq(Data(1, 2), Data(3, 4), Data(5, 6)),
-      updateQ.update(Data(7, 8)),
-      updateQ2.update(Data(9, 10)),
-      ts.to[Set].result.map(_.shouldBe(Set(Data(7, 8), Data(9, 10), Data(5, 6))))
+      ts ++= Seq(Data(1, 2, d0), Data(3, 4, d0), Data(5, 6, d0)),
+      updateQ.update(Data(7, 8, d0)),
+      updateQ2.update(Data(9, 10, d0)),
+      updateQ3.update((60, d1)),
+      ts.to[Set].result.map(_.shouldBe(Set(Data(7, 8, d0), Data(9, 10, d0), Data(5, 60, d1))))
     )
   }
 
@@ -514,40 +529,6 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       ts.filter(_.a === 3).map(identity).update(Data(9, 10)),
       ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6))),
       ts.map(_.auto).to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
-    )
-  }
-
-  def testMultiColumnUpdateWithMappedDate = {
-    import java.util.Date
-
-    implicit val dateColumnType: BaseColumnType[Date] =
-      MappedColumnType.base[Date, Long](_.getTime, new Date(_))
-
-    case class KV(key: String, value: String, createdAt: Date, modifiedAt: Date)
-
-    class KVTable(tag: Tag) extends Table[KV](tag, "config_1159") {
-      def key = column[String]("key", O.PrimaryKey)
-      def value = column[String]("value")
-      def createdAt = column[Date]("created_at")
-      def modifiedAt = column[Date]("modified_at")
-      def * = (key, value, createdAt, modifiedAt).mapTo[KV]
-    }
-    val kvs = TableQuery[KVTable]
-
-    val stableKey = "software.revision.stable"
-    val initial = new Date(0L)
-    val newDate = new Date(5000000L)
-
-    // The bug: a multi-column update that includes a mapped Date/time column produced
-    // an incorrect row. Updating only a single column worked. Here we update both the
-    // value and the mapped modifiedAt column and assert the row reflects both new values.
-    val updateStableQ = kvs.filter(_.key === stableKey).map(c => (c.value, c.modifiedAt))
-
-    seq(
-      kvs.schema.create,
-      kvs += KV(stableKey, "oldval", initial, initial),
-      updateStableQ.update(("newval", newDate)),
-      kvs.result.head.map(_ shouldBe KV(stableKey, "newval", initial, newDate))
     )
   }
 
