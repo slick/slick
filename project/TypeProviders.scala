@@ -34,16 +34,16 @@ object TypeProviders {
     val slickSrc = (LocalProject("slick") / sourceDirectory).value
     val src = srcDir / "codegen"
     val outDir = (output/"slick-codegen").getPath
-    val inFiles = (src ** "*.scala").get.toSet ++ (slickSrc / "main/scala/slick/codegen" ** "*.scala").get.toSet ++ (slickSrc / "main/scala/slick/jdbc/meta" ** "*.scala").get.toSet
+    val inFiles = (src ** "*.scala").get().toSet ++ (slickSrc / "main/scala/slick/codegen" ** "*.scala").get().toSet ++ (slickSrc / "main/scala/slick/jdbc/meta" ** "*.scala").get().toSet
     val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", inStyle = FilesInfo.lastModified, outStyle = FilesInfo.exists) { (in: Set[File]) =>
-      IO.delete((output ** "*.scala").get)
+      IO.delete((output ** "*.scala").get())
 
       val errorsMain = r.run("slick.test.codegen.GenerateMainSources", cp.files, Array(outDir), s.log)
       val errorsRoundtrip = r.run("slick.test.codegen.GenerateRoundtripSources", cp.files, Array(outDir), s.log)
 
       (errorsMain, errorsRoundtrip) match {
         case (Success(_), Success(_)) =>
-          (output ** "*.scala").get.toSet
+          (output ** "*.scala").get().toSet
         case (Failure(failedMain), Failure(failedRoundtrip)) =>
           sys.error(failedMain.getMessage + System.lineSeparator() + failedRoundtrip)
         case (failedMain, failedRoundtrip) =>
