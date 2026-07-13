@@ -6,7 +6,7 @@ import scala.util.{Failure, Success}
 object FMPP {
   def preprocessorSettings = inConfig(Compile)(Seq(sourceGenerators += fmpp.taskValue, fmpp := fmppTask.value)) ++ Seq(
     libraryDependencies ++= Seq(
-      ("net.sourceforge.fmpp" % "fmpp" % "0.9.16" % FmppConfig.name).intransitive,
+      ("net.sourceforge.fmpp" % "fmpp" % "0.9.16" % FmppConfig.name).intransitive(),
       "org.freemarker" % "freemarker" % "2.3.34" % FmppConfig.name,
       "oro" % "oro" % "2.0.8" % FmppConfig.name,
       "org.beanshell" % "bsh" % "2.0b5" % FmppConfig.name,
@@ -28,11 +28,11 @@ object FMPP {
     val s = streams.value
     val output = (Compile / sourceManaged).value
     val fmppSrc = (Compile / sourceDirectory).value / "scala"
-    val inFiles = (fmppSrc ** "*.fm").get.toSet
+    val inFiles = (fmppSrc ** "*.fm").get().toSet
     val fmppRunner = (fmpp / runner).value
     val fmppClasspath = (FmppConfig / fullClasspath).value
     val cachedFun = FileFunction.cached(s.cacheDirectory / "fmpp", inStyle = FilesInfo.lastModified, outStyle = FilesInfo.exists) { (in: Set[File]) =>
-      IO.delete((output ** "*.scala").get)
+      IO.delete((output ** "*.scala").get())
       val args = "--expert" :: "-q" :: "-S" :: fmppSrc.getPath :: "-O" :: output.getPath ::
       "--replace-extensions=fm, scala" :: "-M" :: "execute(**/*.fm), ignore(**/*)" :: Nil
 
