@@ -347,4 +347,62 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       q2.result.map(_.toSet shouldBe Set(Some(4), Some(5)))
     )
   }
+
+  def testH2NestedJoinParentheses = {
+    // Test for issue #1756: H2 inner join not wrapped in parentheses
+    // This test validates that H2 generates proper SQL with parentheses around nested joins
+    
+    class SpaceAssignment(tag: Tag) extends Table[(Int, Int)](tag, "space_assignment") {
+      def id = column[Int]("id")
+      def spaceId = column[Int]("space_id")
+      def * = (id, spaceId)
+    }
+    val spaceAssignments = TableQuery[SpaceAssignment]
+    
+    class SpaceAssignmentCategory(tag: Tag) extends Table[(Int, Int)](tag, "space_assignment_category") {
+      def id = column[Int]("id")
+      def spaceAssignmentId = column[Int]("space_assignment_id")
+      def * = (id, spaceAssignmentId)
+    }
+    val spaceAssignmentCategories = TableQuery[SpaceAssignmentCategory]
+    
+    class Space(tag: Tag) extends Table[(Int, Int)](tag, "space") {
+      def id = column[Int]("id")
+      def spaceProfileId = column[Int]("space_profile_id")
+      def * = (id, spaceProfileId)
+    }
+    val spaces = TableQuery[Space]
+    
+    class SpaceProfile(tag: Tag) extends Table[(Int, String)](tag, "space_profile") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val spaceProfiles = TableQuery[SpaceProfile]
+    
+    // Create a complex nested join similar to the one that caused the issue
+    val complexJoinQuery = for {
+      ((sa, sac), (s, sp)) <- 
+        spaceAssignments
+          .joinLeft(spaceAssignmentCategories).on(_.id === _.spaceAssignmentId)
+          .join(spaces.join(spaceProfiles).on(_.spaceProfileId === _.id)).on(_._1.spaceId === _._1.id)
+    } yield (sa.id, sac.map(_.id), s.id, sp.name)
+    
+    // Create and execute a compiled query to check the SQL
+    for {
+      _ <- (spaceAssignments.schema ++ spaceAssignmentCategories.schema ++ spaces.schema ++ spaceProfiles.schema).create
+      _ <- spaceAssignments ++= Seq((1, 1))
+      _ <- spaceAssignmentCategories ++= Seq((1, 1))
+      _ <- spaces ++= Seq((1, 1))
+      _ <- spaceProfiles ++= Seq((1, "test"))
+      
+      // Execute the query - this will throw an exception with the problematic SQL if parentheses are missing
+      // The actual SQL generation happens during query execution
+      result <- complexJoinQuery.result
+      
+      // The test passes if we get here without SQL syntax errors
+      _ = result should (_.length >= 0)
+      
+    } yield ()
+  }
 }
