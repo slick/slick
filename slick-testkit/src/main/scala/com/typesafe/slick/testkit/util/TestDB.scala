@@ -201,11 +201,11 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
 
   final def blockingRunOnSession[R](a: DBIOAction[R, NoStream, Nothing])
                                    (implicit session: profile.backend.Session): R = {
-    val db = createSingleSessionDatabase(session)
+    val db = createSingleSessionDatabase
     db.run(a).unsafeRunSync()
   }
 
-  protected[this] def runIO[T](io: IO[T]): T = io.unsafeRunSync()
+  protected def runIO[T](io: IO[T]): T = io.unsafeRunSync()
 }
 
 abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) { self =>

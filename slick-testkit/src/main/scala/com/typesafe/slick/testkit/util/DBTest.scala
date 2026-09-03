@@ -13,7 +13,7 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(classOf[Parameterized])
 abstract class DBTest {
-  private[this] var dbInitialized = false
+  private var dbInitialized = false
   val tdb: JdbcTestDB
 
   lazy val db = {

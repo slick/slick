@@ -102,7 +102,7 @@ case class TestMethod(name: String, desc: Description, method: Method, cl: Class
 }
 
 sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) {
-  protected[this] var _tdb: TDB = null
+  protected var _tdb: TDB = null
   private[testkit] def setTestDB(tdb: TestDB): Boolean = {
     tdb match {
       case TdbClass(o) =>
@@ -116,7 +116,7 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
 
   private[testkit] var keepAliveSession: tdb.profile.backend.Session = null
 
-  private[this] var unique = new AtomicInteger
+  private var unique = new AtomicInteger
 
   val reuseInstance = false
 
@@ -131,7 +131,10 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
   lazy val db: Database = Database.fromCore(rawDb)
 
   final def cleanup() = if(keepAliveSession ne null) {
-    try if(tdb.isPersistent) tdb.dropUserArtifacts(keepAliveSession)
+    try if(tdb.isPersistent) {
+      implicit val session: tdb.profile.backend.Session = keepAliveSession
+      tdb.dropUserArtifacts
+    }
     finally {
       try db.close() finally closeKeepAlive()
     }
@@ -239,7 +242,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   def ifNotCapU[T](caps: Capability*)(f: => T): Unit =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f
 
-  def seq[E <: Effect](actions: DBIOAction[?, NoStream, E]*): DBIOAction[Unit, NoStream, E] = DBIO.seq[E](actions: _*)
+  def seq[E <: Effect](actions: DBIOAction[?, NoStream, E]*): DBIOAction[Unit, NoStream, E] = DBIO.seq[E](actions*)
 
   /** Consume a Stream and materialize it as a Vector. */
   def materialize[T](p: Stream[IO, T]): IO[Vector[T]] =
@@ -264,8 +267,8 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   /** Assertion DSL, used infix like ScalaTest matchers: `r shouldBe Set(1, 2)`. The `infix`
     * modifier satisfies Scala 3.4+; Scala 2 accepts it as a no-op under -Xsource:3. */
   implicit class AssertionExtensionMethods[T](v: T) {
-    private[this] val cln = getClass.getName
-    private[this] def fixStack(f: => Unit): Unit = try f catch {
+    private val cln = getClass.getName
+    private def fixStack(f: => Unit): Unit = try f catch {
       case ex: AssertionError =>
         ex.setStackTrace(ex.getStackTrace.iterator.filterNot(_.getClassName.startsWith(cln)).toArray)
         throw ex
@@ -290,8 +293,8 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   }
 
   implicit class CollectionAssertionExtensionMethods[T](v: IterableOnce[T]) {
-    private[this] val cln = getClass.getName
-    private[this] def fixStack(f: => Unit): Unit = try f catch {
+    private val cln = getClass.getName
+    private def fixStack(f: => Unit): Unit = try f catch {
       case ex: AssertionError =>
         ex.setStackTrace(ex.getStackTrace.iterator.filterNot(_.getClassName.startsWith(cln)).toArray)
         throw ex

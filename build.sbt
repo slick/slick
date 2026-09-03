@@ -105,6 +105,19 @@ def slickScalacOptions = Seq(
           "-Wconf:cat=unused-imports&src=src_managed/.*:silent",
           "-Wconf:cat=unused-imports&origin=slick\\.compat\\.collection\\..*:s"
         ) ++ scala2InlineSettings.value
+      case Some((3, _)) =>
+        List(
+          // Scala 3.4+ deprecates the trailing `_` in eta-expansions such as `(Row.apply _).tupled`.
+          // Dropping it (`Row.apply.tupled`) compiles on 2.13 (-Xsource:3) and 3 but not on 2.12, and
+          // slick-codegen emits this form so that generated code works on all supported versions.
+          // Remove when Scala 2.12 support is dropped and codegen emits `Row.apply.tupled`.
+          "-Wconf:msg=for eta-expansion is unnecessary:s",
+          // slick-codegen emits `self: A with B =>` self-types. Scala 3.4+ wants `&`, but that only
+          // parses on Scala 2 with -Xsource:3, which we cannot assume for generated code compiled in
+          // user builds. Scoped to generated sources; remove when codegen output can require
+          // Scala 2.13 with -Xsource:3 (or Scala 3).
+          "-Wconf:msg=with as a type operator&src=src_managed/.*:s"
+        )
       case _ =>
         Nil
     })

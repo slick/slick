@@ -57,6 +57,7 @@ only thing that changes is how you construct the database.
 | `AsyncExecutor` | required for thread pool config | **removed** entirely |
 | `map`/`flatMap` on `DBIOAction` | require `(implicit ec: ExecutionContext)` | no EC parameter |
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts a `Future[R]` — **unchanged** in `slick-future` |
+| `GetResult.apply` / `SetParameter.apply` | function parameter is `implicit` | regular parameter; `GetResult(r => ...)` and `SetParameter[T]((v, pp) => ...)` are unchanged, only summoning a `GetResult[T]` from an implicit function via `GetResult[T]` (no argument) no longer works |
 
 ---
 

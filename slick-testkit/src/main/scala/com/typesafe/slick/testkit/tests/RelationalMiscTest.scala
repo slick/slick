@@ -162,8 +162,8 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
       implicit val idMapper: BaseColumnType[Id] = MappedColumnType.base[Id, Int](_.toInt, Id.apply)
     }
     class A(tag: Tag) extends Table[Customer](tag, "INIT_A") {
-      def id = column[Id]("ID", O.PrimaryKey, O.AutoInc)(Tables.idMapper)
       import Tables.idMapper
+      def id = column[Id]("ID", O.PrimaryKey, O.AutoInc)
       def * = id.mapTo[Customer]
     }
     Tables.as.schema

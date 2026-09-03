@@ -50,7 +50,7 @@ class LockingClauseTest extends AsyncTest[JdbcTestDB] with Logging {
       val childStartLatch = new CountDownLatch(1)
       val thread1Latch = new CountDownLatch(1)
       val thread2Latch = new CountDownLatch(1)
-      val runAsyncCommands = mkRunAsyncCommands(exe, childStartLatch, success) _
+      val runAsyncCommands: (DBIO[Unit], CountDownLatch) => DBIO[Unit] = mkRunAsyncCommands(exe, childStartLatch, success)
 
       seq(
         ifCap(tcap.selectForUpdateRowLocking) { // if database is capable of executing a row locking test
@@ -106,7 +106,7 @@ class LockingClauseTest extends AsyncTest[JdbcTestDB] with Logging {
       val thread1Latch = new CountDownLatch(1)
       val thread2Latch = new CountDownLatch(1)
       val thread3Latch = new CountDownLatch(1)
-      val runAsyncCommands = mkRunAsyncCommands(exe, childStartLatch, success) _
+      val runAsyncCommands: (DBIO[Unit], CountDownLatch) => DBIO[Unit] = mkRunAsyncCommands(exe, childStartLatch, success)
 
       for {
         _ <- ts.schema.create

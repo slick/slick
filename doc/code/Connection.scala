@@ -122,7 +122,7 @@ object Connection {
               //#transaction
               val a = (for {
                 ns <- coffees.filter(_.name.startsWith("ESPRESSO")).map(_.name).result
-                _ <- DBIO.seq(ns.map(n => coffees.filter(_.name === n).delete): _*)
+                _ <- DBIO.seq(ns.map(n => coffees.filter(_.name === n).delete)*)
               } yield ()).transactionally
 
               val f: IO[Unit] = db.run(a)
@@ -163,7 +163,7 @@ object Connection {
           }
         }
       }.map { _ =>
-        lines.foreach(Predef.println _)
+        lines.foreach(Predef.println)
       }
     }.unsafeRunSync()
 

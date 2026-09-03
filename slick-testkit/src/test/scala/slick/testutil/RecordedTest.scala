@@ -8,7 +8,7 @@ import scala.Console
  * A JUnit test which compares the console output against a recorded test run.
  */
 abstract class RecordedTest {
-  private[this] var _out: PrintStream = _
+  private var _out: PrintStream = null
 
   def out = _out
 

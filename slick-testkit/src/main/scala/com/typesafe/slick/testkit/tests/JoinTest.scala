@@ -342,7 +342,7 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     DBIO.seq(
       (as.schema ++ bs.schema).create,
       as ++= Seq(1,2,3),
-      bs ++= Seq(1,2,4,5).map(Some.apply _),
+      bs ++= Seq(1,2,4,5).map(Some.apply),
       q1.result.map(_.toSet shouldBe Set(3)),
       q2.result.map(_.toSet shouldBe Set(Some(4), Some(5)))
     )
