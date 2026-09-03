@@ -153,6 +153,6 @@ object FirstExample {
     //#setup
     }.unsafeRunSync()
     //#setup
-    lines.foreach(Predef.println _)
+    lines.foreach(Predef.println)
   }
 }

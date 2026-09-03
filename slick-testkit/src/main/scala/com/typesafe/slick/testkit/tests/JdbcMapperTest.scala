@@ -539,7 +539,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     type KeyedEntity[U] = (Long, U)
 
     abstract class KeyedTable[U](tag: Tag, name: String)(
-      implicit sh: Shape[_ <: FlatShapeLevel, U, U, _]
+      implicit sh: Shape[? <: FlatShapeLevel, U, U, ?]
     ) extends Table[KeyedEntity[U]](tag, name) {
       val id: Rep[Long] = column[Long]("ID", O.AutoInc, O.PrimaryKey)
       def mapping: ProvenShape[U]

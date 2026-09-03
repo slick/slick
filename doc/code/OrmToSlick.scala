@@ -33,7 +33,7 @@ object OrmToSlick {
     }
     object session{
       def createQuery(hql: String) = new HqlQuery
-      def createCriteria(cls: java.lang.Class[_]) = new Criteria
+      def createCriteria(cls: java.lang.Class[?]) = new Criteria
       def save = ()
     }
     class Criteria{
@@ -41,13 +41,13 @@ object OrmToSlick {
     }
     type Restriction = Criteria
     class HqlQuery{
-      def setParameterList(column: String, values: Array[_]): Unit = ()
+      def setParameterList(column: String, values: Array[?]): Unit = ()
     }
     object Property{
       def forName(s:String) = new Property
     }
     class Property{
-      def in(array: Array[_]): Restriction = new Restriction
+      def in(array: Array[?]): Restriction = new Restriction
       def lt(i: Int) = new Restriction
       def gt(i: Int) = new Restriction
     }

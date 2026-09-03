@@ -216,7 +216,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
    * Older version of MySQL have no millisecond resolution, so set all the ms component
    * of the LocalDateTime to 000.
    */
-  private[this] def generateTestLocalDateTime(): LocalDateTime = {
+  private def generateTestLocalDateTime(): LocalDateTime = {
     val now = Instant.now
     val dbCompatibleInstant =
       if (tdb.confName.contains("mysql")) {

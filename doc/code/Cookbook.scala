@@ -97,7 +97,7 @@ object Cookbook {
 
             // When Effect.Read is used with Effect.Transactional, isReadOnly is true,
             // as a transactional read is still a read.
-            implicit object ReadWithTransactional extends ReadOnly[Effect.Read with Effect.Transactional] {
+            implicit object ReadWithTransactional extends ReadOnly[Effect.Read & Effect.Transactional] {
               val isReadOnly: Boolean = true
             }
           }
@@ -116,9 +116,9 @@ object Cookbook {
         // Read-only actions.
         // Each of these prints "Action is read-only, run it on the secondary"
         run(action: DBIOAction[Int, NoStream, Effect.Read])
-        run(action: DBIOAction[Int, NoStream, Effect.Read with Effect.Transactional])
-        run(action: DBIOAction[Int, NoStream, Effect with Effect.Read with Effect.Transactional])
-        run(action: DBIOAction[Int, NoStream, Effect.Transactional with Effect.Read with Effect])
+        run(action: DBIOAction[Int, NoStream, Effect.Read & Effect.Transactional])
+        run(action: DBIOAction[Int, NoStream, Effect & Effect.Read & Effect.Transactional])
+        run(action: DBIOAction[Int, NoStream, Effect.Transactional & Effect.Read & Effect])
 
         // Other actions.
         // "Action is not read-only, run it on the primary"

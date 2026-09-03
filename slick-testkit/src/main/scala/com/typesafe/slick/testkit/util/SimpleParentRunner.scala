@@ -14,7 +14,7 @@ import org.junit.runners.model.*
  * extensible (in the way we need it), and more Scala-like.
  */
 abstract class SimpleParentRunner[T](testClass: Class[?]) extends Runner with Filterable with Sortable {
-  private var _children: Seq[T] = _
+  private var _children: Seq[T] = null
   protected final def children: Seq[T] = {
     if(_children == null) _children = getChildren
     _children
@@ -65,9 +65,6 @@ abstract class SimpleParentRunner[T](testClass: Class[?]) extends Runner with Fi
   final def sort(sorter: Sorter): Unit = {
     children.foreach(sorter.apply)
     children =
-      children.sorted(
-        Ordering.comparatorToOrdering(sorter)
-          .on(describeChild)
-      )
+      children.sortWith((a, b) => sorter.compare(describeChild(a), describeChild(b)) < 0)
   }
 }

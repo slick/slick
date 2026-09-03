@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.util
 
-import scala.io.{Codec, Source}
+import scala.io.Source
 
 import cats.effect.unsafe.implicits.global
 
@@ -51,7 +51,7 @@ trait TestCodeGenerator {
         var current: String = null
         initScripts.foreach { initScript =>
           import tdb.profile.api.*
-          val source = Source.fromURL(self.getClass.getResource(initScript))(Codec.UTF8)
+          val source = Source.fromURL(self.getClass.getResource(initScript), "UTF-8")
           try source.getLines().foreach { s =>
             if (current eq null) current = s else current = current + "\n" + s
             if (s.trim.endsWith(";")) {

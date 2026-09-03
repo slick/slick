@@ -99,7 +99,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     val a1 = DBIO.sequence((1 to 5000).toSeq.map(i => LiteralColumn(i).result))
     val a2 = DBIO.sequence((1 to 20).toSeq.map(i => if(i%2 == 0) LiteralColumn(i).result else DBIO.liftF(IO.pure(i))))
     val a3 = DBIO.sequence((1 to 20).toSeq.map(i => if((i/4)%2 == 0) LiteralColumn(i).result else DBIO.liftF(IO.pure(i))))
-    val a4 = DBIO.seq((1 to 50000).toSeq.map(i => DBIO.successful("a4")): _*)
+    val a4 = DBIO.seq((1 to 50000).toSeq.map(i => DBIO.successful("a4"))*)
     val a5 = (1 to 50000).toSeq.map(i => DBIO.successful("a5")).reduceLeft(_.andThen(_))
     val a6 = DBIO.fold((1 to 50000).toSeq.map(i => LiteralColumn(i).result), 0)(_ + _)
     val a7 = (1 to 10000).map(_ => DBIO.successful("a7")).reduceLeft((a, b) => a.flatMap(_ => b).andThen(b))

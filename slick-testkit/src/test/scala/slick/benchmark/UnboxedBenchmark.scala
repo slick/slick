@@ -58,7 +58,7 @@ object UnboxedBenchmark extends App {
   def runTest(n: Node): Unit = {
     val rsm = profile.queryCompiler.run(n).tree
     TreePrinter.default.print(rsm)
-    val ResultSetMapping(_, _, CompiledMapping(converter, _)) = rsm
+    val ResultSetMapping(_, _, CompiledMapping(converter, _)) = (rsm: @unchecked)
     for(i <- 1 to 5) {
       val pr = createFakePR(10000000, converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, ?]])
       readPR(pr)

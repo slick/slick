@@ -32,7 +32,7 @@ abstract class RelationalPublisherTest[P <: RelationalProfile](val profile: P, t
   lazy val data = TableQuery(new Data("data")(_))
   lazy val dataErr = TableQuery(new Data("data_err")(_))
 
-  var db: Database = _
+  var db: Database = null
   val entityNum = new AtomicInteger()
 
   def createDB: Database

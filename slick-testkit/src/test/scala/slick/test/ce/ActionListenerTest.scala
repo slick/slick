@@ -45,7 +45,7 @@ class ActionListenerTest extends CatsEffectSuite {
     for {
       seen <- IO.ref(Vector.empty[String])
       listener = new ActionListener[IO] {
-        override def around[R, H](action: slick.dbio.DBIOAction[R, _, _], exec: IO[H]): IO[H] = {
+        override def around[R, H](action: slick.dbio.DBIOAction[R, ?, ?], exec: IO[H]): IO[H] = {
           val sqls = action match {
             case s: SqlAction[?, ?, ?] => s.statements.toVector
             case _ => Vector.empty
@@ -66,7 +66,7 @@ class ActionListenerTest extends CatsEffectSuite {
     for {
       names <- IO.ref(Vector.empty[String])
       listener = new ActionListener[IO] {
-        override def around[R, H](action: slick.dbio.DBIOAction[R, _, _], exec: IO[H]): IO[H] =
+        override def around[R, H](action: slick.dbio.DBIOAction[R, ?, ?], exec: IO[H]): IO[H] =
           action match {
             case slick.dbio.NamedAction(_, n) => names.update(_ :+ n) >> exec
             case _ => exec
@@ -84,7 +84,7 @@ class ActionListenerTest extends CatsEffectSuite {
     for {
       count <- IO.ref(0)
       listener = new ActionListener[IO] {
-        override def around[R, H](action: slick.dbio.DBIOAction[R, _, _], exec: IO[H]): IO[H] =
+        override def around[R, H](action: slick.dbio.DBIOAction[R, ?, ?], exec: IO[H]): IO[H] =
           action match {
             case slick.dbio.NamedAction(_, "left") | slick.dbio.NamedAction(_, "right") =>
               count.update(_ + 1) >> exec
@@ -105,7 +105,7 @@ class ActionListenerTest extends CatsEffectSuite {
     for {
       hits <- IO.ref(0)
       listener = new ActionListener[IO] {
-        override def around[R, H](action: slick.dbio.DBIOAction[R, _, _], exec: IO[H]): IO[H] =
+        override def around[R, H](action: slick.dbio.DBIOAction[R, ?, ?], exec: IO[H]): IO[H] =
           action match {
             case _: SqlAction[?, ?, ?] => hits.update(_ + 1) >> exec
             case _ => exec
@@ -128,7 +128,7 @@ class ActionListenerTest extends CatsEffectSuite {
     for {
       events <- IO.ref(Vector.empty[String])
       listener = new ActionListener[IO] {
-        override def around[R, H](action: slick.dbio.DBIOAction[R, _, _], exec: IO[H]): IO[H] =
+        override def around[R, H](action: slick.dbio.DBIOAction[R, ?, ?], exec: IO[H]): IO[H] =
           events.update(_ :+ "before") >>
             exec.guaranteeCase {
               case Outcome.Succeeded(_) => events.update(_ :+ "after")
@@ -155,7 +155,7 @@ class ActionListenerTest extends CatsEffectSuite {
     for {
       seen <- IO.ref(false)
       listener = new ActionListener[IO] {
-        override def around[R, H](action: slick.dbio.DBIOAction[R, _, _], exec: IO[H]): IO[H] =
+        override def around[R, H](action: slick.dbio.DBIOAction[R, ?, ?], exec: IO[H]): IO[H] =
           action match {
             case _: slick.dbio.TransactionalAction[?, ?, ?] => seen.set(true) >> exec
             case _ => exec

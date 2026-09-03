@@ -8,7 +8,7 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def testNumeric = {
-    def testStore[T](values: T*)(implicit tm: BaseColumnType[T] with NumericTypedType) = {
+    def testStore[T](values: T*)(implicit tm: BaseColumnType[T] & NumericTypedType) = {
       class Tbl(tag: Tag) extends Table[(Int, T)](tag, "test_numeric") {
         def id = column[Int]("id")
         def data = column[T]("data")

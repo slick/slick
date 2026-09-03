@@ -31,8 +31,8 @@ class SlickDeadlockTest extends AsyncTest[JdbcTestDB] {
   }
 
 
-  var database: Database = _
-  var dbClose: IO[Unit] = _
+  var database: Database = null
+  var dbClose: IO[Unit] = null
   val testTable: TableQuery[TestTable] = TableQuery[TestTable]
   val blobTable: TableQuery[BlobTable] = TableQuery[BlobTable]
 
