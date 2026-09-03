@@ -28,15 +28,15 @@ class UnionAdditionalTest extends AsyncTest[JdbcTestDB] {
     def * = (id, name, manager)
 
     // A convenience method for selecting employees by department
-    def departmentIs(dept: String) = manager in managers.filter(_.department === dept).map(_.id)
+    def departmentIs(dept: String) = manager.in(managers.filter(_.department === dept).map(_.id))
   }
 
   lazy val employees = TableQuery[Employees]
 
   def testLimitWithUnion = {
-    val q1 = for (m <- managers drop 1 take 2) yield (m.id, m.name)
-    val q2 = for (e <- employees drop 1 take 3) yield (e.id, e.name)
-    val q3 = (q1 union q2) sortBy (_._2)
+    val q1 = for (m <- managers.drop(1).take(2)) yield (m.id, m.name)
+    val q2 = for (e <- employees.drop(1).take(3)) yield (e.id, e.name)
+    val q3 = (q1.union(q2)).sortBy(_._2)
     (for {
       _ <- (managers.schema ++ employees.schema).create
       _ <- managers ++= Seq((1, "Peter", "HR"), (2, "Amy", "IT"), (3, "Steve", "IT"))
@@ -44,13 +44,13 @@ class UnionAdditionalTest extends AsyncTest[JdbcTestDB] {
       _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set((2, "Amy"), (3, "Steve")))
       _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set((5, "Jennifer"), (6, "Tom"), (7, "Ben")))
       _ <- mark("q3", q3.result).map(_ shouldBe Vector((2, "Amy"), (7, "Ben"), (5, "Jennifer"), (3, "Steve"), (6, "Tom")))
-    } yield ()) andFinally (managers.schema ++ employees.schema).drop
+    } yield ()).andFinally((managers.schema ++ employees.schema).drop)
   }
 
   def testOrderByWithUnion = {
-    val q1 = for (m <- managers sortBy (_.name)) yield (m.id, m.name)
-    val q2 = for (e <- employees sortBy (_.name)) yield (e.id, e.name)
-    val q3 = (q1 ++ q2) sortBy (_._2)
+    val q1 = for (m <- managers.sortBy(_.name)) yield (m.id, m.name)
+    val q2 = for (e <- employees.sortBy(_.name)) yield (e.id, e.name)
+    val q3 = (q1 ++ q2).sortBy(_._2)
     (for {
       _ <- (managers.schema ++ employees.schema).create
       _ <- managers ++= Seq((1, "Peter", "HR"), (2, "Amy", "IT"), (3, "Steve", "IT"))
@@ -60,12 +60,12 @@ class UnionAdditionalTest extends AsyncTest[JdbcTestDB] {
       _ <- mark("q3", q3.result).map(_ shouldBe Vector((2, "Amy"), (7, "Ben"), (8, "Greg"),
         (5, "Jennifer"), (4, "Leonard"), (1, "Peter"), (3, "Steve"), (6, "Tom")
       ))
-    } yield ()) andFinally (managers.schema ++ employees.schema).drop
+    } yield ()).andFinally((managers.schema ++ employees.schema).drop)
   }
 
   def testLimitUnionWithinInClause = {
-    val q1 = for (m <- managers drop 1 take 2) yield m.id
-    val q2 = for (e <- employees drop 1 take 3) yield e.id
+    val q1 = for (m <- managers.drop(1).take(2)) yield m.id
+    val q2 = for (e <- employees.drop(1).take(3)) yield e.id
     val q3 = managers.filter(_.id.in(q1.union(q2))).map(_.id)
     (for {
       _ <- (managers.schema ++ employees.schema).create
@@ -74,7 +74,7 @@ class UnionAdditionalTest extends AsyncTest[JdbcTestDB] {
       _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set(2,3))
       _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set(5,6,7))
       _ <- mark("q3", q3.result).map(_ shouldBe Vector(2,3))
-    } yield ()) andFinally (managers.schema ++ employees.schema).drop
+    } yield ()).andFinally((managers.schema ++ employees.schema).drop)
   }
 
 }

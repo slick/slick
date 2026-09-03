@@ -150,7 +150,7 @@ object PlainSQL {
 
     def coffeesByName(name: Option[String]): DBIO[Seq[Coffee]] = {
       //#concat
-      (sql"select * from coffees where " concat name.fold(sql"true")(name => sql"name = $name")).as[Coffee]
+      (sql"select * from coffees where ".concat(name.fold(sql"true")(name => sql"name = $name"))).as[Coffee]
       //#concat
     }
 

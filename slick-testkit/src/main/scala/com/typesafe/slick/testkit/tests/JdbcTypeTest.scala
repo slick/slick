@@ -126,7 +126,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   private def roundTrip[T: BaseColumnType](values: List[T],
                                            dataCreateFn: () => T,
                                            dataCompareFn: (Int, Option[T], Option[T]) => Unit =
-                                           (id: Int, l: Option[T], r: Option[T]) => (id, l) shouldBe(id, r),
+                                           (id: Int, l: Option[T], r: Option[T]) => (id, l) shouldBe ((id, r)),
                                            tableNameSuffix: String = ""): IO[Unit] = {
     // How many random values to generate and test with
     val testValuesSize = 1000
@@ -138,7 +138,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     val tableName = "Data_" + values.headOption.getOrElse(dataCreateFn()).getClass.getSimpleName + tableNameSuffix
     class DataTable(tag: Tag) extends Table[(Int, Option[T])](tag, tableName) {
       def id = column[Int]("ID", O.PrimaryKey)
-      def data = column[Option[T]]("DATA", O Default Some(defaultValue))
+      def data = column[Option[T]]("DATA", O.Default(Some(defaultValue)))
       def * = (id, data)
     }
     val dateTable = TableQuery[DataTable]
@@ -258,8 +258,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
           val lTime = l.getTime
           val rTime = r.getTime
           if (lTime != rTime && math.abs(lTime - rTime) != hourInMs)
-            (id, l) shouldBe (id, r)
-        case _ => (id, l) shouldBe (id, r)
+            (id, l) shouldBe ((id, r))
+        case _ => (id, l) shouldBe ((id, r))
       }
     }
     roundTrip[Timestamp](
@@ -277,8 +277,8 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         case (Some(l), Some(r)) =>
           if (l != r &&
             math.abs(ChronoUnit.MILLIS.between(l, r)) != hourInMs)
-            (id, l) shouldBe (id, r)
-        case _ => (id, l) shouldBe (id, r)
+            (id, l) shouldBe ((id, r))
+        case _ => (id, l) shouldBe ((id, r))
       }
     }
 
@@ -329,7 +329,9 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       // Slick uses the TIMESTAMP mapping by default for instants, however it should also
       // be possible to read/write Instants as TIMESTAMPTZ (with time zone)
       // This test ensures that the profile logic also works correctly for the TIMESTAMPTZ type
-      val withTimeZone = new PostgresProfile.columnTypes.InstantJdbcType {
+      // Shadows the profile's implicit `instantColumnType` so that `roundTrip` picks up the
+      // TIMESTAMPTZ mapping (passing implicit arguments explicitly is not portable to Scala 3).
+      implicit val instantColumnType: BaseColumnType[Instant] = new PostgresProfile.columnTypes.InstantJdbcType {
         override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMPTZ"
       }
       roundTrip[Instant](
@@ -339,7 +341,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
           generateTestLocalDateTime().withHour(5).toInstant(ZoneOffset.UTC)),
         () => randomLocalDateTime().toInstant(ZoneOffset.UTC),
         tableNameSuffix = "_with_time_zone"
-      )(withTimeZone)
+      )
     case _                  =>
       IO.unit
   }
@@ -493,7 +495,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       def * = id
     }
     val t1 = TableQuery[T1]
-    t1.schema.createStatements.mkString.should(_ contains "_FOO_BAR_")
+    t1.schema.createStatements.mkString should (_.contains("_FOO_BAR_"))
     IO.unit
   }
 }

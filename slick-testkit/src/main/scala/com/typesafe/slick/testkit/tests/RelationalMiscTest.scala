@@ -42,10 +42,10 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
       _ <- t1s.schema.create
       _ <- t1s ++= Seq("foo", "bar", "foobar", "foo%")
 
-      q1 = for { t1 <- t1s if t1.a like "foo" } yield t1.a
+      q1 = for { t1 <- t1s if t1.a.like("foo") } yield t1.a
       _ <- q1.result.map(_ shouldBe List("foo"))
 
-      q2 = for { t1 <- t1s if t1.a like "foo%" } yield t1.a
+      q2 = for { t1 <- t1s if t1.a.like("foo%") } yield t1.a
       _ <- q2.to[Set].result.map(_ shouldBe Set("foo", "foobar", "foo%"))
 
       _ <- ifCap(rcap.likeEscape) {
@@ -96,16 +96,16 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
       _ <- t1s.schema.create
       _ <- t1s ++= Seq((1, Some(11)), (2, None), (3, Some(33)), (4, None))
 
-      q1 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 Else 0) }
+      q1 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3).Then(1).Else(0)) }
       _ <- q1.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 0), (4, 0)))
 
-      q2 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1) }
+      q2 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3).Then(1)) }
       _ <- q2.to[Set].result.map(_ shouldBe Set((1, Some(1)), (2, Some(1)), (3, None), (4, None)))
 
-      q3 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 If(t1.a < 4) Then 2 Else 0) }
+      q3 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3).Then(1).If(t1.a < 4).Then(2).Else(0)) }
       _ <- q3.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 2), (4, 0)))
 
-      q4 = t1s.map { t1 => Case.If(t1.a < 3) Then t1.b Else t1.a.? }.to[Set]
+      q4 = t1s.map { t1 => Case.If(t1.a < 3).Then(t1.b).Else(t1.a.?) }.to[Set]
       _ <- mark("q4", q4.result).map(_ shouldBe Set(Some(11), None, Some(3), Some(4)))
     } yield ()
   }
@@ -180,15 +180,18 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
       bs.schema
       ???
     } catch {
-      case t: NullPointerException if (t.getMessage ne null) && (t.getMessage contains "initialization order") =>
+      case t: NullPointerException if (t.getMessage ne null) && (t.getMessage.contains("initialization order")) =>
         // This is the expected error message from RelationalTableComponent.Table.column
     }
 
     try {
-      MappedColumnType.base[Id, Int](_.toInt, Id.apply)(implicitly, null.asInstanceOf[BaseColumnType[Int]])
+      // Shadows the profile's implicit `intColumnType` with null to provoke the initialization
+      // order error (passing implicit arguments explicitly is not portable to Scala 3).
+      implicit val intColumnType: BaseColumnType[Int] = null.asInstanceOf[BaseColumnType[Int]]
+      MappedColumnType.base[Id, Int](_.toInt, Id.apply)
       ???
     } catch {
-      case t: NullPointerException if (t.getMessage ne null) && (t.getMessage contains "initialization order") =>
+      case t: NullPointerException if (t.getMessage ne null) && (t.getMessage.contains("initialization order")) =>
       // This is the expected error message from RelationalTypesComponent.MappedColumnTypeFactory.assertNonNullType
     }
 

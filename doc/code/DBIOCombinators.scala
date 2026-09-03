@@ -17,9 +17,9 @@ object DBIOCombinators {
 
       val a1: DBIO[Unit] = DBIO.seq(ins1, ins2)
 
-      val a2: DBIO[Int] = ins1 andThen ins2
+      val a2: DBIO[Int] = ins1.andThen(ins2)
 
-      val a3: DBIO[(Int, Int)] = ins1 zip ins2
+      val a3: DBIO[(Int, Int)] = ins1.zip(ins2)
 
       val a4: DBIO[Vector[Int]] = DBIO.sequence(Vector(ins1, ins2))
       //#combinators1

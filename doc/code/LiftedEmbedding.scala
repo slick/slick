@@ -329,7 +329,7 @@ object LiftedEmbedding {
             //
             val q = coffees filter { coffee =>
               // You can do any subquery here - this example uses the foreign key relation in coffees.
-              coffee.supID in (
+              coffee.supID.in(
                 coffee.supplier filter {
                   _.name === "Delete Me"
                 } map {
@@ -398,17 +398,17 @@ object LiftedEmbedding {
           ),
           insertActions
         )).flatMap { _ =>
-          println((users returning users.map(_.id)).insertStatement)
+          println((users.returning(users.map(_.id))).insertStatement)
 
           //#insert3
           val userId =
-            (users returning users.map(_.id)) += User(None, "Stefan", "Zeiger")
+            (users.returning(users.map(_.id))) += User(None, "Stefan", "Zeiger")
           //#insert3
 
           //#insert3b
           val userWithId =
-            (users returning users.map(_.id)
-              into ((user, id) => user.copy(id = Some(id)))
+            (users.returning(users.map(_.id))
+              .into((user, id) => user.copy(id = Some(id)))
               ) += User(None, "Stefan", "Zeiger")
           //#insert3b
 
@@ -425,8 +425,8 @@ object LiftedEmbedding {
 
             val actions = DBIO.seq(
               users2.schema.create,
-              users2 forceInsertQuery (users.map { u => (u.id, u.first ++ " " ++ u.last) }),
-              users2 forceInsertExpr(users.length + 1, "admin")
+              users2.forceInsertQuery(users.map { u => (u.id, u.first ++ " " ++ u.last) }),
+              users2.forceInsertExpr(users.length + 1, "admin")
             )
             //#insert4
             db.run(actions).flatMap { _ =>
@@ -434,7 +434,7 @@ object LiftedEmbedding {
               val updated = users.insertOrUpdate(User(Some(1), "Admin", "Zeiger"))
               // returns: number of rows updated
 
-              val updatedAdmin = (users returning users).insertOrUpdate(User(Some(1), "Slick Admin", "Zeiger"))
+              val updatedAdmin = (users.returning(users)).insertOrUpdate(User(Some(1), "Slick Admin", "Zeiger"))
               // returns: None if updated, Some((Int, String)) if row inserted
               //#insertOrUpdate
               db.run(updated).flatMap(_ => db.run(updatedAdmin))

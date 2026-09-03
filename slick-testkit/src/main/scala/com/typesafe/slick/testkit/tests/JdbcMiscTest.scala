@@ -204,7 +204,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     val cleanupCalled = new AtomicBoolean(false)
     val recordCleanup = DBIO.successful(()).map(_ => cleanupCalled.set(true))
 
-    val streamAction = (t.sortBy(_.id).result andFinally recordCleanup)
+    val streamAction = (t.sortBy(_.id).result.andFinally(recordCleanup))
       .withPinnedSession
 
     for {
@@ -247,7 +247,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     val cleanupCalled = new AtomicBoolean(false)
     val recordCleanup = DBIO.successful(()).map(_ => cleanupCalled.set(true))
 
-    val streamAction = (t.result andFinally recordCleanup).withPinnedSession
+    val streamAction = (t.result.andFinally(recordCleanup)).withPinnedSession
 
     for {
       // Assertion 1: stream fails because the table does not exist

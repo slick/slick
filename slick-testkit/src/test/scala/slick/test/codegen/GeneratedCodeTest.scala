@@ -20,8 +20,8 @@ object GeneratedCodeTest {
       Suppliers.length.result.map(assertEquals("Size of Suppliers after change", 1, _)),
       Coffees.length.result.map(assertEquals("Size of Coffees", 0, _)),
       MTable.getTables(Some(""), Some(""), None, None).map { tables =>
-        val a = tables.find(_.name.name equals "a").get
-        val b = tables.find(_.name.name equals "b").get
+        val a = tables.find(_.name.name.equals("a")).get
+        val b = tables.find(_.name.name.equals("b")).get
         assertEquals("# of FKs of 'a' should be 1",
           1, A.baseTableRow.foreignKeys.size)
         assertEquals("# of FKs of 'b' should be 0",
@@ -53,9 +53,9 @@ object GeneratedCodeTest {
         val k1Options = optionsOfColumn(E.baseTableRow.k1)
         val k2Options = optionsOfColumn(E.baseTableRow.k2)
         val sOptions = optionsOfColumn(E.baseTableRow.s)
-        assertTrue("k1 should be AutoInc", k1Options.exists(option => (option equals E.baseTableRow.O.AutoInc)))
-        assertTrue("k2 should not be AutoInc", k2Options.forall(option => !(option equals E.baseTableRow.O.AutoInc)))
-        assertTrue("s should not be AutoInc", sOptions.forall(option => !(option equals E.baseTableRow.O.AutoInc)))
+        assertTrue("k1 should be AutoInc", k1Options.exists(option => (option.equals(E.baseTableRow.O.AutoInc))))
+        assertTrue("k2 should not be AutoInc", k2Options.forall(option => !(option.equals(E.baseTableRow.O.AutoInc))))
+        assertTrue("s should not be AutoInc", sOptions.forall(option => !(option.equals(E.baseTableRow.O.AutoInc))))
         // test default values
         assertEquals(None, ERow(1,2).n)
         assertEquals("test", ERow(1,2).s)

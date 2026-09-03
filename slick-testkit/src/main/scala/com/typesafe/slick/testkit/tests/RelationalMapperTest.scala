@@ -137,7 +137,7 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     val phones = TableQuery[Phones]
 
     // Carol (id 3) has no phone, so the IN-subquery filter must exclude her.
-    val q = people.filter(_.column[Unfetched]("id") in phones.map(_.column[Unfetched]("person")))
+    val q = people.filter(_.column[Unfetched]("id").in(phones.map(_.column[Unfetched]("person"))))
 
     seq(
       (people.schema ++ phones.schema).create,

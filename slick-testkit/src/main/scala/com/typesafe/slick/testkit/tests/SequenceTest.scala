@@ -14,7 +14,7 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
     }
     val users = TableQuery[Users]
 
-    val mySequence = Sequence[Int]("mysequence") start 200 inc 10
+    val mySequence = Sequence[Int]("mysequence").start(200).inc(10)
     val ddl = users.schema ++ mySequence.schema
     val q1 = for(u <- users) yield (mySequence.next, u.id)
     q1.result.statements
@@ -30,11 +30,11 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
 
   def test2 = ifCap(scap.sequence) {
     val s1 = Sequence[Int]("s1")
-    val s2 = Sequence[Int]("s2") start 3
-    val s3 = Sequence[Int]("s3") start 3 inc 2
-    val s4 = Sequence[Int]("s4").cycle start 3 min 2 max 5
-    val s5 = Sequence[Int]("s5").cycle start 3 min 2 max 5 inc -1
-    val s6 = Sequence[Int]("s6") start 3 min 2 max 5
+    val s2 = Sequence[Int]("s2").start(3)
+    val s3 = Sequence[Int]("s3").start(3).inc(2)
+    val s4 = Sequence[Int]("s4").cycle.start(3).min(2).max(5)
+    val s5 = Sequence[Int]("s5").cycle.start(3).min(2).max(5).inc(-1)
+    val s6 = Sequence[Int]("s6").start(3).min(2).max(5)
 
     def values(s: Sequence[Int], count: Int = 5, create: Boolean = true) = {
       val q = Query(s.next)

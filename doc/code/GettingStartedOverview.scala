@@ -34,15 +34,16 @@ object GettingStartedOverview {
 
       //#quick-query
       db.run(
-        coffees.schema.create andThen
+        coffees.schema.create.andThen(
       //#quick-query
           ( for( c <- coffees; if c.price < 10.0 ) yield c.name ).result
       //#quick-query
-            andThen
+        ).andThen(
       //#quick-query
           // or
           coffees.filter(_.price < 10.0).map(_.name).result
       //#quick-query
+        )
       ).flatMap { _ =>
       //#quick-query
 

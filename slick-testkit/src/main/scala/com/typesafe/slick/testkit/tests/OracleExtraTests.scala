@@ -38,8 +38,8 @@ class OracleExtraTests extends AsyncTest[JdbcTestDB] {
     val as = TableQuery[A]
 
     //as.schema.createStatements.foreach(println)
-    as.schema.createStatements.should(_.find(_.contains("sequence \"SEQ_SEQTRG\"")).isDefined)
-    as.schema.createStatements.should(_.find(_.contains("trigger \"TRG_SEQTRG\"")).isDefined)
+    as.schema.createStatements should (_.find(_.contains("sequence \"SEQ_SEQTRG\"")).isDefined)
+    as.schema.createStatements should (_.find(_.contains("trigger \"TRG_SEQTRG\"")).isDefined)
 
     DBIO.seq(
       as.schema.create,
