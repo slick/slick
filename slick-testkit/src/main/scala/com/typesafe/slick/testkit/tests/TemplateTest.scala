@@ -103,8 +103,8 @@ class TemplateTest extends AsyncTest[RelationalTestDB] {
       countBelow(3).result.map((r: Int) => r shouldBe 2),
       countBelowC(3).result.map((r: Int) => r shouldBe 2),
       joinC(1).result.map(_ shouldBe Seq(((1, "a"), (1, "a")))),
-      impShapedC.result.map((r: (Int, Int)) => r shouldBe (3, 3)),
-      expShapedC.result.map((r: (Int, Int)) => r shouldBe (3, 3))
+      impShapedC.result.map((r: (Int, Int)) => r shouldBe ((3, 3))),
+      expShapedC.result.map((r: (Int, Int)) => r shouldBe ((3, 3)))
     )
   }
 }

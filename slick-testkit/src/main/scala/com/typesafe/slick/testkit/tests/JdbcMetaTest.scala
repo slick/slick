@@ -8,7 +8,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
 
   class Users(tag: Tag) extends Table[(Int, String, Option[String])](tag, "users_xx") {
     def id = column[Int]("id", O.PrimaryKey)
-    def first = column[String]("first", O Default "NFN", O SqlType "varchar(64)")
+    def first = column[String]("first", O.Default("NFN"), O.SqlType("varchar(64)"))
     def last = column[Option[String]]("last")
     def * = (id, first, last)
   }
@@ -18,8 +18,8 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     def userID = column[Int]("userID")
     def orderID = column[Int]("orderID", O.PrimaryKey)
     def product = column[String]("product")
-    def shipped = column[Boolean]("shipped", O Default false)
-    def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
+    def shipped = column[Boolean]("shipped", O.Default(false))
+    def rebate = column[Option[Boolean]]("rebate", O.Default(Some(false)))
     def * = (userID, orderID, product, shipped, rebate)
     def userFK = foreignKey("user_fk", userID, users)(_.id)
   }
@@ -66,7 +66,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     ifCap(tcap.jdbcMetaGetClientInfoProperties)(MClientInfoProperty.getClientInfoProperties)
       .named("Client Info Properties from DatabaseMetaData"),
 
-    tdb.profile.defaultTables.map(_.should(ts =>
+    tdb.profile.defaultTables.map(_ should (ts =>
       Set("orders_xx", "users_xx") subsetOf ts.map(_.name.name).toSet
     )).named("Tables before deleting")
 

@@ -69,7 +69,7 @@ object TestDB {
     }
     val dir = new File(TestkitConfig.testDir)
     if(!dir.isDirectory) throw new IOException("Directory "+TestkitConfig.testDir+" not found")
-    for(f <- dir.listFiles if f.getName startsWith prefix) {
+    for(f <- dir.listFiles if f.getName.startsWith(prefix)) {
       val p = TestkitConfig.testDir+"/"+f.getName
       if(deleteRec(f)) println("[Deleted database file "+p+"]")
       else throw new IOException("Couldn't delete database file "+p)

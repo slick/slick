@@ -133,7 +133,7 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
       _ <- createModel(Some(tables.filter(_.name.name.toUpperCase=="CATEGORIES")), ignoreInvalidDefaults = false).map(_.assertConsistency())
       // checks that assertConsistency fails when manually feeding the model with inconsistent tables
       _ <- createModel(Some(tables), ignoreInvalidDefaults = false).map { m =>
-        Model(m.tables.filter(_.name.table.toUpperCase=="POSTS")).shouldFail(_.assertConsistency())
+        Model(m.tables.filter(_.name.table.toUpperCase=="POSTS")) shouldFail (_.assertConsistency())
       }
       model <- createModel(ignoreInvalidDefaults=false)
       _ = {

@@ -81,7 +81,7 @@ object OrmToSlick {
 
         val r1 = {
           //#slickNavigation
-          val peopleQuery: Query[People,Person,Seq] = people.filter(_.id inSet(Set(2,99,17,234)))
+          val peopleQuery: Query[People,Person,Seq] = people.filter(_.id.inSet(Set(2,99,17,234)))
           val addressesQuery: Query[Addresses,Address,Seq] = peopleQuery.flatMap(_.address)
           //#slickNavigation
           //#slickExecution
@@ -103,10 +103,10 @@ object OrmToSlick {
             //#criteriaQuery
             val id = Property.forName("id")
             val q = session.createCriteria(classOf[Person])
-                           .add( id in Array(2,99,17,234) )
+                           .add( id.in(Array(2,99,17,234)) )
             //#criteriaQuery
             //#criteriaQueryComposition
-            def byIds(c: Criteria, ids: Array[Int]) = c.add( id in ids )
+            def byIds(c: Criteria, ids: Array[Int]) = c.add( id.in(ids) )
 
             val c = byIds(
               session.createCriteria(classOf[Person]),
@@ -119,8 +119,8 @@ object OrmToSlick {
             val q = session.createCriteria(classOf[Person])
                            .add(
                              Restrictions.disjunction
-                               .add(age lt 5)
-                               .add(age gt 65)
+                               .add(age.lt(5))
+                               .add(age.gt(65))
                            )
             //#criteriaComposition
           };{
@@ -231,7 +231,7 @@ object OrmToSlick {
               }.flatMap { _ =>
                 //#associationTuple
                 val tupledJoin: Query[(People,Addresses),(Person,Address), Seq]
-                      = people join addresses on (_.addressId === _.id)
+                      = people.join(addresses).on(_.addressId === _.id)
 
                 case class PersonWithAddress(person: Person, address: Address)
                 val caseClassJoinResults = db.run(tupledJoin.result).map(_.map((PersonWithAddress.apply _).tupled))

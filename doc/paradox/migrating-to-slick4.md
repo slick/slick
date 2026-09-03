@@ -79,6 +79,21 @@ Keep your existing `slick` and `slick-hikaricp` dependencies. Remove any direct 
 
 Slick 4 supports **Scala 2.12**, **Scala 2.13**, and **Scala 3** (primary).
 
+### Infix method syntax on Scala 3
+
+Older Slick documentation wrote queries in infix style, for example `coffees join suppliers on (_.supID === _.id)`.
+Since Scala 3.4 the compiler warns when an alphanumeric method that is not declared `infix` is used as an
+infix operator, and with `-source:future` (or fatal warnings) this is a compile error. Slick does not declare
+its query methods `infix`, so the Slick 4 documentation and test suite use regular method syntax throughout:
+
+```scala
+coffees.join(suppliers).on(_.supID === _.id)
+```
+
+Existing infix call sites keep working on Scala 2 and, with a warning, on Scala 3. To convert them either use the
+compiler's rewrite (`-rewrite -source 3.4-migration`, which adds backticks) or scalafmt's `AvoidInfix` rewrite rule
+(which produces method syntax).
+
 ---
 
 ## 2. Database Construction
@@ -441,3 +456,4 @@ If your project fails to compile after upgrading, use this table:
 | `object AsyncExecutor is not a member of package slick.util` | class removed | Remove all `AsyncExecutor` usage |
 | `object Database is not a member of package slick.jdbc` or `value forConfig is not a member of ...` | `Database.forXxx` removed | Use `DatabaseConfig.forXxx` — see [Database Construction](#2-database-construction) |
 | `class JdbcDatabaseDef takes type parameters` on a variable type annotation | explicit `JdbcDatabaseDef` type annotation from Slick 3 | Change to `val db: slick.future.Database` and migrate factory call |
+| `Alphanumeric method join is not declared infix` (warning, or error with `-source:future`) | Scala 3.4+ infix rule, not a Slick change | Use method syntax: `a.join(b).on(...)` — see [Infix method syntax](#infix-method-syntax-on-scala-3) |

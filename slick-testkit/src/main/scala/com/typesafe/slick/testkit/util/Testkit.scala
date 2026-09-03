@@ -261,6 +261,8 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     }.compile.toVector
   }
 
+  /** Assertion DSL, used infix like ScalaTest matchers: `r shouldBe Set(1, 2)`. The `infix`
+    * modifier satisfies Scala 3.4+; Scala 2 accepts it as a no-op under -Xsource:3. */
   implicit class AssertionExtensionMethods[T](v: T) {
     private[this] val cln = getClass.getName
     private[this] def fixStack(f: => Unit): Unit = try f catch {
@@ -269,13 +271,13 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
         throw ex
     }
 
-    def shouldBe(o: Any): Unit = fixStack(Assert.assertEquals(o, v))
+    infix def shouldBe(o: Any): Unit = fixStack(Assert.assertEquals(o, v))
 
-    def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
+    infix def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
 
-    def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue("'should' assertion failed for value: "+v, f(v)))
+    infix def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue("'should' assertion failed for value: "+v, f(v)))
 
-    def shouldFail(f: T => Unit): Unit = {
+    infix def shouldFail(f: T => Unit): Unit = {
       var ok = false
       try { f(v); ok = true } catch { case _: Throwable => }
       if(ok) fixStack(Assert.fail("Expected failure"))
@@ -295,19 +297,19 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
         throw ex
     }
 
-    def shouldAllMatch(f: PartialFunction[T, ?]) = v.iterator.foreach { x =>
+    infix def shouldAllMatch(f: PartialFunction[T, ?]) = v.iterator.foreach { x =>
       if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
     }
   }
 
   implicit class DBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action: DBIOAction[T, S, E]) {
-    def shouldYield(t: T) = action.map(_.shouldBe(t))
+    infix def shouldYield(t: T) = action.map(_ shouldBe t)
   }
 
   implicit class CollectionDBIOActionExtensionMethods[T, +S <: NoStream, -E <: Effect](action:
                                                                                        DBIOAction[Vector[T], S, E]) {
-    def shouldYield(t: Set[T]) = action.map(_.toSet.shouldBe(t))
-    def shouldYield(t: Seq[T]) = action.map(_.shouldBe(t))
-    def shouldYield(t: List[T]) = action.map(_.toList.shouldBe(t))
+    infix def shouldYield(t: Set[T]) = action.map(_.toSet shouldBe t)
+    infix def shouldYield(t: Seq[T]) = action.map(_ shouldBe t)
+    infix def shouldYield(t: List[T]) = action.map(_.toList shouldBe t)
   }
 }

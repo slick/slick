@@ -52,14 +52,14 @@ object JoinsUnions {
 
     //#explicit
     val crossJoin = for {
-      (c, s) <- coffees join suppliers
+      (c, s) <- coffees.join(suppliers)
     } yield (c.name, s.name)
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     inner join "SUPPLIERS" x3
 
     val innerJoin = for {
-      (c, s) <- coffees join suppliers on (_.supID === _.id)
+      (c, s) <- coffees.join(suppliers).on(_.supID === _.id)
     } yield (c.name, s.name)
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
@@ -67,7 +67,7 @@ object JoinsUnions {
     //     on x2."SUP_ID" = x3."SUP_ID"
 
     val leftOuterJoin = for {
-      (c, s) <- coffees joinLeft suppliers on (_.supID === _.id)
+      (c, s) <- coffees.joinLeft(suppliers).on(_.supID === _.id)
     } yield (c.name, s.map(_.name))
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
@@ -75,7 +75,7 @@ object JoinsUnions {
     //     on x2."SUP_ID" = x3."SUP_ID"
 
     val rightOuterJoin = for {
-      (c, s) <- coffees joinRight suppliers on (_.supID === _.id)
+      (c, s) <- coffees.joinRight(suppliers).on(_.supID === _.id)
     } yield (c.map(_.name), s.name)
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
@@ -83,7 +83,7 @@ object JoinsUnions {
     //     on x2."SUP_ID" = x3."SUP_ID"
 
     val fullOuterJoin = for {
-      (c, s) <- coffees joinFull suppliers on (_.supID === _.id)
+      (c, s) <- coffees.joinFull(suppliers).on(_.supID === _.id)
     } yield (c.map(_.name), s.map(_.name))
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
@@ -98,7 +98,7 @@ object JoinsUnions {
 
     //#zip
     val zipJoinQuery = for {
-      (c, s) <- coffees zip suppliers
+      (c, s) <- coffees.zip(suppliers)
     } yield (c.name, s.name)
 
     val zipWithJoin = for {
@@ -119,7 +119,7 @@ object JoinsUnions {
     val q1 = coffees.filter(_.price < 8.0)
     val q2 = coffees.filter(_.price > 9.0)
 
-    val unionQuery = q1 union q2
+    val unionQuery = q1.union(q2)
     // compiles to SQL (simplified):
     //   select x8."COF_NAME", x8."SUP_ID", x8."PRICE", x8."SALES", x8."TOTAL"
     //     from "COFFEES" x8

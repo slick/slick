@@ -176,7 +176,7 @@ object SqlToSlick {
               //#slickQueryProjectionWildcard
               people.result
               //#slickQueryProjectionWildcard
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -193,7 +193,7 @@ object SqlToSlick {
               //#slickQueryProjection
               people.map(p => (p.age, p.name ++ " (" ++ p.id.asColumnOf[String] ++ ")")).result
               //#slickQueryProjection
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -207,7 +207,7 @@ object SqlToSlick {
               //#slickQueryFilter
               people.filter(p => p.age >= 18 && p.name === "C. Vogt").result
               //#slickQueryFilter
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -221,7 +221,7 @@ object SqlToSlick {
               //#slickQueryOrderBy
               people.sortBy(p => (p.age.asc, p.name)).result
               //#slickQueryOrderBy
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -235,7 +235,7 @@ object SqlToSlick {
               //#slickQueryAggregate
               people.map(_.age).max.result
               //#slickQueryAggregate
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
             }
           }
@@ -254,7 +254,7 @@ object SqlToSlick {
                      .map{ case (addressId, group) => (addressId, group.map(_.age).avg) }
                      .result
               //#slickQueryGroupBy
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
               assert(sqlRes.exists(_._2 == Some(1000.0)))
@@ -278,7 +278,7 @@ object SqlToSlick {
                      .map(_._1)
                      .result
               //#slickQueryHaving
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -308,7 +308,7 @@ object SqlToSlick {
                ) yield (p.name, a.city)
               ).result
               //#slickQueryImplicitJoin
-            db.run(sql zip slick zip slick2).map { case ((sqlRes, slickRes), slick2Res) =>
+            db.run(sql.zip(slick).zip(slick2)).map { case ((sqlRes, slickRes), slick2Res) =>
               assert(sqlRes == slickRes)
               assert(slickRes == slick2Res)
               assert(sqlRes.size > 0)
@@ -325,10 +325,10 @@ object SqlToSlick {
               //#sqlQueryExplicitJoin
             val slick =
               //#slickQueryExplicitJoin
-              (people join addresses on (_.addressId === _.id))
+              (people.join(addresses).on(_.addressId === _.id))
                 .map{ case (p, a) => (p.name, a.city) }.result
               //#slickQueryExplicitJoin
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -344,10 +344,10 @@ object SqlToSlick {
               //#sqlQueryLeftJoin
             val slick =
               //#slickQueryLeftJoin
-              (addresses joinLeft people on (_.id === _.addressId))
+              (addresses.joinLeft(people).on(_.id === _.addressId))
                 .map{ case (a, p) => (p.map(_.name), a.city) }.result
               //#slickQueryLeftJoin
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -366,10 +366,10 @@ object SqlToSlick {
             val slick = {
               //#slickQueryCollectionSubQuery
               val address_ids = addresses.filter(_.city === "New York City").map(_.id)
-              people.filter(_.id in address_ids).result // <- run as one query
+              people.filter(_.id.in(address_ids)).result // <- run as one query
               //#slickQueryCollectionSubQuery
             }
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -387,11 +387,11 @@ object SqlToSlick {
             }
             val slick = {
               //#slickQueryInSet
-              people.filter(_.id inSet Set(1,2))
+              people.filter(_.id.inSet(Set(1,2)))
                      .result
               //#slickQueryInSet
             }
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
               assert(sqlRes.size > 0)
             }
@@ -458,12 +458,12 @@ object SqlToSlick {
                      .delete
               //#slickQueryDelete
             }
-            db.run(sqlInsert zip slickInsert).flatMap { case (sqlInsertRes, slickInsertRes) =>
+            db.run(sqlInsert.zip(slickInsert)).flatMap { case (sqlInsertRes, slickInsertRes) =>
               assert(sqlInsertRes == slickInsertRes)
-              db.run(sqlUpdate zip slickUpdate).flatMap { case (sqlUpdateRes, slickUpdateRes) =>
+              db.run(sqlUpdate.zip(slickUpdate)).flatMap { case (sqlUpdateRes, slickUpdateRes) =>
                 assert(sqlUpdateRes == 2)
                 assert(slickUpdateRes == 0)
-                db.run(sqlDelete zip slickDelete).map { case (sqlDeleteRes, slickDeleteRes) =>
+                db.run(sqlDelete.zip(slickDelete)).map { case (sqlDeleteRes, slickDeleteRes) =>
                   assert(sqlDeleteRes == 2)
                   assert(slickDeleteRes == 0)
                 }
@@ -486,11 +486,11 @@ object SqlToSlick {
               //#slickCase
               people.map(p =>
                 Case
-                  If(p.addressId === 1) Then "A"
-                  If(p.addressId === 2) Then "B"
+                  .If(p.addressId === 1).Then("A")
+                  .If(p.addressId === 2).Then("B")
               ).result
               //#slickCase
-            db.run(sql zip slick).map { case (sqlRes, slickRes) =>
+            db.run(sql.zip(slick)).map { case (sqlRes, slickRes) =>
               assert(sqlRes == slickRes)
             }
           }

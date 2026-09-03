@@ -13,12 +13,12 @@ class PagingTest extends AsyncTest[RelationalTestDB] {
   def testRawPagination = {
     lazy val ids = TableQuery(new IDs(_, "ids_raw"))
     val q1 = ids.sortBy(_.id)
-    val q2 = q1 take 5
-    def q3 = q1 drop 5
-    def q4 = q1 drop 5 take 3
+    val q2 = q1.take(5)
+    def q3 = q1.drop(5)
+    def q4 = q1.drop(5).take(3)
     val q4b = q1.drop(5).take(3).sortBy(_.id)
-    def q5 = q1 take 5 drop 3
-    val q6 = q1 take 0
+    def q5 = q1.take(5).drop(3)
+    val q6 = q1.take(0)
     val q7 = ids.filter(_.id > 3).sortBy(_.id).take(3)
 
     for {

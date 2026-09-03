@@ -45,7 +45,7 @@ object GenerateRoundtripSources {
     val a3 = profile.createModel(ignoreInvalidDefaults = false).map(m => new SourceCodeGenerator(m))
     val dc = DatabaseConfig.forURL(H2Profile, url = url, driver = jdbcDriver, keepAliveConnection = true)
     val ((gen,gen2),gen3) = Database.resource(dc).use { db =>
-      db.run(ddl.create >> ((a1 zip a2) zip a3))
+      db.run(ddl.create >> ((a1.zip(a2)).zip(a3)))
     }.unsafeRunSync()
     val pkg = "slick.test.codegen.roundtrip"
     gen.writeToFile( "slick.jdbc.H2Profile", args(0), pkg )

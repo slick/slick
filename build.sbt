@@ -105,8 +105,6 @@ def slickScalacOptions = Seq(
           "-Wconf:cat=unused-imports&src=src_managed/.*:silent",
           "-Wconf:cat=unused-imports&origin=slick\\.compat\\.collection\\..*:s"
         ) ++ scala2InlineSettings.value
-      case Some((3, _)) =>
-        List("-source:3.0-migration")
       case _ =>
         Nil
     })
@@ -214,11 +212,23 @@ def slickCollectionsCompatSettings = Seq(
   scalacOptions ++= scala2InlineSettings.value
 )
 
+/** The core library is cross-compiled with Scala 2.12 and therefore still uses Scala 2 syntax
+  * (explicit implicit arguments, `_` wildcards, `with` types) that Scala 3 only accepts in
+  * migration mode. Everything else (tests, docs, facades) compiles in regular Scala 3 mode so
+  * that the examples reflect what users see, e.g. the alphanumeric infix warning. */
+def scala3MigrationMode = Def.setting {
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((3, _)) => List("-source:3.0-migration")
+    case _ => Nil
+  }
+}
+
 lazy val slick =
   project
     .enablePlugins(MimaPlugin)
     .settings(
       slickGeneralSettings,
+      scalacOptions ++= scala3MigrationMode.value,
       compilerDependencySetting("provided"),
       FMPP.preprocessorSettings,
       extTarget("slick"),
