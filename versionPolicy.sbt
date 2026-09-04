@@ -4,7 +4,6 @@ ThisBuild / versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+
 
 ThisBuild / versionPolicyPreviousVersions := CompatReportPlugin.previousRelease.value.toSeq
 
-// main is now developing Slick 4. Compatibility reports against 3.x releases are meaningless, since 4.0.0 is
-// intentionally breaking. Only 4.x releases are considered as the previous release, and the report is skipped until
-// the first one (4.0.0) has been published.
+// Major version series under development. The compatibility report only compares against releases of this series;
+// while none has been published yet, the report is skipped. Bump when work on the next major version starts.
 ThisBuild / compatReportMajorVersion := Some(4)

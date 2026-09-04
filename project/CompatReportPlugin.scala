@@ -17,6 +17,12 @@ object CompatReportPlugin extends AutoPlugin {
 
   val previousRelease = settingKey[Option[String]]("Determine the artifact of the previous release")
 
+  val previousReleaseMajorVersion =
+    settingKey[Option[String]](
+      "Major version series (first version component) a previous release must belong to. " +
+        "compatReportMajorVersion if set, otherwise the major version of the current version."
+    )
+
   case class ModuleReport(module: String,
                           sinceVersion: String,
                           depChanges: Seq[DependencyChangeInfo],
@@ -34,9 +40,9 @@ object CompatReportPlugin extends AutoPlugin {
 
     val compatReportMajorVersion =
       settingKey[Option[Int]](
-        "Major version series currently under development (e.g. Some(4) while working towards 4.0.0). " +
-          "When set, only releases of that series are considered as the previous release, and the report is " +
-          "skipped if none has been published yet. When None, the latest release below the current version is used."
+        "Major version series the compatibility report compares against. Only releases with this first version " +
+          "component are considered as the previous release, and the report is skipped if none has been " +
+          "published yet. When None, the series is taken from the current version."
       )
   }
 
@@ -187,10 +193,12 @@ object CompatReportPlugin extends AutoPlugin {
 
   override def projectSettings =
     List(
+      previousReleaseMajorVersion :=
+        compatReportMajorVersion.value.map(_.toString).orElse(majorVersionOf(Version(Keys.version.value))),
       previousRelease := {
         val versions = previousVersionsFromRepo.value
         val cur = Version(Keys.version.value)
-        val requiredMajor = compatReportMajorVersion.value.map(_.toString)
+        val requiredMajor = previousReleaseMajorVersion.value
         val candidates =
           versions.map(Version(_))
             .filterNot { version =>
@@ -212,16 +220,21 @@ object CompatReportPlugin extends AutoPlugin {
             // Without a previous release there is nothing to compare against; skip instead of failing
             versionPolicyFindIssues / Keys.skip := previousRelease.value.isEmpty,
             compatReportData := {
-              if (previousRelease.value.isEmpty)
-                Keys.streams.value.log.info(
-                  s"Skipping compatibility report for ${Keys.name.value}: no previous release found" +
-                    compatReportMajorVersion.value.fold("")(major => s" in the $major.x series")
+              val log = Keys.streams.value.log
+              val previous = previousRelease.value
+              val moduleName = Keys.name.value
+              val majorVersion = previousReleaseMajorVersion.value
+              val issues = versionPolicyFindIssues.value
+              if (previous.isEmpty)
+                log.info(
+                  s"Skipping compatibility report for $moduleName: no previous release found" +
+                    majorVersion.fold("")(major => s" in the $major.x series")
                 )
-              for ((moduleId, (DependencyCheckReport(depReports), codeProblems)) <- versionPolicyFindIssues.value)
+              for ((moduleId, (DependencyCheckReport(depReports), codeProblems)) <- issues)
                 yield
                   ModuleReport(
                     module = moduleId.name,
-                    sinceVersion = previousRelease.value.getOrElse("n/a"),
+                    sinceVersion = previous.getOrElse("n/a"),
                     depChanges =
                       depReports.toSeq.flatMap { case (incompatibilityType, statuses) =>
                         statuses.collect { case ((org, name), status) if !status.validated =>
