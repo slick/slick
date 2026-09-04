@@ -448,13 +448,19 @@ lazy val site: Project =
           CompatReportPlugin.previousRelease
             .all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit)))
             .value
+        val majorVersion =
+          CompatReportPlugin.previousReleaseMajorVersion
+            .all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit)))
+            .value
+            .flatten
+            .headOption
         val file = (buildCompatReport / target).value / "compat-report.md"
         IO.write(
           file,
           "## Incompatible changes\n\n" +
             (if (previousReleases.forall(_.isEmpty))
               "No previous release to compare against" +
-                compatReportMajorVersion.value.fold("")(major => s" in the $major.x series")
+                majorVersion.fold("")(major => s" in the $major.x series")
             else if (compatReports.forall(_.trim.isEmpty))
               "There are no incompatible changes"
             else
