@@ -8,6 +8,11 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
+      # dorny/test-reporter runs `git ls-files` to map test failures to source
+      # files, so the repository must be checked out even in a workflow_run job.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - name: Merge Artifacts
         uses: actions/download-artifact@v8
         with:
