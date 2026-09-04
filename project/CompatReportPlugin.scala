@@ -31,6 +31,13 @@ object CompatReportPlugin extends AutoPlugin {
       taskKey[Seq[ModuleReport]]("Generate the compatibility report data")
 
     val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
+
+    val compatReportMajorVersion =
+      settingKey[Option[Int]](
+        "Major version series currently under development (e.g. Some(4) while working towards 4.0.0). " +
+          "When set, only releases of that series are considered as the previous release, and the report is " +
+          "skipped if none has been published yet. When None, the latest release below the current version is used."
+      )
   }
 
   import autoImport.*
@@ -170,18 +177,28 @@ object CompatReportPlugin extends AutoPlugin {
     res.getMergedListings.getAvailable.asScala
   }
 
+  private def majorVersionOf(version: Version): Option[String] =
+    version.items.headOption.collect { case n: Version.Numeric => n.repr }
+
+  override def buildSettings =
+    List(
+      compatReportMajorVersion := None
+    )
+
   override def projectSettings =
     List(
       previousRelease := {
         val versions = previousVersionsFromRepo.value
         val cur = Version(Keys.version.value)
-        val sorted =
+        val requiredMajor = compatReportMajorVersion.value.map(_.toString)
+        val candidates =
           versions.map(Version(_))
             .filterNot { version =>
               version >= cur ||
-                version.items.exists { case t: Version.Tag => t.isPreRelease case _ => false }
+                version.items.exists { case t: Version.Tag => t.isPreRelease case _ => false } ||
+                requiredMajor.exists(major => !majorVersionOf(version).contains(major))
             }
-        if (sorted.isEmpty) None else Some(sorted.max.repr)
+        if (candidates.isEmpty) None else Some(candidates.max.repr)
       }
     ) ++
       inConfig(CompatReport)(
@@ -192,7 +209,14 @@ object CompatReportPlugin extends AutoPlugin {
           List(
             versionPolicyPreviousVersions := previousRelease.value.toList,
             versionPolicyIntention := Versioning.BumpMinor,
+            // Without a previous release there is nothing to compare against; skip instead of failing
+            versionPolicyFindIssues / Keys.skip := previousRelease.value.isEmpty,
             compatReportData := {
+              if (previousRelease.value.isEmpty)
+                Keys.streams.value.log.info(
+                  s"Skipping compatibility report for ${Keys.name.value}: no previous release found" +
+                    compatReportMajorVersion.value.fold("")(major => s" in the $major.x series")
+                )
               for ((moduleId, (DependencyCheckReport(depReports), codeProblems)) <- versionPolicyFindIssues.value)
                 yield
                   ModuleReport(
