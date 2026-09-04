@@ -4,22 +4,29 @@ on:
     workflows: [ 'CI' ]                     # runs after CI workflow
     types:
       - completed
+  workflow_dispatch:                        # manual run, e.g. to test changes to this workflow from a branch
+    inputs:
+      run_id:
+        description: 'ID of the CI workflow run whose test-results artifacts to report on'
+        required: true
+        type: string
 jobs:
   report:
     runs-on: ubuntu-latest
     steps:
       # dorny/test-reporter runs `git ls-files` to map test failures to source
       # files, so the repository must be checked out even in a workflow_run job.
+      # The default branch is checked out on purpose: this job runs with the base
+      # repository's write token, and actions/checkout refuses to fetch fork PR
+      # code in that context. The file list of main is sufficient for mapping.
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
       - name: Merge Artifacts
         uses: actions/download-artifact@v8
         with:
           pattern: test-results-*
           merge-multiple: true
           path: test-results
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: dorny/test-reporter@v3
         with:
