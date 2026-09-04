@@ -42,7 +42,6 @@ jobs:
         env:
           ORACLE_PASSWORD: oracle
         ports:
-          - 49160:22
           - 49161:1521
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2025-latest
