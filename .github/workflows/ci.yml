@@ -62,13 +62,17 @@ jobs:
         # DB2 takes several minutes to create SLICKTST on first start. Without a
         # health check the build can reach the codegen/testkit DB2 connection
         # before the database exists (SQLCODE=-1035, SQLSTATE=57019).
+        # The image touches this marker right after ACTIVATE DATABASE. Do not
+        # probe with `db2 connect` instead: each CLP probe leaves an orphaned
+        # db2bp connection behind, which makes admin_drop_schema fail in the
+        # testkit cleanup (SQL0478N).
         options: >-
           --privileged
-          --health-cmd "su - db2inst1 -c 'db2 connect to SLICKTST'"
+          --health-cmd "test -f /database/config/.shared-data/setup_complete"
           --health-start-period 90s
-          --health-interval 15s
-          --health-timeout 30s
-          --health-retries 40
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 60
 
     steps:
       - uses: actions/checkout@v7

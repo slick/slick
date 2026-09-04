@@ -35,11 +35,13 @@ services:
       LICENSE: accept
     privileged: true
     healthcheck:
-      test: ["CMD-SHELL", "su - db2inst1 -c 'db2 connect to SLICKTST'"]
+      # Marker touched by the image after ACTIVATE DATABASE. A `db2 connect`
+      # probe would leak CLP connections and break the testkit schema cleanup.
+      test: ["CMD", "test", "-f", "/database/config/.shared-data/setup_complete"]
       start_period: 90s
-      interval: 15s
-      timeout: 30s
-      retries: 40
+      interval: 10s
+      timeout: 5s
+      retries: 60
   mysql:
     image: mysql
     command: "--disable-log-bin"
