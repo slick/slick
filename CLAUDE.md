@@ -24,10 +24,10 @@ sbt clean compile
 # Cross-compile for all supported Scala versions
 sbt ++2.12.21 compile
 sbt ++2.13.18 compile
-sbt ++3.8.3 compile
+sbt ++3.9.0 compile
 
 # Force specific Scala version for testing
-sbt ++3.8.3! compile
+sbt ++3.9.0! compile
 
 # Generate API documentation
 sbt doc
@@ -67,7 +67,7 @@ sbt -Dslick.ansiDump=true testkit/test
 # Cross-version testing
 sbt ++2.12.21 testkit/test
 sbt ++2.13.18 testkit/test
-sbt ++3.8.3! testkit/test
+sbt ++3.9.0! testkit/test
 
 # Codegen tests (requires cleaning managed sources first)
 rm -rf slick-testkit/target/scala-2.13/src_managed && sbt 'testOnly slick.test.codegen.*'
