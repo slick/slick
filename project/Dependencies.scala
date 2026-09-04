@@ -9,7 +9,7 @@ object Dependencies {
 
   val scalaVersions = Seq(scala212, scala213, scala3) // When updating these also update ci.yml and .mergify.yml
 
-  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.18"
+  val slf4j = "org.slf4j" % "slf4j-api" % "2.0.19"
   val typesafeConfig = "com.typesafe" % "config" % "1.4.9"
   val reactiveStreamsVersion = "1.0.4"
   val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
