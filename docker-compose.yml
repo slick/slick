@@ -15,7 +15,6 @@ services:
     environment:
       - ORACLE_PASSWORD=oracle
     ports:
-      - "49160:22"
       - "49161:1521"
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2025-latest
@@ -35,6 +34,14 @@ services:
       DBNAME: SLICKTST
       LICENSE: accept
     privileged: true
+    healthcheck:
+      # Marker touched by the image after ACTIVATE DATABASE. A `db2 connect`
+      # probe would leak CLP connections and break the testkit schema cleanup.
+      test: ["CMD", "test", "-f", "/database/config/.shared-data/setup_complete"]
+      start_period: 90s
+      interval: 10s
+      timeout: 5s
+      retries: 60
   mysql:
     image: mysql
     command: "--disable-log-bin"
