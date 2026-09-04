@@ -43,13 +43,6 @@ jobs:
           ORACLE_PASSWORD: oracle
         ports:
           - 49161:1521
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2025-latest
-        env:
-          ACCEPT_EULA: Y
-          MSSQL_SA_PASSWORD: Freeslick18
-        ports:
-          - 1401:1433
       db2:
         image: ibmcom/db2:11.5.8.0
         ports:
@@ -81,6 +74,36 @@ jobs:
 
       - name: Start MySQL
         run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
+
+      # SQL Server is deliberately not a service container. SQL Server 2025 intermittently dies
+      # during startup (sqlpal fatal error: errno 11 in lsass, or AppLoader 0xC0000001) when it
+      # boots at the same time as the privileged DB2 container runs its initial setup on the same
+      # CPUs. Service containers all start together; by the time this step runs, DB2 is healthy
+      # and its setup is finished. Readiness is checked here so the build never races it, and a
+      # crashed start is retried.
+      - name: Start SQL Server
+        run: |
+          for attempt in 1 2 3; do
+            docker rm -f sqlserver >/dev/null 2>&1 || true
+            docker run -d --name sqlserver -p 1401:1433 \
+              -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD=Freeslick18 \
+              mcr.microsoft.com/mssql/server:2025-latest
+            for i in $(seq 1 60); do
+              if docker logs sqlserver 2>&1 | grep -q 'Recovery is complete'; then
+                echo "SQL Server is ready (attempt $attempt)"
+                exit 0
+              fi
+              if docker logs sqlserver 2>&1 | grep -q 'fatal error'; then
+                echo "::warning::SQL Server crashed during startup (attempt $attempt), retrying"
+                docker logs sqlserver 2>&1 | grep -E 'Reason|Message|errno' | head -5
+                break
+              fi
+              sleep 2
+            done
+          done
+          echo "::error::SQL Server did not start after 3 attempts"
+          docker logs sqlserver 2>&1 | tail -40
+          exit 1
 
       - name: Set up JDK
         uses: actions/setup-java@v5
