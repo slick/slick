@@ -35,6 +35,12 @@ services:
       DBNAME: SLICKTST
       LICENSE: accept
     privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "su - db2inst1 -c 'db2 connect to SLICKTST'"]
+      start_period: 90s
+      interval: 15s
+      timeout: 30s
+      retries: 40
   mysql:
     image: mysql
     command: "--disable-log-bin"

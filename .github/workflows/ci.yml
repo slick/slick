@@ -60,8 +60,16 @@ jobs:
           DB2INSTANCE: db2inst1
           DBNAME: SLICKTST
           LICENSE: accept
+        # DB2 takes several minutes to create SLICKTST on first start. Without a
+        # health check the build can reach the codegen/testkit DB2 connection
+        # before the database exists (SQLCODE=-1035, SQLSTATE=57019).
         options: >-
           --privileged
+          --health-cmd "su - db2inst1 -c 'db2 connect to SLICKTST'"
+          --health-start-period 90s
+          --health-interval 15s
+          --health-timeout 30s
+          --health-retries 40
 
     steps:
       - uses: actions/checkout@v7
