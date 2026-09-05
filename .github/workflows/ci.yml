@@ -119,6 +119,7 @@ jobs:
         run: |
           sbt ++${{ matrix.scala }} coverage testAll coverageReport
         env:
+          COURSIER_REPOSITORIES: "https://repo.maven.apache.org/maven2"
           SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
           TZ: Asia/Kamchatka
           SLICK_SKIP_DIAGRAMS: "true"
