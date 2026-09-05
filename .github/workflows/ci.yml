@@ -108,7 +108,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: adopt
+          distribution: temurin
           java-version: ${{ fromJson(env.JAVA_VERSIONS)[matrix.java] }}
           cache: sbt
 
@@ -146,7 +146,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: adopt
+          distribution: temurin
           java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMin'] }}
           cache: sbt
 
@@ -183,7 +183,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: adopt
+          distribution: temurin
           java-version: ${{ fromJson(env.JAVA_VERSIONS)['javaMin'] }}
           cache: sbt
 
