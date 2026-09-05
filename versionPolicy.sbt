@@ -4,6 +4,7 @@ ThisBuild / versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+
 
 ThisBuild / versionPolicyPreviousVersions := CompatReportPlugin.previousRelease.value.toSeq
 
-// Major version series under development. The compatibility report only compares against releases of this series;
-// while none has been published yet, the report is skipped. Bump when work on the next major version starts.
-ThisBuild / compatReportMajorVersion := Some(4)
+// Major version under development. Until a tag of this major version is reachable, untagged commits are versioned as
+// <major>.0.0-pre.<n>.<sha>. The compatibility report only compares against releases of the same major version; while
+// none has been published yet, the report is skipped. Bump when work on the next major version starts.
+ThisBuild / developmentMajorVersion := Some(4)

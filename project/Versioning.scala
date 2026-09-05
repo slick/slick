@@ -17,6 +17,17 @@ object Versioning extends AutoPlugin {
   val BumpMajor = Compatibility.None
   val BumpEpoch = Compatibility.None
 
+  object autoImport {
+    val developmentMajorVersion =
+      settingKey[Option[Int]](
+        "Major version under development. While no tag of this major version is reachable from the current commit, " +
+          "untagged commits are versioned as <major>.0.0-pre.<n>.<sha> instead of bumping the last tag. " +
+          "When None, the version is always derived from the last tag and the compatibility intention."
+      )
+  }
+
+  import autoImport.*
+
   def currentRef(dir: File): String =
     new DefaultReadableGit(dir, None)
       .withGit(g => g.currentTags.headOption.getOrElse(g.branch))
@@ -44,7 +55,7 @@ object Versioning extends AutoPlugin {
       }
     }
   }
-  case class VersionInfo(compat: Compatibility, gitDescribeOutput: GitDescribeOutput) {
+  case class VersionInfo(compat: Compatibility, targetMajor: Option[Int], gitDescribeOutput: GitDescribeOutput) {
     private val cleanAfterTag = gitDescribeOutput.isCleanAfterTag
     private val lastTag = gitDescribeOutput.ref.dropPrefix
 
@@ -66,9 +77,15 @@ object Versioning extends AutoPlugin {
       else
         VersionInfo.VersionType.Devel
 
-    def nextVersion = lastTagVersion match {
-      case v @ VersionInfo.VersionType.Tag.Prerelease(x, y, z) => v.versionString
-      case v @ VersionInfo.VersionType.Tag.Stable(x, y, z)     => v.bump(compat).versionString
+    def nextVersion = targetMajor match {
+      case Some(major) if lastTagVersion.x.compare(Version.Number(major)) < 0 =>
+        // Working towards a new major version that has no tag yet
+        s"$major.0.0"
+      case _ =>
+        lastTagVersion match {
+          case v: VersionInfo.VersionType.Tag.Prerelease => v.versionString
+          case v: VersionInfo.VersionType.Tag.Stable     => v.bump(compat).versionString
+        }
     }
 
     def versionString =
@@ -83,32 +100,46 @@ object Versioning extends AutoPlugin {
       else nextVersion + "-SNAPSHOT"
   }
 
-  case class MaybeVersionInfo(compat: Compatibility, date: Date, maybeGitDescribeOutput: Option[GitDescribeOutput]) {
-    def maybeVersionInfo = maybeGitDescribeOutput.map(VersionInfo(compat, _))
+  case class MaybeVersionInfo(compat: Compatibility,
+                              targetMajor: Option[Int],
+                              date: Date,
+                              maybeGitDescribeOutput: Option[GitDescribeOutput]) {
+    def maybeVersionInfo = maybeGitDescribeOutput.map(VersionInfo(compat, targetMajor, _))
     def versionString = maybeVersionInfo.fold(s"HEAD-${DynVer.timestamp(date)}")(_.versionString)
   }
 
   val maybeVersionInfo = settingKey[MaybeVersionInfo]("Versioning.VersionInfo instance")
 
-  def versionFor(compat: Compatibility, date: Date = new Date): Option[String] =
+  def versionFor(compat: Compatibility, targetMajor: Option[Int] = None, date: Date = new Date): Option[String] =
     DynVer.getGitDescribeOutput(date)
-      .map(VersionInfo(compat, _).versionString)
+      .map(VersionInfo(compat, targetMajor, _).versionString)
 
-  def shortVersionFor(compat: Compatibility, date: Date = new Date): Option[String] =
+  def shortVersionFor(compat: Compatibility, targetMajor: Option[Int] = None, date: Date = new Date): Option[String] =
     DynVer.getGitDescribeOutput(date)
-      .map(VersionInfo(compat, _).shortVersionString)
+      .map(VersionInfo(compat, targetMajor, _).shortVersionString)
 
   override def trigger = allRequirements
   override def requires = CiReleasePlugin
 
+  override def buildSettings =
+    List(
+      developmentMajorVersion := None
+    )
+
   override def projectSettings =
     List(
       maybeVersionInfo :=
-        MaybeVersionInfo(versionPolicyIntention.value, dynverCurrentDate.value, dynverGitDescribeOutput.value),
+        MaybeVersionInfo(
+          versionPolicyIntention.value,
+          developmentMajorVersion.value,
+          dynverCurrentDate.value,
+          dynverGitDescribeOutput.value
+        ),
       version := maybeVersionInfo.value.versionString,
       dynver := {
         val d = new Date
-        MaybeVersionInfo(versionPolicyIntention.value, d, DynVer.getGitDescribeOutput(d)).versionString
+        MaybeVersionInfo(versionPolicyIntention.value, developmentMajorVersion.value, d, DynVer.getGitDescribeOutput(d))
+          .versionString
       }
     )
 }

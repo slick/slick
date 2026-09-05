@@ -2,6 +2,7 @@ import scala.jdk.CollectionConverters.*
 
 import com.typesafe.tools.mima.core.Problem
 import com.typesafe.tools.mima.plugin.MimaPlugin
+import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport.mimaCurrentClassfiles
 import coursier.version.Version
 import sbt.{config, inConfig, settingKey, taskKey, AutoPlugin, Compile, Def, Defaults, Keys}
 import sbt.librarymanagement.CrossVersion
@@ -19,8 +20,8 @@ object CompatReportPlugin extends AutoPlugin {
 
   val previousReleaseMajorVersion =
     settingKey[Option[String]](
-      "Major version series (first version component) a previous release must belong to. " +
-        "compatReportMajorVersion if set, otherwise the major version of the current version."
+      "Major version (first version component) of the current version. Only releases of the same major version are " +
+        "considered as the previous release for the compatibility report."
     )
 
   case class ModuleReport(module: String,
@@ -38,12 +39,6 @@ object CompatReportPlugin extends AutoPlugin {
 
     val compatReportMarkdown = taskKey[String]("Generate the compatibility report in Markdown")
 
-    val compatReportMajorVersion =
-      settingKey[Option[Int]](
-        "Major version series the compatibility report compares against. Only releases with this first version " +
-          "component are considered as the previous release, and the report is skipped if none has been " +
-          "published yet. When None, the series is taken from the current version."
-      )
   }
 
   import autoImport.*
@@ -186,15 +181,9 @@ object CompatReportPlugin extends AutoPlugin {
   private def majorVersionOf(version: Version): Option[String] =
     version.items.headOption.collect { case n: Version.Numeric => n.repr }
 
-  override def buildSettings =
-    List(
-      compatReportMajorVersion := None
-    )
-
   override def projectSettings =
     List(
-      previousReleaseMajorVersion :=
-        compatReportMajorVersion.value.map(_.toString).orElse(majorVersionOf(Version(Keys.version.value))),
+      previousReleaseMajorVersion := majorVersionOf(Version(Keys.version.value)),
       previousRelease := {
         val versions = previousVersionsFromRepo.value
         val cur = Version(Keys.version.value)
@@ -217,6 +206,9 @@ object CompatReportPlugin extends AutoPlugin {
           List(
             versionPolicyPreviousVersions := previousRelease.value.toList,
             versionPolicyIntention := Versioning.BumpMinor,
+            // Compare the packaged jar rather than the class directory: the slick jar also contains the classes of
+            // slick-compat-collections (see slickCollectionsCompatSettings), which would otherwise be reported missing
+            mimaCurrentClassfiles := (Compile / Keys.packageBin).value,
             // Without a previous release there is nothing to compare against; skip instead of failing
             versionPolicyFindIssues / Keys.skip := previousRelease.value.isEmpty,
             compatReportData := {
