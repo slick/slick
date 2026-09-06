@@ -307,6 +307,9 @@ lazy val testkit =
         IO.delete(products)
       },
       (Test / cleanCompileTimeTests) := (Test / cleanCompileTimeTests).triggeredBy(Test / compile).value,
+      // Tests within a forked group share databases (e.g. the codegen tests all create the same tables in the same
+      // embedded databases), so they must run sequentially. sbt 2 defaults testForkedParallel to true; sbt 1 did not.
+      Test / testForkedParallel := false,
       Test / testGrouping := Def.uncached {
         val re = """slick\.test\.profile\.(.+?)(?:\d\d+)?(?:Disk|Mem|Rownum|SQLJDBC)?Test$""".r
         (Test / definedTests).value
@@ -515,11 +518,12 @@ lazy val root =
       test := TestResult.Passed,
       testOnly := TestResult.Passed,
       testAll := Def.uncached {
+        // sbt 2's `test` is incremental and only reruns failed or changed suites; CI must always run everything
         Def.sequential(
-          (testkit / Test / test).toTask(""),
-          (testkit / DocTest / test).toTask(""),
-          (slickFuture / Test / test).toTask(""),
-          (slickZio / Test / test).toTask(""),
+          testkit / Test / testFull,
+          testkit / DocTest / testFull,
+          slickFuture / Test / testFull,
+          slickZio / Test / testFull,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,
