@@ -449,6 +449,10 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 
 ### Database Testing Issues
 
+- **Coverage runs fail with `FileNotFoundException: .../scoverage-data/scoverage.measurements...`**: sbt 2's disk
+  cache (`~/.cache/sbt/v2`) restored a module's compiled classes without the `scoverage-data` directory that the
+  coverage-instrumented compile creates, so instrumented code cannot record measurements. CI disables the disk cache
+  for coverage builds (`disk-cache: false` on `sbt/setup-sbt`); locally, delete `~/.cache/sbt/v2` and rerun
 - **Connection issues**: Check database configuration in `application.conf`
 - **SQL generation**: Enable SQL logging with `slick.ansiDump=true`
 - **Database-specific features**: Verify profile capabilities

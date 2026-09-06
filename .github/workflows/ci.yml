@@ -114,6 +114,10 @@ jobs:
 
       - name: Setup SBT
         uses: sbt/setup-sbt@v1
+        with:
+          # sbt 2's disk cache restores compiled classes from earlier runs, but not the scoverage-data directory the
+          # coverage-instrumented compile creates next to them. Instrumented code then fails to record measurements.
+          disk-cache: false
 
       - name: Build and test
         run: |
