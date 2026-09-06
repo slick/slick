@@ -18,13 +18,13 @@ object TypeProviders {
       typeProviders := Def.uncached(typeProvidersTask.value),
       ivyConfigurations += TypeProvidersConfig,
       ivyConfigurations += Test,
+      // Add the codegen sources to the sources JAR. The generated sources are managed sources, which sbt 2 already
+      // includes in the default packageSrc mappings.
       Test / packageSrc / mappings ++= {
         val conv = fileConverter.value
         val src = (Test / sourceDirectory).value / "codegen"
-        val inFiles = src ** "*.scala"
-        val generated = (Test / managedSources).value.pair(Path.relativeTo((Test / sourceManaged).value) | Path.flat) // Add generated sources to sources JAR
-        val codegenSources = inFiles.pair(Path.relativeTo(src) | Path.flat) // Add codegen sources to sources JAR
-        (generated ++ codegenSources).map { case (f, path) => (conv.toVirtualFile(f.toPath): HashedVirtualFileRef) -> path }
+        val codegenSources = (src ** "*.scala").pair(Path.relativeTo(src) | Path.flat)
+        codegenSources.map { case (f, path) => (conv.toVirtualFile(f.toPath): HashedVirtualFileRef) -> path }
       }
     )
   }
