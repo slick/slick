@@ -98,10 +98,10 @@ object Docs extends AutoPlugin {
   override def projectSettings = Seq(
     homepage := None,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
-    Compile / paradoxProperties ++= {
+    Compile / paradoxProperties := Def.uncached {
       val scaladocBaseUrl = s"https://scala-slick.org/doc/${docsSubdirectory(Versioning.maybeVersionInfo.value)}"
       val ref = Versioning.currentRef(baseDirectory.value)
-      Map(
+      (Compile / paradoxProperties).value ++ Map(
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/${scalaVersion.value}",
         "scaladoc.slick.base_url" -> s"$scaladocBaseUrl/api",
         "scaladoc.slick.codegen.base_url" -> s"$scaladocBaseUrl/codegen-api",
@@ -152,29 +152,35 @@ object Docs extends AutoPlugin {
     },
     sourceDirectory := baseDirectory.value / "paradox",
     Compile / paradoxTheme / sourceDirectory := baseDirectory.value / "template",
-    preprocessDocs / target := target.value / "preprocessed",
-    watchSources += sourceDirectory.value,
-    watchSources := watchSources.value.filterNot(_.base == (preprocessDocs / target).value),
-    preprocessDocs := {
+    // Keep the intermediate doc output under doc/target: the markdown sources use @@snip paths relative to this
+    // location (e.g. ../../../slick/src/main/resources/reference.conf), which sbt 2's deeper target layout would break
+    preprocessDocs / target := baseDirectory.value / "target" / "preprocessed",
+    watchSources := Def.uncached {
+      (watchSources.value :+ Watched.WatchSource(sourceDirectory.value))
+        .filterNot(_.base == (preprocessDocs / target).value)
+    },
+    // The doc tasks below copy, rewrite and publish files as side effects, so they must run every time.
+    preprocessDocs := Def.uncached {
       val out = (preprocessDocs / target).value
       val log = streams.value.log
 
       IO.copyDirectory(sourceDirectory.value, out)
-      IO.copyDirectory(baseDirectory.value / "code", target.value / "code")
+      IO.copyDirectory(baseDirectory.value / "code", baseDirectory.value / "target" / "code")
 
       for ((name, dir) <- scaladocDirs.value) {
         val dest = out / name
         log.info(s"Copying $dir to $dest")
         IO.copyDirectory(dir, dest, overwrite = true, preserveLastModified = true)
 
+        // Point source links of FMPP-generated files (target/out/jvm/scala-x/slick/src_managed/main/...) at the
+        // .fm templates they are generated from (slick/src/main/scala/...)
         (dest ** "*.html").get().foreach { file =>
           modifyFileLines(file) { line =>
             line.replaceAll(
-              "(https://github.com/slick/slick/blob/[^\"]*)/" +
-                "(Users|home)/" +
-                "[^\"]*/slick/target/scala-[^\"]*/src_managed/main/" +
+              "(https://github.com/slick/slick/blob/[^\"/]*)/" +
+                "target/out/jvm/scala-[^\"/]*/slick/src_managed/main/" +
                 "([^\"]*)\\.scala",
-              """$1/scala/$3.fm"""
+              """$1/slick/src/main/scala/$2.fm"""
             )
           }
         }
@@ -190,35 +196,35 @@ object Docs extends AutoPlugin {
       out
     },
     Compile / paradox / unmanagedSourceDirectories := Seq((preprocessDocs / target).value),
-    Compile / paradox := (Compile / paradox).dependsOn(preprocessDocs).value,
-    Compile / paradox := {
+    Compile / paradox := Def.uncached { (Compile / paradox).dependsOn(preprocessDocs).value },
+    Compile / paradox := Def.uncached {
       val outDir = (Compile / paradox).value
       val files = IO.listFiles(outDir, globFilter("*.html"))
       val ref = Versioning.currentRef(baseDirectory.value)
       for (f <- files)
         modifyFileLines(f) { line =>
           line
-            .replaceAllLiterally(
+            .replace(
               "https://github.com/slick/slick/tree/master/doc/target/preprocessed/",
               s"https://github.com/slick/slick/tree/$ref/doc/paradox/"
             )
-            .replaceAllLiterally(
+            .replace(
               "https://github.com/slick/slick/tree/master/doc/target/code/",
               s"https://github.com/slick/slick/tree/$ref/doc/code/"
             )
         }
       outDir
     },
-    checkScaladocLinks := {
+    checkScaladocLinks := Def.uncached {
       for ((name, dir) <- scaladocDirs.value)
         new ReusableSbtChecker(dir.toString, (Compile / paradox).value.toString, name, streams.value.log)
           .run()
     },
-    addDocsToDocRepo := {
+    addDocsToDocRepo := Def.uncached {
       val dir = (Compile / paradox).value
       addDocsToDocRepoImpl(dir, Versioning.maybeVersionInfo.value, streams.value.log)
     },
-    deployDocs := {
+    deployDocs := Def.uncached {
       checkScaladocLinks.value
 
       val log = streams.value.log
@@ -228,7 +234,7 @@ object Docs extends AutoPlugin {
       val commitMessage = (if (existed) "Updated" else "Added") + " docs for version " + version.value
       ConsoleGitRunner.commitAndPush(commitMessage)(dir, log)
     },
-    showParadoxProperties := {
+    showParadoxProperties := Def.uncached {
       val props = (Compile / paradoxProperties).value
       val colWidth = props.keys.map(_.length).max
       for ((k, v) <- props.toSeq.sorted)

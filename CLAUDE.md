@@ -70,7 +70,7 @@ sbt ++2.13.18 testkit/test
 sbt ++3.9.0! testkit/test
 
 # Codegen tests (requires cleaning managed sources first)
-rm -rf slick-testkit/target/scala-2.13/src_managed && sbt 'testOnly slick.test.codegen.*'
+rm -rf target/out/jvm/scala-2.13.18/slick-testkit/src_managed && sbt 'testOnly slick.test.codegen.*'
 ```
 
 ### Development Build Tasks
@@ -461,7 +461,7 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   but Derby for execution, requiring careful length handling
 - **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of
   capability differences (e.g., H2's features vs Derby's limitations)
-- **Codegen Test Cleanup**: Always delete `slick-testkit/target/scala-2.13/src_managed` before running codegen tests to
+- **Codegen Test Cleanup**: Always delete `target/out/jvm/scala-2.13.18/slick-testkit/src_managed` before running codegen tests to
   ensure clean regeneration
 
 ### Performance Issues

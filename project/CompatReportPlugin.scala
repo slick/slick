@@ -4,7 +4,7 @@ import com.typesafe.tools.mima.core.Problem
 import com.typesafe.tools.mima.plugin.MimaPlugin
 import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport.mimaCurrentClassfiles
 import coursier.version.Version
-import sbt.{config, inConfig, settingKey, taskKey, AutoPlugin, Compile, Def, Defaults, Keys}
+import sbt.{config, inConfig, settingKey, taskKey, AutoPlugin, Compile, Def, Defaults, Keys, /}
 import sbt.librarymanagement.CrossVersion
 import sbtversionpolicy.{DependencyCheckReport, IncompatibilityType, SbtVersionPolicyMima, SbtVersionPolicyPlugin}
 import sbtversionpolicy.SbtVersionPolicyMima.autoImport.versionPolicyPreviousVersions
@@ -45,7 +45,7 @@ object CompatReportPlugin extends AutoPlugin {
 
 
   private def markdownTable(headers: String*)(rows: Seq[Seq[String]]) = {
-    val escaped = rows.map(_.map(_.replaceAllLiterally("|", "\\|")))
+    val escaped = rows.map(_.map(_.replace("|", "\\|")))
     val widths =
       (headers.map(_.length) +: escaped.map(_.map(_.length)))
         .transpose
@@ -54,7 +54,7 @@ object CompatReportPlugin extends AutoPlugin {
     def row(r: Seq[String], pad: Char) =
       r
         .zipWithIndex
-        .map { case (s, i) => (pad + s + pad).padTo(widths(i) + 2, ' ') }
+        .map { case (s, i) => s"$pad$s$pad".padTo(widths(i) + 2, ' ') }
         .mkString("|", "|", "|\n")
 
     row(headers, ' ') +
@@ -161,7 +161,8 @@ object CompatReportPlugin extends AutoPlugin {
     val sbv = Keys.scalaBinaryVersion.value
     val name = CrossVersion(projId.crossVersion, sv, sbv).fold(projId.name)(_(projId.name))
 
-    val ivyProps = sbtversionpolicy.internal.Resolvers.defaultIvyProperties(Keys.ivyPaths.value.ivyHome)
+    val ivyProps =
+      sbtversionpolicy.internal.Resolvers.defaultIvyProperties(Keys.ivyPaths.value.ivyHome.map(new java.io.File(_)))
     val repos = Keys.resolvers.value.flatMap { res =>
       val repoOpt = sbtversionpolicy.internal.Resolvers.repository(res, ivyProps, s => System.err.println(s))
       if (repoOpt.isEmpty)
@@ -172,7 +173,7 @@ object CompatReportPlugin extends AutoPlugin {
     // So we're using the usual default repositories from coursier here…
     val fullRepos = coursierapi.Repository.defaults().asScala ++ repos
     val res = coursierapi.Versions.create()
-      .withRepositories(fullRepos *)
+      .withRepositories(fullRepos.toSeq *)
       .withModule(coursierapi.Module.of(projId.organization, name))
       .versions()
     res.getMergedListings.getAvailable.asScala
@@ -208,10 +209,14 @@ object CompatReportPlugin extends AutoPlugin {
             versionPolicyIntention := Versioning.BumpMinor,
             // Compare the packaged jar rather than the class directory: the slick jar also contains the classes of
             // slick-compat-collections (see slickCollectionsCompatSettings), which would otherwise be reported missing
-            mimaCurrentClassfiles := (Compile / Keys.packageBin).value,
+            mimaCurrentClassfiles := {
+              val conv = Keys.fileConverter.value
+              conv.toPath((Compile / Keys.packageBin).value).toFile
+            },
             // Without a previous release there is nothing to compare against; skip instead of failing
             versionPolicyFindIssues / Keys.skip := previousRelease.value.isEmpty,
-            compatReportData := {
+            // Not cached: the report types have no JSON format, and the underlying version-policy task is transient
+            compatReportData := Def.uncached {
               val log = Keys.streams.value.log
               val previous = previousRelease.value
               val moduleName = Keys.name.value
@@ -239,7 +244,7 @@ object CompatReportPlugin extends AutoPlugin {
                       }
                   )
             },
-            compatReportMarkdown := {
+            compatReportMarkdown := Def.uncached {
               compatReportData.value
                 .flatMap(renderModuleMarkdownSection)
                 .mkString("\n")
