@@ -28,11 +28,14 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
 
+    # This job runs sbt in several steps. By default the sbt 2 runner starts a background sbt server in the first step
+    # and later steps reuse it, so they see the first step's environment, including its GITHUB_OUTPUT file. --server
+    # runs sbt in the foreground instead, so each step gets its own environment.
     - name: Get base version
       id: getBaseVer
-      run: sbt writeVersionToGitHubOutput
+      run: sbt --server writeVersionToGitHubOutput
 
-    - run: sbt publishLocal
+    - run: sbt --server publishLocal
       name: Publish ${{ steps.getBaseVer.outputs.result }} locally
 
     - uses: actions/checkout@v7
@@ -42,12 +45,12 @@ jobs:
         clean: false
 
     # The sbt 2 runner joins all arguments into one command line, so separate commands with ';'
-    - run: sbt "clean; compile"
+    - run: sbt --server "clean; compile"
 
     - name: Generate compatibility changes report
       id: createReport
       run: |
-        sbt \
+        sbt --server \
           'set every CompatReportPlugin.previousRelease := Some("${{ steps.getBaseVer.outputs.result }}"); writeCompatReportToGitHubOutput'
 
     - name: Show report saved in ${{ steps.createReport.outputs.result }}
