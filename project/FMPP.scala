@@ -14,13 +14,13 @@ object FMPP {
       "xml-resolver" % "xml-resolver" % "1.2" % FmppConfig.name
     ),
     ivyConfigurations += FmppConfig,
+    // Add the *.fm templates to the sources JAR. The generated sources are managed sources, which sbt 2 already
+    // includes in the default packageSrc mappings.
     Compile / packageSrc / mappings ++= {
       val conv = fileConverter.value
       val fmppSrc = (Compile / sourceDirectory).value / "scala"
-      val inFiles = fmppSrc ** "*.fm"
-      val generated = (Compile / managedSources).value.pair(Path.relativeTo((Compile / sourceManaged).value) | Path.flat) // Add generated sources to sources JAR
-      val templates = inFiles.pair(Path.relativeTo(fmppSrc) | Path.flat) // Add *.fm files to sources JAR
-      (generated ++ templates).map { case (f, path) => (conv.toVirtualFile(f.toPath): HashedVirtualFileRef) -> path }
+      val templates = (fmppSrc ** "*.fm").pair(Path.relativeTo(fmppSrc) | Path.flat)
+      templates.map { case (f, path) => (conv.toVirtualFile(f.toPath): HashedVirtualFileRef) -> path }
     }
   )
   /* FMPP Task */
