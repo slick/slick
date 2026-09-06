@@ -1,4 +1,7 @@
+import scala.language.implicitConversions
+
 import com.jsuereth.sbtpgp.PgpKeys
+import sbt.protocol.testing.TestResult
 
 val testAll = taskKey[Unit]("Run all tests")
 
@@ -131,7 +134,6 @@ def slickGeneralSettings =
     makePomConfiguration ~= {
       _.withConfigurations(Vector(Compile, Runtime, Optional))
     },
-    sonatypeProfileName := "com.typesafe.slick",
     Compile / doc / scalacOptions ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((3, _)) =>
@@ -174,11 +176,6 @@ def extTarget(extName: String): Seq[Setting[File]] =
 def commonTestResourcesSetting =
   Test / unmanagedResourceDirectories +=
     (LocalProject("root") / baseDirectory).value / "common-test-resources"
-
-def sampleSettings = Seq(
-  Compile / unmanagedClasspath :=
-    Attributed.blank(baseDirectory.value.getParentFile / "resources") +: (Compile / unmanagedClasspath).value
-)
 
 ThisBuild / crossScalaVersions := Dependencies.scalaVersions
 ThisBuild / scalaVersion := Dependencies.scala213
@@ -255,8 +252,8 @@ lazy val slick =
       ),
 
       // suppress test status output
-      test := {},
-      testOnly := {}
+      test := TestResult.Passed,
+      testOnly := TestResult.Passed
     ).dependsOn(slickCompatCollections)
 
 lazy val testkit =
@@ -302,15 +299,15 @@ lazy val testkit =
       //javaOptions in run += "-verbose:gc",
       // Delete classes in "compile" packages after compiling. (Currently only slick.test.compile.NestedShapeTest)
       // These are used for compile-time tests and should be recompiled every time.
-      Test / cleanCompileTimeTests := {
+      Test / cleanCompileTimeTests := Def.uncached {
         val products = fileTreeView.value.list(
           (Test / classDirectory).value.toGlob / ** / "compile" / *
         ).map(x => x._1.toFile)
         streams.value.log.info(s"Deleting $products")
         IO.delete(products)
       },
-      (Test / cleanCompileTimeTests) := ((Test / cleanCompileTimeTests) triggeredBy (Test / compile)).value,
-      Test / testGrouping := {
+      (Test / cleanCompileTimeTests) := (Test / cleanCompileTimeTests).triggeredBy(Test / compile).value,
+      Test / testGrouping := Def.uncached {
         val re = """slick\.test\.profile\.(.+?)(?:\d\d+)?(?:Disk|Mem|Rownum|SQLJDBC)?Test$""".r
         (Test / definedTests).value
           .groupBy(_.name match {
@@ -323,15 +320,16 @@ lazy val testkit =
           .toSeq
           .sortBy(_.name)
       },
-      buildCapabilitiesTable := {
+      buildCapabilitiesTable := Def.uncached {
+        given xsbti.FileConverter = fileConverter.value
         val logger = ConsoleLogger()
         val file = (buildCapabilitiesTable / sourceManaged).value / "capabilities.md"
         Run.run(
           mainClass = "com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
-          classpath = (Compile / fullClasspath).value.map(_.data),
+          classpath = (Compile / fullClasspath).value.files,
           options = Seq(file.toString),
           log = logger
-        )(runner.value)
+        )(using runner.value)
           .map(_ => file)
           .get
       },
@@ -350,7 +348,7 @@ lazy val codegen =
       name := "Slick-CodeGen",
       description := "Code Generator for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-codegen"),
-      test := {}, testOnly := {}, // suppress test status output
+      test := TestResult.Passed, testOnly := TestResult.Passed, // suppress test status output
       commonTestResourcesSetting
     )
 
@@ -365,7 +363,7 @@ lazy val hikaricp =
       description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
       scaladocSourceUrl("slick-hikaricp"),
       scaladocSlickLinks,
-      test := {}, testOnly := {}, // suppress test status output
+      test := TestResult.Passed, testOnly := TestResult.Passed, // suppress test status output
       libraryDependencies += Dependencies.hikariCP.exclude("org.slf4j", "*"),
     )
 
@@ -433,13 +431,16 @@ lazy val site: Project =
     .enablePlugins(Docs)
     .settings(
       description := "Scala Slick documentation",
-      scaladocDirs := Seq(
-        "api" -> (slick / Compile / doc).value,
-        "codegen-api" -> (codegen / Compile / doc).value,
-        "hikaricp-api" -> (hikaricp / Compile / doc).value,
-        "testkit-api" -> (testkit / Compile / doc).value
-      ),
-      buildCompatReport := {
+      // These tasks return files or write files as side effects, so they opt out of sbt 2's task cache
+      scaladocDirs := Def.uncached {
+        Seq(
+          "api" -> (slick / Compile / doc).value,
+          "codegen-api" -> (codegen / Compile / doc).value,
+          "hikaricp-api" -> (hikaricp / Compile / doc).value,
+          "testkit-api" -> (testkit / Compile / doc).value
+        )
+      },
+      buildCompatReport := Def.uncached {
         val compatReports =
           (CompatReport / compatReportMarkdown)
             .all(ScopeFilter(inProjects(slick, codegen, hikaricp, testkit)))
@@ -468,13 +469,13 @@ lazy val site: Project =
         )
         file
       },
-      writeVersionToGitHubOutput := {
+      writeVersionToGitHubOutput := Def.uncached {
         writeToGitHubOutput(version.value, streams.value.log)
       },
-      writeCompatReportToGitHubOutput := {
+      writeCompatReportToGitHubOutput := Def.uncached {
         writeToGitHubOutput(buildCompatReport.value.toString, streams.value.log)
       },
-      preprocessDocs := {
+      preprocessDocs := Def.uncached {
         val out = (preprocessDocs / target).value
 
         val capabilitiesTableFile = (testkit / buildCapabilitiesTable).value
@@ -492,8 +493,8 @@ lazy val site: Project =
       publish := {},
       publishLocal := {},
       versionPolicyCheck / skip := true,
-      test := {},
-      testOnly := {}
+      test := TestResult.Passed,
+      testOnly := TestResult.Passed
     )
 
 lazy val root =
@@ -511,14 +512,14 @@ lazy val root =
       PgpKeys.publishLocalSigned := {},
       versionPolicyCheck / skip := true,
       // suppress test status output
-      test := {},
-      testOnly := {},
-      testAll := {
+      test := TestResult.Passed,
+      testOnly := TestResult.Passed,
+      testAll := Def.uncached {
         Def.sequential(
-          testkit / Test / test,
-          testkit / DocTest / test,
-          slickFuture / Test / test,
-          slickZio / Test / test,
+          (testkit / Test / test).toTask(""),
+          (testkit / DocTest / test).toTask(""),
+          (slickFuture / Test / test).toTask(""),
+          (slickZio / Test / test).toTask(""),
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,

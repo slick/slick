@@ -1,5 +1,6 @@
-import sbt._
-import Keys._
+import sbt.*
+import Keys.*
+import xsbti.{FileConverter, HashedVirtualFileRef}
 
 import scala.util.{Failure, Success}
 
@@ -14,19 +15,22 @@ object TypeProviders {
     inConfig(Test)(Defaults.configSettings) ++
     Seq(
       Test / sourceGenerators += typeProviders.taskValue,
-      typeProviders := typeProvidersTask.value,
+      typeProviders := Def.uncached(typeProvidersTask.value),
       ivyConfigurations += TypeProvidersConfig,
       ivyConfigurations += Test,
       Test / packageSrc / mappings ++= {
+        val conv = fileConverter.value
         val src = (Test / sourceDirectory).value / "codegen"
         val inFiles = src ** "*.scala"
-        ((Test / managedSources).value.pair(Path.relativeTo((Test / sourceManaged).value) | Path.flat)) ++ // Add generated sources to sources JAR
-          (inFiles pair (Path.relativeTo(src) | Path.flat)) // Add *.fm files to sources JAR
+        val generated = (Test / managedSources).value.pair(Path.relativeTo((Test / sourceManaged).value) | Path.flat) // Add generated sources to sources JAR
+        val codegenSources = inFiles.pair(Path.relativeTo(src) | Path.flat) // Add codegen sources to sources JAR
+        (generated ++ codegenSources).map { case (f, path) => (conv.toVirtualFile(f.toPath): HashedVirtualFileRef) -> path }
       }
     )
   }
   def typeProvidersTask = Def.task {
-    val cp = (TypeProvidersConfig / fullClasspath).value
+    given FileConverter = fileConverter.value
+    val cp = (TypeProvidersConfig / fullClasspath).value.files
     val r = (typeProviders / runner).value
     val output = (Test / sourceManaged).value
     val s = streams.value
@@ -38,8 +42,8 @@ object TypeProviders {
     val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", inStyle = FilesInfo.lastModified, outStyle = FilesInfo.exists) { (in: Set[File]) =>
       IO.delete((output ** "*.scala").get())
 
-      val errorsMain = r.run("slick.test.codegen.GenerateMainSources", cp.files, Array(outDir), s.log)
-      val errorsRoundtrip = r.run("slick.test.codegen.GenerateRoundtripSources", cp.files, Array(outDir), s.log)
+      val errorsMain = r.run("slick.test.codegen.GenerateMainSources", cp, Seq(outDir), s.log)
+      val errorsRoundtrip = r.run("slick.test.codegen.GenerateRoundtripSources", cp, Seq(outDir), s.log)
 
       (errorsMain, errorsRoundtrip) match {
         case (Success(_), Success(_)) =>
