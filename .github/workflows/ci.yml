@@ -117,7 +117,8 @@ jobs:
 
       - name: Build and test
         run: |
-          sbt ++${{ matrix.scala }} coverage testAll coverageReport
+          # The sbt 2 runner joins all arguments into one command line, so separate commands with ';'
+          sbt "++${{ matrix.scala }}; coverage; testAll; coverageReport"
         env:
           SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
           TZ: Asia/Kamchatka

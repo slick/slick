@@ -18,8 +18,9 @@ It's a multi-module SBT project with the following key modules:
 ### Building and Compilation
 
 ```bash
-# Clean and compile all modules
-sbt clean compile
+# Clean and compile all modules. The sbt 2 runner joins all arguments into one command line,
+# so separate multiple commands with ';' inside a single quoted argument.
+sbt "clean; compile"
 
 # Cross-compile for all supported Scala versions
 sbt ++2.12.21 compile
@@ -41,8 +42,10 @@ Use `sbt` directly from the repository root for all test runs.
 # Run all tests (includes testkit, doctests, and reactive-streams tests)
 sbt testAll
 
-# Run only testkit tests
+# Run only testkit tests (sbt 2's `test` is incremental and skips unchanged, previously passing suites;
+# use `testFull` to force a complete run)
 sbt testkit/test
+sbt testkit/testFull
 
 # Run documentation tests
 sbt testkit/DocTest/test
@@ -187,8 +190,10 @@ Tests use Typesafe Config for database configuration:
 # Run all tests (includes testkit, doctests, and reactive-streams tests)
 sbt testAll
 
-# Run only testkit tests
+# Run only testkit tests (sbt 2's `test` is incremental and skips unchanged, previously passing suites;
+# use `testFull` to force a complete run)
 sbt testkit/test
+sbt testkit/testFull
 
 # Run documentation tests
 sbt testkit/DocTest/test
@@ -254,8 +259,7 @@ env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
 # Test specific functionality across multiple databases
 env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
   -Dpostgres.enabled=true -Dmysql.enabled=true \
-  'project testkit' \
-  '+testOnly -- -z com.typesafe.slick.testkit.tests.AggregateTest.testGroupBy*'
+  'project testkit; +testOnly -- -z com.typesafe.slick.testkit.tests.AggregateTest.testGroupBy*'
 ```
 
 **CI Testing** (all databases enabled):
@@ -357,7 +361,7 @@ sbt site/buildCompatReport
 sbt versionPolicyCheck
 
 # Test with specific previous version
-sbt 'set every CompatReportPlugin.previousRelease := Some("3.6.1-pre.123.abc")' site/buildCompatReport
+sbt 'set every CompatReportPlugin.previousRelease := Some("3.6.1-pre.123.abc"); site/buildCompatReport'
 
 # Show current version policy settings
 sbt "show versionPolicyIgnored"

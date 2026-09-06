@@ -41,14 +41,14 @@ jobs:
         fetch-depth: 0
         clean: false
 
-    - run: sbt clean compile
+    # The sbt 2 runner joins all arguments into one command line, so separate commands with ';'
+    - run: sbt "clean; compile"
 
     - name: Generate compatibility changes report
       id: createReport
       run: |
         sbt \
-          'set every CompatReportPlugin.previousRelease := Some("${{ steps.getBaseVer.outputs.result }}")' \
-          writeCompatReportToGitHubOutput
+          'set every CompatReportPlugin.previousRelease := Some("${{ steps.getBaseVer.outputs.result }}"); writeCompatReportToGitHubOutput'
 
     - name: Show report saved in ${{ steps.createReport.outputs.result }}
       run: cat ${{ steps.createReport.outputs.result }}

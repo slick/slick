@@ -40,4 +40,4 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: Check version policy
-        run: sbt ++${{ matrix.scala }} versionPolicyCheck
+        run: sbt "++${{ matrix.scala }}; versionPolicyCheck"
