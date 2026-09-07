@@ -12,6 +12,9 @@ jobs:
   scala-steward:
     runs-on: ubuntu-latest
     name: Launch Scala Steward
+    # The daily schedule also fires on forks, which do not have the SCALA_STEWARD_TOKEN
+    # secret and where Steward has no business opening update PRs anyway.
+    if: github.repository == 'slick/slick'
     steps:
       - name: Launch Scala Steward
         uses: scala-steward-org/scala-steward-action@v2
