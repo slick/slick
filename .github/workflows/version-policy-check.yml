@@ -40,4 +40,5 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: Check version policy
-        run: sbt "++${{ matrix.scala }}; versionPolicyCheck"
+        # --server runs sbt in the foreground; the default background server plus thin client can fail to connect on startup
+        run: sbt --server "++${{ matrix.scala }}; versionPolicyCheck"

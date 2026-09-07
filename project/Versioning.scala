@@ -13,9 +13,11 @@ import sbtversionpolicy.SbtVersionPolicyPlugin.autoImport.{Compatibility, versio
 
 
 object Versioning extends AutoPlugin {
+  // The compatibility intention decides how the next version is derived from the last stable tag: a fully
+  // compatible change bumps the last number, anything else bumps the middle one. The first number is not
+  // derived from compatibility; set developmentMajorVersion to work towards a new one.
   val BumpMinor = Compatibility.BinaryAndSourceCompatible
   val BumpMajor = Compatibility.None
-  val BumpEpoch = Compatibility.None
 
   object autoImport {
     val developmentMajorVersion =
@@ -45,11 +47,10 @@ object Versioning extends AutoPlugin {
         case class Stable(x: Version.Numeric, y: Version.Numeric, z: Version.Numeric) extends Tag {
           def bumpMinor = copy(z = z.next)
           def bumpMajor = copy(y = y.next, z = Version.Number(0))
-          def bumpEpoch = copy(x = x.next, y = Version.Number(0), z = Version.Number(0))
           def bump(compat: Compatibility) = compat match {
-            case BumpMinor => bumpMinor
-            case BumpMajor => bumpMajor
-            case BumpEpoch => bumpEpoch
+            case Compatibility.BinaryAndSourceCompatible             => bumpMinor
+            // A release that breaks source compatibility bumps the middle number even when it stays binary compatible
+            case Compatibility.BinaryCompatible | Compatibility.None => bumpMajor
           }
         }
       }

@@ -54,6 +54,7 @@ jobs:
         run: docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 3306:3306 mysql --disable-log-bin
       
       - name: Compile project and download dependencies
-        run: sbt compile
+        # --server runs sbt in the foreground; the default background server plus thin client can fail to connect on startup
+        run: sbt --server compile
         env:
           SLICK_TESTKIT_CONFIG: test-dbs/testkit-databases.conf
