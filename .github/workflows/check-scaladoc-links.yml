@@ -35,4 +35,5 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
 
-    - run: sbt checkScaladocLinks
+    # --server runs sbt in the foreground; the default background server plus thin client can fail to connect on startup
+    - run: sbt --server checkScaladocLinks

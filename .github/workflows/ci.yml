@@ -121,8 +121,11 @@ jobs:
 
       - name: Build and test
         run: |
-          # The sbt 2 runner joins all arguments into one command line, so separate commands with ';'
-          sbt "++${{ matrix.scala }}; coverage; testAll; coverageReport"
+          # The sbt 2 runner joins all arguments into one command line, so separate commands with ';'.
+          # Without --server the runner starts the sbt server in the background and connects a thin client to it. The
+          # client sometimes reads project/target/active.json before the server has finished writing it and gives up
+          # with "failed to connect to server". --server runs sbt in the foreground instead.
+          sbt --server "++${{ matrix.scala }}; coverage; testAll; coverageReport"
         env:
           SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
           TZ: Asia/Kamchatka
@@ -170,7 +173,7 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Publish docs to website
-        run: GIT_SSH_COMMAND="ssh -i $(pwd)/deploy-key" sbt site/deployDocs
+        run: GIT_SSH_COMMAND="ssh -i $(pwd)/deploy-key" sbt --server site/deployDocs
 
   publish:
     name: Release
@@ -202,4 +205,4 @@ jobs:
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-        run: sbt ci-release
+        run: sbt --server ci-release
