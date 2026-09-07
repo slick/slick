@@ -26,15 +26,15 @@ inThisBuild(
   Seq(
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
-    homepage := Some(url("https://scala-slick.org")),
+    homepage := Some(uri("https://scala-slick.org")),
     startYear := Some(2008),
-    licenses += ("Two-clause BSD-style license", url("https://github.com/slick/slick/blob/main/LICENSE.txt")),
+    licenses += ("Two-clause BSD-style license", uri("https://github.com/slick/slick/blob/main/LICENSE.txt")),
     developers :=
       List(
-        Developer("szeiger", "Stefan Zeiger", "", url("http://szeiger.de")),
-        Developer("hvesalai", "Heikki Vesalainen", "", url("https://github.com/hvesalai/"))
+        Developer("szeiger", "Stefan Zeiger", "", uri("http://szeiger.de")),
+        Developer("hvesalai", "Heikki Vesalainen", "", uri("https://github.com/hvesalai/"))
       ),
-    scmInfo := Some(ScmInfo(url("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git"))
+    scmInfo := Some(ScmInfo(uri("https://github.com/slick/slick"), "scm:git:git@github.com:slick/slick.git"))
   )
 )
 
