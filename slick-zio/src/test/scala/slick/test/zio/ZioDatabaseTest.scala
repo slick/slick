@@ -8,7 +8,7 @@ import zio.test.{ZIOSpecDefault, assertTrue}
 import slick.jdbc.{DatabaseConfig, JdbcProfile}
 import slick.zio.Database
 
-class ZioDatabaseTest extends ZIOSpecDefault {
+object ZioDatabaseTest extends ZIOSpecDefault {
 
   private val h2Config = ConfigFactory.parseString(
     """
