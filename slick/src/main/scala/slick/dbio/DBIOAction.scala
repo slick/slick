@@ -34,7 +34,34 @@ import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
   *           user code, e.g. to automatically direct all read-only Actions to a slave database
   *           and write Actions to the master copy.
   */
-sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
+/** The result-only view of a [[DBIOAction]]: a unary type constructor that discards the
+  * streaming and effect type parameters, so that type class instances (e.g. `cats.Monad`)
+  * can be defined for it. [[DBIOAction]] is its only implementation.
+  *
+  * On Scala 3 a `DBIOAction[R, S, E]` unifies with an `F[_]` type constructor as
+  * `DBIOBase` (the compiler falls back to base types because the bounded effect parameter
+  * cannot be the hole of an unbounded `F[_]`), so instances defined for `DBIOBase` are found
+  * for any action without an explicit upcast. Values typed with the `DBIO` alias unify as
+  * `DBIO` instead, so instances should be provided for both type constructors. */
+sealed trait DBIOBase[+R] {
+  /** View this action as a plain `DBIO`, forgetting streaming and effect information. */
+  def toDBIO: DBIO[R]
+}
+
+object DBIOBase {
+  import scala.language.implicitConversions
+
+  /** Lets a `DBIOBase` (e.g. the result of a `cats` combinator) be used wherever a `DBIO`
+    * is expected, including `Database.run`, `flatMap` arguments and for-comprehensions. */
+  implicit def toDBIO[R](a: DBIOBase[R]): DBIO[R] = a.toDBIO
+}
+
+sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[R] with Dumpable {
+  /** `S <: NoStream` makes this a plain upcast. `Effect.All` is the bottom of the effect lattice,
+    * so the result can only be passed where every effect is permitted: the cast never grants
+    * a capability, it only forgets `S` and `E`. Sound because `DBIOBase` is sealed. */
+  final def toDBIO: DBIO[R] = this.asInstanceOf[DBIO[R]]
+
   /** Transform the result of a successful execution of this action. If this action fails, the
     * resulting action also fails. */
   def map[R2](f: R => R2): DBIOAction[R2, NoStream, E] =
