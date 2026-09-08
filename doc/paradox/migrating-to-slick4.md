@@ -57,7 +57,7 @@ only thing that changes is how you construct the database.
 | `AsyncExecutor` | required for thread pool config | **removed** entirely |
 | `map`/`flatMap` on `DBIOAction` | require `(implicit ec: ExecutionContext)` | no EC parameter |
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts a `Future[R]` — **unchanged** in `slick-future` |
-| `GetResult.apply` / `SetParameter.apply` | function parameter is `implicit` | regular parameter; `GetResult(r => ...)` and `SetParameter[T]((v, pp) => ...)` are unchanged, only summoning a `GetResult[T]` from an implicit function via `GetResult[T]` (no argument) no longer works |
+| `GetResult.apply` / `SetParameter.apply` | function parameter is `implicit` | regular parameter; `GetResult(r => ...)` and `SetParameter[T]((v, pp) => ...)` are unchanged. `GetResult(using r => ...)` / `SetParameter(using (v, pp) => ...)` (Scala 3) no longer compile — drop the `using`. Summoning a `GetResult[T]` from an implicit function via `GetResult[T]` (no argument) also no longer works |
 
 ---
 
@@ -457,4 +457,5 @@ If your project fails to compile after upgrading, use this table:
 | `object AsyncExecutor is not a member of package slick.util` | class removed | Remove all `AsyncExecutor` usage |
 | `object Database is not a member of package slick.jdbc` or `value forConfig is not a member of ...` | `Database.forXxx` removed | Use `DatabaseConfig.forXxx` — see [Database Construction](#2-database-construction) |
 | `class JdbcDatabaseDef takes type parameters` on a variable type annotation | explicit `JdbcDatabaseDef` type annotation from Slick 3 | Change to `val db: slick.future.Database` and migrate factory call |
+| `Missing arguments for method apply in object GetResult` (or `SetParameter`) on `GetResult(using r => ...)` | `GetResult.apply` / `SetParameter.apply` parameter is no longer `implicit` | Drop the `using`: `GetResult(r => ...)`, `SetParameter[T]((v, pp) => ...)` |
 | `Alphanumeric method join is not declared infix` (warning, or error with `-source:future`) | Scala 3.4+ infix rule, not a Slick change | Use method syntax: `a.join(b).on(...)` — see [Infix method syntax](#infix-method-syntax-on-scala-3) |
