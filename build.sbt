@@ -290,6 +290,8 @@ lazy val testkit =
       libraryDependencies ++=
         Dependencies.junit ++:
           (Dependencies.munitCatsEffect % Test) +:
+          (Dependencies.catsLaws % Test) +:
+          (Dependencies.disciplineMunit % Test) +:
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
@@ -422,49 +424,6 @@ lazy val slickZio =
       commonTestResourcesSetting
     )
 
-// cats type class instances for DBIOBase / DBIO. Scala 3 only: on Scala 2 the compiler does not
-// fall back to the DBIOBase base type when inferring F[_] from a DBIOAction, so the instances
-// would only be found for values explicitly typed as DBIO (see slick.dbio.DBIOBase).
-//
-// The module depends on the `slick` project, which is at one Scala version at a time, so it must follow
-// the same cross versions as `slick` (sbt rejects a dependency on a project at another Scala version,
-// even for an empty module). On Scala 2 it therefore contributes no sources, no dependencies and no
-// artifact. Build and test it with `sbt "++3.9.0 slickCats/test"`.
-lazy val slickCats =
-  project
-    .in(file("slick-cats"))
-    .dependsOn(slick)
-    .settings(
-      slickGeneralSettings,
-      extTarget("slick-cats"),
-      name := "Slick-Cats",
-      description := "cats type class instances for Slick DBIO actions",
-      scaladocSourceUrl("slick-cats"),
-      scaladocSlickLinks,
-      Compile / unmanagedSourceDirectories := {
-        if (isScala3.value) (Compile / unmanagedSourceDirectories).value else Nil
-      },
-      Test / unmanagedSourceDirectories := {
-        if (isScala3.value) (Test / unmanagedSourceDirectories).value else Nil
-      },
-      publish / skip := !isScala3.value,
-      libraryDependencies ++= {
-        if (isScala3.value)
-          Dependencies.catsCore +: Seq(
-            Dependencies.munitCatsEffect,
-            Dependencies.catsLaws,
-            Dependencies.disciplineMunit,
-            Dependencies.logback,
-            Dependencies.h2,
-          ).map(_ % Test)
-        else Nil
-      },
-      Test / parallelExecution := false,
-      commonTestResourcesSetting
-    )
-
-def isScala3 = Def.setting(CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 3))
-
 def writeToGitHubOutput(text: String, logger: Logger) = {
   val string = s"result=$text\n"
   logger.info(s"Writing to GitHub Actions output file: $string")
@@ -546,7 +505,7 @@ lazy val site: Project =
 lazy val root =
   project
     .in(file("."))
-    .aggregate(slick, codegen, hikaricp, testkit, slickFuture, slickZio, slickCats, site)
+    .aggregate(slick, codegen, hikaricp, testkit, slickFuture, slickZio, site)
     .settings(
       name := "slick-root",
       slickGeneralSettings,
@@ -567,7 +526,6 @@ lazy val root =
           testkit / DocTest / testFull,
           slickFuture / Test / testFull,
           slickZio / Test / testFull,
-          slickCats / Test / testFull,
           slick / Compile / packageDoc,
           codegen / Compile / packageDoc,
           hikaricp / Compile / packageDoc,

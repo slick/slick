@@ -4,11 +4,15 @@ import cats.MonadError
 import cats.syntax.all.*
 import munit.FunSuite
 
-import slick.cats.dbio.instances.*
 import slick.dbio.*
 
-/** These tests pass if they compile: they show which type constructor the compiler infers for
-  * cats syntax on Slick actions, without any explicit upcast. */
+/** These tests pass if they compile: they show which type constructor Scala 3 infers for cats
+  * syntax on Slick actions, without any explicit upcast and without importing any instances.
+  *
+  * Scala 3 only: Scala 2 does not fall back to the `DBIOBase` base type when inferring `F[_]`
+  * from a `DBIOAction`. See [[DBIOAliasInferenceTest]] for what works on every Scala version.
+  *
+  * Note: this file must not be compiled with `-source:3.0-migration`, which disables the fallback. */
 class DBIOInferenceTest extends FunSuite {
 
   /** Compiles only if `t` conforms to `T`. */
@@ -45,20 +49,6 @@ class DBIOInferenceTest extends FunSuite {
 
     val p8 = List(read, read).foldM(0)((acc, a) => a.map(_ + acc))
     typed[DBIOBase[Int]](p8)
-  }
-
-  test("cats syntax on DBIO-typed values infers DBIO and keeps the alias") {
-    val p1 = (0 to 10).toList.traverse { i => plain }
-    typed[DBIO[List[Int]]](p1)
-
-    val p2 = List(plain, plain).sequence
-    typed[DBIO[List[Int]]](p2)
-
-    val p3 = plain.void
-    typed[DBIO[Unit]](p3)
-
-    val p4 = (plain, plain).mapN(_ + _)
-    typed[DBIO[Int]](p4)
   }
 
   test("the slick-cats 'Known Issues' cases compile") {

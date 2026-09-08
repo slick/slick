@@ -22,11 +22,10 @@ object Dependencies {
         Seq.empty
     }
   }
-  val catsVersion = "2.13.0" // keep in sync with the cats-core version pulled in by catsEffect
-  val catsCore = "org.typelevel" %% "cats-core" % catsVersion
-  val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
-  val disciplineMunit = "org.typelevel" %% "discipline-munit" % "2.0.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.1"
+  // cats-laws must match the cats-core version pulled in by catsEffect
+  val catsLaws = "org.typelevel" %% "cats-laws" % "2.13.0"
+  val disciplineMunit = "org.typelevel" %% "discipline-munit" % "2.0.0"
   val fs2Core    = "co.fs2"        %% "fs2-core"    % "3.14.0"
   val munitCatsEffect = "org.typelevel" %% "munit-cats-effect" % "2.2.0"
   val scalatestplusTestNG = "org.scalatestplus" %% "testng-7-5" % "3.2.17.0"

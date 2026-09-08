@@ -7,11 +7,11 @@ import com.typesafe.config.ConfigFactory
 import munit.CatsEffectSuite
 
 import slick.cats.Database
-import slick.cats.dbio.instances.*
 import slick.dbio.*
 import slick.jdbc.{DatabaseConfig, JdbcProfile}
 
-/** Runs actions built with cats combinators against an in-memory H2 database. */
+/** Runs actions built with cats combinators against an in-memory H2 database. Scala 3 only
+  * because it relies on `DBIOBase` being inferred for full `DBIOAction` types. */
 class DBIOInstancesTest extends CatsEffectSuite {
 
   private val h2Config = ConfigFactory.parseString(

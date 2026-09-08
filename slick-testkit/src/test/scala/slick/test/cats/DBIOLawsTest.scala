@@ -9,12 +9,11 @@ import munit.DisciplineSuite
 import org.scalacheck.{Arbitrary, Cogen, Gen}
 
 import slick.cats.Database
-import slick.cats.dbio.instances.*
 import slick.dbio.*
 import slick.jdbc.{DatabaseConfig, JdbcProfile}
 
-/** Checks the cats `MonadError` laws for both instances. Actions are compared by running them
-  * against an in-memory H2 database and comparing the outcomes. */
+/** Checks the cats `MonadError` laws for both instances, on every Scala version. Actions are
+  * compared by running them against an in-memory H2 database and comparing the outcomes. */
 class DBIOLawsTest extends DisciplineSuite {
 
   private val h2Config = ConfigFactory.parseString(
