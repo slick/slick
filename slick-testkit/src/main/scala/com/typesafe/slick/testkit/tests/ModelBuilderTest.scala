@@ -112,6 +112,47 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
   }
   val typeTest = TableQuery[TypeTest]
 
+  def testMySQLExpressionDefaults = if(tdb.confName.contains("mysql")) {
+    val timestamp = java.sql.Timestamp.valueOf("2001-02-03 04:05:06")
+    (for {
+      _ <- sqlu"""create table expression_defaults (
+        id integer not null auto_increment primary key,
+        created_at datetime not null default current_timestamp,
+        updated_at datetime not null default current_timestamp on update current_timestamp,
+        value integer not null default 7,
+        expression_value integer not null default (1 + 2),
+        virtual_value integer generated always as (value * 2) virtual,
+        stored_value integer generated always as (value * 3) stored
+      )"""
+      model <- tdb.profile.createModel()
+      columns = model.tables.find(_.name.table == "expression_defaults").get.columns.map(c => c.name -> c).toMap
+      rows = {
+        def options(name: String) = columns(name).options.collect { case ColumnOption.AutoInc => ColumnOption.AutoInc }.toSeq
+        class Rows(tag: Tag) extends Table[(Int, java.sql.Timestamp, java.sql.Timestamp, Int, Int, Int)](tag, "expression_defaults") {
+          def id = column[Int]("id", options("id")*)
+          def createdAt = column[java.sql.Timestamp]("created_at", options("created_at")*)
+          def updatedAt = column[java.sql.Timestamp]("updated_at", options("updated_at")*)
+          def value = column[Int]("value", options("value")*)
+          def virtualValue = column[Int]("virtual_value", options("virtual_value")*)
+          def storedValue = column[Int]("stored_value", options("stored_value")*)
+          def * = (id, createdAt, updatedAt, value, virtualValue, storedValue)
+        }
+        TableQuery[Rows]
+      }
+      _ <- rows += ((0, timestamp, timestamp, 7, 0, 0))
+      row <- rows.result.head
+      _ = {
+        assertEquals(timestamp, row._2)
+        assertEquals(timestamp, row._3)
+        assertEquals(14, row._5)
+        assertEquals(21, row._6)
+        assertEquals(Set("id", "virtual_value", "stored_value"),
+          columns.values.filter(_.options.contains(ColumnOption.AutoInc)).map(_.name).toSet)
+        assertTrue(columns("value").options.contains(RelationalProfile.ColumnOption.Default(7)))
+      }
+    } yield ()).andFinally(sqlu"drop table if exists expression_defaults")
+  } else DBIO.successful(())
+
   def test = ifCap(jcap.createModel) {
     def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true) =
       tdb.profile.createModel(tables.map(DBIO.successful), ignoreInvalidDefaults)
