@@ -112,7 +112,7 @@ sbt "show version"
 
 - **QueryCompiler**: Immutable, configurable compilation pipeline with 20+ phases
 - **Profile**: Database abstraction layer with capability-based feature detection
-- **DBIOAction**: Monadic database operations with async support and effect tracking
+- **SlickAction**: Monadic database operations with async support and effect tracking
 - **Table/Query**: Core abstractions for database schema and queries
 - **Rep[T]**: Lifted representation of database values with type safety
 - **Shape System**: Type-level mapping between Scala types and database representations

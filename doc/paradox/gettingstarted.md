@@ -171,14 +171,14 @@ dependencies on each other.
 Inserting the tuples of data is done with the `+=` and `++=` methods, similar to how you add data to mutable
 Scala collections.
 
-The `create`, `+=` and `++=` methods return *database I/O actions* (`DBIOAction`) which can be executed on a database
+The `create`, `+=` and `++=` methods return *database I/O actions* (`SlickAction`) which can be executed on a database
 at a later time to produce a result. If you do not care about more advanced features like streaming, effect tracking
 or extension methods for certain actions, you can denote their type as `DBIO[T]` (for an operation which will
 eventually produce a value of type `T`).
 
-There are several different combinators for combining multiple `DBIOAction`s into sequences, yielding another action.
+There are several different combinators for combining multiple `SlickAction`s into sequences, yielding another action.
 Here we use the simplest one, `DBIO.seq`, which can concatenate any number of actions, discarding the return values
-(i.e. the resulting `DBIOAction` produces a result of type `Unit`). We then execute the setup action with `db.run`,
+(i.e. the resulting `SlickAction` produces a result of type `Unit`). We then execute the setup action with `db.run`,
 which returns an `IO[Unit]` value that can be composed with the rest of the program.
 
 @@@ note
@@ -201,7 +201,7 @@ We can use the `map` combinator to run some code and compute a new value from th
 ### Querying
 
 The simplest kind of query iterates over all the data in a table by calling `.result` on the `TableQuery` to get
-a `DBIOAction`:
+a `SlickAction`:
 
 @@snip [FirstExample.scala](../code/FirstExample.scala) { #readall }
 

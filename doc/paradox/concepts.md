@@ -19,7 +19,7 @@ execute at a later point.
 Database I/O Actions
 --------------------
 
-Operations that can be executed on a database are called *database I/O actions* (@scaladoc[DBIOAction](slick.dbio.DBIOAction)).
+Operations that can be executed on a database are called *database I/O actions* (@scaladoc[SlickAction](slick.dbio.SlickAction)).
 Several operations on *queries* and *tables* create I/O actions, for example `myQuery.result`,
 `myQuery.result.headOption`, `myQuery += data` or `myTable.schema.create`. Actions can be composed with
 combinators like `andThen`, `flatMap`, `DBIO.seq` or `transactionally`.

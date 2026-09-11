@@ -18,7 +18,7 @@ Scaffolding
 
 The database connection is opened 
 @ref:[in the usual way](gettingstarted.md#database-configuration). All *Plain SQL* queries result in
-a @scaladoc[DBIOAction](slick.dbio.DBIOAction) that can be composed and run like any other action.
+a @scaladoc[SlickAction](slick.dbio.SlickAction) that can be composed and run like any other action.
 
 String Interpolation
 --------------------
@@ -34,7 +34,7 @@ with a literal SQL string:
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #sqlu }
 
 The `sqlu` interpolator is used for DML statements which produce a row count instead of a result
-set. Therefore they are of type `DBIO[Int]`.
+set. Therefore, they are of type `DBIO[Int]`.
 
 Any variable or expression injected into a query gets turned into a bind variable in the resulting
 query string. It is not inserted directly into a query string, so there is no danger of SQL
@@ -49,16 +49,16 @@ insert into coffees values (?, ?, ?, ?, ?)
 ```
 
 Note the use of the
-@scaladoc[DBIO.sequence](slick.dbio.DBIOAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:slick.dbio.Effect](in:M[slick.dbio.DBIOAction[R,slick.dbio.NoStream,E]])(implicitcbf:scala.collection.generic.CanBuildFrom[M[slick.dbio.DBIOAction[R,slick.dbio.NoStream,E]],R,M[R]]):slick.dbio.DBIOAction[M[R],slick.dbio.NoStream,E])
+@scaladoc[DBIO.sequence](slick.dbio.SlickAction$#sequence[M[+_]%3C:TraversableOnce[_],E%3C:slick.dbio.Effect,R](in:M[slick.dbio.SlickAction[slick.dbio.NoStream,E,R]])(implicitcbf:scala.collection.generic.CanBuildFrom[M[slick.dbio.SlickAction[slick.dbio.NoStream,E,R]],R,M[R]]):slick.dbio.SlickAction[slick.dbio.NoStream,E,M[R]])
 combinator which is useful for this kind of code:
 
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #sequence }
 
 Unlike the simpler
-@scaladoc[DBIO.seq](slick.dbio.DBIOAction$#seq[E%3C:slick.dbio.Effect](actions:slick.dbio.DBIOAction[_,slick.dbio.NoStream,E]*):slick.dbio.DBIOAction[Unit,slick.dbio.NoStream,E])
+@scaladoc[DBIO.seq](slick.dbio.SlickAction$#seq[E%3C:slick.dbio.Effect](actions:slick.dbio.SlickAction[slick.dbio.NoStream,E,_]*):slick.dbio.SlickAction[slick.dbio.NoStream,E,Unit])
 combinator which runs a (varargs) sequence of database I/O actions in the given order and discards
 the return values,
-@scaladoc[DBIO.sequence](slick.dbio.DBIOAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:slick.dbio.Effect](in:M[slick.dbio.DBIOAction[R,slick.dbio.NoStream,E]])(implicitcbf:scala.collection.generic.CanBuildFrom[M[slick.dbio.DBIOAction[R,slick.dbio.NoStream,E]],R,M[R]]):slick.dbio.DBIOAction[M[R],slick.dbio.NoStream,E])
+@scaladoc[DBIO.sequence](slick.dbio.SlickAction$#sequence[M[+_]%3C:TraversableOnce[_],E%3C:slick.dbio.Effect,R](in:M[slick.dbio.SlickAction[slick.dbio.NoStream,E,R]])(implicitcbf:scala.collection.generic.CanBuildFrom[M[slick.dbio.SlickAction[slick.dbio.NoStream,E,R]],R,M[R]]):slick.dbio.SlickAction[slick.dbio.NoStream,E,M[R]])
 turns a `Seq[DBIO[T]]` into a `DBIO[Seq[T]]`, thus preserving the results of all individual
 actions. It is used here to sum up the affected row counts of all inserts.
 
@@ -113,7 +113,7 @@ to get just that:
 
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #tsql }
 
-Note that `tsql` directly produces a `DBIOAction` of the correct type without requiring a call
+Note that `tsql` directly produces a `SlickAction` of the correct type without requiring a call
 to `.as`.
 
 In order to give the compiler access to the database, you have to provide a configuration that can

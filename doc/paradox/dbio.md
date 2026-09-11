@@ -1,7 +1,7 @@
 Database I/O Actions
 ====================
 
-This chapter explains how to execute, compose, and control `DBIOAction` values.
+This chapter explains how to execute, compose, and control `SlickAction` values.
 
 In this chapter:
 
@@ -13,16 +13,16 @@ In this chapter:
 Anything that you can execute on a database, whether it is a getting the result of a query
 (`myQuery.result`), creating a table (`myTable.schema.create`), inserting data
 (`myTable += item`) or something else, is an instance of
-@scaladoc[DBIOAction](slick.dbio.DBIOAction), parameterized by the result type it will produce when you execute it.
+@scaladoc[SlickAction](slick.dbio.SlickAction), parameterized by the result type it will produce when you execute it.
 
 *Database I/O Actions* can be combined with several different combinators (see the
-@scaladoc[DBIOAction class](slick.dbio.DBIOAction) and @scaladoc[DBIOAction object](slick.dbio.DBIOAction$), which is also
+@scaladoc[SlickAction class](slick.dbio.SlickAction) and @scaladoc[SlickAction object](slick.dbio.SlickAction$), which is also
 available under the alias `DBIO`, for details), but they will always be executed strictly sequentially and (at least
 conceptually) in a single database session.
 
 In most cases you will want to use the type aliases @scaladoc[DBIO](slick.dbio.package#DBIO[+R]:DBIO[R])
 and @scaladoc[StreamingDBIO](slick.dbio.package#StreamingDBIO[+R,+T]:StreamingDBIO[R,T]) for non-streaming and
-streaming Database I/O Actions. They omit the optional *effect types* supported by @scaladoc[DBIOAction](slick.dbio.DBIOAction).
+streaming Database I/O Actions. They omit the optional *effect types* supported by @scaladoc[SlickAction](slick.dbio.SlickAction).
 
 @@@ note
 
@@ -39,14 +39,14 @@ Executing Database Actions
 
 Start here if you want to run a query or action and get results back.
 
-`DBIOAction`s can be executed either with the goal of producing a fully materialized result or streaming
+`SlickAction`s can be executed either with the goal of producing a fully materialized result or streaming
 data back from the database.
 
 ### Materialized
 
-You can use `run` to execute a `DBIOAction` on a Database and produce a materialized result. This can
+You can use `run` to execute a `SlickAction` on a Database and produce a materialized result. This can
 be, for example, a scalar query result (`myTable.length.result`), a collection-valued query
-result (`myTable.to[Set].result`), or any other action. Every `DBIOAction` supports this mode of
+result (`myTable.to[Set].result`), or any other action. Every `SlickAction` supports this mode of
 execution.
 
 Execution of the action starts in the background when `run` is called. The calling thread is not blocked. The
@@ -61,12 +61,12 @@ Collection-valued queries also support streaming results. In this case, the actu
 is ignored and elements are streamed directly from the result set through the streaming type of the
 selected Slick facade.
 
-Execution of the `DBIOAction` does not start until the stream is consumed.
+Execution of the `SlickAction` does not start until the stream is consumed.
 
 Repeated-consumption semantics depend on the selected facade stream type. See the facade-specific
 Scaladoc for `slick.cats.Database` and `slick.zio.Database`.
 
-Stream elements are signaled as soon as they become available in the streaming part of the `DBIOAction`. The end of
+Stream elements are signaled as soon as they become available in the streaming part of the `SlickAction`. The end of
 the stream is signaled only after the *entire action* has completed. For example, when streaming inside a transaction
 and all elements have been delivered successfully, the stream can still fail afterwards if the transaction cannot be
 committed.
@@ -92,51 +92,51 @@ Composing Database I/O Actions
 
 This section covers how to build larger workflows from smaller actions.
 
-`DBIOAction`s describe sequences of individual actions to execute in strictly sequential order on
+`SlickAction`s describe sequences of individual actions to execute in strictly sequential order on
 one database session (at least conceptually), therefore the most commonly used combinators deal with
-sequencing. Since a `DBIOAction` eventually results in a `Success` or `Failure`, its combinators
+sequencing. Since a `SlickAction` eventually results in a `Success` or `Failure`, its combinators
 have to distinguish between successful and failed executions. Unless specifically noted, all
 combinators only apply to successful actions. Any failure aborts the sequence of execution.
 
 ### Sequential Execution
 
-The simplest combinator is @scaladoc[DBIO.seq](slick.dbio.DBIOAction$#seq[E%3C:Effect](DBIOAction[_,NoStream,E]*):DBIOAction[Unit,NoStream,E])
+The simplest combinator is @scaladoc[DBIO.seq](slick.dbio.SlickAction$#seq[E%3C:Effect](SlickAction[NoStream,E,_]*):SlickAction[NoStream,E,Unit])
 which takes a varargs list of actions to run in sequence, discarding their return value. If you
-need the return value, you can use @scaladoc[andThen](slick.dbio.DBIOAction#andThen[R2,S2%3C:NoStream,E2%3C:Effect](DBIOAction[R2,S2,E2]):DBIOAction[R2,S2,EwithE2])
+need the return value, you can use @scaladoc[andThen](slick.dbio.SlickAction#andThen[R2,S2%3C:NoStream,E2%3C:Effect](SlickAction[S2,E2,R2]):SlickAction[S2,EwithE2,R2])
 to combine two actions and keep the result of the second one. If you need both return values of two
-actions, there is the @scaladoc[zip](slick.dbio.DBIOAction#zip[R2,E2%3C:Effect](DBIOAction[R2,NoStream,E2]):DBIOAction[(R,R2),NoStream,EwithE2])
+actions, there is the @scaladoc[zip](slick.dbio.SlickAction#zip[R2,E2%3C:Effect](SlickAction[NoStream,E2,R2]):SlickAction[NoStream,EwithE2,(R,R2)])
 combinator. For getting all result values from a sequence of actions (of compatible types), use
-@scaladoc[DBIO.sequence](slick.dbio.DBIOAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]).
-All these combinators work with pre-existing `DBIOAction`s which are composed eagerly:
+@scaladoc[DBIO.sequence](slick.dbio.SlickAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:Effect](M[SlickAction[NoStream,E,R]])(CanBuildFrom[M[SlickAction[NoStream,E,R]],R,M[R]]):SlickAction[NoStream,E,M[R]]).
+All these combinators work with pre-existing `SlickAction`s which are composed eagerly:
 
 @@snip [DBIOCombinators.scala](../code/DBIOCombinators.scala) { #combinators1 }
 
 If an action depends on a previous action in the sequence, you have to compute it on the fly with
-@scaladoc[flatMap](slick.dbio.DBIOAction#flatMap[R2,S2%3C:NoStream,E2%3C:Effect]((R)=%3EDBIOAction[R2,S2,E2]):DBIOAction[R2,S2,EwithE2])
-or @scaladoc[map](slick.dbio.DBIOAction#map[R2]((R)=%3ER2):DBIOAction[R2,NoStream,E]).
-These two methods plus @scaladoc[filter](slick.dbio.DBIOAction#filter((R)=%3EBoolean):DBIOAction[R,NoStream,E])
+@scaladoc[flatMap](slick.dbio.SlickAction#flatMap[R2,S2%3C:NoStream,E2%3C:Effect]((R)=%3ESlickAction[S2,E2,R2]):SlickAction[S2,EwithE2,R2])
+or @scaladoc[map](slick.dbio.SlickAction#map[R2]((R)=%3ER2):SlickAction[NoStream,E,R2]).
+These two methods plus @scaladoc[filter](slick.dbio.SlickAction#filter((R)=%3EBoolean):SlickAction[NoStream,E,R])
 enable the use of *for comprehensions* for action sequencing.
 
-Similar to @scaladoc[DBIO.sequence](slick.dbio.DBIOAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E])
-for upfront composition, there is @scaladoc[DBIO.fold](slick.dbio.DBIOAction$#fold[T,E%3C:Effect](Seq[DBIOAction[T,NoStream,E]],T)((T,T)=%3ET):DBIOAction[T,NoStream,E])
+Similar to @scaladoc[DBIO.sequence](slick.dbio.SlickAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:Effect](M[SlickAction[NoStream,E,R]])(CanBuildFrom[M[SlickAction[NoStream,E,R]],R,M[R]]):SlickAction[NoStream,E,M[R]])
+for upfront composition, there is @scaladoc[DBIO.fold](slick.dbio.SlickAction$#fold[T,E%3C:Effect](Seq[SlickAction[NoStream,E,T]],T)((T,T)=%3ET):SlickAction[NoStream,E,T])
 for working with sequences of actions and composing them based on the previous result.
 
 ### Error Handling
 
-You can use @scaladoc[andFinally](slick.dbio.DBIOAction#andFinally[E2%3C:Effect](DBIOAction[_,NoStream,E2]):DBIOAction[R,S,EwithE2])
+You can use @scaladoc[andFinally](slick.dbio.SlickAction#andFinally[E2%3C:Effect](SlickAction[NoStream,E2,_]):SlickAction[S,EwithE2,R])
 to perform a cleanup action, no matter whether the previous action succeeded or failed. This is similar to using
 `try ... finally ...` in imperative Scala code. A more flexible version of
-@scaladoc[andFinally](slick.dbio.DBIOAction#andFinally[E2%3C:Effect](DBIOAction[_,NoStream,E2]):DBIOAction[R,S,EwithE2])
-is @scaladoc[cleanUp](slick.dbio.DBIOAction#cleanUp[E2%3C:Effect]((Option[Throwable])=%3EDBIOAction[_,NoStream,E2],Boolean):DBIOAction[R,S,EwithE2]).
+@scaladoc[andFinally](slick.dbio.SlickAction#andFinally[E2%3C:Effect](SlickAction[NoStream,E2,_]):SlickAction[S,EwithE2,R])
+is @scaladoc[cleanUp](slick.dbio.SlickAction#cleanUp[E2%3C:Effect]((Option[Throwable])=%3ESlickAction[NoStream,E2,_],Boolean):SlickAction[S,EwithE2,R]).
 It lets you transform the failure and decide how to fail the resulting action if both the original
 one and the cleanup failed.
 
 @@@ note
 For even more flexible error handling use
-@scaladoc[asTry](slick.dbio.DBIOAction#asTry:DBIOAction[Try[R],NoStream,E])
-and @scaladoc[failed](slick.dbio.DBIOAction#failed:DBIOAction[Throwable,NoStream,E]). Unlike with
-@scaladoc[andFinally](slick.dbio.DBIOAction#andFinally[E2%3C:Effect](DBIOAction[_,NoStream,E2]):DBIOAction[R,S,EwithE2])
-and @scaladoc[cleanUp](slick.dbio.DBIOAction#cleanUp[E2%3C:Effect]((Option[Throwable])=%3EDBIOAction[_,NoStream,E2],Boolean):DBIOAction[R,S,EwithE2])
+@scaladoc[asTry](slick.dbio.SlickAction#asTry:SlickAction[NoStream,E,Try[R]])
+and @scaladoc[failed](slick.dbio.SlickAction#failed:SlickAction[NoStream,E,Throwable]). Unlike with
+@scaladoc[andFinally](slick.dbio.SlickAction#andFinally[E2%3C:Effect](SlickAction[NoStream,E2,_]):SlickAction[S,EwithE2,R])
+and @scaladoc[cleanUp](slick.dbio.SlickAction#cleanUp[E2%3C:Effect]((Option[Throwable])=%3ESlickAction[NoStream,E2,_],Boolean):SlickAction[S,EwithE2,R])
 the resulting actions cannot be used for streaming.
 @@@
 
@@ -151,7 +151,7 @@ the fiber stays canceled and downstream `flatMap` continuations do not run.
 
 ### Primitives
 
-You can lift any CE3 effect `F[R]` into an action with @scaladoc[DBIO.from](slick.dbio.DBIOAction$#from[F[_],R](F[R]):DBIOAction[R,NoStream,Effect]).
+You can lift any CE3 effect `F[R]` into an action with @scaladoc[DBIO.from](slick.dbio.SlickAction$#from[F[_],R](F[R]):SlickAction[NoStream,Effect,R]).
 `DBIO.liftF` is an alias for `DBIO.from`. This allows an `IO` (or any other `F[_]: Async` value)
 to be used in an action sequence:
 
@@ -163,40 +163,40 @@ val action: DBIO[String] = for {
 ```
 
 A pre-existing value or failure can be converted with
-@scaladoc[DBIO.successful](slick.dbio.DBIOAction$#successful[R](R):DBIOAction[R,NoStream,Effect])
-and @scaladoc[DBIO.failed](slick.dbio.DBIOAction$#failed(Throwable):DBIOAction[Nothing,NoStream,Effect]), respectively.
+@scaladoc[DBIO.successful](slick.dbio.SlickAction$#successful[R](R):SlickAction[NoStream,Effect,R])
+and @scaladoc[DBIO.failed](slick.dbio.SlickAction$#failed(Throwable):SlickAction[NoStream,Effect,Nothing]), respectively.
 
 ### Debugging
 
-The @scaladoc[named](slick.dbio.DBIOAction#named(String):DBIOAction[R,S,E]) combinator names an
+The @scaladoc[named](slick.dbio.SlickAction#named(String):SlickAction[S,E,R]) combinator names an
 action. This name can be seen in debug logs if you enable the `slick.basic.BasicBackend.action`  @ref:[logger](config.md#logging).
 
 ### Transactions and Pinned Sessions {#transactions}
 
-When executing a `DBIOAction` which is composed of several smaller actions, Slick acquires sessions from the connection
+When executing a `SlickAction` which is composed of several smaller actions, Slick acquires sessions from the connection
 pool and releases them again as needed so that a session is not kept in use unnecessarily while waiting for the result
 of a non-database computation (e.g. the function passed to
-@scaladoc[flatMap](slick.dbio.DBIOAction#flatMap[R2,S2%3C:NoStream,E2%3C:Effect]((R)=%3EDBIOAction[R2,S2,E2]):DBIOAction[R2,S2,EwithE2])
+@scaladoc[flatMap](slick.dbio.SlickAction#flatMap[R2,S2%3C:NoStream,E2%3C:Effect]((R)=%3ESlickAction[S2,E2,R2]):SlickAction[S2,EwithE2,R2])
 that determines the next action to run). You can use
-@scaladoc[withPinnedSession](slick.dbio.DBIOAction#withPinnedSession:DBIOAction[R,S,E]) to force the use of a single
+@scaladoc[withPinnedSession](slick.dbio.SlickAction#withPinnedSession:SlickAction[S,E,R]) to force the use of a single
 session, keeping the existing session open even when waiting for non-database computations.
 
-All @scaladoc[DBIOAction combinators](slick.dbio.DBIOAction) which combine database actions without any non-database
+All @scaladoc[SlickAction combinators](slick.dbio.SlickAction) which combine database actions without any non-database
 computations in between (e.g.
-@scaladoc[andThen](slick.dbio.DBIOAction#andThen[R2,S2%3C:NoStream,E2%3C:Effect](DBIOAction[R2,S2,E2]):DBIOAction[R2,S2,EwithE2])
+@scaladoc[andThen](slick.dbio.SlickAction#andThen[R2,S2%3C:NoStream,E2%3C:Effect](SlickAction[S2,E2,R2]):SlickAction[S2,EwithE2,R2])
 or
-@scaladoc[zip](slick.dbio.DBIOAction#zip[R2,E2%3C:Effect](DBIOAction[R2,NoStream,E2]):DBIOAction[(R,R2),NoStream,EwithE2])
+@scaladoc[zip](slick.dbio.SlickAction#zip[R2,E2%3C:Effect](SlickAction[NoStream,E2,R2]):SlickAction[NoStream,EwithE2,(R,R2)])
 applied to two database computations) can fuse these actions for more efficient execution, with the side-effect that
 the fused action runs inside a single session, even without `withPinnedSession`.
 
 There is a related combinator called
-@scaladoc[transactionally](slick.jdbc.JdbcActionComponent$JdbcActionExtensionMethods#transactionally:DBIOAction[R,S,EwithTransactional])
-to force the use of a transaction. This guarantees that the entire `DBIOAction` that is executed will
+@scaladoc[transactionally](slick.jdbc.JdbcActionComponent$JdbcActionExtensionMethods#transactionally:SlickAction[S,EwithTransactional,R])
+to force the use of a transaction. This guarantees that the entire `SlickAction` that is executed will
 either succeed or fail atomically. Without it, all database actions run in auto-commit mode. The use of a transaction
 always implies a pinned session.
 
 An overload
-@scaladoc[transactionally(ti)](slick.jdbc.JdbcActionComponent$JdbcActionExtensionMethods#transactionally(TransactionIsolation):DBIOAction[R,S,EwithTransactional])
+@scaladoc[transactionally(ti)](slick.jdbc.JdbcActionComponent$JdbcActionExtensionMethods#transactionally(TransactionIsolation):SlickAction[S,EwithTransactional,R])
 accepts a `TransactionIsolation` level:
 
 ```scala
@@ -206,7 +206,7 @@ action.transactionally(TransactionIsolation.Serializable)
 @@snip [Connection.scala](../code/Connection.scala) { #transaction }
 
 @@@ warning
-Warning: Failure is not guaranteed to be atomic *at the level of an individual* `DBIOAction` that is wrapped with
+Warning: Failure is not guaranteed to be atomic *at the level of an individual* `SlickAction` that is wrapped with
 `transactionally`, so you need to be careful where you apply error recovery combinators. An actual database
 transaction is only created and committed or rolled back for the outermost `transactionally` action. Nested
 `transactionally` actions simply execute inside the existing transaction without additional savepoints.
@@ -219,7 +219,7 @@ fiber cancellation. This guarantee was not possible with `Future`-based executio
 
 ### Rollbacks
 
-In case you want to force a rollback, you can return `DBIO.failed` within a `DBIOAction`.
+In case you want to force a rollback, you can return `DBIO.failed` within a `SlickAction`.
 
 @@snip [Connection.scala](../code/Connection.scala) { #rollback }
 

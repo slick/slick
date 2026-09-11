@@ -81,7 +81,7 @@ DatabaseConfig.forDataSource(MyProfile, ds)
 ```
 
 When `queueSize` is exhausted, Slick rejects immediately with
-`SlickException("DBIOAction queue full")`.
+`SlickException("SlickAction queue full")`.
 
 When configured timeout limits are exceeded, Slick fails with `SlickException` as well:
 

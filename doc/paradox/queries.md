@@ -192,9 +192,9 @@ as done in `q2`.
 Querying
 --------
 
-This is the bridge from query descriptions to executable `DBIOAction`s.
+This is the bridge from query descriptions to executable `SlickAction`s.
 
-A Query can be converted into an @scaladoc[Action](slick.dbio.DBIOAction) by calling its
+A Query can be converted into an @scaladoc[Action](slick.dbio.SlickAction) by calling its
 `result` method. The Action can then be  @ref:[executed](dbio.md#executing-database-actions) directly in a
 streaming or fully materialized way, or composed further with other Actions:
 
