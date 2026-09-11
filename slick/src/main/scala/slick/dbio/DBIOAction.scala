@@ -6,6 +6,8 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
+import cats.{MonadError, StackSafeMonad}
+
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.compat.collection.*
@@ -34,7 +36,67 @@ import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
   *           user code, e.g. to automatically direct all read-only Actions to a slave database
   *           and write Actions to the master copy.
   */
-sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
+/** The result-only view of a [[DBIOAction]]: a unary type constructor that discards the
+  * streaming and effect type parameters, so that type class instances (e.g. `cats.Monad`)
+  * can be defined for it. [[DBIOAction]] is its only implementation.
+  *
+  * On Scala 3 a `DBIOAction[R, S, E]` unifies with an `F[_]` type constructor as
+  * `DBIOBase` (the compiler falls back to base types because the bounded effect parameter
+  * cannot be the hole of an unbounded `F[_]`), so the instances defined for `DBIOBase` in its
+  * companion are found for any action without an explicit upcast or import. Values typed with
+  * the `DBIO` alias unify as `DBIO` instead and use the instances in the [[DBIOAction]]
+  * companion. Scala 2 does not fall back to base types; there the instances are found for
+  * `DBIO`-typed values and for values explicitly upcast to `DBIOBase`.
+  *
+  * Note: `-source:3.0-migration` disables the base type fallback.
+  *
+  * Results of `cats` combinators are `DBIOBase` (or `DBIO` when the inputs were typed as such).
+  * A `DBIOBase` can be passed to `Database.run`, `flatMap`, for-comprehensions and every other
+  * place that accepts a `DBIO`, thanks to the implicit view [[DBIOBase.toDBIO]]. Use `.toDBIO`
+  * explicitly where an extension method such as `transactionally` is needed, since Scala does
+  * not chain two implicit conversions. Effect and streaming information is dropped when going
+  * through `cats`, exactly as with `DBIO`. */
+sealed trait DBIOBase[+R] {
+  /** View this action as a plain `DBIO`, forgetting streaming and effect information. */
+  def toDBIO: DBIO[R]
+}
+
+object DBIOBase {
+  import scala.language.implicitConversions
+
+  /** Lets a `DBIOBase` (e.g. the result of a `cats` combinator) be used wherever a `DBIO`
+    * is expected, including `Database.run`, `flatMap` arguments and for-comprehensions. */
+  implicit def toDBIO[R](a: DBIOBase[R]): DBIO[R] = a.toDBIO
+
+  /** `cats` instance for full `DBIOAction` types, see [[DBIOBase]]. */
+  implicit val catsMonadErrorForDBIOBase: MonadError[DBIOBase, Throwable] =
+    new MonadError[DBIOBase, Throwable] with StackSafeMonad[DBIOBase] {
+      def pure[A](a: A): DBIOBase[A] = SuccessAction(a)
+
+      def flatMap[A, B](fa: DBIOBase[A])(f: A => DBIOBase[B]): DBIOBase[B] =
+        fa.toDBIO.flatMap(a => f(a).toDBIO)
+
+      override def map[A, B](fa: DBIOBase[A])(f: A => B): DBIOBase[B] = fa.toDBIO.map(f)
+
+      def raiseError[A](e: Throwable): DBIOBase[A] = FailureAction(e)
+
+      def handleErrorWith[A](fa: DBIOBase[A])(f: Throwable => DBIOBase[A]): DBIOBase[A] =
+        fa.toDBIO.asTry.flatMap {
+          case Success(a) => SuccessAction(a)
+          case Failure(t) => f(t).toDBIO
+        }
+
+      override def attempt[A](fa: DBIOBase[A]): DBIOBase[Either[Throwable, A]] =
+        fa.toDBIO.asTry.map(_.toEither)
+    }
+}
+
+sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[R] with Dumpable {
+  /** `S <: NoStream` makes this a plain upcast. `Effect.All` is the bottom of the effect lattice,
+    * so the result can only be passed where every effect is permitted: the cast never grants
+    * a capability, it only forgets `S` and `E`. Sound because `DBIOBase` is sealed. */
+  final def toDBIO: DBIO[R] = this.asInstanceOf[DBIO[R]]
+
   /** Transform the result of a successful execution of this action. If this action fails, the
     * resulting action also fails. */
   def map[R2](f: R => R2): DBIOAction[R2, NoStream, E] =
@@ -177,6 +239,27 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
 
 object DBIOAction {
   private val UnitAction: DBIOAction[Unit, NoStream, Effect] = SuccessAction(())
+
+  /** `cats` instance for values typed with the `DBIO` alias, see [[DBIOBase]]. It lives here
+    * because the implicit scope of `DBIO[R]` is that of its expansion `DBIOAction[R, NoStream, Effect.All]`. */
+  implicit val catsMonadErrorForDBIO: MonadError[DBIO, Throwable] =
+    new MonadError[DBIO, Throwable] with StackSafeMonad[DBIO] {
+      def pure[A](a: A): DBIO[A] = SuccessAction(a)
+
+      def flatMap[A, B](fa: DBIO[A])(f: A => DBIO[B]): DBIO[B] = fa.flatMap(f)
+
+      override def map[A, B](fa: DBIO[A])(f: A => B): DBIO[B] = fa.map(f)
+
+      def raiseError[A](e: Throwable): DBIO[A] = FailureAction(e)
+
+      def handleErrorWith[A](fa: DBIO[A])(f: Throwable => DBIO[A]): DBIO[A] =
+        fa.asTry.flatMap {
+          case Success(a) => SuccessAction(a)
+          case Failure(t) => f(t)
+        }
+
+      override def attempt[A](fa: DBIO[A]): DBIO[Either[Throwable, A]] = fa.asTry.map(_.toEither)
+    }
 
   /** Lift a constant value to a [[DBIOAction]]. */
   def successful[R](v: R): DBIOAction[R, NoStream, Effect] = SuccessAction[R](v)

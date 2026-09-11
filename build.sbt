@@ -290,6 +290,8 @@ lazy val testkit =
       libraryDependencies ++=
         Dependencies.junit ++:
           (Dependencies.munitCatsEffect % Test) +:
+          (Dependencies.catsLaws % Test) +:
+          (Dependencies.disciplineMunit % Test) +:
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
