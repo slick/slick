@@ -78,6 +78,27 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   class MySQLModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def readColumns(t: MTable): DBIO[Vector[MColumn]] = {
+      import profile.api.actionBasedSQLInterpolation
+
+      for {
+        columns <- super.readColumns(t)
+        extra <- if(columns.exists(_.isGenerated.contains(true))) {
+          val schema = t.name.catalog.orElse(t.name.schema)
+          sql"""select COLUMN_NAME, EXTRA from information_schema.COLUMNS
+                where TABLE_SCHEMA = coalesce($schema, database()) and TABLE_NAME = ${t.name.name}"""
+            .as[(String, Option[String])]
+        } else DBIO.successful(Vector.empty[(String, Option[String])])
+      } yield {
+        val extras = extra.collect { case (name, Some(value)) => name -> value }.toMap
+        columns.map { column =>
+          extras.get(column.name).fold(column) { value =>
+            column.copy(isGenerated = Some(value.contains("VIRTUAL GENERATED") || value.contains("STORED GENERATED")))
+          }
+        }
+      }
+    }
+
     override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder =
       new MySQLPrimaryKeyBuilder(tableBuilder, meta)
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
