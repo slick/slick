@@ -315,7 +315,7 @@ Timeout failures are returned as `SlickException`:
 
 When the queue is full, new calls fail fast with:
 
-- `SlickException("DBIOAction queue full")`
+- `SlickException("SlickAction queue full")`
 
 This is intentional back-pressure. Typical responses are to retry with jittered backoff, shed load,
 or increase capacity (`queueSize`, `maxInflightActions`, and/or database connection pool size)

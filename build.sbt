@@ -250,7 +250,12 @@ lazy val slick =
       Compile / doc / scalacOptions ++= Seq(
         "-doc-root-content", "scaladoc-root.txt"
       ),
-
+      Test / scalacOptions ++= {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, 12)) => List("-Ypartial-unification")
+          case _ => Nil
+        }
+      },
       // suppress test status output
       test := TestResult.Passed,
       testOnly := TestResult.Passed
@@ -520,6 +525,7 @@ lazy val root =
       testAll := Def.uncached {
         // sbt 2's `test` is incremental and only reruns failed or changed suites; CI must always run everything
         Def.sequential(
+          slick / Test / testFull,
           testkit / Test / testFull,
           testkit / DocTest / testFull,
           slickFuture / Test / testFull,

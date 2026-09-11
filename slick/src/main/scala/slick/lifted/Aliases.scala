@@ -41,6 +41,7 @@ trait Aliases {
   val ForeignKeyAction = slick.model.ForeignKeyAction
   type ForeignKeyAction = slick.model.ForeignKeyAction
 
+  type SlickAction[+S <: dbio.NoStream, -E <: dbio.Effect, +R] = dbio.SlickAction[S, E, R]
   type DBIO[+R] = dbio.DBIO[R]
   type StreamingDBIO[+R, +T] = dbio.StreamingDBIO[R, T]
   type DBIOAction[+R, +S <: dbio.NoStream, -E <: dbio.Effect] = dbio.DBIOAction[R, S, E]
