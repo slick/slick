@@ -9,9 +9,10 @@ import munit.CatsEffectSuite
 import slick.cats.Database
 import slick.dbio.*
 import slick.jdbc.{DatabaseConfig, JdbcProfile}
+import slick.test.cats.TypeAssertions.*
 
 /** Runs actions built with cats combinators against an in-memory H2 database. Scala 3 only
-  * because it relies on `DBIOBase` being inferred for full `DBIOAction` types. */
+  * because it relies on `DBIOBase[E, *]` being inferred for full `DBIOAction` types. */
 class DBIOInstancesTest extends CatsEffectSuite {
 
   private val h2Config = ConfigFactory.parseString(
@@ -43,12 +44,13 @@ class DBIOInstancesTest extends CatsEffectSuite {
   private def withTable[A](body: => IO[A]): IO[A] =
     db().run(rows.schema.dropIfExists >> rows.schema.create) *> body.guarantee(db().run(rows.schema.dropIfExists).void)
 
-  private val F = MonadError[DBIOBase, Throwable]
+  private val F = MonadError[[A] =>> DBIOBase[Effect.All, A], Throwable]
 
-  test("traverse over inserts, then query") {
+  test("traverse over inserts keeps the Write effect, then query") {
     withTable {
       // `rows += i` is a profile-specific DBIOAction with a Write effect: no upcast needed
       val inserts = (1 to 5).toList.traverse { i => rows += i }
+      exactly[DBIOBase[Effect.Write, List[Int]]](inserts)
       for {
         counts <- db().run(inserts)
         result <- db().run(rows.sortBy(_.v).result)
@@ -69,10 +71,19 @@ class DBIOInstancesTest extends CatsEffectSuite {
     }
   }
 
+  test("a cats result composes with Slick's combinators, effects intersected, and runs") {
+    withTable {
+      val inserts = List(1, 2, 3).traverse_ { i => rows += i }
+      val program = for { _ <- inserts; all <- rows.sortBy(_.v).result } yield all
+      typed[DBIOAction[Seq[Int], NoStream, Effect.Write & Effect.Read]](program)
+      db().run(program).assertEquals(Vector(1, 2, 3))
+    }
+  }
+
   test("a cats result can be used inside an ordinary transaction") {
     withTable {
       val inserts = List(1, 2, 3).traverse_ { i => rows += i }
-      val failing = inserts.toDBIO >> DBIO.failed(new IllegalStateException("roll me back"))
+      val failing = inserts >> DBIO.failed(new IllegalStateException("roll me back"))
       for {
         outcome <- db().run(failing.transactionally).attempt
         n <- db().run(rows.length.result)
@@ -84,12 +95,12 @@ class DBIOInstancesTest extends CatsEffectSuite {
   }
 
   test("raiseError fails the action") {
-    val failed: DBIOBase[Int] = F.raiseError(new IllegalArgumentException("boom"))
+    val failed: DBIOBase[Effect.All, Int] = F.raiseError(new IllegalArgumentException("boom"))
     interceptIO[IllegalArgumentException](db().run(failed))
   }
 
   test("handleErrorWith recovers, attempt reifies") {
-    val failed: DBIOBase[Int] = F.raiseError(new IllegalArgumentException("boom"))
+    val failed: DBIOBase[Effect.All, Int] = F.raiseError(new IllegalArgumentException("boom"))
     for {
       recovered <- db().run(failed.handleErrorWith(_ => F.pure(42)))
       attempted <- db().run(failed.attempt)
@@ -107,10 +118,25 @@ class DBIOInstancesTest extends CatsEffectSuite {
     db().run(loop).assertEquals(n)
   }
 
-  test("a long left-nested flatMap chain is stack safe") {
+  test("a long left-nested flatMap chain through the instance is stack safe") {
     val n = 100000
-    val sum = (1 to n).foldLeft(F.pure(0L))((acc, i) => acc.flatMap(a => F.pure(a + i)))
+    val sum = (1 to n).foldLeft(F.pure(0L))((acc, i) => F.flatMap(acc)(a => F.pure(a + i)))
     db().run(sum).assertEquals(n.toLong * (n + 1) / 2)
+  }
+
+  test("the SlickAction instance for a specific effect behaves the same") {
+    withTable {
+      val W = MonadError[[A] =>> SlickAction[Effect.Write, A], Throwable]
+      val program = W.handleErrorWith(W.raiseError[Int](new RuntimeException("x")))(_ => rows += 7)
+      exactly[SlickAction[Effect.Write, Int]](program)
+      for {
+        n <- db().run(program)
+        all <- db().run(rows.result)
+      } yield {
+        assertEquals(n, 1)
+        assertEquals(all, Vector(7))
+      }
+    }
   }
 
   test("the DBIO instance behaves the same as the DBIOBase instance") {
