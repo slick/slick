@@ -9,7 +9,7 @@ import org.scalacheck.{Arbitrary, Gen}
 import slick.memory.MemoryProfile
 
 class SlickActionInstancesTest extends munit.DisciplineSuite {
-  def run[R](a: SlickAction[NoStream, _, R]) = MemoryProfile.backend.Database().use(_.run(a)).unsafeRunSync()
+  def run[R](a: SlickAction[NoStream, ?, R]) = MemoryProfile.backend.Database().use(_.run(a)).unsafeRunSync()
 
   implicit val throwableEq: Eq[Throwable] = Eq.fromUniversalEquals
 

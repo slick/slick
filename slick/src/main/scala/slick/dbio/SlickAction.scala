@@ -172,6 +172,9 @@ sealed trait SlickAction[+S <: NoStream, -E <: Effect, +R] extends Dumpable {
 
   /** Whether or not this action should be included in log output by default. */
   def isLogged: Boolean = false
+
+  /** Remove streaming constraint and subtyping so that the action adheres to [[cats.Monad]] interface. */
+  final def monadic: SlickAction[NoStream, E, R] = this
 }
 
 object SlickAction extends SlickActionInstances {

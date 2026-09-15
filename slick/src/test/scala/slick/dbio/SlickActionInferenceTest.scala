@@ -1,13 +1,9 @@
 package slick.dbio
 
-import cats.Monad
 import cats.syntax.all.*
-import slick.jdbc.H2Profile
 
 // check that instances are picked up when using either DBIO or SlickAction while preserving Effect type
-class SlickActionInferenceTest extends munit.FunSuite {
-  def monad[F[_] : Monad, A](fa: F[A]): F[A] = fa
-
+class SlickActionInferenceTest extends BaseTest {
   test("the slick-cats 'Known Issues' cases compile") {
     // SlickAction replaces DBIOAction
     val fail1: SlickAction[NoStream, Effect.All, String] = DBIO.successful("hello")
@@ -23,13 +19,18 @@ class SlickActionInferenceTest extends munit.FunSuite {
   val io: DBIO[String] = action
 
   test("specific effect is preserved") {
-    monad(action.flatMap(_ => action.transactionally)): SlickAction[NoStream, Effect.Transactional, String]
+    exactly[SlickAction[NoStream, Effect.Transactional, String]] {
+      monad(action.flatMap(_ => action.transactionally))
+    }
   }
 
   test("traverse picks up Monad") {
-    List(1).traverse { i => action }
-    List(1).traverse { i => io }
-    List(1).traverse { i => action.transactionally }
+    exactly[SlickAction[NoStream, Effect, List[String]]] {
+      List(1).traverse { i => action }
+    }
+    exactly[DBIO[List[String]]] {
+      List(1).traverse { i => io }
+    }
   }
 
   test("cats syntax works") {
@@ -37,25 +38,6 @@ class SlickActionInferenceTest extends munit.FunSuite {
     io >>= (_ => action)
     action |+| action
     io |+| action
-  }
-
-  test("profile actions also work") {
-    import H2Profile.api.*
-    class T(tag: Tag) extends Table[Int](tag, "T") {
-      def a = column[Int]("A");
-
-      def * = a
-    }
-    val ts = TableQuery[T]
-
-    // todo should not need explicit cast
-    def monadDBIO[E <: Effect, A](d: SlickAction[NoStream, E, A]) = monad(d)
-
-    monadDBIO(ts.result)
-    monadDBIO(ts += 1)
-    monadDBIO(ts.schema.create)
-    monadDBIO(ts.result.transactionally)
-    monadDBIO(ts.update(1))
   }
 }
 

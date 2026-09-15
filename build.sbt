@@ -252,7 +252,17 @@ lazy val slick =
       ),
       Test / scalacOptions ++= {
         CrossVersion.partialVersion(scalaVersion.value) match {
-          case Some((2, 12)) => List("-Ypartial-unification")
+          case Some((2, 12)) =>
+            // required for SlickAction monad instance to be picked up
+            List("-Ypartial-unification")
+          case _ => Nil
+        }
+      },
+      Test / scalacOptions --= {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((3, _)) =>
+            // breaks SlickAction monad instance resolution
+            List("-source:3.0-migration")
           case _ => Nil
         }
       },
