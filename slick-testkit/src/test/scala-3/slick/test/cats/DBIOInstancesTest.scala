@@ -61,6 +61,22 @@ class DBIOInstancesTest extends CatsEffectSuite {
     }
   }
 
+  test("traverse over streaming query results keeps the Read effect, runs, and the query still streams") {
+    withTable {
+      typed[DBIOAction[Seq[Int], Streaming[Int], Effect.Read]](rows.result)
+      val queries = List(1, 2).traverse { i => rows.filter(_.v <= i).sortBy(_.v).result }
+      exactly[DBIOBase[Effect.Read, List[Seq[Int]]]](queries)
+      for {
+        _ <- db().run(DBIO.seq(rows += 1, rows += 2))
+        result <- db().run(queries)
+        streamed <- db().stream(rows.sortBy(_.v).result).compile.toList
+      } yield {
+        assertEquals(result, List(Vector(1), Vector(1, 2)))
+        assertEquals(streamed, List(1, 2))
+      }
+    }
+  }
+
   test("sequence, tupled and >> compose actions in order") {
     withTable {
       val program = (rows += 1) >> (rows += 2) >> (rows.sortBy(_.v).result, rows.length.result).tupled

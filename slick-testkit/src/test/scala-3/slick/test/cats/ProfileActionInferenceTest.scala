@@ -20,10 +20,14 @@ class ProfileActionInferenceTest extends FunSuite {
   private val ts = TableQuery[T]
 
   test("profile actions unify as DBIOBase[E, *] with their effect, no upcast needed") {
-    exactly[DBIOBase[Effect.Read, Seq[Int]]](monad(ts.result)) // streaming action
+    // ts.result stays a streaming action, and is monadic as it is
+    typed[DBIOAction[Seq[Int], Streaming[Int], Effect.Read]](ts.result)
+    exactly[DBIOBase[Effect.Read, Seq[Int]]](monad(ts.result))
+    exactly[DBIOBase[Effect.Read, List[Seq[Int]]]](List(1, 2).traverse(_ => ts.result))
     exactly[DBIOBase[Effect.Write, Int]](monad(ts += 1))
     exactly[DBIOBase[Effect.Schema, Unit]](monad(ts.schema.create))
     exactly[DBIOBase[Effect.Write, Int]](monad(ts.filter(_.a === 1).delete))
+    exactly[DBIOBase[Effect.Write, Int]](monad(ts.delete))
     exactly[DBIOBase[Effect.Write, Int]](monad(ts.map(_.a).update(2)))
     exactly[DBIOBase[Effect, Vector[Int]]](monad(sql"select 1".as[Int]))
     exactly[DBIOBase[Effect, Int]](monad(sqlu"delete from T"))
