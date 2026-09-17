@@ -6,7 +6,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-import cats.{MonadError, StackSafeMonad}
+import cats.{MonadError, Monoid, Semigroup, StackSafeMonad}
 
 import slick.SlickException
 import slick.basic.BasicBackend
@@ -92,8 +92,26 @@ sealed trait DBIOBase[-E <: Effect, +R] {
   def >> [R2, S2 <: NoStream, E2 <: Effect](a: DBIOAction[R2, S2, E2]): DBIOAction[R2, S2, E with E2]
 }
 
+/** `cats` Semigroup for `DBIOBase[E, A]`: `x |+| y` runs `x`, then `y`, and combines the results. */
+private[dbio] class DBIOBaseSemigroup[E <: Effect, A](implicit A: Semigroup[A]) extends Semigroup[DBIOBase[E, A]] {
+  def combine(x: DBIOBase[E, A], y: DBIOBase[E, A]): DBIOBase[E, A] =
+    x.toAction.zipWith(y.toAction)(A.combine)
+}
+
 object DBIOBase {
   import scala.language.implicitConversions
+
+  /** `cats` Semigroup for `DBIOBase[E, A]` when `A` has a `Semigroup`. When `A` has a `Monoid`, the
+    * `Monoid` instance below is more specific and is chosen. */
+  implicit def catsSemigroupForDBIOBase[E <: Effect, A: Semigroup]: Semigroup[DBIOBase[E, A]] =
+    new DBIOBaseSemigroup[E, A]
+
+  /** `cats` Monoid for `DBIOBase[E, A]` when `A` has a `Monoid`: `x |+| y` runs `x`, then `y`, and
+    * combines the results; `empty` is a successful action returning `Monoid[A].empty`. */
+  implicit def catsMonoidForDBIOBase[E <: Effect, A](implicit A: Monoid[A]): Monoid[DBIOBase[E, A]] =
+    new DBIOBaseSemigroup[E, A] with Monoid[DBIOBase[E, A]] {
+      def empty: DBIOBase[E, A] = SuccessAction(A.empty)
+    }
 
   /** Lets a `DBIOBase` (e.g. the result of a `cats` combinator) be used wherever a `DBIOAction`
     * is expected, including `Database.run` and the arguments of Slick's combinators. The effect
@@ -268,8 +286,26 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
   def isLogged: Boolean = false
 }
 
+/** `cats` Semigroup for `SlickAction[E, A]`: `x |+| y` runs `x`, then `y`, and combines the results. */
+private[dbio] class SlickActionSemigroup[E <: Effect, A](implicit A: Semigroup[A]) extends Semigroup[SlickAction[E, A]] {
+  def combine(x: SlickAction[E, A], y: SlickAction[E, A]): SlickAction[E, A] = x.zipWith(y)(A.combine)
+}
+
 object DBIOAction {
   private val UnitAction: DBIOAction[Unit, NoStream, Effect] = SuccessAction(())
+
+  /** `cats` Semigroup for `SlickAction[E, A]` (including `DBIO[A]`) when `A` has a `Semigroup`. When
+    * `A` has a `Monoid`, the `Monoid` instance below is more specific and is chosen. */
+  implicit def catsSemigroupForSlickAction[E <: Effect, A: Semigroup]: Semigroup[SlickAction[E, A]] =
+    new SlickActionSemigroup[E, A]
+
+  /** `cats` Monoid for `SlickAction[E, A]` (including `DBIO[A]`) when `A` has a `Monoid`: `x |+| y`
+    * runs `x`, then `y`, and combines the results; `empty` is a successful action returning
+    * `Monoid[A].empty`. */
+  implicit def catsMonoidForSlickAction[E <: Effect, A](implicit A: Monoid[A]): Monoid[SlickAction[E, A]] =
+    new SlickActionSemigroup[E, A] with Monoid[SlickAction[E, A]] {
+      def empty: SlickAction[E, A] = SuccessAction(A.empty)
+    }
 
   /** `cats` instance for values typed with the `SlickAction[E, *]` alias, for any effect `E`.
     * This covers `DBIO` (which is `SlickAction[Effect.All, *]`) and the results of the standard

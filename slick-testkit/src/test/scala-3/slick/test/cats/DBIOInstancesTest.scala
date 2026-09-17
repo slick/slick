@@ -1,6 +1,6 @@
 package slick.test.cats
 
-import cats.MonadError
+import cats.{MonadError, Monoid}
 import cats.effect.IO
 import cats.syntax.all.*
 import com.typesafe.config.ConfigFactory
@@ -138,6 +138,20 @@ class DBIOInstancesTest extends CatsEffectSuite {
     val n = 100000
     val sum = (1 to n).foldLeft(F.pure(0L))((acc, i) => F.flatMap(acc)(a => F.pure(a + i)))
     db().run(sum).assertEquals(n.toLong * (n + 1) / 2)
+  }
+
+  test("|+| runs both actions in order and combines the results") {
+    withTable {
+      val program = (rows += 1).toAction |+| (rows += 2).toAction |+| Monoid[SlickAction[Effect.Write, Int]].empty
+      exactly[SlickAction[Effect.Write, Int]](program)
+      for {
+        n <- db().run(program)
+        all <- db().run(rows.sortBy(_.v).result)
+      } yield {
+        assertEquals(n, 2)
+        assertEquals(all, Vector(1, 2))
+      }
+    }
   }
 
   test("the SlickAction instance for a specific effect behaves the same") {

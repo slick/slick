@@ -41,4 +41,10 @@ class ProfileActionAliasInferenceTest extends FunSuite {
     typed[SlickAction[Effect.Write, Unit]](DBIO.seq(ts += 1, ts += 2))
     typed[SlickAction[Effect.Write with Effect.Read, (Int, Seq[Int])]]((ts += 1).zip(ts.result))
   }
+
+  test("Semigroup and Monoid instances need the SlickAction type, via toAction or a combinator") {
+    typed[SlickAction[Effect.Write, Int]]((ts += 1).toAction |+| (ts += 2).toAction)
+    typed[SlickAction[Effect.Write, Int]]((ts += 1).map(identity) |+| (ts += 2).map(identity))
+    typed[SlickAction[Effect.Write, Int]](List(1, 2, 3).foldMap(i => (ts += i).toAction))
+  }
 }

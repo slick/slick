@@ -2,7 +2,7 @@ package slick.test.cats
 
 import scala.util.Try
 
-import cats.MonadError
+import cats.{MonadError, Monoid, Semigroup}
 import cats.syntax.all.*
 import munit.FunSuite
 
@@ -91,6 +91,20 @@ class DBIOAliasInferenceTest extends FunSuite {
     // Database.run accepts it
     def run[R](a: DBIOAction[R, NoStream, Nothing]): Unit = ()
     run(base)
+  }
+
+  test("Semigroup and Monoid instances are found for alias-typed and full DBIOAction types") {
+    // Semigroup[X] is a plain type, no F[_] inference is involved, so the full type works everywhere
+    typed[SlickAction[Effect.Read, Int]](read |+| read)
+    typed[SlickAction[Effect.Read, Int]](r |+| r)
+    typed[DBIO[Int]](plain |+| plain)
+    typed[SlickAction[Effect.Read, Int]](List(r, r, r).combineAll)
+    typed[SlickAction[Effect.Read, Int]](List(1, 2).foldMap(_ => r))
+    typed[DBIO[Int]](Monoid[DBIO[Int]].empty)
+    typed[Semigroup[SlickAction[Effect.Write, String]]](Semigroup[SlickAction[Effect.Write, String]])
+    val base: DBIOBase[Effect.Read, Int] = read
+    typed[DBIOBase[Effect.Read, Int]](base |+| base)
+    typed[DBIOBase[Effect.Read, Int]](Monoid[DBIOBase[Effect.Read, Int]].empty)
   }
 
   test("MonadError instances are summonable for every effect") {

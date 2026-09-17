@@ -2,6 +2,7 @@ package slick.test.cats
 
 import cats.Eq
 import cats.effect.unsafe.implicits.global
+import cats.kernel.laws.discipline.MonoidTests
 import cats.laws.discipline.MonadErrorTests
 import cats.syntax.all.*
 import com.typesafe.config.ConfigFactory
@@ -12,8 +13,8 @@ import slick.cats.Database
 import slick.dbio.*
 import slick.jdbc.{DatabaseConfig, JdbcProfile}
 
-/** Checks the cats `MonadError` laws for the `DBIOBase[E, *]` and `SlickAction[E, *]` instances,
-  * on every Scala version. Actions are compared by running them against an in-memory H2 database
+/** Checks the cats `MonadError` laws for the `DBIOBase[E, *]` and `SlickAction[E, *]` instances and
+  * the `Monoid` laws for `DBIOBase[E, A]` and `SlickAction[E, A]`, on every Scala version. Actions are compared by running them against an in-memory H2 database
   * and comparing the outcomes. */
 class DBIOLawsTest extends DisciplineSuite {
 
@@ -69,4 +70,8 @@ class DBIOLawsTest extends DisciplineSuite {
   checkAll("MonadError[DBIOBase[Effect.All, *], Throwable]", MonadErrorTests[BaseAll, Throwable].monadError[Int, Int, Int])
   checkAll("MonadError[DBIO, Throwable]", MonadErrorTests[DBIO, Throwable].monadError[Int, Int, Int])
   checkAll("MonadError[SlickAction[Effect.Read, *], Throwable]", MonadErrorTests[ReadAction, Throwable].monadError[Int, Int, Int])
+
+  checkAll("Monoid[DBIOBase[Effect.All, Int]]", MonoidTests[BaseAll[Int]].monoid)
+  checkAll("Monoid[DBIO[Int]]", MonoidTests[DBIO[Int]].monoid)
+  checkAll("Monoid[SlickAction[Effect.Read, Int]]", MonoidTests[ReadAction[Int]].monoid)
 }
