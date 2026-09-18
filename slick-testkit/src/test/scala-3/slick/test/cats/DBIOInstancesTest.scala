@@ -142,8 +142,8 @@ class DBIOInstancesTest extends CatsEffectSuite {
 
   test("|+| runs both actions in order and combines the results") {
     withTable {
-      val program = (rows += 1).toAction |+| (rows += 2).toAction |+| Monoid[SlickAction[Effect.Write, Int]].empty
-      exactly[SlickAction[Effect.Write, Int]](program)
+      val program = (rows += 1).toAction |+| (rows += 2).toAction |+| Monoid[DBIOEffect[Effect.Write, Int]].empty
+      exactly[DBIOEffect[Effect.Write, Int]](program)
       for {
         n <- db().run(program)
         all <- db().run(rows.sortBy(_.v).result)
@@ -154,11 +154,11 @@ class DBIOInstancesTest extends CatsEffectSuite {
     }
   }
 
-  test("the SlickAction instance for a specific effect behaves the same") {
+  test("the DBIOEffect instance for a specific effect behaves the same") {
     withTable {
-      val W = MonadError[[A] =>> SlickAction[Effect.Write, A], Throwable]
+      val W = MonadError[[A] =>> DBIOEffect[Effect.Write, A], Throwable]
       val program = W.handleErrorWith(W.raiseError[Int](new RuntimeException("x")))(_ => rows += 7)
-      exactly[SlickAction[Effect.Write, Int]](program)
+      exactly[DBIOEffect[Effect.Write, Int]](program)
       for {
         n <- db().run(program)
         all <- db().run(rows.result)

@@ -23,6 +23,8 @@ conceptually) in a single database session.
 In most cases you will want to use the type aliases @scaladoc[DBIO](slick.dbio.package#DBIO[+R]:DBIO[R])
 and @scaladoc[StreamingDBIO](slick.dbio.package#StreamingDBIO[+R,+T]:StreamingDBIO[R,T]) for non-streaming and
 streaming Database I/O Actions. They omit the optional *effect types* supported by @scaladoc[DBIOAction](slick.dbio.DBIOAction).
+The alias @scaladoc[DBIOEffect](slick.dbio.package#DBIOEffect[-E%3C:Effect,+R]:DBIOEffect[E,R]) keeps the effect type
+and omits only the streaming type; see @ref:[Cats Type Classes](#cats-type-classes).
 
 @@@ note
 
@@ -165,6 +167,45 @@ val action: DBIO[String] = for {
 A pre-existing value or failure can be converted with
 @scaladoc[DBIO.successful](slick.dbio.DBIOAction$#successful[R](R):DBIOAction[R,NoStream,Effect])
 and @scaladoc[DBIO.failed](slick.dbio.DBIOAction$#failed(Throwable):DBIOAction[Nothing,NoStream,Effect]), respectively.
+
+### Cats Type Classes {#cats-type-classes}
+
+Database I/O Actions have [cats](https://typelevel.org/cats/) instances: `MonadError[F, Throwable]`, and a
+`Semigroup` or `Monoid` for actions whose result type has one. The instances live in the companion objects of
+@scaladoc[DBIOBase](slick.dbio.DBIOBase) and @scaladoc[DBIOAction](slick.dbio.DBIOAction$), so they are in
+implicit scope and need no import besides the cats syntax itself (`import cats.syntax.all._`).
+
+A cats type class takes a unary type constructor `F[_]`, and there are two ways to view an action as one:
+
+- @scaladoc[DBIOEffect](slick.dbio.package#DBIOEffect[-E%3C:Effect,+R]:DBIOEffect[E,R])`[E, R]` is
+  `DBIOAction[R, NoStream, E]` with the result type last, so that `DBIOEffect[E, *]` is an `F[_]` for every
+  effect `E`. `DBIO[R]` is `DBIOEffect[Effect.All, R]`. The non-streaming combinators of `DBIOAction` and its
+  companion (`map`, `zip`, `asTry`, `DBIO.sequence`, `DBIO.successful`, ...) declare their results as
+  `DBIOEffect`, and `toAction` gives any action, including the profile-specific ones returned by the lifted API,
+  the `DBIOEffect` type with its effect.
+- @scaladoc[DBIOBase](slick.dbio.DBIOBase)`[E, R]` is the supertype of every `DBIOAction[R, S, E]` with the
+  effect and result type in that order and no streaming type. On Scala 3 a `DBIOAction` unifies with an `F[_]`
+  as `DBIOBase[E, *]`, so any action, including streaming and profile-specific ones, works with cats syntax as
+  it is and keeps its effect: `List(1, 2).traverse(i => coffees += (s"Coffee $i", 1.0))` is a
+  `DBIOBase[Effect.Write, List[Int]]`. Scala 2 does not unify a `DBIOAction` type with `DBIOBase` on its own;
+  there `DBIOBase` is used when spelled out, and profile actions go through `toAction`.
+
+The following works on every Scala version:
+
+@@snip [DBIOCombinators.scala](../code/DBIOCombinators.scala) { #cats }
+
+A `DBIOBase` produced by a cats combinator is accepted wherever a `DBIOAction` is expected, including
+`db.run`, the arguments of Slick's combinators and the right-hand side of a for comprehension generator; `map`,
+`flatMap`, `andThen` and `>>` are members of `DBIOBase` and intersect the effects as usual. Extension methods such
+as `transactionally` need the explicit `toAction`, because Scala does not chain two implicit conversions.
+
+@@@ note
+cats type classes are invariant in `F`, so the receiver of a cats combinator fixes the effect:
+`readAction.flatTap(_ => writeAction)` does not compile. Use Slick's `flatMap` or `>>`, which intersect the
+effects, or widen the receiver to `DBIO`, which accepts every effect: `(readAction: DBIO[Int]).flatTap(...)`.
+Where no receiver fixes `F` (`tupled`, `mapN`, `*>`, `sequence` over a mixed list) Scala 3 infers the effect
+intersection; Scala 2 needs the `DBIO` ascription there as well.
+@@@
 
 ### Debugging
 

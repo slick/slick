@@ -27,8 +27,8 @@ class DBIOInferenceTest extends FunSuite {
     exactly[DBIOBase[Effect.Write, Unit]]((0 to 10).toList.traverse_ { i => write(i) })
     exactly[DBIOBase[Effect.Read, Int]](monad(read))
     // values typed with an alias keep the alias
-    exactly[SlickAction[Effect, List[Int]]]((0 to 10).toList.traverse { i => DBIO.successful(i) })
-    exactly[SlickAction[Effect.Read, Int]](List(read, read).foldM(0)((acc, a) => a.map(_ + acc)))
+    exactly[DBIOEffect[Effect, List[Int]]]((0 to 10).toList.traverse { i => DBIO.successful(i) })
+    exactly[DBIOEffect[Effect.Read, Int]](List(read, read).foldM(0)((acc, a) => a.map(_ + acc)))
   }
 
   test("mixed effects infer the intersection where F is not fixed by a receiver") {
@@ -46,17 +46,17 @@ class DBIOInferenceTest extends FunSuite {
     val fail2 = DBIO.successful("hello")
     val success: DBIO[String] = DBIO.successful("hello")
     exactly[DBIOBase[Effect.All, String]](monad(fail1))
-    exactly[SlickAction[Effect, String]](monad(fail2))
+    exactly[DBIOEffect[Effect, String]](monad(fail2))
     exactly[DBIO[String]](monad(success))
   }
 
   test("cats results flow back into the ordinary DBIO API with their effect") {
     val fromCats: DBIOBase[Effect.Read, List[Int]] = (0 to 10).toList.traverse { i => read }
     // through the implicit view
-    accepts[SlickAction[Effect.Read, List[Int]]](fromCats)
+    accepts[DBIOEffect[Effect.Read, List[Int]]](fromCats)
     accepts[DBIO[List[Int]]](fromCats)
     // explicitly
-    typed[SlickAction[Effect.Read, List[Int]]](fromCats.toAction)
+    typed[DBIOEffect[Effect.Read, List[Int]]](fromCats.toAction)
     // inside a for-comprehension mixing DBIOBase and DBIOAction: Slick's flatMap, effects intersected
     typed[DBIOAction[(Int, String), NoStream, Effect.Read & Effect.Write]](
       for { xs <- fromCats; i <- read; s <- write(i) } yield (xs.sum + i, s)
@@ -79,8 +79,8 @@ class DBIOInferenceTest extends FunSuite {
     typed[MonadError[[A] =>> DBIOBase[Effect.Read, A], Throwable]](
       MonadError[[A] =>> DBIOBase[Effect.Read, A], Throwable]
     )
-    typed[MonadError[[A] =>> SlickAction[Effect.Write, A], Throwable]](
-      MonadError[[A] =>> SlickAction[Effect.Write, A], Throwable]
+    typed[MonadError[[A] =>> DBIOEffect[Effect.Write, A], Throwable]](
+      MonadError[[A] =>> DBIOEffect[Effect.Write, A], Throwable]
     )
     typed[MonadError[DBIO, Throwable]](MonadError[DBIO, Throwable])
     typed[cats.Monad[DBIO]](cats.Monad[DBIO])

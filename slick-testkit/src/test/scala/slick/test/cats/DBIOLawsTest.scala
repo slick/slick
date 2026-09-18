@@ -13,8 +13,8 @@ import slick.cats.Database
 import slick.dbio.*
 import slick.jdbc.{DatabaseConfig, JdbcProfile}
 
-/** Checks the cats `MonadError` laws for the `DBIOBase[E, *]` and `SlickAction[E, *]` instances and
-  * the `Monoid` laws for `DBIOBase[E, A]` and `SlickAction[E, A]`, on every Scala version. Actions are compared by running them against an in-memory H2 database
+/** Checks the cats `MonadError` laws for the `DBIOBase[E, *]` and `DBIOEffect[E, *]` instances and
+  * the `Monoid` laws for `DBIOBase[E, A]` and `DBIOEffect[E, A]`, on every Scala version. Actions are compared by running them against an in-memory H2 database
   * and comparing the outcomes. */
 class DBIOLawsTest extends DisciplineSuite {
 
@@ -40,7 +40,7 @@ class DBIOLawsTest extends DisciplineSuite {
   }
 
   type BaseAll[A] = DBIOBase[Effect.All, A]
-  type ReadAction[A] = SlickAction[Effect.Read, A]
+  type ReadAction[A] = DBIOEffect[Effect.Read, A]
 
   // Effect.All extends every effect, so an action of any effect is a DBIOBase[Effect.All, A]
   private def outcome[A](fa: DBIOBase[Effect.All, A]): Either[Throwable, A] =
@@ -56,10 +56,10 @@ class DBIOLawsTest extends DisciplineSuite {
   implicit def eqDBIO[A: Eq]: Eq[DBIO[A]] = Eq.instance((x, y) => outcome(x) === outcome(y))
   implicit def eqReadAction[A: Eq]: Eq[ReadAction[A]] = Eq.instance((x, y) => outcome(x) === outcome(y))
 
-  private def genAction[E <: Effect, A: Arbitrary]: Gen[SlickAction[E, A]] = {
-    val pure = Arbitrary.arbitrary[A].map(a => DBIO.successful(a): SlickAction[E, A])
-    val failed = Arbitrary.arbitrary[Throwable].map(t => DBIO.failed(t): SlickAction[E, A])
-    val nested = for { a <- pure; b <- Gen.frequency(3 -> pure, 1 -> failed) } yield (a.flatMap(_ => b): SlickAction[E, A])
+  private def genAction[E <: Effect, A: Arbitrary]: Gen[DBIOEffect[E, A]] = {
+    val pure = Arbitrary.arbitrary[A].map(a => DBIO.successful(a): DBIOEffect[E, A])
+    val failed = Arbitrary.arbitrary[Throwable].map(t => DBIO.failed(t): DBIOEffect[E, A])
+    val nested = for { a <- pure; b <- Gen.frequency(3 -> pure, 1 -> failed) } yield (a.flatMap(_ => b): DBIOEffect[E, A])
     Gen.frequency(4 -> pure, 1 -> failed, 2 -> nested)
   }
 
@@ -69,9 +69,9 @@ class DBIOLawsTest extends DisciplineSuite {
 
   checkAll("MonadError[DBIOBase[Effect.All, *], Throwable]", MonadErrorTests[BaseAll, Throwable].monadError[Int, Int, Int])
   checkAll("MonadError[DBIO, Throwable]", MonadErrorTests[DBIO, Throwable].monadError[Int, Int, Int])
-  checkAll("MonadError[SlickAction[Effect.Read, *], Throwable]", MonadErrorTests[ReadAction, Throwable].monadError[Int, Int, Int])
+  checkAll("MonadError[DBIOEffect[Effect.Read, *], Throwable]", MonadErrorTests[ReadAction, Throwable].monadError[Int, Int, Int])
 
   checkAll("Monoid[DBIOBase[Effect.All, Int]]", MonoidTests[BaseAll[Int]].monoid)
   checkAll("Monoid[DBIO[Int]]", MonoidTests[DBIO[Int]].monoid)
-  checkAll("Monoid[SlickAction[Effect.Read, Int]]", MonoidTests[ReadAction[Int]].monoid)
+  checkAll("Monoid[DBIOEffect[Effect.Read, Int]]", MonoidTests[ReadAction[Int]].monoid)
 }

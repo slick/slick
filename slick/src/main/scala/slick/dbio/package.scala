@@ -10,8 +10,8 @@ package object dbio {
   type DBIO[+R] = DBIOAction[R, NoStream, Effect.All]
 
   /** Simplified type for a [[DBIOAction]] without streaming but with effect tracking. The result
-    * type is the last parameter, so that `SlickAction[E, *]` can be the `F[_]` of a type class such
-    * as `cats.Monad`; `DBIO[R]` is `SlickAction[Effect.All, R]`. See [[DBIOBase]]. */
-  type SlickAction[-E <: Effect, +R] = DBIOAction[R, NoStream, E]
+    * type is the last parameter, so that `DBIOEffect[E, *]` can be the `F[_]` of a type class such
+    * as `cats.Monad`; `DBIO[R]` is `DBIOEffect[Effect.All, R]`. See [[DBIOBase]]. */
+  type DBIOEffect[-E <: Effect, +R] = DBIOAction[R, NoStream, E]
   val DBIO = DBIOAction
 }

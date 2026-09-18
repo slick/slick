@@ -14,30 +14,6 @@ import slick.compat.collection.*
 import slick.util.CloseableIterator
 import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
 
-/** A Database I/O Action that can be executed on a database. The DBIOAction type allows a
-  * separation of execution logic and resource usage management logic from composition logic.
-  * DBIOActions can be composed with methods such as `andThen`, `andFinally` and `flatMap`.
-  * Individual parts of a composite DBIOAction are always executed serially on a single database,
-  * but possibly in different database sessions, unless the session is pinned either explicitly
-  * (using `withPinnedSession`) or implicitly (e.g. through a transaction).
-  *
-  * The actual implementation base type for all Actions is `DBIOAction`. `StreamingDBIO` and
-  * `DBIO` are type aliases which discard the effect type (and the streaming result type in the
-  * latter case) to make DBIOAction types easier to write when these features are not needed.
-  * `SlickAction[E, R]` discards only the streaming result type and puts the result type last, so
-  * that it can be used with type classes such as `cats.Monad`; see [[DBIOBase]]. All primitive
-  * DBIOActions and all DBIOActions produced by the standard combinators in Slick have correct
-  * Effect types and are streaming (if possible).
-  *
-  * @tparam R The result type when executing the DBIOAction and fully materializing the result.
-  * @tparam S An encoding of the result type for streaming results. If this action is capable of
-  *           streaming, it is `Streaming[T]` for an element type `T`. For non-streaming
-  *           DBIOActions it is `NoStream`.
-  * @tparam E The DBIOAction's effect type, e.g. `Effect.Read with Effect.Write`. When composing
-  *           actions, the correct combined effect type will be inferred. Effects can be used in
-  *           user code, e.g. to automatically direct all read-only Actions to a slave database
-  *           and write Actions to the master copy.
-  */
 /** The type class view of a [[DBIOAction]]: a binary type constructor `DBIOBase[E, R]` that
   * keeps the effect type `E` and the result type `R`, in that order, and discards the streaming
   * type, so that type class instances such as `cats.MonadError` can be defined for
@@ -49,10 +25,10 @@ import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
   * are therefore found for any action, including the profile-specific subtypes returned by the
   * lifted API and streaming actions, without an explicit upcast or import, and the effect is
   * preserved: `List(1, 2).traverse(i => table += i)` is a `DBIOBase[Effect.Write, List[Int]]`.
-  * Values typed with the `SlickAction[E, R]` or `DBIO[R]` alias unify as that alias instead and
+  * Values typed with the `DBIOEffect[E, R]` or `DBIO[R]` alias unify as that alias instead and
   * use the instances in the `DBIOAction` companion. Scala 2 does not fall back to base types;
   * there the instances are found for values typed with one of the aliases, for the results of the
-  * standard combinators (whose result types are spelled with `SlickAction`) and for values
+  * standard combinators (whose result types are spelled with `DBIOEffect`) and for values
   * converted with [[toAction]].
   *
   * Note: `-source:3.0-migration` disables the base type fallback.
@@ -71,13 +47,13 @@ import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
   * Scala 2 requires the ascription there as well. */
 sealed trait DBIOBase[-E <: Effect, +R] {
   /** View this action as a non-streaming `DBIOAction` with the same effect, spelled as
-    * `SlickAction[E, R]` so that the type class instances are found for the result on every Scala
+    * `DBIOEffect[E, R]` so that the type class instances are found for the result on every Scala
     * version. This is a plain upcast: only the streaming type is forgotten. */
-  def toAction: SlickAction[E, R]
+  def toAction: DBIOEffect[E, R]
 
   /** Transform the result of a successful execution of this action. If this action fails, the
     * resulting action also fails. */
-  def map[R2](f: R => R2): SlickAction[E, R2]
+  def map[R2](f: R => R2): DBIOEffect[E, R2]
 
   /** Use the result produced by the successful execution of this action to compute and then
     * run the next action in sequence. The resulting action fails if either this action, the
@@ -116,7 +92,7 @@ object DBIOBase {
   /** Lets a `DBIOBase` (e.g. the result of a `cats` combinator) be used wherever a `DBIOAction`
     * is expected, including `Database.run` and the arguments of Slick's combinators. The effect
     * is preserved. */
-  implicit def toAction[E <: Effect, R](a: DBIOBase[E, R]): SlickAction[E, R] = a.toAction
+  implicit def toAction[E <: Effect, R](a: DBIOBase[E, R]): DBIOEffect[E, R] = a.toAction
 
   /** `cats` instance for `DBIOBase[E, *]`, for any effect `E`. See [[DBIOBase]]. */
   implicit def catsMonadErrorForDBIOBase[E <: Effect]: MonadError[({ type L[A] = DBIOBase[E, A] })#L, Throwable] =
@@ -142,13 +118,37 @@ object DBIOBase {
     }
 }
 
+/** A Database I/O Action that can be executed on a database. The DBIOAction type allows a
+  * separation of execution logic and resource usage management logic from composition logic.
+  * DBIOActions can be composed with methods such as `andThen`, `andFinally` and `flatMap`.
+  * Individual parts of a composite DBIOAction are always executed serially on a single database,
+  * but possibly in different database sessions, unless the session is pinned either explicitly
+  * (using `withPinnedSession`) or implicitly (e.g. through a transaction).
+  *
+  * The actual implementation base type for all Actions is `DBIOAction`. `StreamingDBIO` and
+  * `DBIO` are type aliases which discard the effect type (and the streaming result type in the
+  * latter case) to make DBIOAction types easier to write when these features are not needed.
+  * `DBIOEffect[E, R]` discards only the streaming result type and puts the result type last, so
+  * that it can be used with type classes such as `cats.Monad`; see [[DBIOBase]]. All primitive
+  * DBIOActions and all DBIOActions produced by the standard combinators in Slick have correct
+  * Effect types and are streaming (if possible).
+  *
+  * @tparam R The result type when executing the DBIOAction and fully materializing the result.
+  * @tparam S An encoding of the result type for streaming results. If this action is capable of
+  *           streaming, it is `Streaming[T]` for an element type `T`. For non-streaming
+  *           DBIOActions it is `NoStream`.
+  * @tparam E The DBIOAction's effect type, e.g. `Effect.Read with Effect.Write`. When composing
+  *           actions, the correct combined effect type will be inferred. Effects can be used in
+  *           user code, e.g. to automatically direct all read-only Actions to a slave database
+  *           and write Actions to the master copy.
+  */
 sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R] with Dumpable {
   /** `S <: NoStream`, so this is a plain upcast. */
-  final def toAction: SlickAction[E, R] = this
+  final def toAction: DBIOEffect[E, R] = this
 
   /** Transform the result of a successful execution of this action. If this action fails, the
     * resulting action also fails. */
-  def map[R2](f: R => R2): SlickAction[E, R2] =
+  def map[R2](f: R => R2): DBIOEffect[E, R2] =
     flatMap[R2, NoStream, E](r => SuccessAction[R2](f(r)))
 
   /** Use the result produced by the successful execution of this action to compute and then
@@ -171,7 +171,7 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
 
   /** Run another action after this action, if it completed successfully, and return the result
     * of both actions. If either of the two actions fails, the resulting action also fails. */
-  def zip[R2, E2 <: Effect](a: DBIOAction[R2, NoStream, E2]): SlickAction[E with E2, (R, R2)] =
+  def zip[R2, E2 <: Effect](a: DBIOAction[R2, NoStream, E2]): DBIOEffect[E with E2, (R, R2)] =
     SequenceAction[Any, ArrayBuffer[Any], E with E2](Vector(this, a)).map { r =>
       (r(0).asInstanceOf[R], r(1).asInstanceOf[R2])
     }
@@ -179,7 +179,7 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
   /** Run another action after this action, if it completed successfully, and zip the result
     * of both actions with a function `f`, then create a new DBIOAction holding this result,
     * If either of the two actions fails, the resulting action also fails. */
-  def zipWith[R2, E2 <: Effect, R3](a: DBIOAction[R2, NoStream, E2])(f: (R, R2) => R3): SlickAction[E with E2, R3] =
+  def zipWith[R2, E2 <: Effect, R3](a: DBIOAction[R2, NoStream, E2])(f: (R, R2) => R3): DBIOEffect[E with E2, R3] =
     SequenceAction[Any, ArrayBuffer[Any], E with E2](Vector(this, a)).map { r =>
       f(r(0).asInstanceOf[R], r(1).asInstanceOf[R2])
     }
@@ -218,17 +218,17 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
   /** Filter the result of this action with the given predicate. If the predicate matches, the
     * original result is returned, otherwise the resulting action fails with a
     * NoSuchElementException. */
-  final def filter(p: R => Boolean): SlickAction[E, R] =
+  final def filter(p: R => Boolean): DBIOEffect[E, R] =
     withFilter(p)
 
-  def withFilter(p: R => Boolean): SlickAction[E, R] =
+  def withFilter(p: R => Boolean): DBIOEffect[E, R] =
     flatMap(v => if(p(v)) SuccessAction(v) else throw new NoSuchElementException("Action.withFilter failed"))
 
   /** Transform the result of a successful execution of this action, if the given partial function is defined at that value,
     * otherwise, the result DBIOAction will fail with a `NoSuchElementException`.
     *
     * If this action fails, the resulting action also fails. */
-  def collect[R2](pf: PartialFunction[R, R2]): SlickAction[E, R2] =
+  def collect[R2](pf: PartialFunction[R, R2]): DBIOEffect[E, R2] =
     map(r1 => pf.applyOrElse(r1, (r: R) => throw new NoSuchElementException(s"DBIOAction.collect partial function is not defined at: $r")))
 
   /** Replace a result of a successful execution of this action with the unit value.
@@ -236,7 +236,7 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
     *
     * A shortcut for `.map(_ => ())`.
     */
-  def void: SlickAction[E, Unit] =
+  def void: DBIOEffect[E, Unit] =
     map(_ => ())
 
   /** Replace a result of a successful execution of this action with the given value.
@@ -244,7 +244,7 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
     *
     * A shortcut for `.map(_ => a)`.
     */
-  def as[A](a: => A): SlickAction[E, A] =
+  def as[A](a: => A): DBIOEffect[E, A] =
     map(_ => a)
 
   /** Return an action which contains the Throwable with which this action failed as its result.
@@ -252,7 +252,7 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
     *
     * `failed` does not intercept fiber cancellation. If the underlying action is canceled,
     * cancellation propagates and the fiber stays canceled. */
-  def failed: SlickAction[E, Throwable] = FailedAction[E](this)
+  def failed: DBIOEffect[E, Throwable] = FailedAction[E](this)
 
   /** Convert a successful result `v` of this action into a successful result `Success(v)` and a
     * failure `t` into a successful result `Failure(t)`. This is the most generic combinator that
@@ -262,7 +262,7 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
     * `asTry` does not intercept fiber cancellation. If the underlying action is canceled,
     * cancellation propagates and the fiber stays canceled — downstream `flatMap` continuations
     * do not run. */
-  def asTry: SlickAction[E, Try[R]] = AsTryAction[R, E](this)
+  def asTry: DBIOEffect[E, Try[R]] = AsTryAction[R, E](this)
 
   /** Use a pinned database session when running this action. If it is composed of multiple
     * database actions, they will all use the same session, even when sequenced with non-database
@@ -286,59 +286,59 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends DBIOBase[E, R]
   def isLogged: Boolean = false
 }
 
-/** `cats` Semigroup for `SlickAction[E, A]`: `x |+| y` runs `x`, then `y`, and combines the results. */
-private[dbio] class SlickActionSemigroup[E <: Effect, A](implicit A: Semigroup[A]) extends Semigroup[SlickAction[E, A]] {
-  def combine(x: SlickAction[E, A], y: SlickAction[E, A]): SlickAction[E, A] = x.zipWith(y)(A.combine)
+/** `cats` Semigroup for `DBIOEffect[E, A]`: `x |+| y` runs `x`, then `y`, and combines the results. */
+private[dbio] class DBIOEffectSemigroup[E <: Effect, A](implicit A: Semigroup[A]) extends Semigroup[DBIOEffect[E, A]] {
+  def combine(x: DBIOEffect[E, A], y: DBIOEffect[E, A]): DBIOEffect[E, A] = x.zipWith(y)(A.combine)
 }
 
 object DBIOAction {
   private val UnitAction: DBIOAction[Unit, NoStream, Effect] = SuccessAction(())
 
-  /** `cats` Semigroup for `SlickAction[E, A]` (including `DBIO[A]`) when `A` has a `Semigroup`. When
+  /** `cats` Semigroup for `DBIOEffect[E, A]` (including `DBIO[A]`) when `A` has a `Semigroup`. When
     * `A` has a `Monoid`, the `Monoid` instance below is more specific and is chosen. */
-  implicit def catsSemigroupForSlickAction[E <: Effect, A: Semigroup]: Semigroup[SlickAction[E, A]] =
-    new SlickActionSemigroup[E, A]
+  implicit def catsSemigroupForDBIOEffect[E <: Effect, A: Semigroup]: Semigroup[DBIOEffect[E, A]] =
+    new DBIOEffectSemigroup[E, A]
 
-  /** `cats` Monoid for `SlickAction[E, A]` (including `DBIO[A]`) when `A` has a `Monoid`: `x |+| y`
+  /** `cats` Monoid for `DBIOEffect[E, A]` (including `DBIO[A]`) when `A` has a `Monoid`: `x |+| y`
     * runs `x`, then `y`, and combines the results; `empty` is a successful action returning
     * `Monoid[A].empty`. */
-  implicit def catsMonoidForSlickAction[E <: Effect, A](implicit A: Monoid[A]): Monoid[SlickAction[E, A]] =
-    new SlickActionSemigroup[E, A] with Monoid[SlickAction[E, A]] {
-      def empty: SlickAction[E, A] = SuccessAction(A.empty)
+  implicit def catsMonoidForDBIOEffect[E <: Effect, A](implicit A: Monoid[A]): Monoid[DBIOEffect[E, A]] =
+    new DBIOEffectSemigroup[E, A] with Monoid[DBIOEffect[E, A]] {
+      def empty: DBIOEffect[E, A] = SuccessAction(A.empty)
     }
 
-  /** `cats` instance for values typed with the `SlickAction[E, *]` alias, for any effect `E`.
-    * This covers `DBIO` (which is `SlickAction[Effect.All, *]`) and the results of the standard
+  /** `cats` instance for values typed with the `DBIOEffect[E, *]` alias, for any effect `E`.
+    * This covers `DBIO` (which is `DBIOEffect[Effect.All, *]`) and the results of the standard
     * combinators. It lives here because the implicit scope of an alias is that of its expansion,
     * `DBIOAction[R, NoStream, E]`. See [[DBIOBase]]. */
-  implicit def catsMonadErrorForSlickAction[E <: Effect]: MonadError[({ type L[A] = SlickAction[E, A] })#L, Throwable] =
-    new MonadError[({ type L[A] = SlickAction[E, A] })#L, Throwable]
-      with StackSafeMonad[({ type L[A] = SlickAction[E, A] })#L] {
-      def pure[A](a: A): SlickAction[E, A] = SuccessAction(a)
+  implicit def catsMonadErrorForDBIOEffect[E <: Effect]: MonadError[({ type L[A] = DBIOEffect[E, A] })#L, Throwable] =
+    new MonadError[({ type L[A] = DBIOEffect[E, A] })#L, Throwable]
+      with StackSafeMonad[({ type L[A] = DBIOEffect[E, A] })#L] {
+      def pure[A](a: A): DBIOEffect[E, A] = SuccessAction(a)
 
-      def flatMap[A, B](fa: SlickAction[E, A])(f: A => SlickAction[E, B]): SlickAction[E, B] = fa.flatMap(f)
+      def flatMap[A, B](fa: DBIOEffect[E, A])(f: A => DBIOEffect[E, B]): DBIOEffect[E, B] = fa.flatMap(f)
 
-      override def map[A, B](fa: SlickAction[E, A])(f: A => B): SlickAction[E, B] = fa.map(f)
+      override def map[A, B](fa: DBIOEffect[E, A])(f: A => B): DBIOEffect[E, B] = fa.map(f)
 
-      def raiseError[A](e: Throwable): SlickAction[E, A] = FailureAction(e)
+      def raiseError[A](e: Throwable): DBIOEffect[E, A] = FailureAction(e)
 
-      def handleErrorWith[A](fa: SlickAction[E, A])(f: Throwable => SlickAction[E, A]): SlickAction[E, A] =
+      def handleErrorWith[A](fa: DBIOEffect[E, A])(f: Throwable => DBIOEffect[E, A]): DBIOEffect[E, A] =
         fa.asTry.flatMap[A, NoStream, E] {
           case Success(a) => SuccessAction(a)
           case Failure(t) => f(t)
         }
 
-      override def attempt[A](fa: SlickAction[E, A]): SlickAction[E, Either[Throwable, A]] = fa.asTry.map(_.toEither)
+      override def attempt[A](fa: DBIOEffect[E, A]): DBIOEffect[E, Either[Throwable, A]] = fa.asTry.map(_.toEither)
     }
 
   /** Lift a constant value to a [[DBIOAction]]. */
-  def successful[R](v: R): SlickAction[Effect, R] = SuccessAction[R](v)
+  def successful[R](v: R): DBIOEffect[Effect, R] = SuccessAction[R](v)
 
   /** Create a [[DBIOAction]] that always fails. */
-  def failed(t: Throwable): SlickAction[Effect, Nothing] = FailureAction(t)
+  def failed(t: Throwable): DBIOEffect[Effect, Nothing] = FailureAction(t)
 
   /** A no-op [[DBIOAction]]. A cached value of `DBIOAction.successful(())` to avoid allocations. */
-  def unit: SlickAction[Effect, Unit] = UnitAction
+  def unit: DBIOEffect[Effect, Unit] = UnitAction
 
   /** Lift any `F[R]` effect (e.g. `cats.effect.IO[R]`) into a [[DBIOAction]].
     *
@@ -367,7 +367,7 @@ object DBIOAction {
     * otherAction.flatMap(result => nextAction(result))
     * }}}
     */
-  def from[F[_], R](fa: F[R]): SlickAction[Effect, R] = LiftFAction[F, R](fa)
+  def from[F[_], R](fa: F[R]): DBIOEffect[Effect, R] = LiftFAction[F, R](fa)
 
   /** Lift a `scala.concurrent.Future` into a [[DBIOAction]].
     *
@@ -386,7 +386,7 @@ object DBIOAction {
     * See the `DBIO.from[F[_], R]` overload for a full explanation of why nested `db.run`
     * calls can cause a deadlock.
     */
-  def from[R](fa: Future[R]): SlickAction[Effect, R] =
+  def from[R](fa: Future[R]): DBIOEffect[Effect, R] =
     LiftFAction[cats.effect.IO, R](cats.effect.IO.fromFuture(cats.effect.IO(fa)))
 
   /** Alias for `from`.
@@ -394,7 +394,7 @@ object DBIOAction {
     * '''Warning — do not call `db.run` inside the lifted effect.'''
     * See `DBIO.from[F[_], R]` for a full explanation of why nested `db.run` calls can cause a deadlock.
     */
-  def liftF[F[_], R](fa: F[R]): SlickAction[Effect, R] = from(fa)
+  def liftF[F[_], R](fa: F[R]): DBIOEffect[Effect, R] = from(fa)
 
   private[this] def groupBySynchronicity[R, E <: Effect](in: IterableOnce[DBIOAction[R, NoStream, E]]): Vector[Vector[DBIOAction[R, NoStream, E]]] = {
     var state = 0 // no current = 0, sync = 1, async = 2
@@ -414,11 +414,11 @@ object DBIOAction {
   }
 
   /** Transform a `Option[ DBIO[R] ]` into a `DBIO[ Option[R] ]`. */
-  def sequenceOption[R, E <: Effect](in: Option[DBIOAction[R, NoStream, E]]): SlickAction[E, Option[R]] =
+  def sequenceOption[R, E <: Effect](in: Option[DBIOAction[R, NoStream, E]]): DBIOEffect[E, Option[R]] =
     sequence(in.toList).map(_.headOption)
 
   /** Transform a `TraversableOnce[ DBIO[R] ]` into a `DBIO[ TraversableOnce[R] ]`. */
-  def sequence[R, M[+_] <: IterableOnce[?], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: Factory[R, M[R]]): SlickAction[E, M[R]] = {
+  def sequence[R, M[+_] <: IterableOnce[?], E <: Effect](in: M[DBIOAction[R, NoStream, E]])(implicit cbf: Factory[R, M[R]]): DBIOEffect[E, M[R]] = {
     def sequenceGroupAsM(g: Vector[DBIOAction[R, NoStream, E]]): DBIOAction[M[R], NoStream, E] = {
       if(g.head.isInstanceOf[SynchronousDatabaseAction[?, ?, ?, ?]]) { // fuse synchronous group
         new SynchronousDatabaseAction.Fused[M[R], NoStream, BasicBackend#BasicActionContext, E] {
@@ -467,7 +467,7 @@ object DBIOAction {
   /** A simpler version of `sequence` that takes a number of DBIOActions with any return type as
     * varargs and returns a DBIOAction that performs the individual actions in sequence, returning
     * `()` in the end. */
-  def seq[E <: Effect](actions: DBIOAction[?, NoStream, E]*): SlickAction[E, Unit] = {
+  def seq[E <: Effect](actions: DBIOAction[?, NoStream, E]*): DBIOEffect[E, Unit] = {
     def sequenceGroup(g: Vector[DBIOAction[Any, NoStream, E]], forceUnit: Boolean): DBIOAction[Any, NoStream, E] = {
       if(g.length == 1 && !forceUnit) g.head
       else if(g.head.isInstanceOf[SynchronousDatabaseAction[?, ?, ?, ?]]) sequenceSync(g)
@@ -505,7 +505,7 @@ object DBIOAction {
 
   /** Create a DBIOAction that runs some other actions in sequence and combines their results
     * with the given function. */
-  def fold[T, E <: Effect](actions: Seq[DBIOAction[T, NoStream, E]], zero: T)(f: (T, T) => T): SlickAction[E, T] =
+  def fold[T, E <: Effect](actions: Seq[DBIOAction[T, NoStream, E]], zero: T)(f: (T, T) => T): DBIOEffect[E, T] =
     actions.foldLeft[DBIOAction[T, NoStream, E]](DBIO.successful(zero)) { (za, va) => za.flatMap(z => va.map(v => f(z, v))) }
 
 }
