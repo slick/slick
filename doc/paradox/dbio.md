@@ -24,7 +24,7 @@ In most cases you will want to use the type aliases @scaladoc[DBIO](slick.dbio.p
 and @scaladoc[StreamingDBIO](slick.dbio.package#StreamingDBIO[+R,+T]:StreamingDBIO[R,T]) for non-streaming and
 streaming Database I/O Actions. They omit the optional *effect types* supported by @scaladoc[DBIOAction](slick.dbio.DBIOAction).
 The alias @scaladoc[DBIOEffect](slick.dbio.package#DBIOEffect[-E%3C:Effect,+R]:DBIOEffect[E,R]) keeps the effect type
-and omits only the streaming type; see @ref:[Cats Type Classes](#cats-type-classes).
+and omits only the streaming type; see [Cats Type Classes](#cats-type-classes).
 
 @@@ note
 
