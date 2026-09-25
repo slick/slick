@@ -44,6 +44,8 @@ trait Aliases {
   type DBIO[+R] = dbio.DBIO[R]
   type StreamingDBIO[+R, +T] = dbio.StreamingDBIO[R, T]
   type DBIOAction[+R, +S <: dbio.NoStream, -E <: dbio.Effect] = dbio.DBIOAction[R, S, E]
+  type DBIOEffect[-E <: dbio.Effect, +R] = dbio.DBIOEffect[E, R]
+  type DBIOBase[-E <: dbio.Effect, +R] = dbio.DBIOBase[E, R]
   val DBIO = dbio.DBIO
   type Effect = dbio.Effect
   val Effect = dbio.Effect
