@@ -57,6 +57,11 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       JdbcCapabilities.nullableNoDefault -
       JdbcCapabilities.supportsByte
 
+  trait PostgresAPI extends JdbcAPI {
+    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+  }
+  override val api: PostgresAPI = new PostgresAPI {}
+
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
