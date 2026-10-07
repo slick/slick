@@ -1,7 +1,6 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet, Statement}
-
 import scala.collection.mutable.Builder
 import scala.language.existentials
 import slick.SlickException
@@ -9,6 +8,7 @@ import slick.ast.*
 import slick.ast.ColumnOption.PrimaryKey
 import slick.ast.TypeUtil.:@
 import slick.ast.Util.*
+import slick.basic.Capability
 import slick.dbio.*
 import slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import slick.relational.{CompiledMapping, ResultConverter}
@@ -399,7 +399,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
      * exception is thrown.
      * The option parameter specifies how the operation is to be performed.(default is [[RowsPerStatement.All]])
      * Note unlike [[insertOrUpdate]], client-side emulation is not supported. */
-    def insertOrUpdateAll(values: Iterable[U], option: RowsPerStatement = defaultRowsPerStatement)
+    def insertOrUpdateAll(values: Iterable[U], option: RowsPerStatement = defaultRowsPerStatement)(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.insertOrUpdate.type])
     : ProfileAction[MultiInsertResult, NoStream, Effect.Write]
   }
 
@@ -488,12 +488,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] =
       new InsertOrUpdateAction(value)
 
-    override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
+    override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement)(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.insertOrUpdate.type]): ProfileAction[
       MultiInsertResult,
       NoStream,
       Effect.Write
     ] =
-      if (!capabilities.contains(JdbcCapabilities.insertOrUpdate))
+      if (!capabilities.contains(cap.cap))
         throw new SlickException("insertOrUpdateAll is not supported for this profile")
       else
         new InsertOrUpdateAllAction(values, rowsPerStatement)

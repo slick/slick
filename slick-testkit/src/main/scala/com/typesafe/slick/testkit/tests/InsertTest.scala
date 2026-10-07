@@ -224,6 +224,10 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testInsertOrUpdateAll = {
+    // won't compile for PG
+//        import slick.jdbc.PostgresProfile.api.*
+    // will compile for MySQL
+//    import slick.jdbc.MySQLProfile.api.*
     class T(tag: Tag) extends Table[(Int, String)](tag, "insert_or_update") {
       def id = column[Int]("id", O.PrimaryKey)
       def name = column[String]("name")
