@@ -287,9 +287,19 @@ lazy val testkit =
               None)
         ),
       //scalacOptions in Compile += "-Yreify-copypaste",
+      // The cats tests unify `DBIOEffect[E, R]` with an `F[_]`; Scala 2.13 and 3 do that out of the
+      // box, Scala 2.12 needs this flag for it, as it does for cats in general.
+      Test / scalacOptions ++= {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, 12)) => List("-Ypartial-unification")
+          case _ => Nil
+        }
+      },
       libraryDependencies ++=
         Dependencies.junit ++:
           (Dependencies.munitCatsEffect % Test) +:
+          (Dependencies.catsLaws % Test) +:
+          (Dependencies.disciplineMunit % Test) +:
           (Dependencies.reactiveStreamsTCK % Test) +:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
