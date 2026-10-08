@@ -3,9 +3,10 @@ package slick.lifted
 import slick.util.ConstArray
 
 import scala.annotation.implicitNotFound
-
 import slick.ast.{Join as AJoin, *}
 import slick.ast.ScalaBaseType.*
+import slick.basic.Capability
+import slick.relational.RelationalCapabilities
 import slick.lifted.FunctionSymbolExtensionMethods.*
 
 sealed trait QueryBase[T] extends Rep[T]
@@ -153,7 +154,7 @@ sealed trait QueryBase[T] extends Rep[T]
     standardJoin(q2, JoinType.Zip).map[F, G, T](x => f(x._1, x._2))
 
   /** Zip this query with its indices (starting at 0). */
-  def zipWithIndex = {
+  def zipWithIndex(implicit cap: Capability.UnknownProfile[RelationalCapabilities.zip.type]) = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(Ref(leftGen))
     val aliased2 = ShapedValue(Rep.forNode[Long](Ref(rightGen)), Shape.repColumnShape[Long, FlatShapeLevel])

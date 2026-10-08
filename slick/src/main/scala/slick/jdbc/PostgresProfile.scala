@@ -5,7 +5,6 @@ import java.time.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
-
 import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
@@ -56,6 +55,11 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly -
       JdbcCapabilities.nullableNoDefault -
       JdbcCapabilities.supportsByte
+
+  trait PostgresAPI extends JdbcAPI {
+    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+  }
+  override val api: PostgresAPI = new PostgresAPI {}
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
