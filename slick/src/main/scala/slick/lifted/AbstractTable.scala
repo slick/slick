@@ -77,9 +77,11 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]
     val generator = new AnonSymbol
     val aliased = q.shaped.encodeRef(Ref(generator))
-    val fv = Library.==.typed[Boolean](unpackTP.toNode(targetColumns(aliased.value)), unpackP.toNode(sourceColumns))
-    val fk = ForeignKey(name, toNode, q.shaped.asInstanceOf[ShapedValue[TT, ?]],
-      targetTable, unpackP, sourceColumns, unpackTP, targetColumns, onUpdate, onDelete)
+    val source = ShapedValue(sourceColumns, unpackP)
+    val target = (t: TT) => ShapedValue(targetColumns(t), unpackTP)
+    val fv = Library.==.typed[Boolean](target(aliased.value).toNode, source.toNode)
+    val fk = ForeignKey(name, toNode, q.shaped.asInstanceOf[ShapedValue[TT, ?]], targetTable, source, target, onUpdate,
+      onDelete)
     new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, q.toNode, fv), q.shaped, IndexedSeq(fk), q, generator,
       aliased.value)
   }

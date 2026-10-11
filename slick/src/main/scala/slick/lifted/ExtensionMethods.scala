@@ -11,7 +11,7 @@ import slick.SlickException
 trait ExtensionMethods[B1, P1] extends Any {
   protected[this] def c: Rep[P1]
   protected[this] def n = c.toNode
-  protected[this] def tpe[T](r: Rep[T]): TypedType[T] = r.asInstanceOf[Rep.TypedRep[?]].tpe.asInstanceOf[TypedType[T]]
+  protected[this] def tpe[T](r: Rep[T]): TypedType[T] = r.asInstanceOf[TypedRep[?]].tpe.asInstanceOf[TypedType[T]]
   protected[this] implicit def p1Type: TypedType[P1] = tpe(c)
   protected[this] implicit def b1Type: TypedType[B1]
   protected[this] type o = OptionMapperDSL.arg[B1, P1]
@@ -25,21 +25,46 @@ trait OptionExtensionMethods[B1] extends Any with ExtensionMethods[B1, Option[B1
   protected[this] implicit def b1Type: TypedType[B1] = p1Type.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]]
 }
 
-/** Extension methods for all columns */
+/** Extension methods for all columns. The comparison overloads that take a plain value lift it with this column's own
+  * `TypedType`, so they need none in implicit scope. */
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
   def === [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.==, n, e.toNode)
+  def === [R](v: B1)(implicit om: o#to[Boolean, R]) =
+    om.column(Library.==, n, LiteralNode(b1Type, v))
+  def === [R](v: Option[B1])(implicit om: o#arg[B1, Option[B1]]#to[Boolean, R]) =
+    om.column(Library.==, n, LiteralNode(b1Type.optionType, v))
   def =!= [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.Not, Library.==.typed(om.liftedType, n, e.toNode))
+  def =!= [R](v: B1)(implicit om: o#to[Boolean, R]) =
+    om.column(Library.Not, Library.==.typed(om.liftedType, n, LiteralNode(b1Type, v)))
+  def =!= [R](v: Option[B1])(implicit om: o#arg[B1, Option[B1]]#to[Boolean, R]) =
+    om.column(Library.Not, Library.==.typed(om.liftedType, n, LiteralNode(b1Type.optionType, v)))
 
   def < [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.<, n, e.toNode)
+  def < [R](v: B1)(implicit om: o#to[Boolean, R]) =
+    om.column(Library.<, n, LiteralNode(b1Type, v))
+  def < [R](v: Option[B1])(implicit om: o#arg[B1, Option[B1]]#to[Boolean, R]) =
+    om.column(Library.<, n, LiteralNode(b1Type.optionType, v))
   def <= [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.<=, n, e.toNode)
+  def <= [R](v: B1)(implicit om: o#to[Boolean, R]) =
+    om.column(Library.<=, n, LiteralNode(b1Type, v))
+  def <= [R](v: Option[B1])(implicit om: o#arg[B1, Option[B1]]#to[Boolean, R]) =
+    om.column(Library.<=, n, LiteralNode(b1Type.optionType, v))
   def > [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.>, n, e.toNode)
+  def > [R](v: B1)(implicit om: o#to[Boolean, R]) =
+    om.column(Library.>, n, LiteralNode(b1Type, v))
+  def > [R](v: Option[B1])(implicit om: o#arg[B1, Option[B1]]#to[Boolean, R]) =
+    om.column(Library.>, n, LiteralNode(b1Type.optionType, v))
   def >= [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.>=, n, e.toNode)
+  def >= [R](v: B1)(implicit om: o#to[Boolean, R]) =
+    om.column(Library.>=, n, LiteralNode(b1Type, v))
+  def >= [R](v: Option[B1])(implicit om: o#arg[B1, Option[B1]]#to[Boolean, R]) =
+    om.column(Library.>=, n, LiteralNode(b1Type.optionType, v))
 
   def in[P2, R, C[_]](e: Query[Rep[P2], ?, C])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.In, n, e.toNode)
@@ -58,52 +83,18 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
     Library.IfNull.column[P2](n, e.toNode)(tpe(e))
 }
 
-/** Comparisons of a column with a plain value. The value is lifted with the column's own `TypedType`, so none needs to
-  * be in implicit scope.
-  *
-  * @tparam R The result type of comparing with a `B1` value: `Boolean` for a non-`Option` column, `Option[Boolean]`
-  *           for an `Option` column. Comparing with an `Option[B1]` value always yields `Option[Boolean]`.
-  */
-trait ValueComparisonExtensionMethods[B1, P1, R] extends Any with ExtensionMethods[B1, P1] {
-  protected[this] def comparisonType: TypedType[R]
-
-  def === (v: B1): TypedRep[R] = compare(Library.==, v)
-  def === (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.==, v)
-  def =!= (v: B1): TypedRep[R] = Library.Not.column[R](compare(Library.==, v).toNode)(comparisonType)
-  def =!= (v: Option[B1]): TypedRep[Option[Boolean]] = Library.Not.column[Option[Boolean]](compareOption(Library.==, v).toNode)
-  def < (v: B1): TypedRep[R] = compare(Library.<, v)
-  def < (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.<, v)
-  def <= (v: B1): TypedRep[R] = compare(Library.<=, v)
-  def <= (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.<=, v)
-  def > (v: B1): TypedRep[R] = compare(Library.>, v)
-  def > (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.>, v)
-  def >= (v: B1): TypedRep[R] = compare(Library.>=, v)
-  def >= (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.>=, v)
-
-  protected[this] def compare(fs: FunctionSymbol, v: B1): TypedRep[R] =
-    fs.column[R](n, LiteralNode(b1Type, v))(comparisonType)
-  protected[this] def compareOption(fs: FunctionSymbol, v: Option[B1]): TypedRep[Option[Boolean]] =
-    fs.column[Option[Boolean]](n, LiteralNode(b1Type.optionType, v))
-}
-
-final class BaseColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with ColumnExtensionMethods[P1, P1] with BaseExtensionMethods[P1]
-    with ValueComparisonExtensionMethods[P1, P1, Boolean] {
-  protected[this] def comparisonType = implicitly[TypedType[Boolean]]
-
+final class BaseColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with ColumnExtensionMethods[P1, P1] with BaseExtensionMethods[P1] {
   /** Lift a column to an Option column. This is the same as calling [[slick.lifted.Rep.Some]]. */
-  def ? : Rep.TypedRep[Option[P1]] = Rep.forNode(OptionApply(c.toNode))(p1Type.optionType)
+  def ? : TypedRep[Option[P1]] = Rep.forNode(OptionApply(c.toNode))(p1Type.optionType)
 }
 
-final class OptionColumnExtensionMethods[B1](val c: Rep[Option[B1]]) extends AnyVal with ColumnExtensionMethods[B1, Option[B1]] with OptionExtensionMethods[B1]
-    with ValueComparisonExtensionMethods[B1, Option[B1], Option[Boolean]] {
-  protected[this] def comparisonType = implicitly[TypedType[Option[Boolean]]]
-
+final class OptionColumnExtensionMethods[B1](val c: Rep[Option[B1]]) extends AnyVal with ColumnExtensionMethods[B1, Option[B1]] with OptionExtensionMethods[B1] {
   /** Get the value inside this Option, if it is non-empty, otherwise throw a SlickException. This
     * operation is only allowed in places where it can be performed at the client side (e.g. not
     * inside a subquery that cannot be fused), otherwise the exception is thrown during query
     * compilation. */
-  def get: Rep.TypedRep[B1] =
-    Rep.forNode[B1](GetOrElse(c.toNode, () => throw new SlickException("Read NULL value for column " + this)))(c.asInstanceOf[Rep.TypedRep[?]].tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
+  def get: TypedRep[B1] =
+    Rep.forNode[B1](GetOrElse(c.toNode, () => throw new SlickException("Read NULL value for column " + this)))(b1Type)
 }
 
 /** Extension methods for numeric columns */
@@ -276,8 +267,8 @@ trait ExtensionMethodConversions {
   implicit def optionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): OptionColumnExtensionMethods[B1] = new OptionColumnExtensionMethods[B1](c)
   // A TypedRep carries its own TypedType, so these need none in implicit scope. They are more specific than the
   // Rep-based conversions above, and the Option one is more specific than the base one.
-  implicit def typedRepColumnExtensionMethods[B1](c: Rep.TypedRep[B1]): BaseColumnExtensionMethods[B1] = new BaseColumnExtensionMethods[B1](c)
-  implicit def typedRepOptionColumnExtensionMethods[B1](c: Rep.TypedRep[Option[B1]]): OptionColumnExtensionMethods[B1] = new OptionColumnExtensionMethods[B1](c)
+  implicit def typedRepColumnExtensionMethods[B1](c: TypedRep[B1]): BaseColumnExtensionMethods[B1] = new BaseColumnExtensionMethods[B1](c)
+  implicit def typedRepOptionColumnExtensionMethods[B1](c: TypedRep[Option[B1]]): OptionColumnExtensionMethods[B1] = new OptionColumnExtensionMethods[B1](c)
   implicit def numericColumnExtensionMethods[B1](c: Rep[B1])(implicit tm: BaseTypedType[B1] & NumericTypedType): BaseNumericColumnExtensionMethods[B1] = new BaseNumericColumnExtensionMethods[B1](c)
   implicit def numericOptionColumnExtensionMethods[B1](c: Rep[Option[B1]])(implicit tm: BaseTypedType[B1] & NumericTypedType): OptionNumericColumnExtensionMethods[B1] = new OptionNumericColumnExtensionMethods[B1](c)
   implicit def stringColumnExtensionMethods(c: Rep[String]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c)

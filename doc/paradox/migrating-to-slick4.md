@@ -388,9 +388,9 @@ Table definitions compile unchanged, but the narrower type is visible to type in
   Annotate the overridden `def` as `Rep[C]`, or override with `TypedRep[C]`.
 - `foreignKey` has a fifth type parameter, the type of the target columns, and a third implicit `Shape` for them. A
   call that passes type arguments explicitly needs the fifth one (the same type as the first, for calls that compiled
-  before); a call that passes the implicit arguments explicitly needs the third `Shape`. `ForeignKey.columnsShape` is
-  split into `sourceColumnsShape` and `targetColumnsShape`, and `ForeignKey.apply` takes a shape for the target
-  columns.
+  before); a call that passes the implicit arguments explicitly needs the third `Shape`. `ForeignKey.sourceColumns`
+  and `ForeignKey.targetColumns` are now `ShapedValue`s that carry their own shapes, replacing
+  `ForeignKey.columnsShape`, and `ForeignKey.apply` takes them in place of the separate columns and shape.
 - `profile.api._` exports a type named `TypedRep`. If you have your own type of that name in scope, refer to it by its
   qualified name, or exclude Slick's: `import profile.api.{TypedRep => _, *}`.
 - On Scala 2, your own implicit conversion on `Rep[T]` for a specific `T`, providing a method that Slick's column
