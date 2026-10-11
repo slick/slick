@@ -5,6 +5,52 @@ import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api.*
 
+  def testOptionalSearchFilters = {
+    class People(tag: Tag) extends Table[(Int, String)](tag, "people_search") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val people = TableQuery[People]
+
+    def search(name: Option[String], ids: Option[Seq[Int]]) =
+      people.filter { p =>
+        name.fold(true.bind)(n => p.name === n) &&
+          ids.fold(true.bind)(is => p.id.inSet(is))
+      }.map(_.id)
+
+    seq(
+      people.schema.create,
+      people ++= Seq((1, "a"), (2, "b"), (3, "a")),
+      search(None, None).to[Set].result.map(_ shouldBe Set(1, 2, 3)),
+      search(Some("a"), None).to[Set].result.map(_ shouldBe Set(1, 3)),
+      search(Some("a"), Some(Seq(2, 3))).to[Set].result.map(_ shouldBe Set(3))
+    )
+  }
+
+  def testColumnNamingConvention = {
+    import slick.ast.{ColumnOption, TypedType}
+
+    // A base class for tables whose columns are named in snake_case
+    abstract class SnakeCaseTable[T](tag: Tag, name: String) extends Table[T](tag, name) {
+      override def column[C](n: String, options: ColumnOption[C]*)(implicit tt: TypedType[C]): Rep[C] =
+        super.column[C](n.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase, options*)
+    }
+
+    class People(tag: Tag) extends SnakeCaseTable[(Int, String)](tag, "people_snake_case") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def firstName = column[String]("firstName")
+      def * = (id, firstName)
+    }
+    val people = TableQuery[People]
+
+    seq(
+      people.schema.create,
+      people += ((1, "a")),
+      people.filter(_.firstName === "a").map(_.id).result.map(_ shouldBe Seq(1))
+    )
+  }
+
   def isNotAndOrTest = {
     class T(tag: Tag) extends Table[(String, String)](tag, "users") {
       def a = column[String]("a")

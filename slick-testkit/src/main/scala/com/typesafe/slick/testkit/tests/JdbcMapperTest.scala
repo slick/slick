@@ -13,6 +13,38 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
   import tdb.profile.api.*
 
+  def testCaseOverOptionMappedAsWhole = {
+    sealed trait Priority
+    case object Low extends Priority
+    case object High extends Priority
+
+    // A NOT NULL column where 0 means "no priority"
+    implicit val priorityTypeMapper: BaseColumnType[Option[Priority]] =
+      MappedColumnType.base[Option[Priority], Int](
+        { case None => 0; case Some(Low) => 1; case Some(High) => 2 },
+        { case 1 => Some(Low); case 2 => Some(High); case _ => None }
+      )
+
+    class Tasks(tag: Tag) extends Table[(Int, Option[Priority])](tag, "tasks_case_option_mapped") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def priority = column[Option[Priority]]("priority")
+      def * = (id, priority)
+    }
+    val tasks = TableQuery[Tasks]
+
+    // Tasks without a priority count as Low
+    val noPriority: Option[Priority] = None
+    val effectivePriorities = tasks.sortBy(_.id).map { t =>
+      Case.If(t.priority === noPriority).Then(LiteralColumn[Option[Priority]](Some(Low))).Else(t.priority)
+    }
+
+    seq(
+      tasks.schema.create,
+      tasks ++= Seq((1, None), (2, Some(Low)), (3, Some(High))),
+      effectivePriorities.result.map(_ shouldBe Seq(Some(Low), Some(Low), Some(High)))
+    )
+  }
+
   def testComparedValueUsesColumnMapper = {
     sealed trait Bool
     case object True extends Bool
