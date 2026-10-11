@@ -121,8 +121,8 @@ object LiftedEmbedding {
     }
     //#reptypes
     val q = coffees.filter(_.price > 8.0).map(_.name)
-    //                       ^       ^          ^
-    //               Rep[Double]  Rep[Double]  Rep[String]
+    //                       ^                  ^
+    //               Rep[Double]               Rep[String]
     //#reptypes
 
     //#mappedtable
@@ -576,7 +576,7 @@ object LiftedEmbedding {
             )
           }
 
-          // Make columnMapper available in table definitions and where you do queries
+          // Make columnMapper available where you define tables with Bool columns
           implicit val boolColumnType: BaseColumnType[Bool.Bool] = Bool.columnMapper
 
           // You can now use Bool.{True, False} like any built-in column type (in tables, queries, etc.)

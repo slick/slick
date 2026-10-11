@@ -177,7 +177,7 @@ Constraints
 Define foreign keys, primary keys, and indexes close to your table definitions.
 
 A foreign key constraint can be defined with a Table's
-@scaladoc[foreignKey](slick.relational.RelationalTableComponent$Table#foreignKey[P,PU,TT%3C:AbstractTable[_],U](String,P,TableQuery[TT])((TT)=%3EP,ForeignKeyAction,ForeignKeyAction)(Shape[_%3C:FlatShapeLevel,TT,U,_],Shape[_%3C:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U])
+@scaladoc[foreignKey](slick.relational.RelationalTableComponent$Table#foreignKey[P,PU,TT%3C:AbstractTable[_],U,TP](String,P,TableQuery[TT])((TT)=%3ETP,ForeignKeyAction,ForeignKeyAction)(Shape[_%3C:FlatShapeLevel,TT,U,_],Shape[_%3C:FlatShapeLevel,P,PU,_],Shape[_%3C:FlatShapeLevel,TP,PU,_]):ForeignKeyQuery[TT,U])
 method. It first takes a name for the constraint, the referencing column(s) and the referenced table. The second
 argument list takes a function from the referenced table to its referenced column(s) as well as
 @scaladoc[ForeignKeyAction](slick.model.ForeignKeyAction$) for `onUpdate` and `onDelete`, which are optional and default

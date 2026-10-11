@@ -1,7 +1,7 @@
 package slick.lifted
 
 import annotation.implicitNotFound
-import slick.ast.{OptionType, OptionApply, FunctionSymbol, BaseTypedType, Node, TypedType}
+import slick.ast.{OptionType, OptionApply, FunctionSymbol, Node, TypedType}
 
 trait OptionMapper[BR, R] extends (Rep[BR] => Rep[R]) {
   def lift: Boolean
@@ -18,7 +18,9 @@ trait OptionMapper[BR, R] extends (Rep[BR] => Rep[R]) {
 @implicitNotFound("Cannot perform option-mapped operation\n      with type: (${P1}, ${P2}) => ${R}\n  for base type: (${B1}, ${B2}) => ${BR}")
 sealed trait OptionMapper2[B1, B2, BR, P1, P2, R] extends OptionMapper[BR, R]
 
-object OptionMapper2 {
+// When B2 is inferred from an Option-typed P2, both the T and the O instance for that argument match (with B2 = P2 and
+// with B2 the element type). The O instances have higher priority so that B2 is the element type.
+object OptionMapper2 extends OptionMapper2LowPriority {
   val plain = new OptionMapper2[Any,Any,Any,Any,Any,Any] {
     def apply(n: Rep[Any]): Rep[Any] = n
     def lift = false
@@ -30,16 +32,20 @@ object OptionMapper2 {
     override def toString = "OptionMapper2.option"
   }
 
-  @inline implicit def getOptionMapper2TT[B1, B2 : BaseTypedType, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, B1,         P2,         BR]         = OptionMapper2.plain .asInstanceOf[OptionMapper2[B1, B2, BR, B1,         P2,         BR]]
-  @inline implicit def getOptionMapper2TO[B1, B2 : BaseTypedType, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, B1,         Option[P2], Option[BR]] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, B1,         Option[P2], Option[BR]]]
-  @inline implicit def getOptionMapper2OT[B1, B2 : BaseTypedType, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, Option[B1], P2,         Option[BR]] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], P2,         Option[BR]]]
-  @inline implicit def getOptionMapper2OO[B1, B2 : BaseTypedType, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, Option[B1], Option[P2], Option[BR]] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], Option[P2], Option[BR]]]
+  @inline implicit def getOptionMapper2TO[B1, B2, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, B1,         Option[P2], Option[BR]] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, B1,         Option[P2], Option[BR]]]
+  @inline implicit def getOptionMapper2OO[B1, B2, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, Option[B1], Option[P2], Option[BR]] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], Option[P2], Option[BR]]]
+}
+
+sealed trait OptionMapper2LowPriority {
+  @inline implicit def getOptionMapper2TT[B1, B2, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, B1,         P2,         BR]         = OptionMapper2.plain .asInstanceOf[OptionMapper2[B1, B2, BR, B1,         P2,         BR]]
+  @inline implicit def getOptionMapper2OT[B1, B2, P2 <: B2, BR]: OptionMapper2[B1, B2, BR, Option[B1], P2,         Option[BR]] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], P2,         Option[BR]]]
 }
 
 @implicitNotFound("Cannot perform option-mapped operation\n      with type: (${P1}, ${P2}, ${P3}) => ${R}\n  for base type: (${B1}, ${B2}, ${B3}) => ${BR}")
 sealed trait OptionMapper3[B1, B2, B3, BR, P1, P2, P3, R] extends OptionMapper[BR, R]
 
-object OptionMapper3 {
+// Prioritized like OptionMapper2: the more of P2 and P3 are Options, the higher the priority.
+object OptionMapper3 extends OptionMapper3MediumPriority {
   val plain = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Any] {
     def apply(n: Rep[Any]): Rep[Any] = n
     def lift = false
@@ -51,14 +57,20 @@ object OptionMapper3 {
     override def toString = "OptionMapper3.option"
   }
 
-  @inline implicit def getOptionMapper3TTT[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR]         = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR]]
-  @inline implicit def getOptionMapper3TTO[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         P2,         Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         P2,         Option[P3], Option[BR]]]
-  @inline implicit def getOptionMapper3TOT[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], P3,         Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], P3,         Option[BR]]]
-  @inline implicit def getOptionMapper3TOO[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], Option[P3], Option[BR]]]
-  @inline implicit def getOptionMapper3OTT[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         P3,         Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         P3,         Option[BR]]]
-  @inline implicit def getOptionMapper3OTO[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         Option[P3], Option[BR]]]
-  @inline implicit def getOptionMapper3OOT[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], P3,         Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], P3,         Option[BR]]]
-  @inline implicit def getOptionMapper3OOO[B1, B2 : BaseTypedType, P2 <: B2, B3 : BaseTypedType, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], Option[P3], Option[BR]]]
+  @inline implicit def getOptionMapper3TOO[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], Option[P3], Option[BR]]]
+  @inline implicit def getOptionMapper3OOO[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], Option[P3], Option[BR]]]
+}
+
+sealed trait OptionMapper3MediumPriority extends OptionMapper3LowPriority {
+  @inline implicit def getOptionMapper3TTO[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         P2,         Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         P2,         Option[P3], Option[BR]]]
+  @inline implicit def getOptionMapper3TOT[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], P3,         Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[P2], P3,         Option[BR]]]
+  @inline implicit def getOptionMapper3OTO[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         Option[P3], Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         Option[P3], Option[BR]]]
+  @inline implicit def getOptionMapper3OOT[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], P3,         Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[P2], P3,         Option[BR]]]
+}
+
+sealed trait OptionMapper3LowPriority {
+  @inline implicit def getOptionMapper3TTT[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR]         = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         P2,         P3,         BR]]
+  @inline implicit def getOptionMapper3OTT[B1, B2, P2 <: B2, B3, P3 <: B3, BR]: OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         P3,         Option[BR]] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], P2,         P3,         Option[BR]]]
 }
 
 object OptionMapperDSL {

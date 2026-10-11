@@ -32,8 +32,8 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.schema.create,
       ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
       ts.to[Set].result.map(_ shouldBe Set((1, False, None), (2, True, Some(True)))),
-      ts.filter(_.b === (True:Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
-      ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
+      ts.filter(_.b === True).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
+      ts.filter(_.b === False).to[Set].result.map(_ shouldBe Set((1, False, None)))
     )
   }
 
@@ -73,8 +73,8 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.schema.create,
       ts.map(t => (t.b, t.c)) ++= Seq((EnumValue1, None), (EnumValue1, Some(EnumValue2)), (EnumValue2, Some(EnumValue3))),
       ts.to[Set].result.map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)), (3, EnumValue2, Some(EnumValue3)))),
-      ts.filter(_.b === (EnumValue1:EnumType)).to[Set].result.map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)))),
-      ts.filter(_.b === (EnumValue2:EnumType)).to[Set].result.map(_ shouldBe Set((3, EnumValue2, Some(EnumValue3))))
+      ts.filter(_.b === EnumValue1).to[Set].result.map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)))),
+      ts.filter(_.b === EnumValue2).to[Set].result.map(_ shouldBe Set((3, EnumValue2, Some(EnumValue3))))
     )
   }
 
@@ -105,8 +105,43 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts.schema.create,
       ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
       ts.to[Set].result.map(_ shouldBe Set((1, False, None), (2, True, Some(True)))),
-      ts.filter(_.b === (True:Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
-      ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
+      ts.filter(_.b === True).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
+      ts.filter(_.b === False).to[Set].result.map(_ shouldBe Set((1, False, None)))
+    )
+  }
+
+  def testMappedTypeProjectedWithoutImplicitInScope = {
+    sealed trait Bool
+    case object True extends Bool
+    case object False extends Bool
+
+    // Only the table definition sees the mapped type; the queries below get it from the columns.
+    object Schema {
+      implicit val boolTypeMapper: BaseColumnType[Bool] =
+        MappedColumnType.base[Bool, Int](b => if(b == True) 1 else 0, i => if(i == 1) True else False)
+
+      class T(tag: Tag) extends Table[(Int, Bool, Option[Bool])](tag, "mapped_no_implicit") {
+        def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+        def b = column[Bool]("b")
+        def c = column[Option[Bool]]("c")
+        def * = (id, b, c)
+      }
+    }
+    val ts = TableQuery[Schema.T]
+
+    seq(
+      ts.schema.create,
+      ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
+      ts.map(_.b).to[Set].result.map(_ shouldBe Set(False, True)),
+      ts.map(_.c).to[Set].result.map(_ shouldBe Set(None, Some(True))),
+      ts.sortBy(_.id).map(t => (t.b, t.c)).result.map(_ shouldBe Seq((False, None), (True, Some(True)))),
+      ts.filter(_.b === True).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.b =!= True).map(_.id).result.map(_ shouldBe Seq(1)),
+      ts.filter(_.c === True).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.c === Some(True)).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.c =!= Some(False)).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(t => t.b === t.c).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.sortBy(_.b.desc).map(_.b).result.map(_ shouldBe Seq(True, False))
     )
   }
 

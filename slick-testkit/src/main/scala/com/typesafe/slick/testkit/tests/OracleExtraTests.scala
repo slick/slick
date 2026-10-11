@@ -21,11 +21,11 @@ class OracleExtraTests extends AsyncTest[JdbcTestDB] {
       as.filter(_ => LiteralColumn[Option[Int]](None).isDefined).map(_.id).result.map(_ shouldBe Nil),
       as.filter(_ => LiteralColumn[Option[Int]](None).bind.isDefined).map(_.id).result.map(_ shouldBe Nil),
       as.filter(_.a.isEmpty).map(_.id).result.map(_ shouldBe Nil),
-      as.filter(_.a === (Some(Array[Byte](1, 2, 3)): Option[Array[Byte]])).map(_.id).result.map(_ shouldBe Seq(1)),
-      as.filter(_.a === (None: Option[Array[Byte]])).map(_.id).result.map(_ shouldBe Nil),
+      as.filter(_.a === Some(Array[Byte](1, 2, 3))).map(_.id).result.map(_ shouldBe Seq(1)),
+      as.filter(_.a === None).map(_.id).result.map(_ shouldBe Nil),
       as.filter(_.a === (Some(Array[Byte](1, 2, 3)): Option[Array[Byte]]).bind).map(_.id).result.map(_ shouldBe Seq(1)),
       as.filter(_.a === (None: Option[Array[Byte]]).bind).map(_.id).result.map(_ shouldBe Nil),
-      as.filter(_ => LiteralColumn[Option[Int]](None) === (None: Option[Int])).map(_.id).result.map(_ shouldBe Nil)
+      as.filter(_ => LiteralColumn[Option[Int]](None) === None).map(_.id).result.map(_ shouldBe Nil)
     )
   }
 

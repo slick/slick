@@ -339,6 +339,52 @@ See @ref:[Database](database.md) for the `slick.cats.Database` and `slick.zio.Da
 
 ---
 
+## 9. Columns carry their `TypedType`
+
+`column[C]` returns a `Rep.TypedRep[C]`, which is a `Rep[C]` that holds the `TypedType[C]` the column was defined
+with. Queries on such a column no longer need the `TypedType` (for example a `MappedColumnType`) in implicit scope to
+project it (on its own, in a tuple, or as an `Option` column), to compare it with `===`, `=!=`, `<`, `<=`, `>` or `>=`
+against a plain value, an `Option` value or another column, or to sort by it:
+
+```scala
+object Schema {
+  implicit val colorType: BaseColumnType[Color] =
+    MappedColumnType.base[Color, String](_.name, Color.fromName)
+
+  class Widgets(tag: Tag) extends Table[(Int, Color)](tag, "widgets") {
+    def id    = column[Int]("id")
+    def color = column[Color]("color")
+    def * = (id, color)
+  }
+}
+
+// colorType is not in scope here
+TableQuery[Schema.Widgets].filter(_.color === Color.Red).sortBy(_.color).map(_.color).result
+```
+
+The instance is still needed where a value is lifted in other ways, for example with `LiteralColumn`, `.bind`,
+`between` or `in`.
+
+Comparing a column with a plain value lifts the value with the column's own `TypedType`. Previously it used whichever
+instance was in implicit scope at the comparison, which could differ from the column's.
+
+The code generator declares columns as `Rep.TypedRep[T]`, so generated tables get the same benefits.
+
+Table definitions compile unchanged, but the narrower type is visible to type inference:
+
+- Query element types built from columns or literals contain `Rep.TypedRep[T]` where they used to contain `Rep[T]`.
+  `Query` is covariant in its element type, so an annotation like `Query[Rep[Int], Int, Seq]` still accepts them,
+  but `Rep` is invariant, so an annotation like `Rep[Option[(Rep[Int], Rep[String])]]` does not. Use
+  `Rep.TypedRep[Int]` there, or drop the annotation.
+- On Scala 2, a type parameter inferred from a column in one parameter list is fixed to `Rep.TypedRep[C]`, so a
+  `Rep[C]` argument in a later parameter list no longer fits it. `foreignKey` accepts this
+  (`foreignKey("fk", category, categories)(_.id.?)`); for your own methods written this way, annotate the column
+  as `Rep[C]` or pass the type argument explicitly.
+- A subclass overriding a column `def` whose inferred type is now `Rep.TypedRep[C]` cannot narrow it back to
+  `Rep[C]`. Annotate the overridden `def` as `Rep[C]`, or override with `Rep.TypedRep[C]`.
+
+---
+
 ## Mechanical Migration Checklist
 
 This section is a concise, pattern-by-pattern reference for automated migration tooling or for
@@ -459,3 +505,4 @@ If your project fails to compile after upgrading, use this table:
 | `class JdbcDatabaseDef takes type parameters` on a variable type annotation | explicit `JdbcDatabaseDef` type annotation from Slick 3 | Change to `val db: slick.future.Database` and migrate factory call |
 | `Missing arguments for method apply in object GetResult` (or `SetParameter`) on `GetResult(using r => ...)` | `GetResult.apply` / `SetParameter.apply` parameter is no longer `implicit` | Drop the `using`: `GetResult(r => ...)`, `SetParameter[T]((v, pp) => ...)` |
 | `Alphanumeric method join is not declared infix` (warning, or error with `-source:future`) | Scala 3.4+ infix rule, not a Slick change | Use method syntax: `a.join(b).on(...)` — see [Infix method syntax](#infix-method-syntax-on-scala-3) |
+| `type mismatch; found: Rep[...], required: Rep.TypedRep[...]`, or the reverse inside `Rep[Option[...]]` | `column` returns `Rep.TypedRep[C]` | See [Columns carry their `TypedType`](#9-columns-carry-their-typedtype) |

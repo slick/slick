@@ -156,9 +156,9 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q3d = q3.map(_.map(s => (s, s, 1)))
     val q4d = q4.map(_.filter(_.isDefined).map(_.getOrElse(0)))
     val q1dt: Query[Rep[Option[Int]], ?, Seq] = q1d
-    val q1d2t: Query[Rep[Option[(Rep[Int], Rep[String], Rep[Option[Int]])]], ?, Seq] = q1d2
+    val q1d2t: Query[Rep[Option[(Rep.TypedRep[Int], Rep.TypedRep[String], Rep.TypedRep[Option[Int]])]], ?, Seq] = q1d2
     val q2dt: Query[Rep[Option[Int]], ?, Seq] = q2d
-    val q3dt: Query[Rep[Option[(Rep[Int], Rep[Int], Rep[Int])]], ?, Seq] = q3d
+    val q3dt: Query[Rep[Option[(Rep[Int], Rep[Int], Rep.TypedRep[Int])]], ?, Seq] = q3d
     val q4dt: Query[Rep[Option[Int]], ?, Seq] = q4d
 
     lazy val t4 = seq(

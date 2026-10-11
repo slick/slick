@@ -65,20 +65,21 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
    * @param onUpdate         A `ForeignKeyAction`, default being `NoAction`.
    * @param onDelete         A `ForeignKeyAction`, default being `NoAction`.
    */
-  def foreignKey[P, PU, TT <: AbstractTable[?], U](name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
-                                                  (targetColumns: TT => P,
-                                                   onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-                                                   onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)
-                                                  (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
-                                                   unpackP: Shape[? <: FlatShapeLevel, P, PU, ?]
-                                                  ): ForeignKeyQuery[TT, U] = {
+  def foreignKey[P, PU, TT <: AbstractTable[?], U, TP](name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
+                                                      (targetColumns: TT => TP,
+                                                       onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
+                                                       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)
+                                                      (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
+                                                       unpackP: Shape[? <: FlatShapeLevel, P, PU, ?],
+                                                       unpackTP: Shape[? <: FlatShapeLevel, TP, PU, ?]
+                                                      ): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]
     val generator = new AnonSymbol
     val aliased = q.shaped.encodeRef(Ref(generator))
-    val fv = Library.==.typed[Boolean](unpackP.toNode(targetColumns(aliased.value)), unpackP.toNode(sourceColumns))
+    val fv = Library.==.typed[Boolean](unpackTP.toNode(targetColumns(aliased.value)), unpackP.toNode(sourceColumns))
     val fk = ForeignKey(name, toNode, q.shaped.asInstanceOf[ShapedValue[TT, ?]],
-      targetTable, unpackP, sourceColumns, targetColumns, onUpdate, onDelete)
+      targetTable, unpackP, sourceColumns, unpackTP, targetColumns, onUpdate, onDelete)
     new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, q.toNode, fv), q.shaped, IndexedSeq(fk), q, generator,
       aliased.value)
   }

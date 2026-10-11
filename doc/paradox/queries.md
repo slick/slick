@@ -32,9 +32,9 @@ compare the types of a simple Scala collections example
 
 All plain types are lifted into `Rep`. The same is true for the table row
 type `Coffees` which is a subtype of `Rep[(String, Double)]`.
-Even the literal `8.0` is automatically lifted to a `Rep[Double]` by an
-implicit conversion because that is what the `>` operator on
-`Rep[Double]` expects for the right-hand side. This lifting is necessary
+Even the literal `8.0` becomes part of the query: comparison operators on a
+column also accept a plain value and lift it with the column's own type, and
+elsewhere an implicit conversion lifts plain values to `Rep`. This lifting is necessary
 because the lifted types allow us to generate a syntax tree that captures
 the query computations. Getting plain Scala functions and values would not
 give us enough information for translating those computations to SQL.

@@ -61,18 +61,6 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
 }
 
 object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits with TupleShapeImplicits {
-  implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]
-                                                           ): Shape[Level, T, T, Rep.TypedRep[T]] =
-    new Shape[Level, T, T, Rep.TypedRep[T]] {
-      def pack(value: Any): Packed = LiteralColumn(value.asInstanceOf[T])
-      def packedShape = RepShape[Level, Packed, Unpacked]
-      def buildParams(extract: Any => Unpacked): Packed = new ConstColumn[T](new QueryParameter(extract, tm))(tm)
-      def encodeRef(value: Any, path: Node): Any =
-        throw new SlickException("Shape does not have the same Mixed and Packed type")
-      def toNode(value: Any): Node = pack(value).toNode
-    override def toString = s"PrimitiveShape($tm)"
-  }
-
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
 
@@ -113,13 +101,36 @@ trait AbstractTableShapeImplicits extends RepShapeImplicits {
     RepShape[Level, C, T]
 }
 
-trait ConstColumnShapeImplicits extends RepShapeImplicits {
+trait ConstColumnShapeImplicits extends TypedRepShapeImplicits {
   /** A Shape for ConstColumns. It is identical to `columnShape` but it
     * ensures that a `ConstColumn[T]` packs to itself, not just to
     * `Rep[T]`. This allows ConstColumns to be used as fully packed
     * types when compiling query functions. */
   @inline implicit def constColumnShape[T, Level <: ShapeLevel]: Shape[Level, ConstColumn[T], T, ConstColumn[T]] =
     RepShape[Level, ConstColumn[T], T]
+}
+
+trait TypedRepShapeImplicits extends PrimitiveShapeImplicits {
+  /** A Shape for single-column Reps that carry their own `TypedType`, including `Option` columns. It requires no
+    * `TypedType` in implicit scope. */
+  @inline implicit def typedRepShape[T, Level <: ShapeLevel]: Shape[Level, Rep.TypedRep[T], T, Rep.TypedRep[T]] =
+    RepShape[Level, Rep.TypedRep[T], T]
+}
+
+trait PrimitiveShapeImplicits extends RepShapeImplicits {
+  // Lower priority than typedRepShape: both pack to a TypedRep, and when a Shape is searched by its packed type (as
+  // OptionLift does to find an Option's base value), the base value is the packed TypedRep, not a plain value.
+  implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]
+                                                           ): Shape[Level, T, T, Rep.TypedRep[T]] =
+    new Shape[Level, T, T, Rep.TypedRep[T]] {
+      def pack(value: Any): Packed = LiteralColumn(value.asInstanceOf[T])
+      def packedShape = RepShape[Level, Packed, Unpacked]
+      def buildParams(extract: Any => Unpacked): Packed = new ConstColumn[T](new QueryParameter(extract, tm))(tm)
+      def encodeRef(value: Any, path: Node): Any =
+        throw new SlickException("Shape does not have the same Mixed and Packed type")
+      def toNode(value: Any): Node = pack(value).toNode
+    override def toString = s"PrimitiveShape($tm)"
+  }
 }
 
 trait RepShapeImplicits extends OptionShapeImplicits {

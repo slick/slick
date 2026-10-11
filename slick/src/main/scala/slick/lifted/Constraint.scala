@@ -24,17 +24,19 @@ final class ForeignKey( //TODO Simplify this mess!
     val linearizedTargetColumns: IndexedSeq[Node],
     val linearizedTargetColumnsForOriginalTargetTable: IndexedSeq[Node],
     val targetTable: TableNode,
-    val columnsShape: Shape[? <: FlatShapeLevel, ?, ?, ?])
+    val sourceColumnsShape: Shape[? <: FlatShapeLevel, ?, ?, ?],
+    val targetColumnsShape: Shape[? <: FlatShapeLevel, ?, ?, ?])
 
 object ForeignKey {
-  def apply[TT <: AbstractTable[?], P](
+  def apply[TT <: AbstractTable[?], P, TP](
       name: String,
       sourceTable: Node,
       targetTableShaped: ShapedValue[TT, ?],
       originalTargetTable: TT,
       pShape: Shape[? <: FlatShapeLevel, P, ?, ?],
       originalSourceColumns: P,
-      originalTargetColumns: TT => P,
+      tpShape: Shape[? <: FlatShapeLevel, TP, ?, ?],
+      originalTargetColumns: TT => TP,
       onUpdate: model.ForeignKeyAction,
       onDelete: model.ForeignKeyAction
     ): ForeignKey = new ForeignKey(
@@ -45,10 +47,11 @@ object ForeignKey {
       originalSourceColumns,
       originalTargetColumns.asInstanceOf[Any => Any],
       linearizeFieldRefs(pShape.toNode(originalSourceColumns)),
-      linearizeFieldRefs(pShape.toNode(originalTargetColumns(targetTableShaped.value))),
-      linearizeFieldRefs(pShape.toNode(originalTargetColumns(originalTargetTable))),
+      linearizeFieldRefs(tpShape.toNode(originalTargetColumns(targetTableShaped.value))),
+      linearizeFieldRefs(tpShape.toNode(originalTargetColumns(originalTargetTable))),
       targetTableShaped.value.tableNode,
-      pShape
+      pShape,
+      tpShape
     )
 
   def linearizeFieldRefs(n: Node): IndexedSeq[Node] = {
@@ -79,8 +82,9 @@ class ForeignKeyQuery[E <: AbstractTable[?], U](
   def & (other: ForeignKeyQuery[E, U]): ForeignKeyQuery[E, U] = {
     val newFKs = fks ++ other.fks
     val conditions = newFKs.map { fk =>
-      val sh = fk.columnsShape.asInstanceOf[Shape[FlatShapeLevel, Any, Any, Any]]
-      Library.==.typed[Boolean](sh.toNode(fk.targetColumns(aliasedValue)), sh.toNode(fk.sourceColumns))
+      val sourceShape = fk.sourceColumnsShape.asInstanceOf[Shape[FlatShapeLevel, Any, Any, Any]]
+      val targetShape = fk.targetColumnsShape.asInstanceOf[Shape[FlatShapeLevel, Any, Any, Any]]
+      Library.==.typed[Boolean](targetShape.toNode(fk.targetColumns(aliasedValue)), sourceShape.toNode(fk.sourceColumns))
     }.reduceLeft[Node]((a, b) => Library.And.typed[Boolean](a, b))
     val newDelegate = Filter.ifRefutable(generator, targetBaseQuery.toNode, conditions)
     new ForeignKeyQuery[E, U](newDelegate, base, newFKs, targetBaseQuery, generator, aliasedValue)
