@@ -97,6 +97,13 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
                                                                           ): JdbcActionExtensionMethods[E, R, S] =
       new JdbcActionExtensionMethods[E, R, S](a)
 
+    /** Extension methods for a `DBIOBase`, e.g. the result of a cats combinator, so that
+      * `transactionally(isolation)` and `withStatementParameters` do not need an explicit
+      * `toAction`. A `DBIOAction` value selects the conversion above, which is more specific and
+      * keeps the streaming type. */
+    implicit def jdbcActionExtensionMethodsForBase[E <: Effect, R](a: DBIOBase[E, R]): JdbcActionExtensionMethods[E, R, NoStream] =
+      new JdbcActionExtensionMethods[E, R, NoStream](a.toAction)
+
     implicit def actionBasedSQLInterpolation(s: StringContext): ActionBasedSQLInterpolation =
       new ActionBasedSQLInterpolation(s)
   }
