@@ -13,6 +13,39 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
 
   import tdb.profile.api.*
 
+  def testComparedValueUsesColumnMapper = {
+    sealed trait Bool
+    case object True extends Bool
+    case object False extends Bool
+
+    object Schema {
+      implicit val boolTypeMapper: BaseColumnType[Bool] =
+        MappedColumnType.base[Bool, Int](b => if(b == True) 1 else 0, i => if(i == 1) True else False)
+
+      class T(tag: Tag) extends Table[(Int, Bool)](tag, "compared_value_mapper") {
+        def id = column[Int]("id", O.PrimaryKey)
+        def b = column[Bool]("b")
+        def * = (id, b)
+      }
+    }
+    val ts = TableQuery[Schema.T]
+
+    // The column's mapper stores True as 1. The mapper in scope here encodes True as 0, which the database matches
+    // against the False row, as lifting with LiteralColumn shows. Comparing with a plain value uses the column's mapper.
+    val (liftedWithMapperInScope, comparedWithPlainValue) = {
+      implicit val invertedBoolTypeMapper: BaseColumnType[Bool] =
+        MappedColumnType.base[Bool, Int](b => if(b == True) 0 else 1, i => if(i == 0) True else False)
+      (ts.filter(_.b === LiteralColumn[Bool](True)).map(_.id).result, ts.filter(_.b === True).map(_.id).result)
+    }
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq((1, False), (2, True)),
+      liftedWithMapperInScope.map(_ shouldBe Seq(1)),
+      comparedWithPlainValue.map(_ shouldBe Seq(2))
+    )
+  }
+
   def testMappedEntity = {
     import TupleMethods.*
 

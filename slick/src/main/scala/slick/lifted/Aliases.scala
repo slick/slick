@@ -16,6 +16,7 @@ trait Aliases {
   val Case = lifted.Case
   type Rep[T] = lifted.Rep[T]
   val Rep = lifted.Rep
+  type TypedRep[T] = lifted.TypedRep[T]
   val Functions = lifted.Functions
   type Parameters[PU, PP] = lifted.Parameters[PU, PP]
   val Parameters = lifted.Parameters

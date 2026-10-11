@@ -132,6 +132,8 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     seq(
       ts.schema.create,
       ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
+      ts.filter(_.b.? === Some(True)).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.id === 2).map(_.c.get).result.map(_ shouldBe Seq(True)),
       ts.map(_.b).to[Set].result.map(_ shouldBe Set(False, True)),
       ts.map(_.c).to[Set].result.map(_ shouldBe Set(None, Some(True))),
       ts.sortBy(_.id).map(t => (t.b, t.c)).result.map(_ shouldBe Seq((False, None), (True, Some(True)))),

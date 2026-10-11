@@ -67,22 +67,22 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
 trait ValueComparisonExtensionMethods[B1, P1, R] extends Any with ExtensionMethods[B1, P1] {
   protected[this] def comparisonType: TypedType[R]
 
-  def === (v: B1): Rep[R] = compare(Library.==, v)
-  def === (v: Option[B1]): Rep[Option[Boolean]] = compareOption(Library.==, v)
-  def =!= (v: B1): Rep[R] = Library.Not.column[R](compare(Library.==, v).toNode)(comparisonType)
-  def =!= (v: Option[B1]): Rep[Option[Boolean]] = Library.Not.column[Option[Boolean]](compareOption(Library.==, v).toNode)
-  def < (v: B1): Rep[R] = compare(Library.<, v)
-  def < (v: Option[B1]): Rep[Option[Boolean]] = compareOption(Library.<, v)
-  def <= (v: B1): Rep[R] = compare(Library.<=, v)
-  def <= (v: Option[B1]): Rep[Option[Boolean]] = compareOption(Library.<=, v)
-  def > (v: B1): Rep[R] = compare(Library.>, v)
-  def > (v: Option[B1]): Rep[Option[Boolean]] = compareOption(Library.>, v)
-  def >= (v: B1): Rep[R] = compare(Library.>=, v)
-  def >= (v: Option[B1]): Rep[Option[Boolean]] = compareOption(Library.>=, v)
+  def === (v: B1): TypedRep[R] = compare(Library.==, v)
+  def === (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.==, v)
+  def =!= (v: B1): TypedRep[R] = Library.Not.column[R](compare(Library.==, v).toNode)(comparisonType)
+  def =!= (v: Option[B1]): TypedRep[Option[Boolean]] = Library.Not.column[Option[Boolean]](compareOption(Library.==, v).toNode)
+  def < (v: B1): TypedRep[R] = compare(Library.<, v)
+  def < (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.<, v)
+  def <= (v: B1): TypedRep[R] = compare(Library.<=, v)
+  def <= (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.<=, v)
+  def > (v: B1): TypedRep[R] = compare(Library.>, v)
+  def > (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.>, v)
+  def >= (v: B1): TypedRep[R] = compare(Library.>=, v)
+  def >= (v: Option[B1]): TypedRep[Option[Boolean]] = compareOption(Library.>=, v)
 
-  protected[this] def compare(fs: FunctionSymbol, v: B1): Rep[R] =
+  protected[this] def compare(fs: FunctionSymbol, v: B1): TypedRep[R] =
     fs.column[R](n, LiteralNode(b1Type, v))(comparisonType)
-  protected[this] def compareOption(fs: FunctionSymbol, v: Option[B1]): Rep[Option[Boolean]] =
+  protected[this] def compareOption(fs: FunctionSymbol, v: Option[B1]): TypedRep[Option[Boolean]] =
     fs.column[Option[Boolean]](n, LiteralNode(b1Type.optionType, v))
 }
 
@@ -91,7 +91,7 @@ final class BaseColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with C
   protected[this] def comparisonType = implicitly[TypedType[Boolean]]
 
   /** Lift a column to an Option column. This is the same as calling [[slick.lifted.Rep.Some]]. */
-  def ? : Rep[Option[P1]] = Rep.forNode(OptionApply(c.toNode))(p1Type.optionType)
+  def ? : Rep.TypedRep[Option[P1]] = Rep.forNode(OptionApply(c.toNode))(p1Type.optionType)
 }
 
 final class OptionColumnExtensionMethods[B1](val c: Rep[Option[B1]]) extends AnyVal with ColumnExtensionMethods[B1, Option[B1]] with OptionExtensionMethods[B1]
@@ -102,7 +102,7 @@ final class OptionColumnExtensionMethods[B1](val c: Rep[Option[B1]]) extends Any
     * operation is only allowed in places where it can be performed at the client side (e.g. not
     * inside a subquery that cannot be fused), otherwise the exception is thrown during query
     * compilation. */
-  def get: Rep[B1] =
+  def get: Rep.TypedRep[B1] =
     Rep.forNode[B1](GetOrElse(c.toNode, () => throw new SlickException("Read NULL value for column " + this)))(c.asInstanceOf[Rep.TypedRep[?]].tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
 }
 

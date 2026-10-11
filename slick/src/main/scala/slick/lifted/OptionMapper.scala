@@ -6,7 +6,7 @@ import slick.ast.{OptionType, OptionApply, FunctionSymbol, Node, TypedType}
 trait OptionMapper[BR, R] extends (Rep[BR] => Rep[R]) {
   def lift: Boolean
 
-  def column(fs: FunctionSymbol, ch: Node*)(implicit bt: TypedType[BR]): Rep[R] = {
+  def column(fs: FunctionSymbol, ch: Node*)(implicit bt: TypedType[BR]): Rep.TypedRep[R] = {
     implicit val tt: TypedType[R] = liftedType
     Rep.forNode[R](fs.typed(tt, ch: _*))
   }

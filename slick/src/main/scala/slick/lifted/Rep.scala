@@ -31,7 +31,7 @@ trait Rep[T] {
 }
 
 object Rep {
-  def forNode[T : TypedType](n: Node): Rep[T] = new TypedRep[T] {
+  def forNode[T : TypedType](n: Node): TypedRep[T] = new TypedRep[T] {
     def toNode = n
     override def toString = s"Rep.forNode[$tpe]($n)"
   }
@@ -69,7 +69,7 @@ class ConstColumn[T : TypedType](val toNode: Node) extends Rep.TypedRep[T] {
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
 final case class LiteralColumn[T](value: T)(implicit tt: TypedType[T]) extends ConstColumn[T](LiteralNode(tt, value)) {
   /** Request that a bind variable be used instead of inserting a literal */
-  def bind: Rep[T] = Rep.forNode[T](LiteralNode(tt, value, vol = true))
+  def bind: Rep.TypedRep[T] = Rep.forNode[T](LiteralNode(tt, value, vol = true))
 }
 
 /** Represents `Rep[Option[T]]` in all cases where `T` is not a column base type. This special

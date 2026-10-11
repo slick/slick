@@ -295,7 +295,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
       // Explicit type to allow overloading existing Slick method names.
       // Explicit type argument for better error message when implicit type mapper not found.
       def code =
-        s"""val $name: Rep.TypedRep[$actualType] = column[$actualType]("${model.name}"${options.map(", "+_).mkString("")})"""
+        s"""val $name: TypedRep[$actualType] = column[$actualType]("${model.name}"${options.map(", "+_).mkString("")})"""
     }
 
     class AbstractSourceCodePrimaryKeyDef(model: m.PrimaryKey) extends AbstractPrimaryKeyDef(model) {
