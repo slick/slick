@@ -375,9 +375,10 @@ The code generator declares columns as `TypedRep[T]`, so generated tables get th
 
 Table definitions compile unchanged, but the narrower type is visible to type inference:
 
-- Query element types built from columns, literals or operators contain `TypedRep[T]` where they used to contain
-  `Rep[T]`. `Query` is covariant in its element type, so an annotation like `Query[Rep[Int], Int, Seq]` still accepts
-  them, but `Rep` is invariant, so an annotation like `Rep[Option[(Rep[Int], Rep[String])]]` does not. Use
+- Types built from columns, literals or operators contain `TypedRep[T]` where they used to contain `Rep[T]`. Covariant
+  types such as `Query`, tuples and `Seq` still accept them: an annotation like `Query[Rep[Int], Int, Seq]` compiles.
+  Invariant types do not: annotations like `Rep[Option[(Rep[Int], Rep[String])]]` or
+  `ShapedValue[(Rep[Int], Rep[String]), (Int, String)]`, or your own invariant type holding columns. Use
   `TypedRep[Int]` there, or drop the annotation.
 - On Scala 2, a type parameter inferred from a column in one parameter list is fixed to `TypedRep[C]`, so a `Rep[C]`
   argument in a later parameter list no longer fits it. `foreignKey` accepts this
@@ -385,6 +386,16 @@ Table definitions compile unchanged, but the narrower type is visible to type in
   as `Rep[C]` or pass the type argument explicitly.
 - A subclass overriding a column `def` whose inferred type is now `TypedRep[C]` cannot narrow it back to `Rep[C]`.
   Annotate the overridden `def` as `Rep[C]`, or override with `TypedRep[C]`.
+- `foreignKey` has a fifth type parameter, the type of the target columns, and a third implicit `Shape` for them. A
+  call that passes type arguments explicitly needs the fifth one (the same type as the first, for calls that compiled
+  before); a call that passes the implicit arguments explicitly needs the third `Shape`. `ForeignKey.columnsShape` is
+  split into `sourceColumnsShape` and `targetColumnsShape`, and `ForeignKey.apply` takes a shape for the target
+  columns.
+- `profile.api._` exports a type named `TypedRep`. If you have your own type of that name in scope, refer to it by its
+  qualified name, or exclude Slick's: `import profile.api.{TypedRep => _, *}`.
+- On Scala 2, your own implicit conversion on `Rep[T]` for a specific `T`, providing a method that Slick's column
+  extensions also provide (`===`, `<`, `inSet`, ...), is now ambiguous with Slick's conversion for `TypedRep`. Define
+  the conversion on `TypedRep[T]` instead; it is then more specific than Slick's.
 
 ---
 
@@ -509,3 +520,6 @@ If your project fails to compile after upgrading, use this table:
 | `Missing arguments for method apply in object GetResult` (or `SetParameter`) on `GetResult(using r => ...)` | `GetResult.apply` / `SetParameter.apply` parameter is no longer `implicit` | Drop the `using`: `GetResult(r => ...)`, `SetParameter[T]((v, pp) => ...)` |
 | `Alphanumeric method join is not declared infix` (warning, or error with `-source:future`) | Scala 3.4+ infix rule, not a Slick change | Use method syntax: `a.join(b).on(...)` — see [Infix method syntax](#infix-method-syntax-on-scala-3) |
 | `type mismatch; found: Rep[...], required: Rep.TypedRep[...]`, or the reverse inside `Rep[Option[...]]` | `column` and scalar operators return `TypedRep[C]` | See [Columns carry their `TypedType`](#9-columns-carry-their-typedtype) |
+| `wrong number of type parameters for method foreignKey` (Scala 2) or `Not enough type arguments for ... foreignKey` (Scala 3) | `foreignKey` has a fifth type parameter for the target columns | Add the target columns' type as the fifth type argument, or drop the explicit type arguments |
+| `reference to TypedRep is ambiguous` | `profile.api._` exports a type named `TypedRep` | Qualify your own type, or `import profile.api.{TypedRep => _, *}` |
+| `implicit conversions are not applicable because they are ambiguous` naming your conversion and `typedRepColumnExtensionMethods` (Scala 2) | Slick has conversions for `TypedRep` | Define your conversion on `TypedRep[T]` instead of `Rep[T]` |
