@@ -146,4 +146,23 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       q.to[Set].result.map(_ shouldBe Set(Person(1L, "Alice"), Person(2L, "Bob")))
     )
   }
+
+  // A NOT NULL column whose whole Option[Int] is mapped, with -1 standing for None (like indexOf).
+  // Reading it must return the Option.
+  private class MinusOneAsNoneTable(tag: Tag, name: String) extends Table[Option[Int]](tag, name) {
+    private val minusOneAsNone: BaseColumnType[Option[Int]] =
+      MappedColumnType.base[Option[Int], Int](_.getOrElse(-1), { case -1 => None; case i => Some(i) })
+    def value = column[Option[Int]]("value")(minusOneAsNone)
+    def * = value
+  }
+
+  def testOptionMappedAsWholeReadsNone = {
+    val ts = TableQuery(new MinusOneAsNoneTable(_, "reads_none"))
+    seq(ts.schema.create, ts += None, ts.result.map(_ shouldBe Seq(None)))
+  }
+
+  def testOptionMappedAsWholeReadsSome = {
+    val ts = TableQuery(new MinusOneAsNoneTable(_, "reads_some"))
+    seq(ts.schema.create, ts += Some(1), ts.result.map(_ shouldBe Seq(Some(1))))
+  }
 }
