@@ -108,10 +108,7 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
         val v = pr(ridx - 1)
         if (!nullable && (v.asInstanceOf[AnyRef] eq null))
           throw new SlickException("Read null value for non-nullable column")
-
-        // TODO: Remove this hack; see comment in ternary logic section of QueryInterpreter
-        if (!nullable && v.isInstanceOf[Option[?]]) v.asInstanceOf[Option[?]].get
-        else v
+        v
       }
       override def update(value: Any, pr: Updater): Nothing = ??
       override def set(value: Any, pp: Writer, offset: Int): Nothing = ??
