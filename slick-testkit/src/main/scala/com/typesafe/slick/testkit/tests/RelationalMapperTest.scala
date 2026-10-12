@@ -169,4 +169,10 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     val ts = TableQuery(new MinusOneAsNoneTable(_, "reads_some"))
     seq(ts.schema.create, ts += Some(Index(1)), ts.result.map(_ shouldBe Seq(Some(Index(1)))))
   }
+
+  /** A None literal of the mapped type is the value -1, not NULL */
+  def testOptionMappedAsWholeSelectsNoneLiteral = {
+    import MinusOneAsNoneTable.*
+    Query(LiteralColumn(Option.empty[Index])).result.map(_ shouldBe Seq(None))
+  }
 }
