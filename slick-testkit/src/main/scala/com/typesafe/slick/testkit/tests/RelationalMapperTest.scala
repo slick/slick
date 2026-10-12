@@ -175,4 +175,12 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     import MinusOneAsNoneTable.*
     Query(LiteralColumn(Option.empty[Index])).result.map(_ shouldBe Seq(None))
   }
+
+  /** Inside an optional tuple, a None literal of the mapped type is still the value -1, not NULL */
+  def testOptionMappedAsWholeNoneLiteralInOptionalTuple = {
+    import MinusOneAsNoneTable.*
+    val ts = TableQuery(new MinusOneAsNoneTable(_, "none_literal_in_optional_tuple"))
+    val q = ts.joinLeft(ts).on(_.value === _.value).map { case (_, r) => r.map(r => (r.value, LiteralColumn(Option.empty[Index]))) }
+    seq(ts.schema.create, ts += Some(Index(1)), q.result.map(_ shouldBe Seq(Some((Some(Index(1)), None)))))
+  }
 }
