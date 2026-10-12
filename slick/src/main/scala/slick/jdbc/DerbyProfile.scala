@@ -198,7 +198,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       case Library.SilentCast(LiteralNode(None)) :@ JdbcType(ti, _) if currentPart == SelectPart =>
         // Cast NULL to the correct type
         b"cast(null as ${ti.sqlTypeName(None)})"
-      case LiteralNode(None) :@ JdbcType(ti, _) if currentPart == SelectPart =>
+      case LiteralNode(None) :@ JdbcType(ti, true) if currentPart == SelectPart =>
         // Cast NULL to the correct type
         b"cast(null as ${ti.sqlTypeName(None)})"
       case (c @ LiteralNode(v)) :@ JdbcType(ti, option) if currentPart == SelectPart =>
