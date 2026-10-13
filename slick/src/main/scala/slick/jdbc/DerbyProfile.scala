@@ -195,7 +195,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         b"coalesce(cast($l as ${jdbcTypeFor(c.nodeType).sqlTypeName(None)}),!$r)"
-      case Library.SilentCast(LiteralNode(None)) :@ JdbcType(ti, _) if currentPart == SelectPart =>
+      case Library.SilentCast(LiteralNode(None) :@ OptionType(_)) :@ JdbcType(ti, _) if currentPart == SelectPart =>
         // Cast NULL to the correct type
         b"cast(null as ${ti.sqlTypeName(None)})"
       case LiteralNode(None) :@ JdbcType(ti, true) if currentPart == SelectPart =>
