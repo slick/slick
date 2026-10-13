@@ -41,7 +41,30 @@ object Rep {
   }
 
   abstract class TypedRep[T](implicit final val tpe: TypedType[T]) extends Rep[T] {
-    def encodeRef(path: Node): Rep[T] = forNode(path)
+    /** Whether this value can be `NULL`: [[slick.lifted.Nullability.NotNull]] or
+      * [[slick.lifted.Nullability.Nullable]] where that is known statically, as it is for most table columns. It
+      * decides which column operators apply without a `TypedType` in implicit scope. Where it is not known it is
+      * `Nullability` itself, or abstract (as for most computed values), and operators choose by the `TypedType` they
+      * find in implicit scope. */
+    type Nullability <: slick.lifted.Nullability
+
+    def encodeRef(path: Node): TypedRep[T] = TypedRep.forNode[T, Nullability](path)
+  }
+
+  object TypedRep {
+    /** A value of type `T` that is never `NULL`, such as a non-nullable column. `T` can be an `Option` type that a
+      * column type maps as a whole to a non-null database value. */
+    type NotNull[T] = TypedRep[T] { type Nullability = slick.lifted.Nullability.NotNull }
+
+    /** A value of type `Option[T]` that is `NULL` when it is `None`, such as a nullable column. */
+    type Nullable[T] = TypedRep[Option[T]] { type Nullability = slick.lifted.Nullability.Nullable }
+
+    private[lifted] def forNode[T : TypedType, N <: slick.lifted.Nullability](n: Node): TypedRep[T] { type Nullability = N } =
+      new TypedRep[T] {
+        type Nullability = N
+        def toNode = n
+        override def toString = s"Rep.forNode[$tpe]($n)"
+      }
   }
 
   abstract class UntypedRep[T] extends Rep[T] {
@@ -55,6 +78,11 @@ object Rep {
 
   /** Lift a value inside a `Rep` into a `Some` Option value. */
   def Some[M, O](v: M)(implicit od: OptionLift[M, O]): O = od.lift(v)
+
+  /** Lift a non-nullable value into a `Some` Option value. This is the same as calling its `?` method, and needs no
+    * `TypedType` in implicit scope. */
+  def Some[T](v: TypedRep.NotNull[T]): TypedRep.Nullable[T] =
+    TypedRep.forNode[Option[T], Nullability.Nullable](OptionApply(v.toNode))(v.tpe.optionType)
 
   /** Create a `Rep` version of a `None` Option value. This is only supported for single-column values. */
   def None[T](implicit tpe: TypedType[T]): Rep[Option[T]] = LiteralColumn(scala.None)

@@ -60,18 +60,15 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
   def toNode(value: Any): Node
 }
 
-object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits with TupleShapeImplicits {
-  implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]
-                                                           ): Shape[Level, T, T, Rep.TypedRep[T]] =
-    new Shape[Level, T, T, Rep.TypedRep[T]] {
-      def pack(value: Any): Packed = LiteralColumn(value.asInstanceOf[T])
-      def packedShape = RepShape[Level, Packed, Unpacked]
-      def buildParams(extract: Any => Unpacked): Packed = new ConstColumn[T](new QueryParameter(extract, tm))(tm)
-      def encodeRef(value: Any, path: Node): Any =
-        throw new SlickException("Shape does not have the same Mixed and Packed type")
-      def toNode(value: Any): Node = pack(value).toNode
-    override def toString = s"PrimitiveShape($tm)"
-  }
+object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits with PrimitiveShapeImplicits {
+  /** A Shape for single-column values with a known `Nullability`, such as table columns. It needs no `TypedType` in
+    * implicit scope, and it packs a value to its own type, keeping its `Nullability`.
+    *
+    * It has priority over `primitiveShape`, which packs to the same types: a search by packed type, as for the base
+    * value of an `Option`, must find the column, not a plain value. */
+  @inline implicit def typedRepShape[T, N <: Nullability, Level <: ShapeLevel]
+    : Shape[Level, TypedRep[T] { type Nullability = N }, T, TypedRep[T] { type Nullability = N }] =
+    RepShape[Level, TypedRep[T] { type Nullability = N }, T]
 
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
@@ -102,6 +99,24 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
     def toNode(value: Any): Node = ProductNode(ConstArray.empty)
     override def toString = s"UnitShape"
   }
+}
+
+trait PrimitiveShapeImplicits extends TupleShapeImplicits {
+  /** A Shape for plain values, which it packs to literals. A literal has the `Nullability` that a column of its type
+    * would have. It has priority over the tuple shapes, so that a tuple type with its own `TypedType` is one value. */
+  implicit final def primitiveShape[T, Level <: ShapeLevel](implicit ct: ColumnTypeOf[T]
+                                                           ): Shape[Level, T, T, TypedRep[T] { type Nullability = ct.Nullability }] =
+    new Shape[Level, T, T, TypedRep[T] { type Nullability = ct.Nullability }] {
+      // The casts only set the Nullability type member, which has no runtime representation
+      def pack(value: Any): Packed = LiteralColumn(value.asInstanceOf[T])(ct.tpe).asInstanceOf[Packed]
+      def packedShape = RepShape[Level, Packed, Unpacked]
+      def buildParams(extract: Any => Unpacked): Packed =
+        new ConstColumn[T](new QueryParameter(extract, ct.tpe))(ct.tpe).asInstanceOf[Packed]
+      def encodeRef(value: Any, path: Node): Any =
+        throw new SlickException("Shape does not have the same Mixed and Packed type")
+      def toNode(value: Any): Node = pack(value).toNode
+      override def toString = s"PrimitiveShape(${ct.tpe})"
+    }
 }
 
 trait AbstractTableShapeImplicits extends RepShapeImplicits {
