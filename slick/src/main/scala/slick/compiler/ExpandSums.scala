@@ -284,7 +284,7 @@ class ExpandSums extends Phase {
         invalidate(v)
         v
       case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => tr(Library.SilentCast.typed(tpe, ch).infer())
-      case Library.SilentCast(LiteralNode(None)) :@ (tpe @ OptionType.Primitive(_)) => LiteralNode(tpe, None).infer()
+      case Library.SilentCast(LiteralNode(None) :@ OptionType(_)) :@ (tpe @ OptionType.Primitive(_)) => LiteralNode(tpe, None).infer()
 
       // Expand multi-column IfThenElse
       case (cond @ IfThenElse(_)) :@ Type.Structural(ProductType(chTypes)) =>
