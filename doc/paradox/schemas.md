@@ -50,6 +50,12 @@ individual database profiles):
 Nullable columns are represented by `Option[T]` where `T` is one of the
 supported primitive types.
 
+`column[C]` returns a `TypedRep`, a `Rep[C]` that keeps the column type it was defined with and whether the column
+is nullable: a `TypedRep.NotNull[C]`, or a `TypedRep.Nullable[T]` for `C = Option[T]`. A column type for an
+`Option` type itself, which maps `None` to a non-null database value, makes a non-nullable column, even if a column
+type for its element type is also in scope. Queries can project such a column, sort by it and compare it with a
+value without its column type in implicit scope.
+
 @@@ note
 Note: Currently all operations on Option values use the database's null propagation semantics
 which may differ from Scala's Option semantics. In particular, `None === None` evaluates
@@ -177,7 +183,7 @@ Constraints
 Define foreign keys, primary keys, and indexes close to your table definitions.
 
 A foreign key constraint can be defined with a Table's
-@scaladoc[foreignKey](slick.relational.RelationalTableComponent$Table#foreignKey[P,PU,TT%3C:AbstractTable[_],U](String,P,TableQuery[TT])((TT)=%3EP,ForeignKeyAction,ForeignKeyAction)(Shape[_%3C:FlatShapeLevel,TT,U,_],Shape[_%3C:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U])
+@scaladoc[foreignKey](slick.relational.RelationalTableComponent$Table#foreignKey[P,PU,TT%3C:AbstractTable[_],U,TP](String,P,TableQuery[TT])((TT)=%3ETP,ForeignKeyAction,ForeignKeyAction)(Shape[_%3C:FlatShapeLevel,TT,U,_],Shape[_%3C:FlatShapeLevel,P,PU,_],Shape[_%3C:FlatShapeLevel,TP,PU,_]):ForeignKeyQuery[TT,U])
 method. It first takes a name for the constraint, the referencing column(s) and the referenced table. The second
 argument list takes a function from the referenced table to its referenced column(s) as well as
 @scaladoc[ForeignKeyAction](slick.model.ForeignKeyAction$) for `onUpdate` and `onDelete`, which are optional and default

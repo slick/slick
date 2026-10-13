@@ -121,8 +121,8 @@ object LiftedEmbedding {
     }
     //#reptypes
     val q = coffees.filter(_.price > 8.0).map(_.name)
-    //                       ^       ^          ^
-    //               Rep[Double]  Rep[Double]  Rep[String]
+    //                       ^                   ^
+    //         TypedRep.NotNull[Double]  TypedRep.NotNull[String]
     //#reptypes
 
     //#mappedtable
@@ -576,7 +576,8 @@ object LiftedEmbedding {
             )
           }
 
-          // Make columnMapper available in table definitions and where you do queries
+          // Make columnMapper available in table definitions, and in queries that lift Bool values other than by
+          // comparing them with a column
           implicit val boolColumnType: BaseColumnType[Bool.Bool] = Bool.columnMapper
 
           // You can now use Bool.{True, False} like any built-in column type (in tables, queries, etc.)
@@ -619,10 +620,10 @@ object LiftedEmbedding {
 
           // Use it for returning data from a query
           val q2 = as
-            .map { case a => Pair(a.id, (a.s ++ a.s)) }
-            .filter { case Pair(id, _) => id =!= 1 }
-            .sortBy { case Pair(_, ss) => ss }
-            .map { case Pair(id, ss) => Pair(id, Pair(42, ss)) }
+            .map(a => Pair(a.id, a.s ++ a.s))
+            .filter(_.a =!= 1)
+            .sortBy(_.b)
+            .map(p => Pair(p.a, Pair(42, p.b)))
           // returns: Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc")))
           //#recordtype2
 
