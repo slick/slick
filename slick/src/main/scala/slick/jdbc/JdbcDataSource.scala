@@ -1,6 +1,7 @@
 package slick.jdbc
 
 import java.io.Closeable
+import java.lang.reflect.{InvocationHandler, InvocationTargetException, Method, Proxy}
 import java.sql.{Connection, Driver}
 
 import slick.util.*
@@ -26,6 +27,16 @@ trait JdbcDataSource extends Closeable {
     * Otherwise return None. This is required to prevent deadlocks when scheduling database actions.
     */
   val maxConnections: Option[Int]
+
+  /** Whether a transaction that is already open on a connection from this source (because the
+    * connection arrives with auto-commit disabled) belongs to whoever supplied the connection.
+    *
+    * If true, Slick runs actions inside that transaction and never commits it, rolls it back or
+    * changes its auto-commit mode or isolation level: `transactionally` scopes nest inside it. If
+    * false, Slick treats an open transaction as its own, and the outermost `transactionally` scope
+    * commits or rolls it back. A connection that arrives with auto-commit enabled has no open
+    * transaction, so this setting does not affect it. */
+  def openTransactionsOwnedExternally: Boolean = false
 }
 
 object JdbcDataSource extends Logging {
@@ -133,6 +144,31 @@ object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
       }
     new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), maxConnections, new ConnectionPreparer(c))
   }
+}
+
+/** A [[JdbcDataSource]] for a single connection that its caller opened and will close, such as the
+  * connection a migration tool hands to a migration.
+  *
+  * Slick runs actions on that connection one at a time and never closes it. If the connection has
+  * auto-commit disabled, its open transaction belongs to the caller (see
+  * [[JdbcDataSource.openTransactionsOwnedExternally]]), so everything Slick does on it commits or rolls
+  * back with that transaction. The caller must not use the connection while Slick is using it. */
+class CallerOwnedConnectionJdbcDataSource(conn: Connection) extends JdbcDataSource {
+  // Like a pooled connection, the handed-out connection's close() releases it rather than closing
+  // the physical connection; here releasing it does nothing, because the caller closes `conn`.
+  private[this] val unclosableConn: Connection =
+    Proxy.newProxyInstance(classOf[Connection].getClassLoader, Array(classOf[Connection]), new InvocationHandler {
+      def invoke(proxy: AnyRef, method: Method, args: Array[AnyRef]): AnyRef =
+        if (method.getName == "close" && method.getParameterCount == 0) null
+        else
+          try method.invoke(conn, (if (args eq null) Array.empty[AnyRef] else args)*)
+          catch { case e: InvocationTargetException => throw e.getCause }
+    }).asInstanceOf[Connection]
+
+  def createConnection(): Connection = unclosableConn
+  def close(): Unit = ()
+  val maxConnections: Option[Int] = Some(1)
+  override def openTransactionsOwnedExternally: Boolean = true
 }
 
 /** Set parameters on a new Connection. This is used by [[DataSourceJdbcDataSource]]. */
