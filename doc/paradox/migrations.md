@@ -35,3 +35,6 @@ run SQL or Java against a database.
 [SBT integration](https://flywaydb.org/documentation/sbt/) is available, and there is an
 example [Play project](https://github.com/playframework/play-scala-isolated-slick-example#database-migration)
 that shows Flyway in a module with Slick code generation.
+
+Flyway's Java-based migrations receive a connection that Flyway owns, often with a Flyway transaction open on it.
+To write such a migration with Slick, see @ref:[Using a Connection Someone Else Owns](database.md#using-a-connection-someone-else-owns).
