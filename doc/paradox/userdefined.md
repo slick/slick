@@ -58,6 +58,11 @@ which takes care of all the boilerplate. It comes with the usual import from the
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtype }
 
+A column defined with a custom type keeps it, so a query doesn't need the type in implicit scope to project the
+column, sort by it, or compare it with a value, an `Option` value or another column. It needs the type where it lifts
+a value in other ways, for example with `LiteralColumn`, `.bind` or `Case`, and for the `Option` methods of a
+nullable column, such as `isEmpty` and `getOrElse`.
+
 You can also subclass @scaladoc[MappedJdbcType](slick.jdbc.JdbcProfile#MappedJdbcType) for a bit more flexibility.
 
 Using Custom Record Types in Queries

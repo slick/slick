@@ -10,10 +10,12 @@ For upgrade notes between Slick 3.x minor versions, see @ref:[Slick 3.x Upgrade 
 @@@
 
 Slick 4 replaces the `Database.forXxx` factory methods and `scala.concurrent.Future`-returning
-execution layer with a new, three-facade API. The query DSL, SQL compiler pipeline,
+execution layer with a new, three-facade API. The SQL compiler pipeline,
 `DBIOAction` type and phantom effect system (`Effect.Read`/`Write`/`Schema`/`Transactional`), all
-database profiles, and all SQL generation code are **completely unchanged**. If your application
-only composes queries and runs them, the migration is largely mechanical.
+database profiles, and all SQL generation code are **completely unchanged**. The query DSL is
+unchanged except that table columns now have a more precise static type (see
+[Typed columns](#9-typed-columns)). If your application only composes queries and runs them, the
+migration is largely mechanical.
 
 Slick 4 ships three ready-made facades:
 
@@ -42,7 +44,9 @@ only thing that changes is how you construct the database.
 - The phantom effect type system: `Effect.Read`, `Effect.Write`, `Effect.Schema`,
   `Effect.Transactional`
 - `slick-hikaricp`: HikariCP integration is unchanged; `DataSource` is still the integration point
-- `slick-codegen`: code generation is unchanged. If you have previously generated code that
+- `slick-codegen`: code generation is unchanged, except that generated columns are declared as
+  `TypedRep.NotNull[T]` or `TypedRep.Nullable[T]` instead of `Rep[T]` (see
+  [Typed columns](#9-typed-columns)). If you have previously generated code that
   contains `import scala.concurrent.ExecutionContext` (added by older codegen versions), that
   import is now unused — remove it or regenerate.
 
@@ -58,6 +62,7 @@ only thing that changes is how you construct the database.
 | `map`/`flatMap` on `DBIOAction` | require `(implicit ec: ExecutionContext)` | no EC parameter |
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts a `Future[R]` — **unchanged** in `slick-future` |
 | `GetResult.apply` / `SetParameter.apply` | function parameter is `implicit` | regular parameter; `GetResult(r => ...)` and `SetParameter[T]((v, pp) => ...)` are unchanged. `GetResult(using r => ...)` / `SetParameter(using (v, pp) => ...)` (Scala 3) no longer compile — drop the `using`. Summoning a `GetResult[T]` from an implicit function via `GetResult[T]` (no argument) also no longer works |
+| `column[C](...)` result type | `Rep[C]` | `TypedRep.NotNull[C]` or `TypedRep.Nullable[T]` (for `C = Option[T]`), subtypes of `Rep[C]`; see [Typed columns](#9-typed-columns) |
 
 ---
 
@@ -339,6 +344,65 @@ See @ref:[Database](database.md) for the `slick.cats.Database` and `slick.zio.Da
 
 ---
 
+## 9. Typed columns
+
+A table column keeps the column type (`TypedType`) it was defined with, and whether it is
+nullable, in its static type. `column[C]` returns a `TypedRep.NotNull[C]`, or a
+`TypedRep.Nullable[T]` for `C = Option[T]`. Both are subtypes of `Rep[C]`, and `TypedRep` is
+exported by `profile.api`.
+
+Which one a column gets is decided where the table is defined, from the column types in implicit
+scope. A column type for `C` itself makes a non-nullable column, even when `C` is an `Option` type
+(`MappedColumnType.base[Option[Priority], Int]` maps `None` to a non-null database value); it takes
+priority over the column type for `T` that otherwise makes `Option[T]` nullable. A column that is
+not nullable gets the plain operators (`===` yields `Rep[Boolean]`), a nullable one the `Option`
+operators (`===` yields `Rep[Option[Boolean]]`).
+
+Queries no longer need a custom column type in implicit scope to project a column, sort by it, or
+compare it with a plain value, an `Option` value or another column. A plain or `Option` value
+compared with a column is encoded with the column's own column type, not with one found where the
+comparison is written; the two differ only if you use more than one column type for the same Scala
+type.
+
+The more precise types break source compatibility in these cases:
+
+- **Overriding `column`.** An override needs the new signature:
+  ```scala
+  import slick.lifted.ColumnTypeOf
+
+  override def column[C](n: String, options: ColumnOption[C]*)
+                        (implicit ct: ColumnTypeOf[C]): TypedRep[C] { type Nullability = ct.Nullability } =
+    super.column(transformName(n), options*)
+  ```
+  The same applies to a column `def` whose inferred type is overridden with a `Rep[...]` result
+  type: declare the override with the narrower type, or drop the annotation.
+- **Invariant type annotations.** `Rep` and `ShapedValue` are invariant, so an annotation such as
+  `Rep[Option[(Rep[Int], Rep[String])]]` or `ShapedValue[(Rep[Int], Rep[String]), (Int, String)]`
+  no longer matches a value built from columns: use `TypedRep.NotNull[Int]` (or
+  `TypedRep.Nullable[T]`) in those positions, or drop the annotation. Plain values in a query are
+  lifted to the same types, for example `Query(1)` is a `Query[TypedRep.NotNull[Int], Int, Seq]`.
+  Covariant positions such as `Query[Rep[Int], Int, Seq]`, tuples and `Seq` are unaffected.
+- **Inference from a column.** A `var` initialized from a column, from `.?`, `.get` or
+  `Rep.Some(column)`, or a fold seeded with one, now has the narrower type. Annotate it as
+  `Rep[...]` if other values are assigned to it. Comparisons, boolean operators and `.bind` still
+  return `Rep`.
+- **The `TypedRep` name.** `import profile.api._` brings in a type and a value named `TypedRep`.
+  If you have your own `TypedRep`, refer to it by a qualified name, or exclude Slick's with
+  `import profile.api.{TypedRep => _, _}`.
+- **`foreignKey`.** It has a fifth type parameter `TP` for the target columns, so that they can have
+  a different static type from the source columns. Calls that pass type arguments explicitly need
+  to add it (it is usually `P`). `ForeignKey` stores its columns as `ShapedValue`s, and its
+  `columnsShape` field is gone.
+- **Your own extension methods on `Rep` (Scala 3).** An implicit conversion on `Rep[T]` that adds a
+  method with the same name as a column operator (`===`, `<`, `inSet`, `?`, ...) can be ambiguous
+  with Slick's conversion for typed columns when the call has no expected type. Define it on
+  `TypedRep.NotNull[T]` or `TypedRep.Nullable[T]`, which takes priority over Slick's.
+
+Code generated by `slick-codegen` declares columns as `TypedRep.NotNull[T]` or
+`TypedRep.Nullable[T]`.
+
+---
+
 ## Mechanical Migration Checklist
 
 This section is a concise, pattern-by-pattern reference for automated migration tooling or for
@@ -445,7 +509,18 @@ No change needed. `DBIO.from(future: Future[R])` is unchanged in `slick-future`.
 |-------------------|-----------------------|
 | `slick:type=AsyncExecutor,name=<poolName>` | Use HikariCP JMX beans for pool metrics; use `db.controlStatus` for Slick admission/connection-slot counters |
 
-### 12. Compile-error guide
+### 12. Typed columns
+
+See [Typed columns](#9-typed-columns) for the rules.
+
+| Pattern (Slick 3) | Replacement (Slick 4) |
+|-------------------|-----------------------|
+| `override def column[C](n: String, options: ColumnOption[C]*)(implicit tt: TypedType[C]): Rep[C]` | `override def column[C](n: String, options: ColumnOption[C]*)(implicit ct: ColumnTypeOf[C]): TypedRep[C] { type Nullability = ct.Nullability }` |
+| `Rep[Int]` for a column inside an invariant type, e.g. `Rep[Option[(Rep[Int], Rep[String])]]` | `TypedRep.NotNull[Int]` (`TypedRep.Nullable[T]` for an `Option[T]` column), or drop the annotation |
+| `foreignKey[P, PU, TT, U](...)` | `foreignKey[P, PU, TT, U, P](...)`, or drop the type arguments |
+| `fk.columnsShape` on a `ForeignKey` | `fk.sourceColumns` and `fk.targetColumns(table)` are `ShapedValue`s |
+
+### 13. Compile-error guide
 
 If your project fails to compile after upgrading, use this table:
 
@@ -459,3 +534,8 @@ If your project fails to compile after upgrading, use this table:
 | `class JdbcDatabaseDef takes type parameters` on a variable type annotation | explicit `JdbcDatabaseDef` type annotation from Slick 3 | Change to `val db: slick.future.Database` and migrate factory call |
 | `Missing arguments for method apply in object GetResult` (or `SetParameter`) on `GetResult(using r => ...)` | `GetResult.apply` / `SetParameter.apply` parameter is no longer `implicit` | Drop the `using`: `GetResult(r => ...)`, `SetParameter[T]((v, pp) => ...)` |
 | `Alphanumeric method join is not declared infix` (warning, or error with `-source:future`) | Scala 3.4+ infix rule, not a Slick change | Use method syntax: `a.join(b).on(...)` — see [Infix method syntax](#infix-method-syntax-on-scala-3) |
+| `method column overrides nothing` (Scala 2) or `method column has a different signature than the overridden declaration` (Scala 3) | `column` takes a `ColumnTypeOf[C]` and returns a `TypedRep` | Use the signature in [Typed columns](#9-typed-columns) |
+| `type mismatch` with `found: ...TypedRep[...]{type Nullability = ...}` and `required: ...Rep[...]` | A column's type is more precise, and the annotation is in an invariant position | Annotate with `TypedRep.NotNull[T]` / `TypedRep.Nullable[T]`, or drop the annotation |
+| `wrong number of type parameters for method foreignKey` (Scala 2) or `Not enough type arguments for ... foreignKey` (Scala 3) | `foreignKey` has a fifth type parameter for the target columns | Append it (usually the same as the first), or drop the type arguments |
+| `reference to TypedRep is ambiguous`, or another error where your own type named `TypedRep` is used | `profile.api._` exports `TypedRep` | Qualify your own `TypedRep`, or `import profile.api.{TypedRep => _, _}` |
+| `implicit extension methods cannot be applied because they are ambiguous` naming `notNullColumnExtensionMethods` or `nullableColumnExtensionMethods` (Scala 3) | Your conversion on `Rep[T]` adds a method with the name of a column operator | Define the conversion on `TypedRep.NotNull[T]` or `TypedRep.Nullable[T]` |

@@ -17,8 +17,18 @@ object Case {
   def If[C <: Rep[?] : CanBeQueryCondition](cond: C) = new UntypedWhen(cond.toNode)
 
   final class UntypedWhen(cond: Node) {
-    def Then[P, B](res: Rep[P])(implicit om: OptionMapperDSL.arg[B, P]#to[B, P], bType: BaseTypedType[B]) =
-      new TypedCase[B, P](ConstArray(cond, res.toNode))(bType, om.liftedType(bType))
+    def Then[P, B](res: Rep[P])(implicit rt: ResultType[B, P]) =
+      new TypedCase[B, P](ConstArray(cond, res.toNode))(rt.baseType, rt.resultType)
+  }
+
+  /** The types of a `Then` result of type `P` with base type `B`: either `P` itself, or the element type of `P` if `P`
+    * is an `Option`. The `BaseTypedType` instances in implicit scope decide which; if there is one for both, the
+    * choice is ambiguous. */
+  final class ResultType[B, P] private (val baseType: BaseTypedType[B], val resultType: TypedType[P])
+
+  object ResultType {
+    implicit def plain[B](implicit bt: BaseTypedType[B]): ResultType[B, B] = new ResultType(bt, bt)
+    implicit def option[B](implicit bt: BaseTypedType[B]): ResultType[B, Option[B]] = new ResultType(bt, bt.optionType)
   }
 
   final class TypedCase[B : TypedType, T : TypedType](clauses: ConstArray[Node]) extends Rep.TypedRep[Option[B]] {

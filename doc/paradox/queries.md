@@ -31,10 +31,12 @@ compare the types of a simple Scala collections example
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #reptypes }
 
 All plain types are lifted into `Rep`. The same is true for the table row
-type `Coffees` which is a subtype of `Rep[(String, Double)]`.
-Even the literal `8.0` is automatically lifted to a `Rep[Double]` by an
-implicit conversion because that is what the `>` operator on
-`Rep[Double]` expects for the right-hand side. This lifting is necessary
+type `Coffees` which is a subtype of `Rep[(String, Double)]`. A column is a
+`TypedRep`, a `Rep` that also carries its column type and whether it is
+nullable (see @ref:[Schemas](schemas.md#table-rows)).
+Even the literal `8.0` becomes part of the query: the `>` operator lifts it
+with the column's own type. Elsewhere, an implicit conversion lifts a plain
+value to a `Rep` with the type in implicit scope. This lifting is necessary
 because the lifted types allow us to generate a syntax tree that captures
 the query computations. Getting plain Scala functions and values would not
 give us enough information for translating those computations to SQL.
