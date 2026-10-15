@@ -93,6 +93,41 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
       } yield ()).withPinnedSession
     }}
   }
+
+  def testFailedTransactionRollsBackInsertOrUpdate = {
+    // Upper-case names because Oracle and DB2 fail to return generated keys of lower-case columns
+    class Customers(tag: Tag) extends Table[(Int, String)](tag, "CUSTOMERS") {
+      def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
+      def name = column[String]("NAME")
+      def * = (id, name)
+    }
+    val customers = TableQuery[Customers]
+
+    for {
+      _ <- customers.schema.create
+      _ <- customers += ((0, "Alice"))
+      aliceId <- customers.map(_.id).result.head
+
+      _ <- (for {
+        _ <- customers += ((0, "Bob"))
+        _ <- customers.insertOrUpdate((aliceId, "Alice Smith"))
+        _ <- DBIO.failed(new ExpectedException)
+      } yield ()).transactionally.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+      _ <- customers.result.map(_ shouldBe Seq((aliceId, "Alice")))
+
+      // HSQLDB, Oracle, DB2 and SQL Server upsert in one statement, but emulate the `returning` variant with several
+      _ <- ifCap(jcap.returnInsertKey) {
+        for {
+          _ <- (for {
+            _ <- customers += ((0, "Bob"))
+            _ <- customers.returning(customers.map(_.id)).insertOrUpdate((aliceId, "Alice Smith"))
+            _ <- DBIO.failed(new ExpectedException)
+          } yield ()).transactionally.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+          _ <- customers.result.map(_ shouldBe Seq((aliceId, "Alice")))
+        } yield ()
+      }
+    } yield ()
+  }
 }
 
 object TransactionTest {

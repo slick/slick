@@ -616,7 +616,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) = {
         def f: SingleInsertOrUpdateResult =
           if(useServerSideUpsert) nativeUpsert(value, sql.head)(ctx.session) else emulate(value, sql(0), sql(1), sql(2))(ctx.session)
-        if(useTransactionForUpsert) {
+        // Inside `transactionally` the statements run in that transaction, which commits or rolls them back
+        if(useTransactionForUpsert && ctx.transactionDepth == 0) {
           val conn = ctx.session.conn
           val wasAutoCommit = conn.getAutoCommit
           if(wasAutoCommit) conn.setAutoCommit(false)
