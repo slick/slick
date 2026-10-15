@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 
-import java.sql.ResultSet
+import java.sql.{PreparedStatement, ResultSet}
 
 import scala.reflect.ClassTag
 
@@ -561,5 +561,59 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
         rows.map(_._1).toSet.size shouldBe 2
       }
     } yield ()
+  }
+
+  /** In the fallback of a fold over an outer-joined value, a None literal of a type that maps a whole Option is
+    * still the value -1, not NULL */
+  def testOptionMappedAsWholeNoneLiteralInOuterJoinFold = {
+    case class Index(value: Int)
+    trait IntWrapper[T] {
+      def wrap(i: Int): T
+      def unwrap(t: T): Int
+    }
+    implicit val indexWrapper: IntWrapper[Index] = new IntWrapper[Index] {
+      def wrap(i: Int) = Index(i)
+      def unwrap(t: Index) = t.value
+    }
+    /** Stores a whole Option[T] in a NOT NULL integer column, with -1 standing for None (like indexOf) */
+    // A generic, hand-written JdbcType, as extension libraries define them: every use creates a new instance,
+    // and the instances compare by reference, so the column's type and the literal's type are not equal
+    implicit def minusOneAsNone[T](implicit w: IntWrapper[T]): BaseColumnType[Option[T]] =
+      new tdb.profile.DriverJdbcType[Option[T]] with slick.ast.BaseTypedType[Option[T]] {
+        def sqlType = java.sql.Types.INTEGER
+        def setValue(v: Option[T], p: PreparedStatement, idx: Int) = p.setInt(idx, v.fold(-1)(w.unwrap))
+        def getValue(r: ResultSet, idx: Int): Option[T] = {
+          val i = r.getInt(idx)
+          if (r.wasNull()) null
+          else if (i == -1) None
+          else Some(w.wrap(i))
+        }
+        def updateValue(v: Option[T], r: ResultSet, idx: Int) = r.updateInt(idx, v.fold(-1)(w.unwrap))
+        override def valueToSQLLiteral(v: Option[T]) = v.fold(-1)(w.unwrap).toString
+      }
+
+    class Docs(tag: Tag) extends Table[Int](tag, "docs_fold_minus_one") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    val docs = TableQuery[Docs]
+    class Positions(tag: Tag) extends Table[(Int, Option[Index])](tag, "positions_fold_minus_one") {
+      def docId = column[Int]("doc_id")
+      def pos = column[Option[Index]]("pos")
+      def * = (docId, pos)
+    }
+    val positions = TableQuery[Positions]
+
+    val q = docs.joinLeft(positions).on(_.id === _.docId).map { case (d, p) =>
+      val notSearched = (LiteralColumn(Option.empty[Index]): Rep[Option[Index]], LiteralColumn(false): Rep[Boolean])
+      (d.id, p.map(_.pos).fold(notSearched)(pos => (pos, LiteralColumn(true))))
+    }.sortBy(_._1)
+
+    seq(
+      (docs.schema ++ positions.schema).create,
+      docs ++= Seq(1, 2, 3),
+      positions ++= Seq((1, Some(Index(4))), (2, None)),
+      q.result.map(_ shouldBe Seq((1, (Some(Index(4)), true)), (2, (None, true)), (3, (None, false))))
+    )
   }
 }
