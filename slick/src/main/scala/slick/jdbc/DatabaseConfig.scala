@@ -1,6 +1,6 @@
 package slick.jdbc
 
-import java.sql.Driver
+import java.sql.{Connection, Driver}
 import java.util.Properties
 import javax.naming.InitialContext
 import javax.sql.DataSource
@@ -48,6 +48,16 @@ trait DatabaseConfig extends slick.basic.DatabaseConfig {
     val ds = new DriverDataSource(url, user, password, prop, driverObject = driver)
     forSource(profile, new DataSourceJdbcDataSource(ds, keepAliveConnection = false, maxConnections = None))
   }
+
+  /** A config for running actions on `conn`, a connection that its caller opened and will close,
+    * such as the connection a migration tool hands to a migration. If `conn` has auto-commit
+    * disabled, everything Slick does on it commits or rolls back with the caller's transaction.
+    * See [[CallerOwnedConnectionJdbcDataSource]]. */
+  def forConnection[P <: JdbcProfile](
+    profile: P,
+    conn: Connection
+  ): JdbcDatabaseConfig[P] =
+    forSource(profile, new CallerOwnedConnectionJdbcDataSource(conn))
 
   def forName[P <: JdbcProfile](
     profile: P,
