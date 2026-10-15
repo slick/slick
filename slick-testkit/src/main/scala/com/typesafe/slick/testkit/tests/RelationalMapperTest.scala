@@ -183,4 +183,32 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
     val q = ts.joinLeft(ts).on(_.value === _.value).map { case (_, r) => r.map(r => (r.value, LiteralColumn(Option.empty[Index]))) }
     seq(ts.schema.create, ts += Some(Index(1)), q.result.map(_ shouldBe Seq(Some((Some(Index(1)), None)))))
   }
+
+  /** The column is not nullable although its Scala type is an Option, so None compares equal to -1 */
+  def testOptionMappedAsWholeComparedWithOption = {
+    import MinusOneAsNoneTable.*
+    val ts = TableQuery(new MinusOneAsNoneTable(_, "compared_with_option"))
+    def matching(value: Option[Index]) = ts.filter(_.value === value)
+    seq(
+      ts.schema.create,
+      ts ++= Seq(None, Some(Index(1)), Some(Index(2))),
+      matching(Some(Index(2))).result.map(_ shouldBe Seq(Some(Index(2)))),
+      matching(None).result.map(_ shouldBe Seq(None)),
+      ts.filter(_.value =!= Option(Index(1))).to[Set].result.map(_ shouldBe Set(None, Some(Index(2))))
+    )
+  }
+
+  /** In Case.If, a None of the mapped type is the value -1, not NULL, and the result keeps the mapped type */
+  def testOptionMappedAsWholeInCase = {
+    import MinusOneAsNoneTable.*
+    val ts = TableQuery(new MinusOneAsNoneTable(_, "in_case"))
+    // A missing index counts as Index(0)
+    val effective =
+      ts.map(t => Case.If(t.value === Option.empty[Index]).Then(LiteralColumn(Option(Index(0)))).Else(t.value))
+    seq(
+      ts.schema.create,
+      ts ++= Seq(None, Some(Index(1)), Some(Index(2))),
+      effective.to[Set].result.map(_ shouldBe Set(Some(Index(0)), Some(Index(1)), Some(Index(2))))
+    )
+  }
 }
