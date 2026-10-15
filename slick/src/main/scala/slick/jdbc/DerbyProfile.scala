@@ -99,6 +99,11 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       JdbcCapabilities.returnMultipleInsertKey -
       JdbcCapabilities.forShare
 
+  trait DerbyAPI extends JdbcAPI {
+    override val repeat = deregister(RelationalCapabilities.repeat)
+    override val zip = deregister(RelationalCapabilities.zip)
+  }
+  override val api: DerbyAPI = new DerbyAPI{}
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 

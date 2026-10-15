@@ -6,10 +6,13 @@ class RelationalScalarFunctionTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
   def test = {
+    // won't compile for derby
+//    import slick.jdbc.DerbyProfile.api.*
+    // will compile for PG
+//    import slick.jdbc.PostgresProfile.api.*
     def check[T : BaseColumnType](q: Rep[T], exp: T) = q.result.map(_ shouldBe exp)
     def checkLit[T : BaseColumnType](v: T) = check(LiteralColumn(v), v)
     val s = "abcdefghijklmnopqrstuvwxyz"
-
     seq(
       // Literals
       checkLit(false),

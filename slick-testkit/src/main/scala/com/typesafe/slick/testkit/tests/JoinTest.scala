@@ -201,6 +201,10 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testZip = ifCap(rcap.zip) {
+    // won't compile for Derby
+//    import slick.jdbc.DerbyProfile.api.*
+    // will compile for PG
+//    import slick.jdbc.PostgresProfile.api.*
     class Categories(tag: Tag) extends Table[(Int, String)](tag, "cat_z") {
       def id = column[Int]("id")
       def name = column[String]("name")
