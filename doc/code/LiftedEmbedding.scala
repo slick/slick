@@ -367,6 +367,16 @@ object LiftedEmbedding {
           //     group by x2."SUP_ID"
           //#aggregation3
           println(q2.result.statements.head)
+
+          //#aggregation4
+          val maxPrices = coffees.groupBy(_.supID).map { case (supID, cs) => (supID, cs.map(_.price).max) }
+
+          val mostExpensive = for {
+            c <- coffees
+            m <- maxPrices if c.supID === m._1 && c.price === m._2
+          } yield c
+          //#aggregation4
+          println(mostExpensive.result.statements.head)
         }
 
         //#insert1

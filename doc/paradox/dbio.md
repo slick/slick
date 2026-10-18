@@ -86,7 +86,10 @@ consumer requests the next element:
 Some database systems may require session parameters to be set in a certain way to support streaming without
 caching all data at once in memory on the client side. For example, @extref[PostgreSQL](postgresql:) requires both
 `.withStatementParameters(rsType = ResultSetType.ForwardOnly, rsConcurrency = ResultSetConcurrency.ReadOnly, fetchSize = n)`
-(with the desired page size `n`) and `.transactionally` for proper streaming.
+(with the desired page size `n`) and `.transactionally` for proper streaming: the PostgreSQL driver only fetches
+in pages when auto-commit is off. @extref[MySQL](mysql:) streams row by row with `fetchSize = Int.MinValue`
+together with `ResultSetType.ForwardOnly` and `ResultSetConcurrency.ReadOnly` (this is what Connector/J's
+`enableStreamingResults()` sets, so you need not call it from `statementInit`).
 @@@
 
 Composing Database I/O Actions
@@ -118,6 +121,11 @@ If an action depends on a previous action in the sequence, you have to compute i
 or @scaladoc[map](slick.dbio.DBIOAction#map[R2]((R)=%3ER2):DBIOAction[R2,NoStream,E]).
 These two methods plus @scaladoc[filter](slick.dbio.DBIOAction#filter((R)=%3EBoolean):DBIOAction[R,NoStream,E])
 enable the use of *for comprehensions* for action sequencing.
+
+For example, to run an action only if a previous one returned a certain result, use `flatMap` and return
+`DBIO.successful` (an action that does nothing but return the given value) in the other case:
+
+@@snip [DBIOCombinators.scala](../code/DBIOCombinators.scala) { #flatMap }
 
 Similar to @scaladoc[DBIO.sequence](slick.dbio.DBIOAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E])
 for upfront composition, there is @scaladoc[DBIO.fold](slick.dbio.DBIOAction$#fold[T,E%3C:Effect](Seq[DBIOAction[T,NoStream,E]],T)((T,T)=%3ET):DBIOAction[T,NoStream,E])
@@ -241,6 +249,12 @@ There is a related combinator called
 to force the use of a transaction. This guarantees that the entire `DBIOAction` that is executed will
 either succeed or fail atomically. Without it, all database actions run in auto-commit mode. The use of a transaction
 always implies a pinned session.
+
+To run several actions in one transaction, compose them first (e.g. in a for comprehension) and call
+`transactionally` on the result; every action it contains runs in that transaction. A transaction makes the
+action atomic, but it does not keep concurrent transactions apart: two of them that read and then write the
+same rows can still deadlock, or fail with a serialization error at `Serializable` isolation, and then have to
+be retried.
 
 An overload
 @scaladoc[transactionally(ti)](slick.jdbc.JdbcActionComponent$JdbcActionExtensionMethods#transactionally(TransactionIsolation):DBIOAction[R,S,EwithTransactional])

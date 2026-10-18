@@ -158,36 +158,3 @@ object PlainSQL {
       sqlu"delete from coffees where name = $name"
   }
 }
-
-/* Can't test this properly because reference.conf is not on the compiler class path when it
-   doesn't come from a JAR:
-
-@StaticDatabaseConfig("file:common-test-resources/application.conf#tsql")
-object TypedSQL extends App {
-  //#staticdatabaseconfig
-  val dc = DatabaseConfig.forAnnotation[JdbcProfile]
-  import dc.profile.api._
-  //#staticdatabaseconfig
-
-  //#tsql
-  def getSuppliers(id: Int): DBIO[Seq[(Int, String, String, String, String, String)]] =
-    tsql"select * from suppliers where id > $id"
-  //#tsql
-
-  //#staticdatabaseconfig
-  val db = dc.db
-  //#staticdatabaseconfig
-  try {
-
-    val a: DBIO[Unit] =
-      getSuppliers(50).map { s =>
-        println("All suppliers > 50:")
-        s.foreach(println)
-      }
-
-    val f: Future[Unit] = db.run(a)
-    Await.result(f, Duration.Inf)
-  } finally db.close
-}
-
-*/

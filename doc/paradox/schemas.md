@@ -48,7 +48,9 @@ individual database profiles):
 - java.util.UUID
 
 Nullable columns are represented by `Option[T]` where `T` is one of the
-supported primitive types.
+supported primitive types. Declare them with that type, e.g. `column[Option[Boolean]]("ACTIVE")`, and use them
+as they are in the `*` projection. `.?` is for using a non-nullable column where an `Option` is expected, e.g.
+an `AutoInc` key that is `None` before the row is inserted (see [Mapped Tables](#mapped-tables)).
 
 @@@ note
 Note: Currently all operations on Option values use the database's null propagation semantics
@@ -136,6 +138,11 @@ objects. However there are still come cases where you will have to use the
 You can also map to arbitrary types by using the `<>` operator. It takes
 two functions as parameters, one for mapping from the raw value (which may
 be a tuple) to the custom type, and one for mapping back.
+
+When the function for mapping back returns an `Option`, like the `unapply` method of a case class, it has to
+return `Some` for every value: `None` does not mean SQL `NULL` but makes Slick fail with
+`NoSuchElementException: None.get` when it writes the value. If the custom type is itself an `Option`, an empty
+value maps back to `Some(None)`.
 
 The API is designed to be optimal for Scala 2 case classes, which generate
 a companion object with a `tupled` method, and an `unapply` method that

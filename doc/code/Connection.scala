@@ -54,7 +54,7 @@ object Connection {
     ;{
       //#forConfig
       val dc = DatabaseConfig.forProfileConfig(H2Profile, "mydb")
-      val db = Database.resource(dc)
+      val db: Resource[IO, Database] = Database.resource(dc)
       //#forConfig
 
       //#catsManaged
@@ -88,7 +88,7 @@ object Connection {
       ;{
         //#materialize
         val q = for (c <- coffees) yield c.name
-        val a = q.result
+        val a: DBIO[Seq[String]] = q.result
         val f: IO[Seq[String]] = db.run(a)
 
         f.map {
@@ -99,7 +99,7 @@ object Connection {
         ;{
           //#stream
           val q = for (c <- coffees) yield c.name
-          val a = q.result
+          val a: StreamingDBIO[Seq[String], String] = q.result
           val s: fs2.Stream[IO, String] = db.stream(a)
 
           // Use FS2 combinators to process the stream:
@@ -147,7 +147,7 @@ object Connection {
 
                 // Here we show that that coffee count is the same before and after the attempted insert.
                 // We also show that the result of the action is filled in with the exception's message.
-                val f = db.run(countAction.zip(errorHandleAction).zip(countAction)).map {
+                val f: IO[String] = db.run(countAction.zip(errorHandleAction).zip(countAction)).map {
                   case ((initialCount, result), finalCount) =>
                     // init: 5, final: 5, result: Roll it back
                     println(s"init: ${initialCount}, final: ${finalCount}, result: ${result}")

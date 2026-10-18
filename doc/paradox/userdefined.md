@@ -58,6 +58,9 @@ which takes care of all the boilerplate. It comes with the usual import from the
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtype }
 
+The same works for any Scala `Enumeration`. To store the values by name instead, map them to `String` with
+`MappedColumnType.base[MyEnum.Value, String](_.toString, MyEnum.withName)`.
+
 You can also subclass @scaladoc[MappedJdbcType](slick.jdbc.JdbcProfile#MappedJdbcType) for a bit more flexibility.
 
 Using Custom Record Types in Queries
@@ -105,6 +108,9 @@ In order to provide a @scaladoc[Shape](slick.lifted.Shape) for a custom case cla
 you can use @scaladoc[CaseClassShape](slick.lifted.CaseClassShape):
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #case-class-shape }
+
+Spell out the type arguments of `CaseClassShape` as shown. The compiler can infer them, but IDEs such as IntelliJ
+then show queries that yield the lifted case class as `Query[Nothing, Nothing, Seq]`.
 
 Note that this mechanism can be used as an alternative to client-side mappings
 with the `<>` operator. It requires a bit more boilerplate but allows you to use

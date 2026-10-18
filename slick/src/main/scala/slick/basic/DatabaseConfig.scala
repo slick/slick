@@ -50,6 +50,14 @@ private[basic] object DatabaseConfigHelpers {
 trait DatabaseConfig {
   import DatabaseConfigHelpers._
 
+  /** Load a database configuration through [[https://github.com/lightbend/config Typesafe Config]], reading the
+    * profile from it: `profile` is the fully qualified name of the profile object, e.g.
+    * `"slick.jdbc.PostgresProfile$"`. See [[forProfileConfig]] for the other configuration keys.
+    *
+    * @param path The path in the configuration file for the database configuration, or an empty string for the
+    *             top level of the `Config` object.
+    * @param config The `Config` object to read from. This defaults to the global app config (e.g. in
+    *               `application.conf` at the root of the class path). */
   def forConfig[P <: BasicProfile: ClassTag](
     path: String,
     config: Config = ConfigFactory.load(),
@@ -61,6 +69,42 @@ trait DatabaseConfig {
     forProfileConfig(p, path, config, classLoader)
   }
 
+  /** Load a database configuration for the given profile through
+    * [[https://github.com/lightbend/config Typesafe Config]].
+    *
+    * The following keys go directly in the configuration at `path` or in its `db` sub-section:
+    * <ul>
+    *   <li>`connectionPool` (String, optional, default: `HikariCP`): The connection pool implementation.
+    *     `HikariCP` requires the "slick-hikaricp" dependency. Use `disabled` to use a DataSource or the JDBC driver
+    *     directly, or the fully qualified name of a third-party [[slick.jdbc.JdbcDataSourceFactory]] object.</li>
+    *   <li>`url` (String): The JDBC URL.</li>
+    *   <li>`driver` (String, optional): The fully qualified name of the JDBC driver class.</li>
+    *   <li>`user` and `password` (String, optional): The credentials.</li>
+    *   <li>`dataSourceClass` (String, optional): The name of a `javax.sql.DataSource` class provided by the JDBC
+    *     driver, to use instead of `url` and `driver`.</li>
+    *   <li>`properties` (Map, optional): Properties for the JDBC driver, or for the DataSource when
+    *     `dataSourceClass` is set.</li>
+    *   <li>`keepAliveConnection` (Boolean, optional, default: false, only without a connection pool): Keep one
+    *     connection open as long as the database is open.</li>
+    *   <li>`isolation` (String, optional, e.g. `READ_COMMITTED`), `readOnly` (Boolean, optional) and `catalog`
+    *     (String, optional): Settings for each new connection.</li>
+    *   <li>`maxConnections` (Int, optional, default: 20): The maximum number of concurrent JDBC connections. With
+    *     HikariCP this is also the maximum pool size.</li>
+    *   <li>`maxInflightActions` (Int, optional, default: twice `maxConnections`), `queueSize` (Int, optional,
+    *     default: 1000), `inflightAdmissionTimeout` and `connectionAcquireTimeout` (Duration, optional): The
+    *     limits on concurrently running and waiting database actions, see [[slick.ControlsConfig]].</li>
+    * </ul>
+    *
+    * With HikariCP, `minConnections`, `connectionTimeout`, `idleTimeout`, `maxLifetime`, `connectionTestQuery`,
+    * `poolName`, `registerMbeans` and the other
+    * [[https://github.com/brettwooldridge/HikariCP#gear-configuration-knobs-baby HikariCP settings]] are passed
+    * on to the pool under their HikariCP names.
+    *
+    * @param profile The profile to use.
+    * @param path The path in the configuration file for the database configuration, or an empty string for the
+    *             top level of the `Config` object.
+    * @param config The `Config` object to read from. This defaults to the global app config (e.g. in
+    *               `application.conf` at the root of the class path). */
   def forProfileConfig[P <: BasicProfile](
     profile: P,
     path: String,

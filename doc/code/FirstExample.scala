@@ -57,7 +57,7 @@ object FirstExample {
     //#setup
 
       //#create
-      val setup = DBIO.seq(
+      val setup: DBIO[Unit] = DBIO.seq(
         // Create the tables, including primary and foreign keys
         (suppliers.schema ++ coffees.schema).create,
 

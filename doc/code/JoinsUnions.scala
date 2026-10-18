@@ -54,17 +54,17 @@ object JoinsUnions {
     val crossJoin = for {
       (c, s) <- coffees.join(suppliers)
     } yield (c.name, s.name)
-    // compiles to SQL (simplified):
-    //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
-    //     inner join "SUPPLIERS" x3
+    // compiles to SQL:
+    //   select x2."COF_NAME", x3."SUP_NAME"
+    //     from "COFFEES" x2, "SUPPLIERS" x3
 
     val innerJoin = for {
       (c, s) <- coffees.join(suppliers).on(_.supID === _.id)
     } yield (c.name, s.name)
-    // compiles to SQL (simplified):
-    //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
-    //     inner join "SUPPLIERS" x3
-    //     on x2."SUP_ID" = x3."SUP_ID"
+    // compiles to SQL:
+    //   select x2."COF_NAME", x3."SUP_NAME"
+    //     from "COFFEES" x2, "SUPPLIERS" x3
+    //     where x2."SUP_ID" = x3."SUP_ID"
 
     val leftOuterJoin = for {
       (c, s) <- coffees.joinLeft(suppliers).on(_.supID === _.id)
