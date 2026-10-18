@@ -15,9 +15,9 @@ This is Slick, a functional relational mapping (FRM) library for Scala that prov
 ### Build and Testing
 - Use `sbt` for all build operations
 - Run `sbt` directly from the repository root (do not use launcher wrappers like `cs launch sbt`)
-- Main build command: `sbt clean compile`
+- Main build command: `sbt "clean; compile"`
 - Test command: `sbt testAll` (includes testkit, doctests, and reactive-streams tests)
-- Cross-compile testing: `sbt ++2.13.16 compile`, `sbt ++3.3.4 compile`
+- Cross-compile testing: `sbt ++2.12.21 compile`, `sbt ++2.13.18 compile`, `sbt ++3.9.0 compile`
 - For database-specific testing, use the testkit with appropriate configuration
 
 ### Database Support
@@ -54,7 +54,7 @@ This is Slick, a functional relational mapping (FRM) library for Scala that prov
 - `sbt site/buildCompatReport` - Generate compatibility report
 
 ### Important Files to Reference
-- `CLAUDE.md` - Comprehensive project documentation and commands
+- `AGENTS.md` - Comprehensive project documentation and commands
 - `build.sbt` - Main build configuration
 - `project/Dependencies.scala` - Dependency management
 - `slick-testkit/` - Test framework and database tests
