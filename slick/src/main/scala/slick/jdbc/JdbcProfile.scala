@@ -57,7 +57,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
     QueryCompiler(
       Phase.assignUniqueSymbols,
       Phase.inferTypes,
-      new InsertCompiler(InsertCompiler.PrimaryKeys),
+      new InsertCompiler(InsertCompiler.AllColumns),
       new JdbcInsertCodeGen(createCheckInsertBuilder)
     )
   lazy val updateInsertCompiler =

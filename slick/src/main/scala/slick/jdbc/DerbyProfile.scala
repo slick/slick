@@ -90,7 +90,6 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       RelationalCapabilities.zip -
       RelationalCapabilities.joinFull -
       JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly -
       RelationalCapabilities.replace -
       RelationalCapabilities.reverse -
       JdbcCapabilities.booleanMetaData -

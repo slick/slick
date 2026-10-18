@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.util.{Failure, Success}
-import slick.jdbc.{DerbyProfile, JdbcCapabilities}
+import slick.jdbc.JdbcCapabilities
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -270,9 +270,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, NoStream, Effect.All] = {
-    //FIXME remove this after fixed checkInsert issue
-    if (tdb.profile.isInstanceOf[DerbyProfile]) return DBIO.successful(())
-
     class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge3") {
       def id = column[Int]("id")
       def name = column[String]("name")
@@ -289,6 +286,36 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       _ <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
       _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
     } yield ()
+  }
+
+  // Regression test for https://github.com/slick/slick/issues/2114
+  def testInsertOrUpdateWithFuncDefinedCompositePK: DBIOAction[Unit, NoStream, Effect.All] = {
+    class T(tag: Tag) extends Table[(Int, String, String)](tag, "t_merge_composite") {
+      def a = column[Int]("a")
+      def b = column[String]("b", O.Length(20))
+      def name = column[String]("name")
+      def * = (a, b, name)
+      def pk = primaryKey("t_merge_composite_pk", (a, b))
+    }
+    val ts = TableQuery[T]
+
+    (for {
+      _ <- ts.schema.create
+      _ <- ts ++= Seq((1, "x", "a"), (2, "x", "b"))
+      _ <- ts.insertOrUpdate((1, "y", "c")).map(_ shouldBe 1)
+      _ <- ts.insertOrUpdate((1, "x", "d")).map(_ shouldBe 1)
+      _ <- ts.sortBy(t => (t.a, t.b)).result.map(_ shouldBe Seq((1, "x", "d"), (1, "y", "c"), (2, "x", "b")))
+      _ <- ifCap(jcap.returnInsertOther) {
+        val q = ts.returning(ts)
+        for {
+          _ <- q.insertOrUpdate((3, "x", "e")).map(_ shouldBe Some((3, "x", "e")))
+          _ <- q.insertOrUpdate((2, "x", "f")).map(_ shouldBe None)
+          _ <- ts.sortBy(t => (t.a, t.b)).result.map(
+            _ shouldBe Seq((1, "x", "d"), (1, "y", "c"), (2, "x", "f"), (3, "x", "e"))
+          )
+        } yield ()
+      }
+    } yield ()).withPinnedSession
   }
 
   def testInsertOrUpdateNotIncrement() =
@@ -478,6 +505,15 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         _ <- ts2.insertOrUpdate(V(0, "c")).map(_ shouldBe 1)
         _ <- ts2.insertOrUpdate(V(1, "a")).map(_ shouldBe 1)
         _ <- ts2.insertOrUpdate(V(2, "d")).map(_ shouldBe 1)
+        _ <- ts2.sortBy(t => (t.id, t.value)).result.map(_ shouldBe Seq(V(0, "c"), V(1, "a"), V(2, "b"), V(2, "d")))
+        _ <- ifCap(jcap.returnInsertOther) {
+          val q = ts2.returning(ts2)
+          for {
+            _ <- q.insertOrUpdate(V(3, "e")).map(_ shouldBe Some(V(3, "e")))
+            _ <- q.insertOrUpdate(V(1, "a")).map(_ shouldBe None)
+            _ <- ts2.length.result.map(_ shouldBe 5)
+          } yield ()
+        }
       } yield ()).withPinnedSession
     }
 
