@@ -129,6 +129,7 @@ set.
 
 Slick is community-maintained: pull requests are very welcome, and we
 ask that all contributors abide by the [Lightbend Community Code of Conduct](https://www.lightbend.com/conduct).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute.
 
 Lightbend staff (such as @SethTisue) may be able to assist with
 administrative issues.
