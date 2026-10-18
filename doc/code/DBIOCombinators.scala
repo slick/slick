@@ -26,6 +26,14 @@ object DBIOCombinators {
       val a4: DBIO[Vector[Int]] = DBIO.sequence(Vector(ins1, ins2))
       //#combinators1
 
+      //#flatMap
+      val insertIfMissing: DBIO[Boolean] =
+        coffees.filter(_.name === "Colombian").exists.result.flatMap {
+          case true  => DBIO.successful(false) // nothing to do
+          case false => (coffees += ("Colombian", 7.99)).map(_ => true)
+        }
+      //#flatMap
+
       ()
     }
     ;{

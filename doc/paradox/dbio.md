@@ -119,6 +119,11 @@ or @scaladoc[map](slick.dbio.DBIOAction#map[R2]((R)=%3ER2):DBIOAction[R2,NoStrea
 These two methods plus @scaladoc[filter](slick.dbio.DBIOAction#filter((R)=%3EBoolean):DBIOAction[R,NoStream,E])
 enable the use of *for comprehensions* for action sequencing.
 
+For example, to run an action only if a previous one returned a certain result, use `flatMap` and return
+`DBIO.successful` (an action that does nothing but return the given value) in the other case:
+
+@@snip [DBIOCombinators.scala](../code/DBIOCombinators.scala) { #flatMap }
+
 Similar to @scaladoc[DBIO.sequence](slick.dbio.DBIOAction$#sequence[R,M[+_]%3C:TraversableOnce[_],E%3C:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E])
 for upfront composition, there is @scaladoc[DBIO.fold](slick.dbio.DBIOAction$#fold[T,E%3C:Effect](Seq[DBIOAction[T,NoStream,E]],T)((T,T)=%3ET):DBIOAction[T,NoStream,E])
 for working with sequences of actions and composing them based on the previous result.
