@@ -354,6 +354,10 @@ To use compiled queries for inserts you can wrap your table query with `Compiled
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #compiled3 }
 
+A `Compiled` value compiles the statement for each use (query, update, delete or insert) the first time it
+is needed and reuses it afterwards. Without `Compiled`, Slick compiles the statement again every time you
+create an action, including inserts with `+=` on a plain `TableQuery`.
+
 
 For backwards-compatibility with Slick 1.0 you can still create a compiled
 query by calling `flatMap` on a @scaladoc[Parameters](slick.lifted.Parameters) object.
