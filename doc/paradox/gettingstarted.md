@@ -1,8 +1,7 @@
 # Getting Started
 
-The easiest way to get started is with a working sample application. The following samples are part of the official
-Slick distribution. You can either clone Slick from github or download pre-packaged zip files with an individual
-sample plus an @extref[sbt](sbt:) launcher.
+The easiest way to get started is with a working sample application. The following samples are on GitHub. Clone
+one and run it with @extref[sbt](sbt:).
 
 * To learn the basics of Slick, start with the @extref[**Hello Slick** sample](samplerepo:hello-slick). This is the
   one we are using in this chapter.
