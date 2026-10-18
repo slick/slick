@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.util.{Failure, Success}
-import slick.jdbc.JdbcCapabilities
+import slick.jdbc.{JdbcCapabilities, MySQLProfile}
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -478,6 +478,25 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession
   }
 
+  // MySQL used to emit a plain INSERT for a table whose only column is AutoInc, which failed when the row existed.
+  // Other databases handle such tables differently (some cannot insert into them without a value), so this is MySQL only.
+  def testInsertOrUpdateOnlyAutoIncColumn: DBIOAction[Unit, NoStream, Effect.All] =
+    if (!tdb.profile.isInstanceOf[MySQLProfile]) DBIO.successful(())
+    else {
+      class T(tag: Tag) extends Table[Int](tag, "T_ONLY_AUTOINC") {
+        def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
+        def * = id
+      }
+      val ts = TableQuery[T]
+      (for {
+        _ <- ts.schema.create
+        _ <- ts.forceInsertAll(Seq(1, 2))
+        _ <- ts.insertOrUpdate(1)
+        _ <- ts.insertOrUpdate(0)
+        _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq(1, 2, 3))
+      } yield ()).withPinnedSession
+    }
+
   // Regression test for https://github.com/slick/slick/issues/1627
   def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] =
     if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly))
@@ -504,11 +523,17 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       val ts1 = TableQuery[T]
       val ts2 = TableQuery[T2]
       val ts3 = TableQuery[T3]
+      // insertOrUpdate returns 1 whichever statements ran, so check that none of them has an empty SET or WHERE
+      val emptyClause = """(?i)\bset\s+where\b|\bwhere\s*(;|$)""".r
+      def checkClauses(statements: Iterable[String]): Unit =
+        statements.foreach(s => emptyClause.findFirstIn(s) shouldBe None)
+      checkClauses(ts1.insertOrUpdate(1).statements ++ ts2.insertOrUpdate(V(1, "a")).statements)
       (for {
         _ <- ts1.schema.create
         _ <- ts1 ++= Seq(1, 2)
         _ <- ts1.insertOrUpdate(0).map(_ shouldBe 1)
         _ <- ts1.insertOrUpdate(1).map(_ shouldBe 1)
+        _ <- ts1.sortBy(_.id).result.map(_ shouldBe Seq(0, 1, 2))
         _ <- ts2.schema.create
         _ <- ts2 ++= Seq(V(1, "a"), V(2, "b"))
         _ <- ts2.insertOrUpdate(V(0, "c")).map(_ shouldBe 1)
@@ -517,6 +542,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         _ <- ts2.sortBy(t => (t.id, t.value)).result.map(_ shouldBe Seq(V(0, "c"), V(1, "a"), V(2, "b"), V(2, "d")))
         _ <- ifCap(jcap.returnInsertOther) {
           val q = ts3.returning(ts3)
+          checkClauses(q.insertOrUpdate(V(1, "a")).statements)
           for {
             _ <- ts3.schema.create
             _ <- ts3 += V(1, "a")
