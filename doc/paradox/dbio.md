@@ -250,6 +250,12 @@ to force the use of a transaction. This guarantees that the entire `DBIOAction` 
 either succeed or fail atomically. Without it, all database actions run in auto-commit mode. The use of a transaction
 always implies a pinned session.
 
+To run several actions in one transaction, compose them first (e.g. in a for comprehension) and call
+`transactionally` on the result; every action it contains runs in that transaction. A transaction makes the
+action atomic, but it does not keep concurrent transactions apart: two of them that read and then write the
+same rows can still deadlock, or fail with a serialization error at `Serializable` isolation, and then have to
+be retried.
+
 An overload
 @scaladoc[transactionally(ti)](slick.jdbc.JdbcActionComponent$JdbcActionExtensionMethods#transactionally(TransactionIsolation):DBIOAction[R,S,EwithTransactional])
 accepts a `TransactionIsolation` level:
