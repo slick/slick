@@ -1,46 +1,38 @@
 # How to contribute
 
-Some Slick-specific clarifications/additions:
+These guidelines are meant to be a living document that should be changed and adapted as needed. We encourage changes
+that make it easier to achieve our goals in an efficient way.
+
+## Pull requests
 
 - Base your work on `main`.
+- Open your pull request as a draft until it is ready. Once it is approved and CI passes, it is merged automatically.
+- If your pull request fixes an issue, put `Fixes #N` in its description, so that GitHub closes the issue when the pull
+  request is merged.
+- When you address review comments, fold each fix into the commit it belongs to and force-push.
+- Anyone is welcome to review pull requests.
 
-These guidelines are meant to be a living document that should be changed and adapted as needed. We encourage changes that makes it easier to achieve our goals in an efficient way.
+A pull request is merged only once it meets these requirements:
 
-## General Workflow
+- **Tests.** Changes in behavior need tests. For a new feature, write a test for each thing you are afraid could go
+  wrong. For a bug fix, add a test that fails without the fix and passes with it.
+- **Documentation.** Changes that users can see, in the public API or in behavior, need documentation:
+  - Scaladoc for API changes;
+  - a section in the manual (`doc/paradox`) for new or changed features;
+  - an entry in the migration guide (`doc/paradox`) for changes that break users' code.
 
-This is the process for committing code into `main`.
+  Code examples in the manual live in `doc/code`, where `testkit/DocTest` compiles and runs them, and are included in
+  the page with `@@snip`.
+- **Don't repeat yourself.** Don't copy and paste code; factor out the duplication. Reuse an existing helper instead
+  of writing a new one. Define each fact, such as a version or a type mapping, in one place.
+- **Unrelated cleanups in separate commits.** Cleanups to the code around your change are welcome, but put the ones
+  that are unrelated to your change in their own commits.
+- **Dependencies.** New runtime dependencies must have a permissive license that is compatible with Slick's BSD
+  license.
 
-1. When the feature or fix is completed you should open a [Pull Request](https://help.github.com/articles/using-pull-requests) on GitHub.
-2. The Pull Request should be reviewed by other maintainers. Anyone is welcome to participate in the review process; it is not a closed process.
-3. After the review you should fix the issues as needed (pushing a new commit for new review etc.), iterating until the reviewers give their thumbs up.
-4. Once the code has passed review the Pull Request can be merged into the `main` branch.
+## Commits
 
-## Pull Request Requirements
-
-For a Pull Request to be considered at all it has to meet these requirements:
-
-1. Live up to the current code standard:
-   - Not violate [DRY](http://web.archive.org/web/20180511202436/http://programmer.97things.oreilly.com/wiki/index.php/Don't_Repeat_Yourself).
-   - [Boy Scout Rule](http://web.archive.org/web/20180523180601/http://programmer.97things.oreilly.com/wiki/index.php/The_Boy_Scout_Rule) needs to have been applied.
-2. Regardless if the code introduces new features or fixes bugs or regressions, it must have comprehensive tests.
-3. The code must be well documented (see the ‘Documentation’ section below).
-
-If these requirements are not met then the code should **not** be merged into `main`, or even reviewed - regardless of how good or important it is. No exceptions.
-
-## Documentation
-
-Example code in the documentation should be run as part of an automated test suite.
-
-## External Dependencies
-
-New runtime dependencies must have a permissive license that is compatible with Slick's BSD license.
-
-## Creating Commits And Writing Commit Messages
-
-Follow these guidelines when creating public commits and writing commit messages.
-
-1. Every commit should be able to be used in isolation, cherry picked etc.
-2. First line should be a descriptive sentence what the commit is doing. It should be possible to fully understand what the commit does by just reading this single line. It is **not ok** to only list the ticket number, type "minor fix" or similar.
-3. If there is more to say, follow the first line with a blank line and the details, in whatever form fits.
-4. Add keywords for your commit (depending on the degree of automation we reach, the list may change over time):
-    * ``Fix/Fixing/Fixes/Close/Closing/Refs #ticket`` - if you want to mark the ticket as fixed in the issue tracker.
+- Every commit must compile. A commit that adds a deliberately failing test, which a later commit makes pass, is fine.
+- The first line of the commit message says what the commit does, so that it can be understood on its own. An issue
+  number alone, or "minor fix", is not enough.
+- If there is more to say, follow the first line with a blank line and the details, in whatever form fits.
