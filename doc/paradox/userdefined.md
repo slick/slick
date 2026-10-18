@@ -109,6 +109,9 @@ you can use @scaladoc[CaseClassShape](slick.lifted.CaseClassShape):
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #case-class-shape }
 
+Spell out the type arguments of `CaseClassShape` as shown. The compiler can infer them, but IDEs such as IntelliJ
+then show queries that yield the lifted case class as `Query[Nothing, Nothing, Seq]`.
+
 Note that this mechanism can be used as an alternative to client-side mappings
 with the `<>` operator. It requires a bit more boilerplate but allows you to use
 the same field names in both, plain and lifted records.
