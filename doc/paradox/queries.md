@@ -47,6 +47,15 @@ Start here to understand the core query-building types and operators.
 Scalar (non-record, non-collection) values are represented by type `Rep[T]` for which an implicit
 `TypedType[T]` exists.
 
+The column operators such as `===` need a `slick.ast.BaseTypedType[T]` (a `TypedType` of a non-`Option` type), so
+generic code that abstracts over the type of a column, e.g. in a DAO, has to require one; a `TypedType[T]` is not
+enough. The profile's `BaseColumnType[T]`, which comes with the `api` import, is such a type:
+
+```scala
+def findBy[T: BaseColumnType](column: Coffees => Rep[T], value: T) =
+  coffees.filter(c => column(c) === value)
+```
+
 The operators and other methods which are commonly used in queries
 are added through implicit conversions defined in
 `ExtensionMethodConversions`. The actual methods can be found in
