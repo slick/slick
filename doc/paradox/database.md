@@ -65,6 +65,40 @@ To use the MySQL driver, the following library dependency needs to be configured
 libraryDependencies += "com.mysql" % "mysql-connector-j" % "8.0.33"
 ```
 
+#### SQLite
+
+SQLite has no dedicated date and time storage classes. The sqlite-jdbc driver stores `java.sql.Date`,
+`java.sql.Time` and `java.sql.Timestamp` values as INTEGER numbers of **milliseconds** since the Unix epoch
+(1970-01-01 00:00:00 UTC). Slick uses the same representation for its SQL literals and maps `LocalDate`,
+`LocalDateTime` and `Instant` through these types, so they are stored in the same way. `LocalDate` and
+`LocalDateTime` values are converted using the JVM's default time zone, so for example
+`LocalDate.of(2020, 1, 2)` is stored as midnight of that day in that zone. `LocalTime`, `OffsetTime`,
+`OffsetDateTime` and `ZonedDateTime` are stored as ISO-8601 TEXT instead (see @ref:[Date and Time types](datetimetypes.md)).
+
+SQLite's own date and time functions (`date`, `time`, `datetime`, `julianday`, `strftime`, `unixepoch`)
+expect ISO-8601 text, Julian day numbers, or Unix time in **seconds**, so they cannot use the millisecond
+values directly. Divide by 1000 and add the `'unixepoch'` modifier instead, for example
+`datetime(created_at / 1000, 'unixepoch')`, which yields the UTC date and time as text.
+
+If you want date and time values to be stored as seconds, which SQLite's functions understand directly
+(`datetime(created_at, 'unixepoch')`), set the sqlite-jdbc connection property `date_precision` to `SECONDS`
+in the `properties` block of the database configuration. This drops the sub-second part of the values.
+The driver also has a `date_class` property (`INTEGER` (the default), `TEXT` or `REAL`) to store the values
+as text (in the format given by `date_string_format`, by default `yyyy-MM-dd HH:mm:ss.SSS`) or as Julian
+day numbers.
+
+@@snip [application.conf](../code/application.conf) { #sqlite }
+
+@@@ warning
+These properties change the format of the stored data. They do not convert values already stored in an
+existing database, and they apply only to values passed as bind parameters. Slick always renders date and
+time **literals** as milliseconds since the epoch. With `date_precision = SECONDS` or a `date_class` other than
+`INTEGER`, a query such as `table.filter(_.createdAt === timestamp)`, where the value is inlined as a literal,
+does not match the stored values. Use `timestamp.bind` or a @ref:[compiled query](queries.md#compiled-queries)
+so that the value is sent as a parameter. The same applies to `O.Default` values of these types, because they
+are rendered as literals in the DDL.
+@@@
+
 #### Generic JDBC
 
 Sometimes a database system provides a JDBC driver, but no specific profile for its dialect has been implemented
