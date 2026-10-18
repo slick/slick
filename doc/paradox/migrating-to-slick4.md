@@ -64,6 +64,11 @@ only thing that changes is how you construct the database.
 - **Custom insert builders:** `checkInsertCompiler` now compiles all columns, not only the primary key, and
   `reorderColumns` skips columns that are not in the given order instead of failing. This only matters to custom
   profiles that override `CheckInsertBuilder` or call `reorderColumns`.
+- **HSQLDB `UUID` columns:** `java.util.UUID` columns are now created with HSQLDB's native `UUID` type instead of
+  `BINARY(16)`. Both types store the same 16 bytes, so tables created by Slick 3 keep working without changes.
+- **HSQLDB code generation:** columns of the native `UUID` type are now generated as `java.util.UUID` instead of
+  `java.sql.Blob`. `BINARY(16)` columns are still generated as `java.sql.Blob`, because the database metadata does
+  not say that they hold UUIDs.
 
 ---
 

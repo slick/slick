@@ -11,7 +11,7 @@ import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
 import slick.dbio.*
-import slick.jdbc.meta.MTable
+import slick.jdbc.meta.{MColumn, MTable}
 import slick.relational.RelationalProfile
 import slick.sql.SqlCapabilities
 import slick.util.ConstArray
@@ -48,9 +48,24 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 
     override def createTableNamer(mTable: MTable): TableNamer = new HsqldbTableNamer(mTable)
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder =
+      new HsqldbColumnBuilder(tableBuilder, meta)
+
     class HsqldbTableNamer(mTable: MTable) extends TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
       override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
+    }
+
+    class HsqldbColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
+      // HSQLDB reports UUID columns as java.sql.Types.BINARY, so they can only be told apart by the type name
+      override def tpe = dbType match {
+        case Some("UUID") => "java.util.UUID"
+        case _            => super.tpe
+      }
+      private val UUIDPattern = "^'?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})'?$".r
+      override def default = rawDefault.map((_, tpe)).collect {
+        case (UUIDPattern(v), "java.util.UUID") => Some(Some(java.util.UUID.fromString(v)))
+      }.getOrElse(super.default)
     }
   }
 
@@ -133,8 +148,10 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       override def sqlTypeName(sym: Option[FieldSymbol]) = "LONGVARBINARY"
     }
     override val uuidJdbcType = new UUIDJdbcType {
+      // HSQLDB's UUID type is a 16-byte binary type: it reports itself as BINARY and accepts the same bytes and
+      // binary literals as the BINARY(16) columns that older Slick versions created.
       override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "UUID"
       override def valueToSQLLiteral(value: UUID) = s"x'${value.toString.replace("-", "")}'"
     }
     override val localTimeType = new LocalTimeJdbcType {
