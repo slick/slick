@@ -30,7 +30,8 @@ that you can open with any of the three facades.
 #### PostgreSQL
 @@snip [application.conf](../code/application.conf) { #postgres }
 
-When specifying a dataSourceClass you will need to bring in the sbt dependency for that class. The following is an example for the `org.postgresql.ds.PGSimpleDataSource` data source class:
+The `dataSourceClass` is a `javax.sql.DataSource` class provided by the JDBC driver; a Slick profile is not a
+`DataSource`. When specifying a dataSourceClass you will need to bring in the sbt dependency for that class. The following is an example for the `org.postgresql.ds.PGSimpleDataSource` data source class:
 
 @@@ vars
 ```scala
