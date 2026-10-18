@@ -36,3 +36,24 @@ A pull request is merged only once it meets these requirements:
 - The first line of the commit message says what the commit does, so that it can be understood on its own. An issue
   number alone, or "minor fix", is not enough.
 - If there is more to say, follow the first line with a blank line and the details, in whatever form fits.
+
+## Issue labels
+
+Every open issue has one type label:
+
+- `bug`: Slick does something wrong.
+- `improvement`: a feature request, an enhancement, or a documentation or refactoring wish.
+
+These flags say how an issue can be worked on:
+
+- `small-fix`: a small, well-scoped change with a clear fix that needs no design decisions. A good place to start,
+  for people and for coding agents.
+- `needs-retest`: reported on an older Slick and not yet confirmed on the current release. Reproduce it first; if it
+  no longer happens, say so in the issue so that it can be closed.
+- `needs-major-version`: the change breaks the public API or existing behaviour, so it can only go into a major
+  release. If you find a way to do it without breaking anything, say so in the issue.
+- `correctness`: Slick silently returns wrong results or loses data. These come first.
+
+The `topic:*` labels give the area: `topic:query-compiler`, `topic:driver` (database-specific profile behaviour),
+`topic:codegen`, `topic:plainsql`, `topic:dbio` (actions, execution, transactions, streaming and connection pools),
+`topic:documentation`, `topic:usability` (API ergonomics and error messages) and `topic:reactive`.
