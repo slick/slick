@@ -58,6 +58,9 @@ which takes care of all the boilerplate. It comes with the usual import from the
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #mappedtype }
 
+The same works for any Scala `Enumeration`. To store the values by name instead, map them to `String` with
+`MappedColumnType.base[MyEnum.Value, String](_.toString, MyEnum.withName)`.
+
 You can also subclass @scaladoc[MappedJdbcType](slick.jdbc.JdbcProfile#MappedJdbcType) for a bit more flexibility.
 
 Using Custom Record Types in Queries
