@@ -2,8 +2,6 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
 import java.time.*
-import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
-import java.time.temporal.ChronoField
 import java.util.UUID
 
 import slick.ast.*
@@ -147,27 +145,21 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
       override def hasLiteralForm = true
     }
     override val instantType : InstantJdbcType = new InstantJdbcType {
-      // H2 doesn't use ISO-8601 format strings and so can't use Instant.parse and needs its own formatter
-      val formatter = new DateTimeFormatterBuilder()
-                      .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                      .optionalStart()
-                      .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-                      .optionalEnd()
-                      .appendOffset("+HH", "")
-                      .toFormatter()
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(9) WITH TIME ZONE"
 
+      // Use the driver's native TIMESTAMP WITH TIME ZONE support so that values stored with any offset
+      // (e.g. +03 or +05:30) are read back as the correct Instant
       override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, if (v == null) null else v.toString)
+        p.setObject(idx, if (v == null) null else v.atOffset(ZoneOffset.UTC))
       }
       override def getValue(r: ResultSet, idx: Int) : Instant = {
-        r.getString(idx) match {
+        r.getObject(idx, classOf[OffsetDateTime]) match {
           case null => null
-          case utcString => LocalDateTime.parse(utcString, formatter).toInstant(ZoneOffset.UTC)
+          case offsetDateTime => offsetDateTime.toInstant
         }
       }
       override def updateValue(v: Instant, r: ResultSet, idx: Int) = {
-        r.updateString(idx, if (v == null) null else v.toString)
+        r.updateObject(idx, if (v == null) null else v.atOffset(ZoneOffset.UTC))
       }
       override def valueToSQLLiteral(value: Instant) : String = {
         s"'${value.toString}'"
