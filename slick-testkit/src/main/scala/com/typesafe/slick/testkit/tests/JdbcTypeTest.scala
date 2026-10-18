@@ -13,7 +13,7 @@ import scala.util.Random
 import cats.effect.IO
 
 import slick.ast.FieldSymbol
-import slick.jdbc.{H2Profile, HsqldbProfile, OracleProfile, PostgresProfile, SQLiteProfile}
+import slick.jdbc.{H2Profile, HsqldbProfile, PostgresProfile, SQLiteProfile}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import javax.sql.rowset.serial.{SerialBlob, SerialClob}
@@ -558,11 +558,12 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    // Derby, MySQL, SQL Server and DB2 cannot store NaN or the infinities; SQLite stores NaN as NULL
+    // Derby, MySQL, SQL Server and DB2 cannot store NaN or the infinities; SQLite stores NaN as NULL.
+    // Oracle's BINARY_DOUBLE can, but its driver's setDouble rejects them ("Overflow").
     val (supportsNaN, supportsInfinity) = tdb.profile match {
-      case _: H2Profile | _: HsqldbProfile | _: PostgresProfile | _: OracleProfile => (true, true)
-      case _: SQLiteProfile                                                        => (false, true)
-      case _                                                                       => (false, false)
+      case _: H2Profile | _: HsqldbProfile | _: PostgresProfile => (true, true)
+      case _: SQLiteProfile                                     => (false, true)
+      case _                                                    => (false, false)
     }
 
     val infinities = seq(
@@ -582,7 +583,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       ts.filter(_.id === 1).map(_ => Double.NaN).result.head.map(_.isNaN shouldBe true)
     )
 
-    // Column defaults have to be rendered as SQL literals (a string cast, not verified on Oracle)
+    // Column defaults have to be rendered as SQL literals (a string cast)
     class D(tag: Tag) extends Table[(Int, Double, Double)](tag, "test_nonfinite_default") {
       def id = column[Int]("id")
       def nan = column[Double]("nan", O.Default(Double.NaN))
@@ -604,7 +605,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       ts += (1, 1.5, 1.5f),
       if (supportsInfinity) infinities else DBIO.successful(()),
       if (supportsNaN) nan else DBIO.successful(()),
-      if (supportsNaN && !tdb.profile.isInstanceOf[OracleProfile]) defaults else DBIO.successful(()),
+      if (supportsNaN) defaults else DBIO.successful(()),
       ts.filter(_.d === 1.5).map(_.id).result.map(_ shouldBe Seq(1))
     )
   }
