@@ -13,7 +13,7 @@ import scala.util.Random
 import cats.effect.IO
 
 import slick.ast.FieldSymbol
-import slick.jdbc.PostgresProfile
+import slick.jdbc.{H2Profile, PostgresProfile}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import javax.sql.rowset.serial.SerialBlob
@@ -343,6 +343,36 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         tableNameSuffix = "_with_time_zone"
       )
     case _                  =>
+      IO.unit
+  }
+
+  def testH2InstantWithOffset: IO[Unit] = tdb.profile match {
+    case _: H2Profile =>
+      // Values stored with a non-UTC offset (e.g. written by other clients or by CURRENT_TIMESTAMP in a non-UTC
+      // session) must be read back as the correct Instant, including offsets with minutes (#2053, #2055)
+      class InstantTable(tag: Tag) extends Table[(Int, Instant)](tag, "Data_Instant_with_offset") {
+        def id = column[Int]("ID", O.PrimaryKey)
+        def data = column[Instant]("DATA")
+        def * = (id, data)
+      }
+      val instantTable = TableQuery[InstantTable]
+      val expected = Seq(
+        1 -> Instant.parse("2019-07-17T09:34:00Z"),
+        2 -> Instant.parse("2019-07-17T07:04:00Z"),
+        3 -> Instant.parse("2019-07-17T22:04:00.123456789Z"),
+        4 -> Instant.parse("2019-07-17T12:34:00Z")
+      )
+      db.run(seq(
+        instantTable.schema.create,
+        sqlu"""insert into "Data_Instant_with_offset" values (1, TIMESTAMP WITH TIME ZONE '2019-07-17 12:34:00+03:00')""",
+        sqlu"""insert into "Data_Instant_with_offset" values (2, TIMESTAMP WITH TIME ZONE '2019-07-17 12:34:00+05:30')""",
+        sqlu"""insert into "Data_Instant_with_offset" values (3, TIMESTAMP WITH TIME ZONE '2019-07-17 12:34:00.123456789-09:30')""",
+        sqlu"""insert into "Data_Instant_with_offset" values (4, TIMESTAMP WITH TIME ZONE '2019-07-17 12:34:00Z')""",
+        instantTable.sortBy(_.id).result.map(_ shouldBe expected),
+        instantTable.filter(_.data === expected(1)._2).map(_.id).result.map(_ shouldBe Seq(2)),
+        instantTable.filter(_.data === expected(2)._2.bind).map(_.id).result.map(_ shouldBe Seq(3))
+      ))
+    case _ =>
       IO.unit
   }
 
