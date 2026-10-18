@@ -25,6 +25,10 @@ You should generally enable logging for the root package `slick` at level `INFO`
 or `WARNING`. Debug logging should only be enabled selectively for individual loggers, otherwise you will get a huge
 amount of log output.
 
+Logback logs everything at `DEBUG` level when it finds no configuration file, so put a `logback.xml` on the
+classpath of the program that uses Slick (for the @ref:[code generator](code-generation.md), on the classpath of the
+project that runs it).
+
 The following loggers are particularly interesting:
 
 - `slick.basic.BasicBackend.action`:
