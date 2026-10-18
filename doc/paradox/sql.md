@@ -23,8 +23,8 @@ a @scaladoc[DBIOAction](slick.dbio.DBIOAction) that can be composed and run like
 String Interpolation
 --------------------
 
-*Plain SQL* queries in Slick are built via string interpolation using the `sql`, `sqlu` and
-`tsql` interpolators. They are available through the standard `api._` import from a Slick profile:
+*Plain SQL* queries in Slick are built via string interpolation using the `sql` and `sqlu`
+interpolators. They are available through the standard `api._` import from a Slick profile:
 
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #imports }
 
@@ -101,46 +101,3 @@ Concatenating SQL statements
 It is possible to combine partial SQL statements using `concat` method:
 
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #concat }
-
-Type-Checked SQL Statements
----------------------------
-
-The interpolators you have seen so far only construct a SQL statement at runtime. This provides a
-safe and easy way of building statements but they are still just embedded strings. If you have a
-syntax error in a statement or the types don't match up between the database and your Scala code,
-this cannot be detected at compile-time. You can use the `tsql` interpolator instead of `sql`
-to get just that:
-
-@@snip [PlainSQL.scala](../code/PlainSQL.scala) { #tsql }
-
-Note that `tsql` directly produces a `DBIOAction` of the correct type without requiring a call
-to `.as`.
-
-In order to give the compiler access to the database, you have to provide a configuration that can
-be resolved at compile-time. This is done with the @scaladoc[StaticDatabaseConfig](slick.basic.StaticDatabaseConfig)
-annotation:
-
-```scala
-@StaticDatabaseConfig("file:src/main/resources/application.conf#tsql")
-```
-
-In this case it points to the path "tsql" in a local `application.conf` file, which must contain
-an appropriate configuration for a @scaladoc[StaticDatabaseConfig](slick.basic.StaticDatabaseConfig) object, not just a
-`Database`.
-
-@@@ note
-You can get `application.conf` resolved via the classpath (as usual) by omitting the path and
-only specifying a fragment in the URL, or you can use a `resource:` URL scheme for referencing
-an arbitrary classpath resource, but in both cases, they have to be on the *compiler's* own
-classpath, not just the source path or the runtime classpath. Depending on the build tool this
-may not be possible, so it's usually better to use a relative `file:` URL.
-@@@
-
-You can also retrieve the statically configured @scaladoc[DatabaseConfig](slick.basic.DatabaseConfig) at runtime:
-
-@@snip [PlainSQL.scala](../code/PlainSQL.scala) { #staticdatabaseconfig }
-
-This gives you the Slick profile for the standard `api._` import and the `Database`. Note that
-it is not mandatory to use the same configuration. You can get a Slick profile and `Database` at
-runtime in any other way you like and only use the `StaticDatabaseConfig` for compile-time
-checking.

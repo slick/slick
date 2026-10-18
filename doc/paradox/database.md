@@ -21,7 +21,7 @@ The easiest way to configure database connections is through @extref[Typesafe Co
 `application.conf`, which is also used by @extref[Play](play:) and @extref[Akka](akka:) for their configuration.
 
 Such a configuration can be loaded with `DatabaseConfig.forProfileConfig` (see the
-@scaladoc[API documentation](slick.basic.DatabaseConfig$#forProfileConfig[P](profile:P,path:String,config:com.typesafe.config.Config,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type])
+@scaladoc[API documentation](slick.basic.DatabaseConfig$#forProfileConfig[P%3C:slick.basic.BasicProfile](profile:P,path:String,config:com.typesafe.config.Config,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[P])
 of this method for details on the configuration parameters). It returns a `DatabaseConfig` value
 that you can open with any of the three facades.
 
@@ -30,15 +30,16 @@ that you can open with any of the three facades.
 #### PostgreSQL
 @@snip [application.conf](../code/application.conf) { #postgres }
 
-When specifying a dataSourceClass you will need to bring in the sbt dependency for that class. The following is an example for the `org.postgresql.ds.PGSimpleDataSource` data source class:
+The `dataSourceClass` is a `javax.sql.DataSource` class provided by the JDBC driver; a Slick profile is not a
+`DataSource`. When specifying a dataSourceClass you will need to bring in the sbt dependency for that class. The following is an example for the `org.postgresql.ds.PGSimpleDataSource` data source class:
 
 @@@ vars
 ```scala
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "$project.version$",
-  "org.slf4j" % "slf4j-nop" % "1.7.26",
+  "org.slf4j" % "slf4j-nop" % "2.0.20",
   "com.typesafe.slick" %% "slick-hikaricp" % "$project.version$",
-  "org.postgresql" % "postgresql" % "42.2.5" //org.postgresql.ds.PGSimpleDataSource dependency
+  "org.postgresql" % "postgresql" % "42.7.14" //org.postgresql.ds.PGSimpleDataSource dependency
 )
 ```
 @@@
@@ -49,7 +50,8 @@ date. The 42.X development line has been the main line of development since
 February 2017. As noted on the Postgres site, "Unless you have unusual
 requirements (running old applications or JVMs), this is the driver you should
 be using." See https://jdbc.postgresql.org/download.html for more information
-about when you may want to use the 9.4 line.
+about when you may want to use the 9.4 line. Old drivers fail with "The authentication type 10 is not supported"
+because they do not support the `scram-sha-256` password authentication that PostgreSQL uses by default.
 
 #### MySQL
 

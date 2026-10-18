@@ -58,16 +58,24 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
 
   ///////////////////////////////////////////////////////////////////////////////////////////// Builder factory methods
 
+  /** Table namer factory. Override for customization.
+    * @group Basic customization overrides */
   def createTableNamer(meta: MTable): TableNamer = new TableNamer(meta)
 
   /** Column model builder factory. Override for customization.
     * @group Basic customization overrides */
   def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta)
 
+  /** Primary key model builder factory. Override for customization.
+    * @group Basic customization overrides */
   def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta)
 
+  /** Foreign key model builder factory. Override for customization.
+    * @group Basic customization overrides */
   def createForeignKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MForeignKey]): ForeignKeyBuilder = new ForeignKeyBuilder(tableBuilder, meta)
 
+  /** Index model builder factory. Override for customization.
+    * @group Basic customization overrides */
   def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta)
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////// Main builder
@@ -133,6 +141,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
 
   ///////////////////////////////////////////////////////////////////////////////////////////// Builder implementations
 
+  /** Determines the qualified name of a table in the model.
+    * @group Basic customization overrides */
   class TableNamer(val meta: MTable) {
     /** Table name */
     def name: String = meta.name.name
@@ -180,6 +190,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
       case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
       case t => t
     }
+    /** Column name */
     def name = meta.name
     /** Indicates whether this is a nullable column */
     def nullable = meta.nullable.getOrElse(true)
@@ -203,6 +214,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
       Seq(NVARCHAR, VARCHAR, LONGVARCHAR, LONGNVARCHAR) contains meta.sqlType
     }
 
+    /** The default value as reported by the JDBC driver (unparsed SQL), if any */
     def rawDefault = meta.columnDef
 
     /** The default value for the column. The outer option is used to indicate if a default value is given. The inner
@@ -285,11 +297,15 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
         (if(!autoInc && !generated) convenientDefault else None) )
   }
 
+  /** Primary key model builder.
+    * @group Basic customization overrides */
   class PrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]){
     /** Indicates wether a primary key should be generated. Disabled by default for single column primary keys in favor
       * of ColumnOption PrimaryKey via Column#createPrimaryKeyColumnOption. */
     def enabled: Boolean = meta.size > 1
+    /** Primary key name, if the database reports one */
     def name: Option[String] = meta.head.pkName.filter(_ != "")
+    /** Names of the primary key columns in key sequence order */
     def columns = meta.map(_.column)
     // single column primary keys excluded in favor of PrimaryKey column option
     final def model: Option[m.PrimaryKey] = if(!enabled) None else Some(
@@ -297,14 +313,21 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
     )
   }
 
+  /** Foreign key model builder.
+    * @group Basic customization overrides */
   class ForeignKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MForeignKey]) {
     private val fk = meta.head
+    /** Indicates whether a foreign key should be generated. Enabled by default. */
     def enabled: Boolean = true
+    /** Foreign key name, if the database reports one */
     def name: Option[String] = fk.fkName.filter(_ != "")
+    /** Names of the columns in this table that hold the foreign key, in key sequence order */
     def referencedColumns  = meta.map(_.fkColumn)
     private val referencingColumns = meta.map(_.pkColumn)
     assert(referencingColumns.size == referencedColumns.size)
+    /** Action taken when the referenced row is updated */
     def updateRule: m.ForeignKeyAction = fk.updateRule
+    /** Action taken when the referenced row is deleted */
     def deleteRule: m.ForeignKeyAction = fk.deleteRule
 
     final def buildModel(builders: Builders): Option[m.ForeignKey] = {
@@ -322,6 +345,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
     }
   }
 
+  /** Index model builder.
+    * @group Basic customization overrides */
   class IndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]) {
     private val idx = meta.head
     assert(meta.size >= 1)
@@ -343,8 +368,11 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
         columns.forall(tableBuilder.columnsByName.isDefinedAt)
       )
 
+    /** Indicates whether this is a unique index */
     def unique = !idx.nonUnique
+    /** Names of the indexed columns in ordinal position order */
     def columns = meta.flatMap(_.column)
+    /** Index name, if the database reports one */
     def name = idx.indexName.filter(_ != "")
     final def model: Option[m.Index] =
       if(!enabled) None
