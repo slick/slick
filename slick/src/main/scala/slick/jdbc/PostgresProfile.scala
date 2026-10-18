@@ -168,6 +168,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
     case java.sql.Types.BLOB => "lo"
+    /* PostgreSQL has no CLOB type. The JDBC driver stores Clob values as large objects, like Blob. */
+    case java.sql.Types.CLOB => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"

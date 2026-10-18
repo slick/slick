@@ -192,6 +192,8 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
               "VARCHAR(254)" else "TEXT"
         }
       }
+    /* MySQL has no CLOB type. LONGTEXT holds up to 4GB, TEXT only 64KB. */
+    case java.sql.Types.CLOB => "LONGTEXT"
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
