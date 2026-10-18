@@ -398,12 +398,12 @@ END;
     // and with DST changes, there are some times which will be unrepresentable during the switchover
     class OracleLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
       override def valueToSQLLiteral(value: LocalDateTime) = {
-        s"TO_TIMESTAMP(${super.valueToSQLLiteral(value)}, 'YYYY-MM-DD HH24:MI:SS.FF3')"
+        s"TO_TIMESTAMP(${super.valueToSQLLiteral(value)}, 'YYYY-MM-DD HH24:MI:SS.FF9')"
       }
     }
 
     class OracleInstantJdbcType extends InstantJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS x")
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS x")
       private[this] def serializeTime(v: Instant) : String = formatter.format(instantToUTC(v))
       private[this] def instantToUTC(v: Instant): OffsetDateTime = v.atOffset(ZoneOffset.UTC)
 
@@ -417,13 +417,13 @@ END;
       }
       override def hasLiteralForm: Boolean = true
       override def valueToSQLLiteral(value: Instant) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH')"
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF9 TZH')"
       }
     }
 
     // No Oracle time type without date component. Add LocalDate.ofEpochDay(0), but ignore it.
     class OracleOffsetTimeJdbcType extends OffsetTimeJdbcType {
-      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS Z")
+      private[this] val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS Z")
       private[this] def serializeTime(v : OffsetTime) : String = formatter.format(v.atDate(LocalDate.ofEpochDay(0)))
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIMESTAMP(6) WITH TIME ZONE"
       override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) = {
@@ -437,7 +437,7 @@ END;
       }
       override def hasLiteralForm: Boolean = true
       override def valueToSQLLiteral(value: OffsetTime) = {
-        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')"
+        s"TO_TIMESTAMP_TZ('${serializeTime(value)}', 'YYYY-MM-DD HH24:MI:SS.FF9 TZH:TZM')"
       }
     }
   }
