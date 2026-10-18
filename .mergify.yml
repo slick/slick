@@ -1,7 +1,15 @@
 queue_rules:
   - name: default
+    # The queue merges as soon as these hold, whatever put the PR in the queue (the rule below or a
+    # manual `@mergifyio queue`), so they repeat the required checks.
     merge_conditions:
       - "-draft"
+      - "check-success=Build and Test (javaMin, 2.13.x)"
+      - "check-success=Build and Test (javaMin, 3.x)"
+      - "check-success=Build and Test (javaLatest, 2.13.x)"
+      - "check-success=Build and Test (javaLatest, 3.x)"
+      - "check-success=Check conformance with version policy (2.13.x)"
+      - "check-success=Check conformance with version policy (3.x)"
     merge_method: merge
     update_method: rebase
 
