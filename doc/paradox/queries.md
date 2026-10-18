@@ -26,6 +26,12 @@ compare the types of a simple Scala collections example
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #plaintypes }
 
+For example, the same filter written against a table query:
+
+```scala
+val cheap = coffees.filter(_.price < 5.0).map(_.name)
+```
+
 ... with the types of similar code in Slick:
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #reptypes }
