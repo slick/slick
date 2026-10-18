@@ -48,7 +48,9 @@ individual database profiles):
 - java.util.UUID
 
 Nullable columns are represented by `Option[T]` where `T` is one of the
-supported primitive types.
+supported primitive types. Declare them with that type, e.g. `column[Option[Boolean]]("ACTIVE")`, and use them
+as they are in the `*` projection. `.?` is for using a non-nullable column where an `Option` is expected, e.g.
+an `AutoInc` key that is `None` before the row is inserted (see [Mapped Tables](#mapped-tables)).
 
 @@@ note
 Note: Currently all operations on Option values use the database's null propagation semantics
