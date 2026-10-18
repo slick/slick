@@ -64,6 +64,21 @@ class MySQLDDLTest(testSchema: Option[String]) {
       createStatements.contains("VARCHAR(16777215)")
     )
   }
+
+  @Test def testClobUsesLongText: Unit = {
+    class T637(tag: Tag) extends Table[java.sql.Clob](tag, testSchema, "mytable637") {
+      def c = column[java.sql.Clob]("c")
+
+      def * = c
+    }
+    val ts = TableQuery[T637]
+
+    val createStatements = ts.schema.createStatements.mkString("\n")
+    assertTrue(
+      "Clob column must be generated as LONGTEXT, MySQL has no CLOB type: " + createStatements,
+      createStatements.contains("`c` LONGTEXT")
+    )
+  }
 }
 
 object MySQLDDLTest {
