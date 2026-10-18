@@ -36,6 +36,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
     implicit def valueToConstColumn[T : TypedType](v: T): LiteralColumn[T] = new LiteralColumn[T](v)
     implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
+    implicit def typedRepToOrdered[T](c: TypedRep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
     implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[?], U](q: Query[T, U, Seq] & TableQuery[T]): TableQueryExtensionMethods[T, U] =
       new TableQueryExtensionMethods[T, U](q)
 
@@ -133,12 +134,15 @@ trait RelationalTableComponent { self: RelationalProfile =>
       * Note that Slick uses VARCHAR or VARCHAR(254) in DDL for String
       * columns if neither ColumnOption DBType nor Length are given.
       */
-    def column[C](n: String, options: ColumnOption[C]*)(implicit tt: TypedType[C]): Rep[C] = {
+    def column[C](n: String, options: ColumnOption[C]*)
+                 (implicit ct: ColumnTypeOf[C]): TypedRep[C] { type Nullability = ct.Nullability } = {
+      val tt = ct.tpe
       if(tt == null) throw new NullPointerException(
         "implicit TypedType[C] for column[C] is null. "+
         "This may be an initialization order problem. "+
         "When using a MappedColumnType, you may want to change it from a val to a lazy val or def.")
-      new Rep.TypedRep[C] {
+      new TypedRep[C]()(tt) {
+        type Nullability = ct.Nullability
         override def toNode: Node =
           Select(tableTag match {
             case r: RefTag => r.path

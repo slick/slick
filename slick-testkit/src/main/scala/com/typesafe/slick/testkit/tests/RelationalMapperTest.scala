@@ -5,6 +5,46 @@ import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api.*
 
+  def testColumnTypeNotInScope = {
+    sealed trait Bool
+    case object True extends Bool
+    case object False extends Bool
+
+    // The column type is in implicit scope only where the table is defined
+    object Schema {
+      implicit val boolTypeMapper: BaseColumnType[Bool] =
+        MappedColumnType.base[Bool, Int](b => if(b == True) 1 else 0, i => if(i == 1) True else False)
+
+      class T(tag: Tag) extends Table[(Int, Bool, Option[Bool])](tag, "t_column_type_not_in_scope") {
+        def id = column[Int]("id", O.PrimaryKey)
+        def b = column[Bool]("b")
+        def ob = column[Option[Bool]]("ob")
+        def * = (id, b, ob)
+      }
+    }
+    val ts = TableQuery[Schema.T]
+    def ids(q: Query[Schema.T, ?, Seq]) = q.map(_.id).to[Set].result
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq((1, False, None), (2, True, Some(False)), (3, True, Some(True))),
+      ts.sortBy(_.id).map(t => (t.b, t.ob)).result
+        .map(_ shouldBe Seq((False, None), (True, Some(False)), (True, Some(True)))),
+      ts.sortBy(t => (t.b.desc, t.ob.desc, t.id)).map(_.id).result.map(_ shouldBe Seq(3, 2, 1)),
+      ids(ts.filter(_.b === True)).map(_ shouldBe Set(2, 3)),
+      ids(ts.filter(_.b =!= True)).map(_ shouldBe Set(1)),
+      ids(ts.filter(_.ob === False)).map(_ shouldBe Set(2)),
+      ids(ts.filter(_.ob === Some(True))).map(_ shouldBe Set(3)),
+      ids(ts.filter(_.b === Option[Bool](False))).map(_ shouldBe Set(1)),
+      ids(ts.filter(t => t.b === t.ob)).map(_ shouldBe Set(3)),
+      ids(ts.filter(t => t.ob === t.b)).map(_ shouldBe Set(3)),
+      ids(ts.filter(_.b.inSet(Seq(False)))).map(_ shouldBe Set(1)),
+      ts.map(_.b).filter(_ === True).length.result.map(_ shouldBe 2),
+      ts.map(_.ob).filter(_ === False).length.result.map(_ shouldBe 1),
+      ts.map(t => Rep.Some(t.b)).filter(_ === Some(True)).length.result.map(_ shouldBe 2)
+    )
+  }
+
   def testMappedType = {
     sealed trait Bool
     case object True extends Bool
@@ -186,7 +226,6 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
 
   /** The column is not nullable although its Scala type is an Option, so None compares equal to -1 */
   def testOptionMappedAsWholeComparedWithOption = {
-    import MinusOneAsNoneTable.*
     val ts = TableQuery(new MinusOneAsNoneTable(_, "compared_with_option"))
     def matching(value: Option[Index]) = ts.filter(_.value === value)
     seq(
@@ -194,7 +233,7 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       ts ++= Seq(None, Some(Index(1)), Some(Index(2))),
       matching(Some(Index(2))).result.map(_ shouldBe Seq(Some(Index(2)))),
       matching(None).result.map(_ shouldBe Seq(None)),
-      ts.filter(_.value =!= Option(Index(1))).to[Set].result.map(_ shouldBe Set(None, Some(Index(2))))
+      ts.filter(_.value =!= Some(Index(1))).to[Set].result.map(_ shouldBe Set(None, Some(Index(2))))
     )
   }
 
