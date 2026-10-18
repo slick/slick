@@ -198,6 +198,11 @@ not supported at the moment. Therefore it is necessary to flatten the nested
 queries immediately by aggregating their values (or individual columns)
 as done in `q2`.
 
+A group has no `head`, so to get whole rows, e.g. the most expensive coffee of each supplier, aggregate the
+group and join the result back to the table:
+
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #aggregation4 }
+
 Querying
 --------
 
