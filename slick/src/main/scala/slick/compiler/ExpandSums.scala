@@ -300,7 +300,7 @@ class ExpandSums extends Phase {
         StructNode(ch).infer()
 
       // Optimize null-propagating single-column IfThenElse
-      case IfThenElse(ConstArray(Library.==(r, LiteralNode(null)), Library.SilentCast(LiteralNode(None)), c @ Library.SilentCast(r2))) if r == r2 => c
+      case IfThenElse(ConstArray(Library.==(r, LiteralNode(null)), Library.SilentCast(LiteralNode(None) :@ OptionType(_)), c @ Library.SilentCast(r2))) if r == r2 => c
 
       // Fix Untyped nulls in else clauses
       case cond @ IfThenElse(clauses) if (clauses.last match { case LiteralNode(None) :@ OptionType(ScalaBaseType.nullType) => true; case _ => false }) =>
