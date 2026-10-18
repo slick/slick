@@ -34,47 +34,11 @@ sbt ++3.9.0! compile
 sbt doc
 ```
 
-### Testing Commands
+### Running Tests
 
-Use `sbt` directly from the repository root for all test runs.
-
-```bash
-# Run all tests (includes testkit, doctests, and reactive-streams tests)
-sbt testAll
-
-# Run only testkit tests (sbt 2's `test` is incremental and skips unchanged, previously passing suites;
-# use `testFull` to force a complete run)
-sbt testkit/test
-sbt testkit/testFull
-
-# Run documentation tests
-sbt testkit/DocTest/test
-
-# Run reactive streams tests  
-sbt reactive-streams-tests/test
-
-# Test specific database profiles
-sbt "testkit/testOnly slick.test.profile.H2MemTest"
-sbt "testkit/testOnly slick.test.profile.PostgresTest"
-
-# Test with pattern matching
-sbt "testkit/testOnly *JoinTest*"
-sbt "testkit/testOnly *MainTest* -- -z insertTest"
-
-# Fully-qualified test name filtering (recommended for a single Testkit test)
-sbt "testkit/testOnly slick.test.profile.H2MemTest -- -z com.typesafe.slick.testkit.tests.TransactionTest.testTransactions[h2mem]"
-
-# Run with debug output and SQL logging
-sbt -Dslick.ansiDump=true testkit/test
-
-# Cross-version testing
-sbt ++2.12.21 testkit/test
-sbt ++2.13.18 testkit/test
-sbt ++3.9.0! testkit/test
-
-# Codegen tests (requires cleaning managed sources first)
-rm -rf target/out/jvm/scala-2.13.18/slick-testkit/src_managed && sbt 'testOnly slick.test.codegen.*'
-```
+Read [DEVELOPING.md](DEVELOPING.md) before running tests. It covers the setting needed to load the build in a linked
+git worktree, how to select testkit tests (`testOnly` patterns and the arguments after `--`), how to set system
+properties in the forked test JVMs, and how to enable the service databases.
 
 ### Development Build Tasks
 
@@ -183,119 +147,6 @@ Tests use Typesafe Config for database configuration:
 - **Test grouping**: Database-specific test groups with controlled concurrency
 - **Environment-specific configs**: GitHub Actions configurations in `test-dbs/`
 - **Key test databases**: H2 (default for fast testing), PostgreSQL, MySQL (for production database testing)
-
-### Running Tests
-
-```bash
-# Run all tests (includes testkit, doctests, and reactive-streams tests)
-sbt testAll
-
-# Run only testkit tests (sbt 2's `test` is incremental and skips unchanged, previously passing suites;
-# use `testFull` to force a complete run)
-sbt testkit/test
-sbt testkit/testFull
-
-# Run documentation tests
-sbt testkit/DocTest/test
-
-# Run reactive streams tests
-sbt reactive-streams-tests/test
-
-# Test specific database
-sbt -Dslick.dbs=postgres testkit/test
-
-# Test specific functionality
-sbt "testkit/testOnly *JoinTest*"
-
-# Run specific test with full qualification
-sbt "testkit/testOnly slick.test.profile.H2MemTest -- -z com.typesafe.slick.testkit.tests.JoinTest.testJoin[h2mem]"
-
-# Run with debug output
-sbt -Dslick.ansiDump=true testkit/test
-
-# Run with SQL debugging
-sbt -Dslick.ansiDump=true testkit/test
-```
-
-### Cross-Database Testing Configuration
-
-#### Configuration System Overview
-
-Slick's testkit uses a layered configuration system for database testing:
-
-1. **Default Configuration** (`testkit-reference.conf`): Embedded databases only (H2, Derby, HSQLDB, SQLite)
-   - Fast local testing with no external dependencies
-
-2. **Base Database Configuration** (`test-dbs/testkit-databases.conf`): All service database connection settings
-   - Contains connection details for PostgreSQL, MySQL, Oracle, DB2, SQL Server
-   - All service databases remain disabled by default
-   - Matches the services defined in GitHub Actions as well as `docker-compose.yml`
-
-3. **GitHub Actions Configuration** (`test-dbs/testkit.github-actions.conf`): CI comprehensive testing
-   - Includes the base database config and sets `enabled = true` for all service databases
-   - Used for comprehensive cross-database testing in CI
-
-4. **System Property Overrides**: Typesafe Config allows runtime configuration overrides
-   - `-D[database].enabled=true` enables specific databases when using base config
-   - Much simpler than having to disable everything else
-
-#### Testing Service Databases Locally
-
-Use the base config and enable only what you need:
-
-```bash
-# Test only PostgreSQL (start docker container and enable)
-docker compose up -d postgres
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
-  -Dpostgres.enabled=true \
-  "testkit/testOnly slick.test.profile.PostgresTest"
-
-# Test PostgreSQL + MySQL together
-docker compose up -d postgres mysql
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
-  -Dpostgres.enabled=true -Dmysql.enabled=true \
-  testkit/test
-
-# Test specific functionality across multiple databases
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
-  -Dpostgres.enabled=true -Dmysql.enabled=true \
-  'project testkit; +testOnly -- -z com.typesafe.slick.testkit.tests.AggregateTest.testGroupBy*'
-```
-
-**CI Testing** (all databases enabled):
-
-```bash
-# Comprehensive testing (as used in GitHub Actions)
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt testkit/test
-```
-
-**Available Database Flags:**
-
-- `postgres.enabled=true` - Enable PostgreSQL testing
-- `mysql.enabled=true` - Enable MySQL testing  
-- `db2.enabled=true` - Enable DB2 testing
-- `oracle.enabled=true` - Enable Oracle testing
-- `sqlserver-sqljdbc.enabled=true` - Enable SQL Server testing
-
-#### Why This Design?
-
-- **Local simplicity**: Enable only what you want to test with `-D[database].enabled=true`
-- **Resource efficiency**: No need to disable multiple databases - just enable what you need
-- **CI simplicity**: GitHub Actions config enables everything for comprehensive testing
-- **Consistent connection settings**: Same connection parameters across all environments
-- **Clear separation**: Base config has connection details, CI config just enables everything
-
-### Local Database Testing with Docker
-
-```bash
-# Start databases using docker-compose
-docker compose up -d postgres
-docker compose up -d mysql
-docker compose up -d sqlserver
-
-# Wait for database readiness
-docker compose exec postgres pg_isready -U postgres
-```
 
 ### Test Development Patterns
 
@@ -454,7 +305,8 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   coverage-instrumented compile creates, so instrumented code cannot record measurements. CI disables the disk cache
   for coverage builds (`disk-cache: false` on `sbt/setup-sbt`); locally, delete `~/.cache/sbt/v2` and rerun
 - **Connection issues**: Check database configuration in `application.conf`
-- **SQL generation**: Enable SQL logging with `slick.ansiDump=true`
+- **SQL generation**: Log the executed SQL with `-Dlog.jdbc.statement=debug` (see "Setting system properties for
+  tests" in DEVELOPING.md)
 - **Database-specific features**: Verify profile capabilities
 - **PostgreSQL JDBC Compatibility**: When upgrading PostgreSQL JDBC drivers, catalog parameter handling may change. Use
   `conn.getCatalog` instead of empty strings in `DatabaseMetaData.getTables()` calls
