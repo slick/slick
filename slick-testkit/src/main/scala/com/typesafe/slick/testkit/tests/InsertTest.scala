@@ -290,12 +290,13 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
 
   // Regression test for https://github.com/slick/slick/issues/2114
   def testInsertOrUpdateWithFuncDefinedCompositePK: DBIOAction[Unit, NoStream, Effect.All] = {
-    class T(tag: Tag) extends Table[(Int, String, String)](tag, "t_merge_composite") {
-      def a = column[Int]("a")
-      def b = column[String]("b", O.Length(20))
-      def name = column[String]("name")
+    // Upper-case names because Oracle and DB2 cannot return columns with lower-case names
+    class T(tag: Tag) extends Table[(Int, String, String)](tag, "T_MERGE_COMPOSITE") {
+      def a = column[Int]("A")
+      def b = column[String]("B", O.Length(20))
+      def name = column[String]("NAME")
       def * = (a, b, name)
-      def pk = primaryKey("t_merge_composite_pk", (a, b))
+      def pk = primaryKey("T_MERGE_COMPOSITE_PK", (a, b))
     }
     val ts = TableQuery[T]
 
@@ -493,8 +494,16 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         def * = (id, value) <> ((V.apply _).tupled, V.unapply)
         def pk = primaryKey("pk", (id, value))
       }
+      // Upper-case names because Oracle and DB2 cannot return columns with lower-case names
+      class T3(tag: Tag) extends Table[V](tag, "MYTABLE3") {
+        def id = column[Int]("ID")
+        def value = column[String]("VAL", O.Length(20))
+        def * = (id, value) <> ((V.apply _).tupled, V.unapply)
+        def pk = primaryKey("MYTABLE3_PK", (id, value))
+      }
       val ts1 = TableQuery[T]
       val ts2 = TableQuery[T2]
+      val ts3 = TableQuery[T3]
       (for {
         _ <- ts1.schema.create
         _ <- ts1 ++= Seq(1, 2)
@@ -507,11 +516,13 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         _ <- ts2.insertOrUpdate(V(2, "d")).map(_ shouldBe 1)
         _ <- ts2.sortBy(t => (t.id, t.value)).result.map(_ shouldBe Seq(V(0, "c"), V(1, "a"), V(2, "b"), V(2, "d")))
         _ <- ifCap(jcap.returnInsertOther) {
-          val q = ts2.returning(ts2)
+          val q = ts3.returning(ts3)
           for {
-            _ <- q.insertOrUpdate(V(3, "e")).map(_ shouldBe Some(V(3, "e")))
+            _ <- ts3.schema.create
+            _ <- ts3 += V(1, "a")
+            _ <- q.insertOrUpdate(V(2, "b")).map(_ shouldBe Some(V(2, "b")))
             _ <- q.insertOrUpdate(V(1, "a")).map(_ shouldBe None)
-            _ <- ts2.length.result.map(_ shouldBe 5)
+            _ <- ts3.sortBy(t => (t.id, t.value)).result.map(_ shouldBe Seq(V(1, "a"), V(2, "b")))
           } yield ()
         }
       } yield ()).withPinnedSession
