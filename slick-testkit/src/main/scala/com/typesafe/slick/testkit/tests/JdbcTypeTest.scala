@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import java.io.{ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.sql.{Blob, Clob, Date, Time, Timestamp}
+import java.sql.{Blob, Clob, Date, SQLFeatureNotSupportedException, Time, Timestamp}
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ChronoField, ChronoUnit}
@@ -94,10 +94,20 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
+    // Some drivers (e.g. Oracle) only accept their own Clob implementation, others (e.g. PostgreSQL)
+    // do not implement createClob
+    def clob(s: String): DBIO[Clob] = SimpleDBIO { ctx =>
+      try {
+        val c = ctx.connection.createClob()
+        c.setString(1, s)
+        c
+      } catch { case _: SQLFeatureNotSupportedException => new SerialClob(s.toCharArray) }
+    }
+
     val a1 = (
       ts.schema.create >>
-      (ts += (1, new SerialClob("abc".toCharArray))) >>
-      (ts += (2, new SerialClob("de".toCharArray))) >>
+      clob("abc").flatMap(c => ts += (1, c)) >>
+      clob("de").flatMap(c => ts += (2, c)) >>
       ts.result
     ).transactionally
     val p1 = db.stream(a1).map { case (id, data) => (id, data.getSubString(1, data.length.toInt)) }
