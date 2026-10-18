@@ -139,6 +139,20 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
     }
   }
 
+  /** The Scala source name of a ClassTag's class. Unlike `ClassTag.toString`, which uses the binary name, a nested
+    * class such as `Outer.Inner` (binary name `Outer$Inner`, where `Outer$` is the class of a Scala object) is
+    * rendered with dots. Other classes are rendered as by `ClassTag.toString`. */
+  private def scalaTypeName(ct: ClassTag[?]): String = {
+    def sourceName(c: Class[?]): String =
+      if(c.isArray) s"Array[${sourceName(c.getComponentType)}]"
+      else c.getDeclaringClass match {
+        case null => c.getName
+        case d => sourceName(d).stripSuffix("$") + "." + c.getName.stripPrefix(d.getName + "$")
+      }
+    val c = ct.runtimeClass
+    if(c.isArray || c.getDeclaringClass != null) sourceName(c) else ct.toString
+  }
+
   ///////////////////////////////////////////////////////////////////////////////////////////// Builder implementations
 
   /** Determines the qualified name of a table in the model.
@@ -186,7 +200,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
     /** Regex matcher to extract string out ouf surrounding '' */
     final val StringPattern = """^'(.*)'$""".r
     /** Scala type this column is mapped to */
-    def tpe = jdbcTypeToScala(meta.sqlType, meta.typeName).toString match {
+    def tpe = scalaTypeName(jdbcTypeToScala(meta.sqlType, meta.typeName)) match {
       case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
       case t => t
     }
