@@ -86,7 +86,10 @@ consumer requests the next element:
 Some database systems may require session parameters to be set in a certain way to support streaming without
 caching all data at once in memory on the client side. For example, @extref[PostgreSQL](postgresql:) requires both
 `.withStatementParameters(rsType = ResultSetType.ForwardOnly, rsConcurrency = ResultSetConcurrency.ReadOnly, fetchSize = n)`
-(with the desired page size `n`) and `.transactionally` for proper streaming.
+(with the desired page size `n`) and `.transactionally` for proper streaming: the PostgreSQL driver only fetches
+in pages when auto-commit is off. @extref[MySQL](mysql:) streams row by row with `fetchSize = Int.MinValue`
+together with `ResultSetType.ForwardOnly` and `ResultSetConcurrency.ReadOnly` (this is what Connector/J's
+`enableStreamingResults()` sets, so you need not call it from `statementInit`).
 @@@
 
 Composing Database I/O Actions
