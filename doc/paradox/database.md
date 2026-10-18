@@ -21,7 +21,7 @@ The easiest way to configure database connections is through @extref[Typesafe Co
 `application.conf`, which is also used by @extref[Play](play:) and @extref[Akka](akka:) for their configuration.
 
 Such a configuration can be loaded with `DatabaseConfig.forProfileConfig` (see the
-@scaladoc[API documentation](slick.basic.DatabaseConfig$#forProfileConfig[P](profile:P,path:String,config:com.typesafe.config.Config,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[profile.type])
+@scaladoc[API documentation](slick.basic.DatabaseConfig$#forProfileConfig[P%3C:slick.basic.BasicProfile](profile:P,path:String,config:com.typesafe.config.Config,classLoader:ClassLoader):slick.basic.BasicDatabaseConfig[P])
 of this method for details on the configuration parameters). It returns a `DatabaseConfig` value
 that you can open with any of the three facades.
 
