@@ -137,6 +137,11 @@ You can also map to arbitrary types by using the `<>` operator. It takes
 two functions as parameters, one for mapping from the raw value (which may
 be a tuple) to the custom type, and one for mapping back.
 
+When the function for mapping back returns an `Option`, like the `unapply` method of a case class, it has to
+return `Some` for every value: `None` does not mean SQL `NULL` but makes Slick fail with
+`NoSuchElementException: None.get` when it writes the value. If the custom type is itself an `Option`, an empty
+value maps back to `Some(None)`.
+
 The API is designed to be optimal for Scala 2 case classes, which generate
 a companion object with a `tupled` method, and an `unapply` method that
 returns an `Option` of the case class.
