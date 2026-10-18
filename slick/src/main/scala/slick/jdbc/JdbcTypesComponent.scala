@@ -380,6 +380,10 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def setValue(v: Double, p: PreparedStatement, idx: Int) = p.setDouble(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getDouble(idx)
       def updateValue(v: Double, r: ResultSet, idx: Int) = r.updateDouble(idx, v)
+      // NaN and the infinities have no numeric literal form. Queries send them as bind variables, so this cast
+      // is only used where a literal is required (e.g. column defaults) and works only on some databases
+      override def valueToSQLLiteral(value: Double) =
+        if(value.isNaN || value.isInfinite) s"cast('$value' as ${sqlTypeName(None)})" else value.toString
     }
 
     class FloatJdbcType extends DriverJdbcType[Float] with NumericTypedType {
@@ -388,6 +392,10 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       def setValue(v: Float, p: PreparedStatement, idx: Int) = p.setFloat(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getFloat(idx)
       def updateValue(v: Float, r: ResultSet, idx: Int) = r.updateFloat(idx, v)
+      // NaN and the infinities have no numeric literal form. Queries send them as bind variables, so this cast
+      // is only used where a literal is required (e.g. column defaults) and works only on some databases
+      override def valueToSQLLiteral(value: Float) =
+        if(value.isNaN || value.isInfinite) s"cast('$value' as ${sqlTypeName(None)})" else value.toString
     }
 
     class IntJdbcType extends DriverJdbcType[Int] with NumericTypedType {
@@ -526,4 +534,14 @@ object JdbcTypesComponent {
   private[slick] lazy val typeNames = Map() ++
     (for(f <- classOf[java.sql.Types].getFields)
       yield f.get(null).asInstanceOf[Int] -> f.getName)
+
+  /** Check if a literal value is a NaN or infinite floating-point number. Databases disagree on whether and how
+    * these can be written in SQL (some silently turn a string cast into 0), so query builders send them as bind
+    * variables and let the JDBC driver handle them. */
+  private[slick] def isNonFiniteFloatingPoint(v: Any): Boolean = v match {
+    case d: Double => d.isNaN || d.isInfinite
+    case f: Float  => f.isNaN || f.isInfinite
+    case Some(x)   => isNonFiniteFloatingPoint(x)
+    case _         => false
+  }
 }
