@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import java.io.{ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.sql.{Blob, Date, Time, Timestamp}
+import java.sql.{Blob, Clob, Date, SQLFeatureNotSupportedException, Time, Timestamp}
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ChronoField, ChronoUnit}
@@ -13,10 +13,10 @@ import scala.util.Random
 import cats.effect.IO
 
 import slick.ast.FieldSymbol
-import slick.jdbc.{H2Profile, PostgresProfile}
+import slick.jdbc.{H2Profile, PostgresProfile, SQLiteProfile}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
-import javax.sql.rowset.serial.SerialBlob
+import javax.sql.rowset.serial.{SerialBlob, SerialClob}
 
 
 /** Data type related tests which are specific to JdbcProfile */
@@ -82,6 +82,36 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         { case (id, data) => IO.pure((id, data.getBytes(1, data.length.toInt).mkString)) })
       f.map(_.toSet shouldBe Set((1,"123"), (2,"45")))
     }
+  }
+
+  def testClob: IO[Unit] = {
+    // The SQLite JDBC driver does not implement Clob
+    if(tdb.profile.isInstanceOf[SQLiteProfile]) return IO.unit
+    class T(tag: Tag) extends Table[(Int, Clob)](tag, "test_clob") {
+      def id = column[Int]("id")
+      def data = column[Clob]("data")
+      def * = (id, data)
+    }
+    val ts = TableQuery[T]
+
+    // Some drivers (e.g. Oracle) only accept their own Clob implementation, others (e.g. PostgreSQL)
+    // do not implement createClob
+    def clob(s: String): DBIO[Clob] = SimpleDBIO { ctx =>
+      try {
+        val c = ctx.connection.createClob()
+        c.setString(1, s)
+        c
+      } catch { case _: SQLFeatureNotSupportedException => new SerialClob(s.toCharArray) }
+    }
+
+    val a1 = (
+      ts.schema.create >>
+      clob("abc").flatMap(c => ts += (1, c)) >>
+      clob("de").flatMap(c => ts += (2, c)) >>
+      ts.result
+    ).transactionally
+    val p1 = db.stream(a1).map { case (id, data) => (id, data.getSubString(1, data.length.toInt)) }
+    materialize(p1).map(_.toSet shouldBe Set((1,"abc"), (2,"de")))
   }
 
   def testMappedBlob = ifCap(rcap.typeBlob) {
