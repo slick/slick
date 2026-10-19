@@ -168,7 +168,25 @@ trait OracleProfile extends JdbcProfile {
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
         super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
+      case Union(left, right, all) => super.expr(Union(numericBooleans(left), numericBooleans(right), all))
       case _ => super.expr(c)
+    }
+
+    /* Boolean columns are CHAR(1), but Boolean literals, parameters and expressions are numbers. The
+     * columns of the two sides of a union must have the same type, so cast the Boolean ones to numbers. */
+    protected def numericBooleans(n: Node): Node = n match {
+      case c: Comprehension.Base =>
+        def cast(n: Node) =
+          if (Phase.rewriteBooleans.isBooleanLike(n.nodeType)) Library.Cast.typed(n.nodeType, n, LiteralNode("NUMBER(1)"))
+          else n
+        val select = c.select match {
+          case Pure(StructNode(defs), ts) => Pure(StructNode(defs.map { case (s, n) => (s, cast(n)) }), ts)
+          case Pure(ProductNode(ch), ts) => Pure(ProductNode(ch.map(cast)), ts)
+          case Pure(v, ts) => Pure(cast(v), ts)
+          case s => s
+        }
+        c.copy(select = select) :@ c.nodeType
+      case _ => n
     }
   }
 
