@@ -286,6 +286,7 @@ class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, $
         case v: Char                                      => s"'$v'"
         case v: BigDecimal                                => s"""scala.math.BigDecimal(\"$v\")"""
         case v: java.sql.Timestamp                        => s"""java.sql.Timestamp.valueOf("$v")"""
+        case v: java.util.UUID                            => s"""java.util.UUID.fromString("$v")"""
         case v                                            =>
           throw new SlickException(
             s"Dont' know how to generate code for default value $v of ${v.getClass}." +
