@@ -637,6 +637,71 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  def testMappedNonFiniteFloatingPoint = {
+    case class WD(value: Double)
+    case class WF(value: Float)
+    implicit val wdType: BaseColumnType[WD] = MappedColumnType.base[WD, Double](_.value, WD(_))
+    implicit val wfType: BaseColumnType[WF] = MappedColumnType.base[WF, Float](_.value, WF(_))
+
+    class T(tag: Tag) extends Table[(Int, WD, WF, Option[WD])](tag, "test_mapped_nonfinite") {
+      def id = column[Int]("id")
+      def d = column[WD]("d")
+      def f = column[WF]("f")
+      def od = column[Option[WD]]("od")
+      def * = (id, d, f, od)
+    }
+    val ts = TableQuery[T]
+
+    // Same support matrix as in testNonFiniteFloatingPoint
+    val (supportsNaN, supportsInfinity) = tdb.profile match {
+      case _: H2Profile | _: HsqldbProfile | _: PostgresProfile => (true, true)
+      case _: SQLiteProfile                                     => (false, true)
+      case _                                                    => (false, false)
+    }
+
+    // Row 1 holds 0.0, which SQLite (and MySQL) make of an inlined cast('Infinity' as DOUBLE)
+    val infinities = seq(
+      ts += (2, WD(Double.PositiveInfinity), WF(Float.PositiveInfinity), Some(WD(Double.PositiveInfinity))),
+      ts += (3, WD(Double.NegativeInfinity), WF(Float.NegativeInfinity), Some(WD(Double.NegativeInfinity))),
+      ts.filter(_.d === WD(Double.PositiveInfinity)).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.d === WD(Double.NegativeInfinity)).map(_.id).result.map(_ shouldBe Seq(3)),
+      ts.filter(_.f === WF(Float.PositiveInfinity)).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.f === WF(Float.NegativeInfinity)).map(_.id).result.map(_ shouldBe Seq(3)),
+      ts.filter(_.od === Option(WD(Double.PositiveInfinity))).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.id === 1).map(_ => WD(Double.NegativeInfinity)).result.head
+        .map(_.value shouldBe Double.NegativeInfinity)
+    )
+
+    val nan = seq(
+      ts += (4, WD(Double.NaN), WF(Float.NaN), Some(WD(Double.NaN))),
+      ts.filter(_.d === WD(Double.NaN)).map(_.id).result.map(_ shouldBe Seq(4)),
+      ts.filter(_.f === WF(Float.NaN)).map(_.id).result.map(_ shouldBe Seq(4)),
+      ts.filter(_.od === Option(WD(Double.NaN))).map(_.id).result.map(_ shouldBe Seq(4))
+    )
+
+    // A mapped column default is rendered through the base type's literal (a string cast)
+    class D(tag: Tag) extends Table[(Int, WD)](tag, "test_mapped_nonfinite_default") {
+      def id = column[Int]("id")
+      def inf = column[WD]("inf", O.Default(WD(Double.NegativeInfinity)))
+      def * = (id, inf)
+    }
+    val ds = TableQuery[D]
+    val defaults = seq(
+      ds.schema.create,
+      ds.map(_.id) += 1,
+      ds.map(_.inf).result.head.map(_.value shouldBe Double.NegativeInfinity)
+    )
+
+    seq(
+      ts.schema.create,
+      ts += (1, WD(0.0), WF(0.0f), Some(WD(0.0))),
+      if (supportsInfinity) infinities else DBIO.successful(()),
+      if (supportsNaN) nan else DBIO.successful(()),
+      if (supportsNaN) defaults else DBIO.successful(()),
+      ts.filter(_.d === WD(0.0)).map(_.id).result.map(_ shouldBe Seq(1))
+    )
+  }
+
   def testOverrideIdentityType = {
     class T1(tag: Tag) extends Table[Int](tag, "t1") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc, O.SqlType("_FOO_BAR_"))

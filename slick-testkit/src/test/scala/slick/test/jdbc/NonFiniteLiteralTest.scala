@@ -36,6 +36,52 @@ class NonFiniteLiteralTest {
     assertTrue(s"$profile: $finite", finite.contains("1.5") && !finite.contains("?"))
   }
 
+  @Test def testMappedNonFiniteFilterUsesBindVariable(): Unit = profiles.foreach { profile =>
+    import profile.api._
+    import NonFiniteLiteralTest._
+    implicit val wdType: BaseColumnType[WD] = MappedColumnType.base[WD, Double](_.value, WD(_))
+    implicit val wfType: BaseColumnType[WF] = MappedColumnType.base[WF, Float](_.value, WF(_))
+    class T(tag: Tag) extends Table[(WD, WF, Option[WD])](tag, "t") {
+      def d = column[WD]("d")
+      def f = column[WF]("f")
+      def od = column[Option[WD]]("od")
+      def * = (d, f, od)
+    }
+    val ts = TableQuery[T]
+    val queries = Seq(
+      ts.filter(_.d === WD(Double.NaN)).result,
+      ts.filter(_.d === WD(Double.PositiveInfinity)).result,
+      ts.filter(_.d === WD(Double.NegativeInfinity)).result,
+      ts.filter(_.f === WF(Float.PositiveInfinity)).result,
+      ts.filter(_.od === Option(WD(Double.NaN))).result,
+      ts.map(_ => WD(Double.PositiveInfinity)).result
+    )
+    queries.foreach { q =>
+      val s = q.statements.mkString
+      assertFalse(s"$profile: $s", s.contains("NaN") || s.contains("Infinity"))
+      assertTrue(s"$profile: $s", s.contains("?"))
+    }
+    val finite = ts.filter(_.d === WD(1.5)).result.statements.mkString
+    assertTrue(s"$profile: $finite", finite.contains("1.5") && !finite.contains("?"))
+  }
+
+  @Test def testTypeWithoutLiteralFormIsAlwaysBound(): Unit = profiles.foreach { profile =>
+    import profile.api._
+    // A subclass that opts out of literals for the whole type must not get them back per value
+    implicit val noLiteralDouble: profile.columnTypes.DoubleJdbcType = new profile.columnTypes.DoubleJdbcType {
+      override def hasLiteralForm = false
+    }
+    class T(tag: Tag) extends Table[Double](tag, "t") {
+      def d = column[Double]("d")
+      def * = d
+    }
+    val ts = TableQuery[T]
+    Seq(ts.filter(_.d === 1.5).result, ts.filter(_.d.? === Option(1.5)).result).foreach { q =>
+      val s = q.statements.mkString
+      assertTrue(s"$profile: $s", s.contains("?") && !s.contains("1.5"))
+    }
+  }
+
   @Test def testNonFiniteLiteral(): Unit = {
     assertEquals("cast('NaN' as DOUBLE PRECISION)",
       PostgresProfile.columnTypes.doubleJdbcType.valueToSQLLiteral(Double.NaN))
@@ -54,5 +100,19 @@ class NonFiniteLiteralTest {
     }
     val ddl = TableQuery[T].schema.createStatements.mkString
     assertTrue(ddl, ddl.contains("DEFAULT cast('NaN' as DOUBLE PRECISION)"))
+
+    import NonFiniteLiteralTest._
+    implicit val wdType: BaseColumnType[WD] = MappedColumnType.base[WD, Double](_.value, WD(_))
+    class M(tag: Tag) extends Table[WD](tag, "m") {
+      def d = column[WD]("d", O.Default(WD(Double.NegativeInfinity)))
+      def * = d
+    }
+    val mappedDdl = TableQuery[M].schema.createStatements.mkString
+    assertTrue(mappedDdl, mappedDdl.contains("DEFAULT cast('-Infinity' as DOUBLE PRECISION)"))
   }
+}
+
+object NonFiniteLiteralTest {
+  case class WD(value: Double)
+  case class WF(value: Float)
 }
