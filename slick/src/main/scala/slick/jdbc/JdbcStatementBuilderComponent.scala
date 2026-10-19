@@ -93,6 +93,16 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     else ti.valueToSQLLiteral(v)
   }
 
+  /** Check if a literal value can be written inline in SQL. Other values are sent as bind variables. */
+  def hasLiteralForm(v: Any, tpe: Type): Boolean = {
+    val JdbcType(ti, option) = tpe
+    // A type without a literal form never gets one for a single value
+    ti.hasLiteralForm && {
+      if (option) v.asInstanceOf[Option[Any]].forall(ti.hasLiteralFormFor)
+      else ti.hasLiteralFormFor(v)
+    }
+  }
+
   // Immutable config options (to be overridden by subclasses)
   /** The table name for scalar selects (e.g. "select 42 from DUAL;"), or `None` for
     * scalar selects without a FROM clause ("select 42;"). */
@@ -355,7 +365,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           case _ => throw new SlickException("Cannot resolve "+p+" as field or view")
         }
       case (n @ LiteralNode(v)) :@ JdbcType(ti, option) =>
-        if(n.volatileHint || !ti.hasLiteralForm || JdbcTypesComponent.isNonFiniteFloatingPoint(v)) b +?= { (p, idx, _) =>
+        if (n.volatileHint || !hasLiteralForm(v, n.nodeType)) b +?= { (p, idx, _) =>
           if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx)
           else ti.setValue(v, p, idx)
         } else b += valueToSQLLiteral(v, n.nodeType)

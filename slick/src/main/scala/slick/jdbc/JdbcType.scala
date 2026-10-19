@@ -43,5 +43,12 @@ trait JdbcType[T] extends BaseTypedType[T] { self =>
     * to treat LiteralNodes as volatile (i.e. using bind variables) as needed. */
   def hasLiteralForm: Boolean
 
+  /** Indicates whether this value of the type can be written as a literal in SQL statements.
+    * QueryBuilder sends literal values for which this returns false as bind variables.
+    * The default is `hasLiteralForm`. Types override it for values that have no reliable literal
+    * form, e.g. NaN and the infinities of the floating-point types. It must return false whenever
+    * `hasLiteralForm` is false. */
+  def hasLiteralFormFor(value: T): Boolean = hasLiteralForm
+
   override def toString = scalaType.toString + "'"
 }
