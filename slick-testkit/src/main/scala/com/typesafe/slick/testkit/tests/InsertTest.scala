@@ -171,6 +171,28 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession // Some database servers (e.g. DB2) preallocate ID blocks per session
   }
 
+  def testReturningColumnsThatNeedQuoting = ifCap(jcap.returnInsertKey) {
+    // Lower-case names and reserved words are only valid as quoted identifiers
+    class A(tag: Tag) extends Table[(Int, String, String)](tag, "a_quoted") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def s = column[String]("s")
+      def comment = column[String]("COMMENT")
+      def * = (id, s, comment)
+    }
+    val as = TableQuery[A]
+    def ins = as.map(a => (a.s, a.comment))
+    (for {
+      _ <- as.schema.create
+      _ <- (ins.returning(as.map(_.id)) += (("a", "x"))).map(_ shouldBe 1)
+      _ <- ifCap(jcap.returnInsertOther) {
+        (ins.returning(as) += (("b", "y"))).map(_ shouldBe ((2, "b", "y")))
+      }
+      _ <- ifCap(jcap.returnInsertOther) {
+        (ins.returning(as.map(_.comment)) += (("c", "z"))).map(_ shouldBe "z")
+      }
+    } yield ()).withPinnedSession
+  }
+
   def testForced = {
     class T(tname: String)(tag: Tag) extends Table[(Int, String, Int, Boolean, String, String, Int)](tag, tname) {
       def id = column[Int]("id", O.AutoInc, O.PrimaryKey)

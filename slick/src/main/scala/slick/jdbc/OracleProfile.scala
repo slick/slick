@@ -53,11 +53,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   * </ul>
   *
   * Note: The Oracle JDBC driver has problems with quoted identifiers. Columns
-  * which are returned from inserts must not require quoted names (in
+  * which are updated in a mutable result set must not require quoted names (in
   * particular, they must not contain lower-case characters or be equal to a
   * reserved word), otherwise a bug in the Oracle JDBC driver triggers an
-  * ORA-00904 error. The same issue arises when trying to update such a column
-  * in a mutable result set.
+  * ORA-00904 error.
   *
   * Updating Blob values in updatable result sets is not supported.
   */
@@ -486,19 +485,8 @@ END;
                                                              ): ReturningInsertActionComposer[U, RU] =
     new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
 
-  // Does not work to get around the ORA-00904 issue when returning columns
-  // with lower-case names
-  /*trait OracleInsertInvoker[U, RU] { this: AbstractKeysInsertInvoker[U, RU] =>
-    override protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Session) = {
-      val columns = MColumn.getColumns(new MQName(None, None, insertResult.table), null).mapResult(_.column).to[Vector]
-      val keyIndexes = keyColumns.map { n =>
-        val idx = columns.indexOf(n)
-        if(idx == -1) throw new SlickException("Column \""+n+"\" not found in table \""+insertResult.table+"\"")
-        idx + 1
-      }
-      session.withPreparedInsertStatement(sql, keyIndexes)(f)
-    }
-  }*/
+  // The driver puts the returned column names into its RETURNING clause unquoted
+  override protected def returnedColumnName(name: String): String = quoteIdentifier(name)
 
   /** Remove ORDER BY from comprehensions that are used as arguments to a
     * scalar function. */
