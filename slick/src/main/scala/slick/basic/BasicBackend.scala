@@ -184,6 +184,14 @@ trait BasicBackend { self =>
     // Interpreter
     // ------------------------------------------------------------------
 
+    /** Evaluate user or compiler code (a continuation, a cleanup function or a synchronous action)
+      * that runs inside an action. A `StackOverflowError` is rethrown as a `SlickException`: the
+      * effect runtime treats it as fatal, which would skip the release of the action's in-flight
+      * slot, connection and transaction, so it must fail the action like any other error. */
+    private def guardStackOverflow[A](thunk: => A): A =
+      try thunk
+      catch { case e: StackOverflowError => throw new SlickException("Stack overflow while running a database action", e) }
+
     /** A `Resource` that acquires one connection-arbiter permit and releases it in its finalizer.
       * The finalizer always runs regardless of how the `use`/`allocated` body completes. */
     private def permitR(ordinal: Long): Resource[F, Unit] =
@@ -477,8 +485,8 @@ trait BasicBackend { self =>
           ensureSession(ctx).flatMap { case (session, state) =>
             F.blocking {
               noCleanup(
-                sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
-                  .openStream(sessionAsContext(session, state))
+                guardStackOverflow(sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
+                  .openStream(sessionAsContext(session, state)))
                   .asInstanceOf[CloseableIterator[T]]
               )
             }
@@ -498,7 +506,7 @@ trait BasicBackend { self =>
 
         case FlatMapAction(base, f) =>
           interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).flatMap { v =>
-            val next = f.asInstanceOf[Any => DBIOAction[?, Streaming[T], Nothing]](v)
+            val next = guardStackOverflow(f.asInstanceOf[Any => DBIOAction[?, Streaming[T], Nothing]](v))
             interpretStream(next, ctx)
           }
 
@@ -539,7 +547,7 @@ trait BasicBackend { self =>
                     // the original stream error.  This is the same precedence the non-streaming
                     // path uses: the inner outcome becomes the outer's input.
                     val errForOuter = baseResult.left.toOption.orElse(err)
-                    interpret[Any](f(errForOuter).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+                    interpret[Any](guardStackOverflow(f(errForOuter)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
                       .attempt
                       .flatMap {
                         // Raise cleanup failure when:
@@ -555,7 +563,7 @@ trait BasicBackend { self =>
                 (iter, combinedCleanup)
             }
             .recoverWith { case setupErr =>
-              interpret[Any](f(Some(setupErr)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
+              interpret[Any](guardStackOverflow(f(Some(setupErr))).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
                 .attempt
                 .flatMap {
                   case Left(cleanupErr) if !keepFailure => F.raiseError(cleanupErr)
@@ -618,7 +626,7 @@ trait BasicBackend { self =>
           case FlatMapAction(base, f) =>
             interpret[Any](base.asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)
               .flatMap { v =>
-                val next = f.asInstanceOf[Any => DBIOAction[R, NoStream, Nothing]](v)
+                val next = guardStackOverflow(f.asInstanceOf[Any => DBIOAction[R, NoStream, Nothing]](v))
                 interpret[R](next, ctx)
               }
 
@@ -656,17 +664,17 @@ trait BasicBackend { self =>
               poll(interpret[R](base.asInstanceOf[DBIOAction[R, NoStream, Nothing]], ctx))
                 .guaranteeCase {
                   case Outcome.Succeeded(_) =>
-                    interpret[Any](f(None).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
+                    interpret[Any](guardStackOverflow(f(None)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
                   case Outcome.Errored(err) =>
                     // Run cleanup with the error. Re-raise original unless keepFailure=false
                     // and cleanup itself also fails (cleanup error takes precedence).
-                    interpret[Any](f(Some(err)).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
+                    interpret[Any](guardStackOverflow(f(Some(err))).asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).void
                       .recoverWith { case cleanupErr if !keepFailure => F.raiseError(cleanupErr) }
                   case Outcome.Canceled() =>
                     // Run cleanup with a CancellationException so user code can react to cancel.
                     // Errors from cleanup are swallowed so as not to mask the cancellation.
                     interpret[Any](
-                      f(Some(new java.util.concurrent.CancellationException("DBIO action canceled")))
+                      guardStackOverflow(f(Some(new java.util.concurrent.CancellationException("DBIO action canceled"))))
                         .asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).attempt.void
                 }
             }
@@ -722,8 +730,8 @@ trait BasicBackend { self =>
           case a: SynchronousDatabaseAction[?, ?, ?, ?] =>
             withSession[R](ctx) { (session, state) =>
               F.blocking {
-                a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, Nothing]]
-                  .run(sessionAsContext(session, state))
+                guardStackOverflow(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, Context, Nothing]]
+                  .run(sessionAsContext(session, state)))
               }
             }
 
