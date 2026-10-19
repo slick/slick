@@ -202,8 +202,10 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       case Library.SilentCast(LiteralNode(None) :@ OptionType(_)) :@ JdbcType(ti, _) if currentPart == SelectPart =>
         // Cast NULL to the correct type
         b"cast(null as ${ti.sqlTypeName(None)})"
-      case LiteralNode(None) :@ JdbcType(ti, true) if currentPart == SelectPart =>
-        // Cast NULL to the correct type
+      case (n @ LiteralNode(None)) :@ JdbcType(ti, true) if currentPart == SelectPart || !n.volatileHint =>
+        /* Derby rejects an untyped NULL literal in most expression positions
+         * (e.g. `x = null` is a syntax error), so cast NULL to the correct type.
+         * Outside of the SELECT clause a bound NULL stays a bind variable. */
         b"cast(null as ${ti.sqlTypeName(None)})"
       case (c @ LiteralNode(v)) :@ JdbcType(ti, option) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a

@@ -152,6 +152,33 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
+  def testCompareOptionWithNone = {
+    class T1(tag: Tag) extends Table[(Int, Option[Int])](tag, "t1_optnone") {
+      def a = column[Int]("a")
+      def b = column[Option[Int]]("b")
+      def * = (a, b)
+    }
+    val t1s = TableQuery[T1]
+    val none: Option[Int] = None
+    val byParam = Compiled { (p: Rep[Option[Int]]) => t1s.filter(_.b === p).map(_.a) }
+
+    /* Comparing with NULL is unknown in SQL, so none of these match any row.
+     * (Use `isEmpty` / `isDefined` to test for NULL.) */
+    for {
+      _ <- t1s.schema.create
+      _ <- t1s ++= Seq((1, Some(10)), (2, None))
+
+      _ <- t1s.filter(_.b === none).map(_.a).result.map(_ shouldBe Nil)
+      _ <- t1s.filter(_.b =!= none).map(_.a).result.map(_ shouldBe Nil)
+      _ <- t1s.filter(_.b === LiteralColumn(none)).map(_.a).result.map(_ shouldBe Nil)
+      _ <- t1s.filter(t => LiteralColumn(none) === t.b).map(_.a).result.map(_ shouldBe Nil)
+      _ <- t1s.filter(_.b === none.bind).map(_.a).result.map(_ shouldBe Nil)
+      _ <- t1s.filter(_.b =!= none.bind).map(_.a).result.map(_ shouldBe Nil)
+      _ <- byParam(none).result.map(_ shouldBe Nil)
+      _ <- byParam(Some(10)).result.map(_ shouldBe List(1))
+    } yield ()
+  }
+
   def testInitErrors = {
     case class Id(toInt: Int)
     case class Customer(id: Id)
