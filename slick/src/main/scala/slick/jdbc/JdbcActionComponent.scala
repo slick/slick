@@ -340,10 +340,11 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     /** The return type for `insertOrUpdate` operations. Note that the Option return value will be None if it was an update and Some if it was an insert*/
     type SingleInsertOrUpdateResult
 
-    /** Get the SQL statement for a standard (soft) insert */
+    /** Get the SQL statement for a standard (soft) insert, with `?` placeholders for the values. The insert
+      * Actions created by this composer also return the SQL they execute from their `statements` method. */
     def insertStatement: String
 
-    /** Get the SQL statement for a forced insert */
+    /** Get the SQL statement for a forced insert, with `?` placeholders for the values */
     def forceInsertStatement: String
 
     /** Insert a single row, skipping AutoInc columns. */
