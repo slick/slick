@@ -380,6 +380,38 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
+  /** createIfNotExists() must work for tables with a FK, both when they don't exist yet and when they do,
+    * and the FK must be in place afterwards. */
+  def testCreateIfNotExistsWithFK = {
+    class A(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_create_a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def * = id
+    }
+    val as = TableQuery[A]
+
+    class B(_tag: Tag) extends Table[(Int, Int)](_tag, "ddl_test_fk_create_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def aId = column[Int]("a_id")
+      def * = (id, aId)
+      def fk = foreignKey("ddl_test_fk_create_fk", aId, as)(_.id)
+    }
+    val bs = TableQuery[B]
+
+    val schema = as.schema ++ bs.schema
+    // The heap database and SQLite (without "PRAGMA foreign_keys") don't enforce foreign keys
+    val enforcesFKs = tdb.profile != slick.memory.MemoryProfile && !tdb.profile.isInstanceOf[slick.jdbc.SQLiteProfile]
+
+    for {
+      _ <- schema.createIfNotExists
+      _ <- schema.createIfNotExists
+      _ <- as += 1
+      _ <- bs += ((1, 1))
+      _ <- if (enforcesFKs) (bs += ((2, 42))).failed else DBIO.successful(())
+      _ <- bs.result.map(_ shouldBe Seq((1, 1)))
+      _ <- schema.drop
+    } yield ()
+  }
+
   def testDropIfExistsWithPK = {
     case class D(a: Int, b: Int)
     class T1(tag: Tag) extends Table[D](tag, "t1") {
