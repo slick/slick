@@ -394,6 +394,10 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     /** Insert a single row if its primary key does not exist in the table,
       * otherwise update the existing record.
       * Note that the return value will be None if an update was performed and Some if the operation was insert
+      *
+      * On MySQL this is `INSERT ... ON DUPLICATE KEY UPDATE`, which matches any unique key, not only the primary
+      * key: if the row clashes with a different row on a unique non-key column, that row is updated (including its
+      * primary key) instead of the call failing. See [[slick.jdbc.MySQLProfile]] for a strict primary-key upsert.
       */
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write]
 
@@ -403,7 +407,8 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
      * count for some part of the batch. If any part of the batch fails, an
      * exception is thrown.
      * The option parameter specifies how the operation is to be performed.(default is [[RowsPerStatement.All]])
-     * Note unlike [[insertOrUpdate]], client-side emulation is not supported. */
+     * Note unlike [[insertOrUpdate]], client-side emulation is not supported.
+     * On MySQL each row is matched on any unique key, as described for [[insertOrUpdate]]. */
     def insertOrUpdateAll(values: Iterable[U], option: RowsPerStatement = defaultRowsPerStatement)
     : ProfileAction[MultiInsertResult, NoStream, Effect.Write]
   }

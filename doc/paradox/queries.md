@@ -341,6 +341,19 @@ be able to find a uniquely matching row.
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #insertOrUpdate }
 
+Profiles without a native upsert emulate it on the client: Slick selects the row by its primary key and then
+runs an `UPDATE` or an `INSERT`. Used outside `transactionally`, these statements run in a transaction of their
+own.
+
+On MySQL, `insertOrUpdate` and `insertOrUpdateAll` use `INSERT ... ON DUPLICATE KEY UPDATE`, which MySQL applies
+to *any* unique key, not only the primary key. If the new row clashes with a different row on a unique non-key
+column, that other row is updated, including its primary key columns (except AutoInc ones), instead of the call
+failing. For a strict primary-key upsert, remove the `insertOrUpdate` capability in a custom profile so that
+Slick uses the emulation; a clash on another unique key then fails with a duplicate-key error.
+`insertOrUpdateAll` is not supported without the capability.
+
+@@snip [StrictUpsertMySQLProfile.scala](../code/StrictUpsertMySQLProfile.scala) { #strictUpsertProfile }
+
 Compiled Queries
 ----------------
 
