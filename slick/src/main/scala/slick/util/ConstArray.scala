@@ -358,7 +358,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
   def take(n: Int) = slice(0, math.min(n, length))
 
   def drop(n: Int) =
-    if(n >= length) ConstArray.empty else slice(n, length-n)
+    if(n >= length) ConstArray.empty else slice(n, length)
 
   ///////////////////////////////////////////////////////// Equals
 

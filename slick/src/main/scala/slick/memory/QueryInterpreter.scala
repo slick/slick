@@ -370,7 +370,7 @@ class QueryInterpreter(db: HeapBackend#AnyHeapDatabaseDef, params: Any) extends 
     case Library.* => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.times(args(0)._2, args(1)._2)
     case Library.% => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.asInstanceOf[Integral[Any]].rem(args(0)._2, args(1)._2)
     case Library.Abs => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.abs(args(0)._2)
-    case Library.And => args(0)._2.asInstanceOf[Boolean] && args(1)._2.asInstanceOf[Boolean]
+    case Library.And => args.forall(_._2.asInstanceOf[Boolean])
     case Library.Cast =>
       val v = args(0)._2
       (args(0)._1, retType) match {
@@ -420,7 +420,7 @@ class QueryInterpreter(db: HeapBackend#AnyHeapDatabaseDef, params: Any) extends 
       while(start < len && s.charAt(start) == ' ') start += 1
       if(start == 0) s else s.substring(start)
     case Library.Not => !args(0)._2.asInstanceOf[Boolean]
-    case Library.Or => args(0)._2.asInstanceOf[Boolean] || args(1)._2.asInstanceOf[Boolean]
+    case Library.Or => args.exists(_._2.asInstanceOf[Boolean])
     case Library.Pi => scala.math.Pi
     case Library.Radians =>
       val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]
