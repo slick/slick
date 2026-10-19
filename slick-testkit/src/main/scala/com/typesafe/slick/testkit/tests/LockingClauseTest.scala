@@ -107,6 +107,13 @@ class LockingClauseTest extends AsyncTest[JdbcTestDB] with Logging {
       val thread2Latch = new CountDownLatch(1)
       val thread3Latch = new CountDownLatch(1)
       val runAsyncCommands: (DBIO[Unit], CountDownLatch) => DBIO[Unit] = mkRunAsyncCommands(exe, childStartLatch, success)
+      // Thread 3 starts only after threads 1 and 2 are done. A database may queue a new shared lock request behind
+      // a waiting exclusive one (MySQL/InnoDB does), so if thread 3's update were already waiting when thread 1
+      // asked for its shared lock, thread 1 would wait for thread 3, which waits for the main transaction, which
+      // waits for thread 1, until thread 3's lock wait times out.
+      val thread3StartLatch = new CountDownLatch(1)
+      val runAsyncCommandsAfterThreads1And2: (DBIO[Unit], CountDownLatch) => DBIO[Unit] =
+        mkRunAsyncCommands(exe, thread3StartLatch, success)
 
       for {
         _ <- ts.schema.create
@@ -130,14 +137,15 @@ class LockingClauseTest extends AsyncTest[JdbcTestDB] with Logging {
             ),
             thread2Latch,
           )
-          _ <- runAsyncCommands(
+          _ <- runAsyncCommandsAfterThreads1And2(
             // this update blocks on main thread txn
             rowSelect(1).map(_.data).update(Some("Thread 3 update")).void,
             thread3Latch,
           )
-          _ = childStartLatch.countDown() // start child threads
+          _ = childStartLatch.countDown() // start threads 1 and 2
           _ = thread1Latch.await() // wait for thread 1 to finish
           _ = thread2Latch.await() // wait for thread 2 to finish
+          _ = thread3StartLatch.countDown() // start thread 3
           // thread 3 update should not have completed
           r1 <- rowSelect(1).result
           _ = r1 shouldBe Seq((1, None))
