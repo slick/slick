@@ -24,7 +24,7 @@ trait JdbcBackend extends RelationalBackend {
 
   override def makeDatabase[F[_]: Async](
     config: slick.basic.BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = defaultActionLogger[F]
+    actionListener: ActionListener[F]
   ): F[Database[F]] = {
     // If the config has a "db" sub-section use it (the {profile=..., db={...}} format),
     // otherwise use the config directly (flat format where datasource keys are at the top level).
@@ -45,7 +45,7 @@ trait JdbcBackend extends RelationalBackend {
   }
 
   def makeDatabase[F[_]: Async](config: JdbcDatabaseConfig[?]): F[Database[F]] =
-    makeDatabase(config, ActionListener.noop[F])
+    makeDatabase(config, defaultActionLogger[F])
 
   /** Construct a [[Database]] from a [[JdbcDataSource]] and open the keepalive connection if
     * configured.  This is the primitive used by both [[makeDatabase]] overloads.  The caller is
