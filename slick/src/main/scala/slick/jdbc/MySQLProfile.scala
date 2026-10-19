@@ -47,6 +47,14 @@ import com.typesafe.config.Config
   * sequence emulation if you provide for each sequence ''s'' a pair of
   * functions <code>s_nextval</code> and <code>s_currval</code>.
   *
+  * `insertOrUpdate` and `insertOrUpdateAll` use `INSERT ... ON DUPLICATE KEY UPDATE`, which MySQL applies to
+  * ''any'' unique key, not only the primary key. When the new row clashes with a different row on a unique
+  * non-key column, that other row is updated instead of the call failing, and since the update list includes the
+  * primary key columns (except AutoInc ones), it is given the new row's key. For a strict primary-key upsert,
+  * remove [[slick.jdbc.JdbcCapabilities.insertOrUpdate]] in a custom profile:
+  * `insertOrUpdate` then selects the row by primary key and runs an UPDATE or an INSERT, so a clash on another
+  * unique key fails with a duplicate-key error. `insertOrUpdateAll` is not supported without the capability.
+  *
   * The default type for strings of unlimited length is "TEXT", falling back to
   * "VARCHAR(254)" if a `Default` or `PrimaryKey` column option is set. This can be
   * changed by overriding <code>slick.jdbc.MySQLProfile.defaultStringType</code>
