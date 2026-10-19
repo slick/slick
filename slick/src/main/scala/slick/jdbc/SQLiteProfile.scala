@@ -76,6 +76,17 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.returnMultipleInsertKey]]:
   *     SQLite returns the last generated key only.</li>
   * </ul>
+  *
+  * Date and time values: SQLite has no date/time storage classes. The sqlite-jdbc driver stores
+  * <code>java.sql.Date</code>, <code>java.sql.Time</code> and <code>java.sql.Timestamp</code> (and thus
+  * <code>LocalDate</code>, <code>LocalDateTime</code> and <code>Instant</code>, which Slick maps through them)
+  * as INTEGER milliseconds since the Unix epoch, and Slick renders literals of these types in the same way.
+  * <code>LocalTime</code>, <code>OffsetTime</code>, <code>OffsetDateTime</code> and <code>ZonedDateTime</code>
+  * are stored as ISO-8601 TEXT. SQLite's own date and time functions expect seconds (or text), so use e.g.
+  * <code>datetime(col / 1000, 'unixepoch')</code> on the millisecond values. The driver properties
+  * <code>date_precision = SECONDS</code> and <code>date_class</code> change how bound parameters are stored
+  * and read, but not Slick's literals, so with them date/time values in queries must be bound parameters
+  * (<code>.bind</code> or compiled queries). See the "SQLite" section of the "Database" chapter of the manual.
   */
 trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
   override protected def computeCapabilities: Set[Capability] =
@@ -325,8 +336,9 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* The SQLite JDBC driver does not support the JDBC escape syntax for
-     * date/time/timestamp literals. SQLite expects these values as milliseconds
-     * since epoch. */
+     * date/time/timestamp literals. The driver stores these values as milliseconds
+     * since epoch by default (driver properties date_precision and date_class can
+     * change that, but these literals do not follow them). */
     class SQLiteDateJdbcType extends DateJdbcType {
       override def valueToSQLLiteral(value: Date) = {
         value.getTime.toString
