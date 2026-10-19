@@ -13,7 +13,7 @@ import scala.util.Random
 import cats.effect.IO
 
 import slick.ast.FieldSymbol
-import slick.jdbc.{H2Profile, HsqldbProfile, PostgresProfile, SQLiteProfile}
+import slick.jdbc.{H2Profile, HsqldbProfile, PostgresProfile, SQLiteProfile, SQLServerProfile}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import javax.sql.rowset.serial.{SerialBlob, SerialClob}
@@ -59,6 +59,33 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       ifCap(rcap.setByteArrayNull)(ts += (2, None)),
       ifNotCap(rcap.setByteArrayNull)(ts.map(_.id) += 2),
       ts.result.map(_.map { case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet).map(_ shouldBe Set((1,"67"), (2,"")))
+    )
+  }
+
+  def testUnicodeStringLiteral = {
+    // Non-ASCII text in inlined literals (not bind variables) must survive the round trip.
+    // SQL Server needs an NVARCHAR column to store it; its default String type is VARCHAR.
+    val unicode = "Björn ł Ω 中文"
+    val other = "abc"
+    val isSQLServer = tdb.profile.isInstanceOf[SQLServerProfile]
+    class T(tag: Tag) extends Table[(Int, String)](tag, "test_unicode_lit") {
+      def id = column[Int]("id")
+      def s =
+        if (isSQLServer) column[String]("s", O.SqlType("NVARCHAR(100)"), O.Default(unicode))
+        else column[String]("s", O.Length(100), O.Default(unicode))
+      def * = (id, s)
+    }
+    val ts = TableQuery[T]
+
+    seq(
+      ts.schema.create,
+      ts.map(_.id) += 1,
+      ts += (2, other),
+      ts.filter(_.id === 1).map(_.s).result.map(_ shouldBe Seq(unicode)),
+      ts.filter(_.s === unicode).map(_.id).result.map(_ shouldBe Seq(1)),
+      ts.filter(_.s === other).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.id === 2).map(t => (t.id, LiteralColumn(unicode))).result.map(_ shouldBe Seq((2, unicode))),
+      ts.schema.drop
     )
   }
 

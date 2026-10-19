@@ -1,5 +1,6 @@
 package slick.jdbc
 
+import java.nio.charset.StandardCharsets
 import java.sql.{Array as _, Ref as _, *}
 import java.time.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
@@ -54,6 +55,14 @@ import com.typesafe.config.Config
   * "VARCHAR(254)" if a `PrimaryKey` column option is set. This can be
   * changed by overriding <code>slick.jdbc.SQLServerProfile.defaultStringType</code>
   * in application.conf.
+  *
+  * VARCHAR columns store text in the database code page, which may not represent all
+  * characters. For Unicode text, use NVARCHAR columns: set
+  * <code>slick.jdbc.SQLServerProfile.defaultStringType = "NVARCHAR(MAX)"</code>, or use
+  * <code>O.SqlType("NVARCHAR(...)")</code> on individual columns (NVARCHAR(MAX) cannot be used
+  * for primary keys and indexed columns, so give those a length). String parameters are sent as
+  * Unicode by default, and string literals that contain non-ASCII characters are rendered as
+  * <code>N'...'</code>.
   */
 trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
@@ -303,6 +312,20 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override val instantType: SQLServerInstantJdbcType = new SQLServerInstantJdbcType
     override val offsetDateTimeType: SQLServerOffsetDateTimeJdbcType = new SQLServerOffsetDateTimeJdbcType
     override val uuidJdbcType: SQLServerUUIDJdbcType = new SQLServerUUIDJdbcType
+    override val stringJdbcType: SQLServerStringJdbcType = new SQLServerStringJdbcType
+
+    /* A '...' literal is converted to the database code page, which loses characters it
+     * cannot represent. Literals with non-ASCII characters get the N prefix to stay Unicode.
+     * ASCII literals keep the plain form, because comparing an N'...' literal with a VARCHAR
+     * column converts the column and can keep SQL Server from using an index on it. */
+    class SQLServerStringJdbcType extends StringJdbcType {
+      override def valueToSQLLiteral(value: String) = {
+        val s = super.valueToSQLLiteral(value)
+        if ((value eq null) || isAscii(value)) s else "N" + s
+      }
+
+      private def isAscii(value: String): Boolean = StandardCharsets.US_ASCII.newEncoder().canEncode(value)
+    }
 
     class SQLServerUUIDJdbcType extends UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
