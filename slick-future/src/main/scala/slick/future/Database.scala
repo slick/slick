@@ -1,7 +1,11 @@
 package slick.future
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
 import cats.effect.IO
 
@@ -69,8 +73,11 @@ object Database {
 
       override def stream[T](a: DBIOAction[?, Streaming[T], Nothing]): DatabasePublisher[T] =
         lazyPublisher(() => {
-          val (it, release) = db.stream(a).allocated.unsafeRunSync()
-          new DatabasePublisherImpl[T](it, () => release.unsafeRunSync())
+          // allocatedCase (not allocated) so the release can report how the stream ended:
+          // an error must roll back a transactional stream instead of committing it.
+          val (it, release) = db.stream(a).allocatedCase.unsafeRunSync()
+          val released = new AtomicBoolean(false)
+          new DatabasePublisherImpl[T](it, exitCase => if (released.compareAndSet(false, true)) release(exitCase).unsafeRunSync())
         })
 
       private def lazyPublisher[T](acquire: () => DatabasePublisher[T]): DatabasePublisher[T] =
@@ -89,8 +96,25 @@ object Database {
               }
             pub.subscribe(s)
           }
-          override def foreach[U](f: T => U)(implicit ec: ExecutionContext): Future[Unit] =
-            Future(acquire()).flatMap(_.foreach(f))
+          override def foreach[U](f: T => U)(implicit ec: ExecutionContext): Future[Unit] = {
+            // Acquire and start consuming in one task: with `Future(acquire()).flatMap(...)`, an
+            // executor that rejected the flatMap callback would leak the acquired stream.
+            val promise = Promise[Unit]()
+
+            try ec.execute { () =>
+              try promise.completeWith(acquire().foreach(f))
+              catch {
+                case NonFatal(e) => promise.tryFailure(e)
+                case e: Throwable =>
+                  // A fatal error escapes the inner foreach before it returns its future when the
+                  // executor runs the consuming task inline, so fail the future here, then propagate it.
+                  promise.tryFailure(e)
+                  throw e
+              }
+            }
+            catch { case NonFatal(e) => promise.tryFailure(e) }
+            promise.future
+          }
           override def mapResult[U](f: T => U): DatabasePublisher[U] =
             lazyPublisher(() => acquire().mapResult(f))
         }
