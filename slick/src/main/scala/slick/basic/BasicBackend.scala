@@ -2,7 +2,7 @@ package slick.basic
 
 import java.io.Closeable
 
-import cats.effect.{Async, Ref, Resource}
+import cats.effect.{Async, Ref, Resource, Sync}
 import cats.effect.kernel.Outcome
 import cats.syntax.all.*
 import cats.effect.syntax.all.*
@@ -38,7 +38,7 @@ trait BasicBackend { self =>
 
   private[this] type AnyK[A] = Any
 
-  private[this] lazy val defaultActionLoggerAny: ActionListener[AnyK] =
+  private[this] lazy val actionLoggerListenerAny: ActionListener[AnyK] =
     new ActionListener[AnyK] {
       override def around[R, H](a: DBIOAction[R, _, _], exec: Any): Any = {
         logAction(a.asInstanceOf[DBIOAction[?, NoStream, Nothing]])
@@ -46,8 +46,12 @@ trait BasicBackend { self =>
       }
     }
 
-  protected final def defaultActionLogger[F[_]]: ActionListener[F] =
-    defaultActionLoggerAny.asInstanceOf[ActionListener[F]]
+  /** The listener that is used when none is given to `makeDatabase`. It logs every action to the
+    * `slick.basic.BasicBackend.action` logger and, through [[ActionListener.timing]], the execution
+    * time of every SQL action to the `slick.basic.BasicBackend.timing` logger, when they are enabled
+    * at debug level. */
+  protected final def defaultActionLogger[F[_]](implicit F: Sync[F]): ActionListener[F] =
+    ActionListener.combine(actionLoggerListenerAny.asInstanceOf[ActionListener[F]], ActionListener.timing[F])
 
   /** Non-parameterized marker trait for any database instance, regardless of effect type.
     * Use this type when you need to refer to "any database" without knowing the effect type. */
@@ -66,8 +70,13 @@ trait BasicBackend { self =>
   /** Create a Database instance from a [[slick.basic.BasicDatabaseConfig]]. */
   def makeDatabase[F[_]: Async](
     config: BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = defaultActionLogger[F]
+    actionListener: ActionListener[F]
   ): F[Database[F]]
+
+  /** Create a Database instance from a [[slick.basic.BasicDatabaseConfig]] with the default
+    * listener (see `defaultActionLogger`). */
+  def makeDatabase[F[_]: Async](config: BasicDatabaseConfig[?]): F[Database[F]] =
+    makeDatabase(config, defaultActionLogger[F])
   // -----------------------------------------------------------------------
   // Execution state
   // -----------------------------------------------------------------------

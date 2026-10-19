@@ -28,16 +28,20 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
   override def makeDatabase[F[_]: Async](
     config: slick.basic.BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = defaultActionLogger[F]
+    actionListener: ActionListener[F]
   ): F[Database[F]] =
     Async[F].raiseError(new SlickException("DistributedBackend cannot be configured with an external config file"))
 
   class DistributedDatabaseDef[F[_]](
     val dbs: Vector[BasicBackend#AnyDatabaseDef],
     override val controls: Controls[F],
-    override val actionListener: ActionListener[F] = ActionListener.noop[F]
+    override val actionListener: ActionListener[F]
   )(implicit override val asyncF: cats.effect.Async[F])
     extends BasicDatabaseDef[F] {
+
+    /** Create a distributed database with the default listener. */
+    def this(dbs: Vector[BasicBackend#AnyDatabaseDef], controls: Controls[F])(implicit asyncF: cats.effect.Async[F]) =
+      this(dbs, controls, defaultActionLogger[F](asyncF))(asyncF)
 
     /** DistributedBackend always uses cats.effect.IO as its effect type. */
 

@@ -29,9 +29,10 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   override def makeDatabase[F[_]: Async](
     config: slick.basic.BasicDatabaseConfig[?],
-    actionListener: ActionListener[F] = defaultActionLogger[F]
+    actionListener: ActionListener[F]
   ): F[Database[F]] =
-    Async[F].flatMap(Controls.create[F](ControlsConfig.unbounded))(c => Async[F].pure(new HeapDatabaseDef[F](c)))
+    Async[F].flatMap(Controls.create[F](ControlsConfig.unbounded))(c =>
+      Async[F].pure(new HeapDatabaseDef[F](c, actionListener)))
 
   /** Non-parameterized base for HeapDatabaseDef, providing table management operations
     * that do not depend on the effect type F. Used by HeapSessionDef. */
@@ -49,8 +50,12 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   class HeapDatabaseDef[F[_]](
     override val controls: Controls[F],
-    override val actionListener: ActionListener[F] = ActionListener.noop[F]
+    override val actionListener: ActionListener[F]
   )(implicit override val asyncF: cats.effect.Async[F]) extends BasicDatabaseDef[F] with AnyHeapDatabaseDef {
+
+    /** Create a heap database with the default listener. */
+    def this(controls: Controls[F])(implicit asyncF: cats.effect.Async[F]) =
+      this(controls, defaultActionLogger[F](asyncF))(asyncF)
 
     override protected def sessionAsContext(session: Session, state: ExecState): Context = {
       val s = session

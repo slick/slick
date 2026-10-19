@@ -34,6 +34,15 @@ The following loggers are particularly interesting:
 - `slick.basic.BasicBackend.action`:
    Shows the execution of every  @ref:[Database I/O Action](dbio.md).
 
+- `slick.basic.BasicBackend.timing`:
+   Shows how long each SQL action took, on one line together with its SQL, e.g.
+   `SQL action took 1.234 ms: select "NAME" from "USERS"`, so you can see which statement took how long even when
+   many actions run concurrently. Failed actions are logged as `failed after`. The time is measured around the whole
+   action, so it can include waiting for a connection. Nothing is measured unless this logger is enabled at debug
+   level. This logger and `slick.basic.BasicBackend.action` are written by the default
+   @ref:[action listener](database.md#action-listeners); if you install your own listener, combine it with
+   `ActionListener.timing` to keep the timing log.
+
 - `slick.compiler.QueryCompiler`:
    Shows a dump of the AST after every phase of the query compiler when compiling a query.
 
@@ -49,7 +58,8 @@ The following loggers are particularly interesting:
    Shows bind variable contents (for supported types) of all SQL statements which are executed.
 
 - `slick.jdbc.JdbcBackend.benchmark`:
-   Shows execution times for SQL statements.
+   Shows execution times for SQL statements, without the SQL. Use `slick.basic.BasicBackend.timing` to see which
+   statement took how long.
 
 - `slick.jdbc.StatementInvoker.result`:
    Shows the first rows of the result set when a query is executed. Does not apply to streaming results.
