@@ -49,7 +49,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     }.named("Procedures from DatabaseMetaData"),
 
     tdb.profile.defaultTables.flatMap { ts =>
-      DBIO.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
+      DBIO.sequence(ts.filter(t => Set("users_xx", "orders_xx") contains t.name.name).map { t =>
         DBIO.seq(
           t.getColumns.flatMap { cs =>
             val as = cs.map(_.getColumnPrivileges)
@@ -91,4 +91,17 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     } else Action.successful(())
     */
   ))
+
+  class Lookups(tag: Tag) extends Table[Int](tag, "lookup_xx") {
+    def id = column[Int]("id", O.PrimaryKey)
+    def * = id
+  }
+  lazy val lookups = TableQuery[Lookups]
+
+  def testLookupsByUnqualifiedName = for {
+    _ <- lookups.schema.create
+    _ <- MPrimaryKey.getPrimaryKeys("lookup_xx").map(_.map(_.column) shouldBe Vector("id"))
+    _ <- MTable.getTables("lookup_xx").map(_.map(_.name.name) shouldBe Vector("lookup_xx"))
+    _ <- MTable.getTables.map(_.map(_.name.name) should (_ contains "lookup_xx"))
+  } yield ()
 }
