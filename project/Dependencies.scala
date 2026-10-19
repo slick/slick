@@ -44,6 +44,11 @@ object Dependencies {
   )
   val logback = "ch.qos.logback" % "logback-classic" % "1.6.5"
   val hikariCP = "com.zaxxer" % "HikariCP" % "7.1.0"
+  val dropwizardMetricsVersion = "4.2.40"
+  val dropwizardMetrics = Seq(
+    "io.dropwizard.metrics" % "metrics-core" % dropwizardMetricsVersion,
+    "io.dropwizard.metrics" % "metrics-healthchecks" % dropwizardMetricsVersion
+  )
 
   val h2 = "com.h2database" % "h2" % "2.5.252"
   val sqlServer = "com.microsoft.sqlserver" % "mssql-jdbc" % "13.6.1.jre11"

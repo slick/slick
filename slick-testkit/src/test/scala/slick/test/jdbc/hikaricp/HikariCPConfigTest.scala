@@ -10,7 +10,10 @@ import cats.effect.unsafe.implicits.global
 import ch.qos.logback.classic.{Level, Logger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.health.HealthCheckRegistry
 import com.typesafe.config.{Config, ConfigFactory}
+import com.zaxxer.hikari.HikariDataSource
 import com.zaxxer.hikari.metrics.{IMetricsTracker, MetricsTrackerFactory, PoolStats}
 import org.junit.Assert.*
 import org.junit.Test
@@ -78,6 +81,15 @@ class HikariCPConfigTest {
     assertTrue(warnings.head, warnings.head.contains("Both `maximumPoolSize` (5) and `maxConnections` (3) are set"))
   }
 
+  @Test def testEqualMaximumPoolSizeAndMaxConnections(): Unit = {
+    val warnings = warningsDuring {
+      withSource(config(s"$h2, maxConnections = 4, maximumPoolSize = 4")) { source =>
+        assertEquals(4, source.ds.getMaximumPoolSize)
+      }
+    }
+    assertEquals(Nil, warnings)
+  }
+
   @Test def testDataSourceClass(): Unit = {
     val c = config("""dataSourceClass = "org.h2.jdbcx.JdbcDataSource", properties.url = "jdbc:h2:mem:hikariConfigTest"""")
     withSource(c) { source =>
@@ -111,14 +123,29 @@ class HikariCPConfigTest {
     assertNotADataSource("dataSourceClassName", "disabled")
   }
 
-  @Test def testMetricsTrackerFactoryFromCustomConnectionPool(): Unit = {
-    val c = config(s"""$h2, connectionPool = "${MetricsHikariCP.getClass.getName}", maxConnections = 2""")
+  /** Run a query on a database that uses `connectionPool`, then call `check` before the database is closed. */
+  private def runSelect(connectionPool: String)(check: => Unit = ()): Unit = {
+    val c = config(s"""$h2, connectionPool = "$connectionPool", maxConnections = 2, poolName = testPool""")
     val dc = DatabaseConfig.forProfileConfig(H2Profile, "", c)
-    val created = MetricsHikariCP.trackerFactory.created.get
     import H2Profile.api.*
-    Database.resource(dc).use(_.run(sql"select 1".as[Int].head)).unsafeRunSync()
-    assertEquals(created + 1, MetricsHikariCP.trackerFactory.created.get)
-    assertTrue(MetricsHikariCP.trackerFactory.acquired.get > 0)
+    Database.resource(dc).use(_.run(sql"select 1".as[Int].head).map(_ => check)).unsafeRunSync()
+  }
+
+  @Test def testMetricsTrackerFactoryFromCustomConnectionPool(): Unit = {
+    val created = TrackedHikariCP.trackerFactory.created.get
+    runSelect(TrackedHikariCP.getClass.getName)()
+    assertEquals(created + 1, TrackedHikariCP.trackerFactory.created.get)
+    assertTrue(TrackedHikariCP.trackerFactory.acquired.get > 0)
+  }
+
+  @Test def testMetricAndHealthCheckRegistriesFromCustomConnectionPool(): Unit = {
+    // HikariCP removes its metrics and health checks from the registries when the pool is closed
+    runSelect(InstrumentedHikariCP.getClass.getName) {
+      val timers = InstrumentedHikariCP.metricRegistry.getTimers.asScala
+      assertTrue(timers.keys.toString, timers.get("testPool.pool.Wait").exists(_.getCount > 0))
+      val healthChecks = InstrumentedHikariCP.healthCheckRegistry.getNames.asScala
+      assertTrue(healthChecks.toString, healthChecks.contains("testPool.pool.ConnectivityCheck"))
+    }
   }
 }
 
@@ -133,12 +160,24 @@ class CountingMetricsTrackerFactory extends MetricsTrackerFactory {
   }
 }
 
-/** A `connectionPool` factory that registers metrics on the HikariCP pool, as shown in the manual. */
-object MetricsHikariCP extends JdbcDataSourceFactory {
+/** A `connectionPool` factory that registers a metrics tracker factory, as shown in the manual. */
+object TrackedHikariCP extends JdbcDataSourceFactory {
   val trackerFactory = new CountingMetricsTrackerFactory
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
-    val source = HikariCPJdbcDataSource.forConfig(c, driver, name, classLoader)
-    source.ds.setMetricsTrackerFactory(trackerFactory)
-    source
+    val hconf = HikariCPJdbcDataSource.hikariConfig(c, name, classLoader)
+    hconf.setMetricsTrackerFactory(trackerFactory)
+    new HikariCPJdbcDataSource(new HikariDataSource(hconf), hconf)
+  }
+}
+
+/** A `connectionPool` factory that registers metric and health check registries, as shown in the manual. */
+object InstrumentedHikariCP extends JdbcDataSourceFactory {
+  val metricRegistry = new MetricRegistry
+  val healthCheckRegistry = new HealthCheckRegistry
+  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
+    val hconf = HikariCPJdbcDataSource.hikariConfig(c, name, classLoader)
+    hconf.setMetricRegistry(metricRegistry)
+    hconf.setHealthCheckRegistry(healthCheckRegistry)
+    new HikariCPJdbcDataSource(new HikariDataSource(hconf), hconf)
   }
 }

@@ -2,6 +2,7 @@ package slick.test.jdbc
 
 import java.sql.{Connection, Driver, DriverPropertyInfo, SQLException}
 import java.util.Properties
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.logging.Logger
 
 import cats.effect.IO
@@ -12,7 +13,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import slick.basic.BasicDatabaseConfig
 import slick.cats.Database
-import slick.jdbc.DatabaseConfig
+import slick.jdbc.{DataSourceJdbcDataSource, DatabaseConfig}
 import slick.jdbc.{H2Profile, JdbcProfile}
 
 class DataSourceTest {
@@ -298,6 +299,23 @@ class DataSourceTest {
       assertEquals("maxConnections should be None when not using a pool", None, rawDb.source.maxConnections)
       IO.unit
     }
+  }
+
+  @Test def testDataSourceClassUsesClassLoader: Unit = {
+    val c = ConfigFactory.parseString(
+      """dataSourceClass = "org.h2.jdbcx.JdbcDataSource", properties.url = "jdbc:h2:mem:dataSourceClassLoader"""")
+    val classLoader = new RecordingClassLoader(getClass.getClassLoader)
+    DataSourceJdbcDataSource.forConfig(c, null, "dataSourceClassLoader", classLoader).close()
+    assertTrue(classLoader.requested.contains("org.h2.jdbcx.JdbcDataSource"))
+  }
+}
+
+/** A class loader that records the names of the classes it is asked to load. */
+class RecordingClassLoader(parent: ClassLoader) extends ClassLoader(parent) {
+  val requested = new ConcurrentLinkedQueue[String]
+  override def loadClass(name: String, resolve: Boolean): Class[?] = {
+    requested.add(name)
+    super.loadClass(name, resolve)
   }
 }
 
