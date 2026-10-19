@@ -114,7 +114,8 @@ object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
         case Some((key, dsClass)) =>
           val propsO = c.getPropertiesOpt("properties")
           def error(ex: Exception) = new SlickException("Error configuring DataSource " + dsClass, ex)
-          val cls = try Class.forName(dsClass) catch { case ex: Exception => throw error(ex) }
+          val cl = if (classLoader eq null) getClass.getClassLoader else classLoader
+          val cls = try Class.forName(dsClass, true, cl) catch { case ex: Exception => throw error(ex) }
           requireDataSourceClass(key, cls)
           try {
             val ds = cls.getConstructor().newInstance().asInstanceOf[DataSource]

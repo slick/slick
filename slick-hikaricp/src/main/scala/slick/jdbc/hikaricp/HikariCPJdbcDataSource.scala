@@ -11,9 +11,10 @@ import slick.util.ConfigExtensionMethods._
   * See the "Connection pools" section of the Slick manual for documentation on the config parameters.
   *
   * `ds` is the running HikariCP pool and `hconf` its configuration. To register metrics or health checks
-  * (e.g. `ds.setMetricRegistry`, `ds.setMetricsTrackerFactory` or `ds.setHealthCheckRegistry`), wrap
-  * [[HikariCPJdbcDataSource.forConfig]] in your own [[slick.jdbc.JdbcDataSourceFactory]] object and
-  * name that object in the `connectionPool` setting. */
+  * (e.g. `setMetricRegistry`, `setMetricsTrackerFactory` or `setHealthCheckRegistry`), write your own
+  * [[slick.jdbc.JdbcDataSourceFactory]] object that gets the configuration from
+  * [[HikariCPJdbcDataSource.hikariConfig]], sets them on it and then creates the pool, and name that object in
+  * the `connectionPool` setting. HikariCP does not allow a health check registry to be set on a running pool. */
 class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig)
   extends JdbcDataSource {
 
@@ -34,12 +35,20 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     (for {
       maximumPoolSize <- c.getIntOpt("maximumPoolSize")
       maxConnections <- c.getIntOpt("maxConnections")
+      if maximumPoolSize != maxConnections
     } yield
       s"Both `maximumPoolSize` ($maximumPoolSize) and `maxConnections` ($maxConnections) are set. The pool size is " +
         s"taken from `maximumPoolSize` and `maxConnections` is ignored for it. Set only one of them; a " +
         "`maximumPoolSize` can also come from a `reference.conf` file of a library.").toSeq
 
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
+    val hconf = hikariConfig(c, name, classLoader)
+    new HikariCPJdbcDataSource(new HikariDataSource(hconf), hconf)
+  }
+
+  /** The HikariCP configuration for the pool settings in `c`, as used by [[forConfig]]. Use this in your own
+    * [[slick.jdbc.JdbcDataSourceFactory]] to change the configuration before the pool is created. */
+  def hikariConfig(c: Config, name: String, classLoader: ClassLoader): HikariConfig = {
     configWarnings(c).foreach(logger.warn(_))
 
     val hconf = new HikariConfig()
@@ -106,7 +115,6 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     c.getStringOpt("schema").foreach(hconf.setSchema)
 
-    val ds = new HikariDataSource(hconf)
-    new HikariCPJdbcDataSource(ds, hconf)
+    hconf
   }
 }

@@ -301,6 +301,7 @@ lazy val testkit =
           (Dependencies.catsLaws % Test) +:
           (Dependencies.disciplineMunit % Test) +:
           (Dependencies.reactiveStreamsTCK % Test) +:
+          Dependencies.dropwizardMetrics.map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % Test) ++:
           (Dependencies.logback +: Dependencies.testDBs).map(_ % TypeProviders.TypeProvidersConfig),
       run / fork := true,
