@@ -273,7 +273,7 @@ class RewriteJoins extends Phase {
   def splitConjunctions(n: Node): scala.collection.IndexedSeq[Node] = {
     val b = new ArrayBuffer[Node]
     def f(n: Node): Unit = n match {
-      case Library.And(l, r) => f(l); f(r)
+      case Apply(Library.And, ch) => ch.foreach(f)
       case LiteralNode(t) if t == true =>
       case n => b += n
     }
@@ -281,10 +281,13 @@ class RewriteJoins extends Phase {
     b
   }
 
+  /** Combine the predicates into a single n-ary `and` (see [[FlattenBooleanChains]]). */
   def and(ns: scala.collection.IndexedSeq[Node]): Node =
-    if(ns.isEmpty) LiteralNode(true) else ns.reduceLeft { (p1, p2) =>
-      val t1 = p1.nodeType.structural
-      Library.And.typed(if(t1.isInstanceOf[OptionType]) t1 else p2.nodeType.structural, p1, p2)
+    if(ns.isEmpty) LiteralNode(true)
+    else if(ns.length == 1) ns.head
+    else {
+      val types = ns.map(_.nodeType.structural)
+      Library.And.typed(types.find(_.isInstanceOf[OptionType]).getOrElse(types.last), ns.toSeq: _*)
     }
 
   def and(p1Opt: Option[Node], p2: Node): Node = p1Opt.fold(p2) { p1 =>

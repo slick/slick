@@ -105,6 +105,7 @@ object QueryCompiler {
   /** The standard phases of the query compiler */
   val standardPhases = Vector(
     /* Clean up trees from the lifted embedding */
+    Phase.flattenBooleanChains,
     Phase.assignUniqueSymbols,
     Phase.unrollTailBinds,
     /* Distribute and normalize */
@@ -172,6 +173,7 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
   * the standard phases of the query compiler */
 object Phase {
   /* The standard phases of the query compiler */
+  val flattenBooleanChains = new FlattenBooleanChains
   val unrollTailBinds = new UnrollTailBinds
   val assignUniqueSymbols = new AssignUniqueSymbols
   val inferTypes = new InferTypes
