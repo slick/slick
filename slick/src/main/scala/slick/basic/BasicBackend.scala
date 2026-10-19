@@ -12,6 +12,7 @@ import slick.SlickException
 import slick.ControlStatus
 import slick.compat.collection.*
 import slick.dbio.*
+import slick.dbio.SynchronousDatabaseAction.guardStackOverflow
 import slick.util.*
 import slick.basic.ConcurrencyControl.*
 
@@ -184,13 +185,15 @@ trait BasicBackend { self =>
     // Interpreter
     // ------------------------------------------------------------------
 
-    /** Evaluate user or compiler code (a continuation, a cleanup function or a synchronous action)
-      * that runs inside an action. A `StackOverflowError` is rethrown as a `SlickException`: the
-      * effect runtime treats it as fatal, which would skip the release of the action's in-flight
-      * slot, connection and transaction, so it must fail the action like any other error. */
-    private def guardStackOverflow[A](thunk: => A): A =
-      try thunk
-      catch { case e: StackOverflowError => throw new SlickException("Stack overflow while running a database action", e) }
+    /** Guard the rows of a stream against a `StackOverflowError` like the action that opened it.
+      * Rows are read (and converted, e.g. by a `GetResult`) lazily in `hasNext` and `next`, which
+      * every facade calls on its effect runtime. */
+    private def guardedRows[T](it: CloseableIterator[T]): CloseableIterator[T] =
+      new CloseableIterator[T] {
+        def hasNext: Boolean = guardStackOverflow(it.hasNext)
+        def next(): T = guardStackOverflow(it.next())
+        def close(): Unit = guardStackOverflow(it.close())
+      }
 
     /** A `Resource` that acquires one connection-arbiter permit and releases it in its finalizer.
       * The finalizer always runs regardless of how the `use`/`allocated` body completes. */
@@ -484,11 +487,11 @@ trait BasicBackend { self =>
         case sa: SynchronousDatabaseAction[?, ?, ?, ?] if sa.supportsStreaming =>
           ensureSession(ctx).flatMap { case (session, state) =>
             F.blocking {
-              noCleanup(
+              noCleanup(guardedRows(
                 guardStackOverflow(sa.asInstanceOf[SynchronousDatabaseAction[?, Streaming[T], Context, Nothing]]
                   .openStream(sessionAsContext(session, state)))
                   .asInstanceOf[CloseableIterator[T]]
-              )
+              ))
             }
           }
 
