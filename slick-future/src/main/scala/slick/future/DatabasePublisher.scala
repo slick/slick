@@ -2,9 +2,13 @@ package slick.future
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.control.NonFatal
 
+import cats.effect.Resource.ExitCase
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
+
+import slick.dbio.SynchronousDatabaseAction.guardStackOverflow
 
 /** A Reactive Streams `Publisher` for database streaming actions. */
 trait DatabasePublisher[T] extends Publisher[T] { self =>
@@ -36,26 +40,55 @@ trait DatabasePublisher[T] extends Publisher[T] { self =>
   * subscriber passes to `request(n)`.  This guarantees that cursor-bound values such as
   * `java.sql.Blob`/`Clob` handles and `ResultSetMutator` objects remain valid during `onNext`.
   *
-  * `release` is called exactly once when the stream completes, is cancelled, or errors.
-  * The caller must ensure `release` is idempotent.
+  * `release` is called when the stream completes, is cancelled, or errors, with the outcome:
+  * `Errored` when reading a row, the consumer or the subscriber failed (a transactional stream
+  * rolls back), `Succeeded` on completion and when the subscriber cancels (a cancelled stream is
+  * not an error, so it commits, as in Slick 3). The caller must ensure that only the first call
+  * of `release` has an effect.
   */
 private[future] final class DatabasePublisherImpl[T](
   it: Iterator[T],
-  release: () => Unit
+  release: ExitCase => Unit
 ) extends DatabasePublisher[T] {
 
   private val subscribed = new AtomicBoolean(false)
 
-  private def tryRelease(): Unit = try release() catch { case _: Throwable => () }
+  private def tryRelease(exitCase: ExitCase): Unit = try release(exitCase) catch { case _: Throwable => () }
 
   override def mapResult[U](f: T => U): DatabasePublisher[U] =
     new DatabasePublisherImpl[U](it.map(f), release)
 
-  override def foreach[U](f: T => U)(implicit ec: ExecutionContext): Future[Unit] =
-    Future {
-      try { it.foreach(f) }
-      finally { tryRelease() }
+  override def foreach[U](f: T => U)(implicit ec: ExecutionContext): Future[Unit] = {
+    // Complete the promise explicitly: `Future.apply` does not complete its future when the body
+    // throws a fatal error, so a `StackOverflowError` from `f` would leave it pending forever.
+    // `guardStackOverflow` turns one into a `SlickException`, as inside an action.
+    val promise = Promise[Unit]()
+    try ec.execute { () =>
+      try {
+        guardStackOverflow(it.foreach(f))
+        tryRelease(ExitCase.Succeeded)
+        promise.success(())
+      } catch {
+        case NonFatal(e) =>
+          tryRelease(ExitCase.Errored(e))
+          promise.failure(e)
+        case e: Throwable =>
+          // Other fatal errors (OutOfMemoryError, InterruptedException, ...) still fail the
+          // future and roll back, then propagate to the executor as before.
+          tryRelease(ExitCase.Errored(e))
+          promise.tryFailure(e)
+          throw e
+      }
     }
+    catch {
+      case NonFatal(e) =>
+        // The executor rejected the task (e.g. a RejectedExecutionException after a shutdown):
+        // the stream will never be consumed, so release it as failed and fail the future.
+        tryRelease(ExitCase.Errored(e))
+        promise.tryFailure(e)
+    }
+    promise.future
+  }
 
   override def subscribe(s: Subscriber[? >: T]): Unit = {
     if (!subscribed.compareAndSet(false, true)) {
@@ -84,9 +117,10 @@ private[future] final class DatabasePublisherImpl[T](
         if (n <= 0) {
           if (!done) {
             done = true
-            tryRelease()
-            s.onError(new IllegalArgumentException(
-              s"request must be called with a positive demand but got $n (Reactive Streams rule 3.9)"))
+            val error = new IllegalArgumentException(
+              s"request must be called with a positive demand but got $n (Reactive Streams rule 3.9)")
+            tryRelease(ExitCase.Errored(error))
+            s.onError(error)
           }
           return
         }
@@ -104,7 +138,7 @@ private[future] final class DatabasePublisherImpl[T](
         // call sees emitting==true, backs off, but we have already decided to exit.
         var continue = true
         while (continue) {
-          try {
+          try guardStackOverflow {
             // Emit one element at a time, consuming exactly one demand unit per element.
             while (!cancelled && !done && demand.get() > 0 && it.hasNext) {
               demand.decrementAndGet()
@@ -112,17 +146,17 @@ private[future] final class DatabasePublisherImpl[T](
             }
             if (!cancelled && !done && !it.hasNext) {
               done = true
-              tryRelease()
+              tryRelease(ExitCase.Succeeded)
               s.onComplete()
             } else if (cancelled && !done) {
               done = true
-              tryRelease()
+              tryRelease(ExitCase.Succeeded)
             }
           } catch {
             case t: Throwable =>
               if (!done) {
                 done = true
-                tryRelease()
+                tryRelease(ExitCase.Errored(t))
                 s.onError(t)
               }
           }
@@ -147,7 +181,7 @@ private[future] final class DatabasePublisherImpl[T](
           // the flag back.
           done = true
           emitting.set(false)
-          tryRelease()
+          tryRelease(ExitCase.Succeeded)
         }
       }
     }
