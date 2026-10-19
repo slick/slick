@@ -441,4 +441,142 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
         .map(_.toSet shouldBe Set((1, true), (5, false), (2, false), (6, true)))
     ).andFinally(ts.schema.drop)
   }
+
+  def testUnionOfOptionalBooleanValues = {
+    class T(tag: Tag) extends Table[(Int, Option[Boolean])](tag, "u_opt_bool") {
+      def a = column[Int]("a")
+      def ob = column[Option[Boolean]]("ob")
+      def * = (a, ob)
+    }
+    val ts = TableQuery[T]
+    val literals = ts.map(t => (t.a, LiteralColumn(Option(true))))
+    val withParameter = Compiled { (p: Rep[Option[Boolean]]) => literals.union(ts.map(t => (t.a + 1, p))) }
+    val columnWithParameter = Compiled { (p: Rep[Option[Boolean]]) => ts.union(ts.map(t => (t.a + 1, p))) }
+    val bindValues = seq(
+      mark("literal and bound Some", literals.union(ts.map(t => (t.a + 1, LiteralColumn(Option(false)).bind))).result)
+        .map(_.toSet shouldBe Set((1, Some(true)), (5, Some(true)), (2, Some(false)), (6, Some(false)))),
+      mark("literal and bound None", literals.union(ts.map(t => (t.a + 1, LiteralColumn(Option.empty[Boolean]).bind))).result)
+        .map(_.toSet shouldBe Set((1, Some(true)), (5, Some(true)), (2, None), (6, None))),
+      mark("column and bound None", ts.union(ts.map(t => (t.a + 1, LiteralColumn(Option.empty[Boolean]).bind))).result)
+        .map(_.toSet shouldBe Set((1, Some(false)), (5, None), (2, None), (6, None))),
+      mark("column and NULL", ts.union(ts.map(t => (t.a + 1, LiteralColumn(Option.empty[Boolean])))).result)
+        .map(_.toSet shouldBe Set((1, Some(false)), (5, None), (2, None), (6, None)))
+    )
+    val parameters = seq(
+      mark("literal and parameter Some", withParameter(Some(false)).result)
+        .map(_.toSet shouldBe Set((1, Some(true)), (5, Some(true)), (2, Some(false)), (6, Some(false)))),
+      mark("literal and parameter None", withParameter(None).result)
+        .map(_.toSet shouldBe Set((1, Some(true)), (5, Some(true)), (2, None), (6, None))),
+      mark("column and parameter Some", columnWithParameter(Some(true)).result)
+        .map(_.toSet shouldBe Set((1, Some(false)), (5, None), (2, Some(true)), (6, Some(true)))),
+      mark("column and parameter None", columnWithParameter(None).result)
+        .map(_.toSet shouldBe Set((1, Some(false)), (5, None), (2, None), (6, None)))
+    )
+    // Derby does not allow a parameter in the select list (DerbyProfile casts bound literals there)
+    val parametersInSelect = tdb.profile != slick.jdbc.DerbyProfile
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq((1, Some(false)), (5, None)),
+      bindValues,
+      if (parametersInSelect) parameters else DBIO.successful(())
+    ).andFinally(ts.schema.drop)
+  }
+
+  /** A Boolean column stored as 'Y' and 'N', as in schemas not created by Slick */
+  object YesNo {
+    // Shadows the profile's implicit Boolean type
+    implicit val booleanColumnType: BaseColumnType[Boolean] =
+      MappedColumnType.base[Boolean, String](b => if (b) "Y" else "N", _ == "Y")
+    class T(tag: Tag) extends Table[(Int, Boolean)](tag, "u_yes_no") {
+      def a = column[Int]("a")
+      def b = column[Boolean]("b", O.Length(1, varying = false))
+      def * = (a, b)
+    }
+    def literal(b: Boolean): Rep[Boolean] = LiteralColumn(b)
+  }
+
+  def testUnionOfLegacyBooleanColumns = {
+    val ts = TableQuery[YesNo.T]
+    val columns = ts.map(t => (t.a, t.b))
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq((1, true), (5, false)),
+      mark("column and column", columns.union(ts.filter(_.a > 1).map(t => (t.a + 1, t.b))).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (6, false))),
+      mark("column and value", columns.union(ts.map(t => (t.a + 1, YesNo.literal(true)))).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (2, true), (6, true))),
+      mark("column in union of columns", ts.filter(_.b.in(columns.filter(_._1 > 1).map(_._2).union(columns.filter(_._1 > 1).map(_._2)))).map(_.a).result)
+        .map(_.toSet shouldBe Set(5))
+    ).andFinally(ts.schema.drop)
+  }
+
+  /** A subquery column that is NULL on every side needs no cast on Oracle, like an inline NULL */
+  def testUnionOfNullBooleanSubquery = {
+    class T(tag: Tag) extends Table[(Int, Boolean)](tag, "u_null_bool") {
+      def a = column[Int]("a")
+      def b = column[Boolean]("b")
+      def * = (a, b)
+    }
+    val ts = TableQuery[T]
+    val nulls = ts.map(t => (t.a, LiteralColumn(Option.empty[Boolean])))
+
+    // Checks Oracle's union casts; e.g. HSQLDB and PostgreSQL reject this union of a NULL-only column
+    if (tdb.profile != slick.jdbc.OracleProfile) DBIO.successful(())
+    else seq(
+      ts.schema.create,
+      ts ++= Seq((1, true), (5, false)),
+      mark("NULL subquery and literal", nulls.union(nulls).union(ts.map(t => (t.a + 1, LiteralColumn(Option(true))))).result)
+        .map(_.toSet shouldBe Set((1, None), (5, None), (2, Some(true)), (6, Some(true))))
+    ).andFinally(ts.schema.drop)
+  }
+
+  /** A Boolean column stored as a number by a mapped type */
+  object IntBoolean {
+    // Shadows the profile's implicit Boolean type
+    implicit val booleanColumnType: BaseColumnType[Boolean] =
+      MappedColumnType.base[Boolean, Int](b => if (b) 1 else 0, _ == 1)
+    def literal(b: Boolean): Rep[Boolean] = LiteralColumn(b)
+  }
+
+  /** On Oracle, the profile's CHAR(1) Boolean column is cast to match a number of another Boolean type */
+  def testUnionOfBooleanColumnAndNumericMappedBoolean = {
+    class T(tag: Tag) extends Table[(Int, Boolean)](tag, "u_bool_mapped_int") {
+      def a = column[Int]("a")
+      def b = column[Boolean]("b")
+      def * = (a, b)
+    }
+    val ts = TableQuery[T]
+
+    // Other databases have no CHAR(1) Booleans to cast, and some reject a union of a Boolean with a number
+    if (tdb.profile != slick.jdbc.OracleProfile) DBIO.successful(())
+    else seq(
+      ts.schema.create,
+      ts ++= Seq((1, true), (5, false)),
+      mark("column and mapped literal", ts.map(t => (t.a, t.b)).union(ts.map(t => (t.a + 1, IntBoolean.literal(true)))).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (2, true), (6, true)))
+    ).andFinally(ts.schema.drop)
+  }
+
+  /** A Boolean column of the profile's Boolean type with a numeric column type on Oracle */
+  def testUnionOfBooleanColumnWithSqlType = {
+    class T(tag: Tag) extends Table[(Int, Boolean, Boolean)](tag, "u_bool_sql_type") {
+      def a = column[Int]("a")
+      def b = column[Boolean]("b")
+      def n = column[Boolean]("n", slick.sql.SqlProfile.ColumnOption.SqlType("NUMBER(1)"))
+      def * = (a, b, n)
+    }
+    val ts = TableQuery[T]
+
+    if (tdb.profile != slick.jdbc.OracleProfile) DBIO.successful(())
+    else seq(
+      ts.schema.create,
+      ts ++= Seq((1, true, false), (5, false, true)),
+      mark("CHAR(1) column and NUMBER(1) column", ts.map(t => (t.a, t.b)).union(ts.map(t => (t.a + 1, t.n))).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (2, false), (6, true))),
+      mark("NUMBER(1) column and NUMBER(1) column", ts.map(t => (t.a, t.n)).union(ts.map(t => (t.a + 1, t.n))).result)
+        .map(_.toSet shouldBe Set((1, false), (5, true), (2, false), (6, true)))
+    ).andFinally(ts.schema.drop)
+  }
 }

@@ -14,6 +14,7 @@ import slick.jdbc.meta.{MColumn, MTable}
 import slick.lifted.*
 import slick.model.ForeignKeyAction
 import slick.relational.{RelationalCapabilities, RelationalProfile, ResultConverter}
+import slick.sql.SqlProfile
 import slick.util.ConstArray
 import slick.util.QueryInterpolator.queryInterpolator
 
@@ -168,27 +169,173 @@ trait OracleProfile extends JdbcProfile {
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))
       case c@Comprehension(_, _, _, Some(n @ Apply(Library.IfNull, _)), _, _, _, _, _, _, _) =>
         super.expr(c.copy(where = Some(RewriteBooleans.rewriteFakeBooleanEqOne(n))))
-      case Union(left, right, all) => super.expr(Union(numericBooleans(left), numericBooleans(right), all))
+      case u: Union => super.expr(castMismatchedBooleans(u))
       case _ => super.expr(c)
     }
 
     /* Boolean columns are CHAR(1), but Boolean literals, parameters and expressions are numbers. The
-     * columns of the two sides of a union must have the same type, so cast the Boolean ones to numbers. */
-    protected def numericBooleans(n: Node): Node = n match {
-      case c: Comprehension.Base =>
-        def cast(n: Node) =
-          if (Phase.rewriteBooleans.isBooleanLike(n.nodeType)) Library.Cast.typed(n.nodeType, n, LiteralNode("NUMBER(1)"))
-          else n
+     * columns of the two sides of a union must have the same type, so where one side has a Boolean
+     * column and the other a number, cast the column to a number. Positions where both sides are
+     * columns, or both are numbers, are left unchanged. */
+    protected def castMismatchedBooleans(u: Union): Union = {
+      val positions = unionBooleanSql(resultBooleanSql(u.left).map(_._2), resultBooleanSql(u.right).map(_._2))
+        .map(_ == Some(MixedBooleanSql))
+
+      Union(castBooleanColumns(u.left, positions), castBooleanColumns(u.right, positions), u.all)
+    }
+
+    /** How the Boolean value at each position of a union is represented in SQL, given the
+      * representations `l` and `r` of its sides. A position where the sides disagree is
+      * `MixedBooleanSql`; `castMismatchedBooleans` casts it to a number. */
+    private def unionBooleanSql(l: Seq[Option[BooleanSql]], r: Seq[Option[BooleanSql]]): Seq[Option[BooleanSql]] =
+      if (l.length != r.length) l.map(_ => Some(MixedBooleanSql))
+      else l.zip(r).map {
+        case (None, s) => s
+        case (s, None) => s
+        case (Some(ls), Some(rs)) => if (ls == rs && ls != MixedBooleanSql) Some(ls) else Some(MixedBooleanSql)
+      }
+
+    /* The results of `resultBooleanSql`, computed once per node of the statement. A union or
+     * subquery is classified from its sides or source, and the SQL of each nested union classifies
+     * its sides again, so without the cache the work would grow exponentially with nesting. */
+    private val resultBooleanSqlCache = new java.util.IdentityHashMap[Node, Seq[(Option[TermSymbol], Option[BooleanSql])]]
+
+    /** The Boolean SQL representation of each result column of a union side or subquery, with the
+      * column's field symbol if it has one. Non-Boolean columns and NULLs have `None`.
+      * `private[slick]` so that a test can check how often it is called. */
+    private[slick] def resultBooleanSql(n: Node): Seq[(Option[TermSymbol], Option[BooleanSql])] = {
+      val cached = resultBooleanSqlCache.get(n)
+
+      if (cached != null) cached
+      else {
+        val result = n match {
+          case c: Comprehension.Base =>
+            selectElements(c.select).map { case (s, e) => (s, booleanSql(e, c)) }
+          case Union(left, right, _) =>
+            val l = resultBooleanSql(left)
+
+            // A union subquery's columns have the field symbols of its left side
+            l.map(_._1).zip(unionBooleanSql(l.map(_._2), resultBooleanSql(right).map(_._2)).map {
+              case Some(MixedBooleanSql) => Some(NumericBooleanSql) // castMismatchedBooleans casts it
+              case s => s
+            })
+          case _ => Nil
+        }
+
+        resultBooleanSqlCache.put(n, result)
+        result
+      }
+    }
+
+    private def selectElements(select: Node): Seq[(Option[TermSymbol], Node)] = select match {
+      case Pure(StructNode(defs), _) => defs.toSeq.map { case (s, n) => (Some(s), n) }
+      case Pure(ProductNode(ch), _) => ch.toSeq.map(n => (None, n))
+      case Pure(v, _) => Seq((None, v))
+      case _ => Nil
+    }
+
+    /** How a select element `n` of comprehension `c` represents a Boolean in SQL. Values of other
+      * `JdbcType[Boolean]`s than the profile's are written and stored by that type, so they are never
+      * cast: one stored as a number is `NumericBooleanSql`, and any other is `None`. */
+    private def booleanSql(n: Node, c: Comprehension.Base): Option[BooleanSql] =
+      if (!isOracleBoolean(n.nodeType)) {
+        if (isNumericOtherBoolean(n.nodeType)) Some(NumericBooleanSql) else None
+      }
+      else n match {
+        /* An inline NULL takes the type of the other side, so it needs no cast. A bound NULL
+         * (`volatileHint`, rendered as `?`) is bound as a number by `OracleBooleanJdbcType.setNull`,
+         * so it is a number like any other bound value. */
+        case l @ LiteralNode(None | null) if !l.volatileHint => None
+        case _: LiteralNode | _: QueryParameter | RewriteBooleans.ToFakeBoolean(_) => Some(NumericBooleanSql)
+        case Library.Cast(_, LiteralNode(BooleanNumberType)) => Some(NumericBooleanSql)
+        case OptionApply(ch) => booleanSql(ch, c)
+        case Select(in, field) =>
+          pathSource(in, c) match {
+            // A column with an `O.SqlType` may not be CHAR(1), e.g. NUMBER(1)
+            case Some(_: TableNode) if hasSqlType(field) => Some(MixedBooleanSql)
+            case Some(_: TableNode) => Some(CharBooleanSql)
+            /* A subquery column that is NULL on every side stays `None`: Oracle accepts it in a union
+             * with a number (UnionTest.testUnionOfNullBooleanSubquery) */
+            case Some(sub @ (_: Comprehension.Base | _: Union)) =>
+              resultBooleanSql(sub).collectFirst { case (Some(`field`), sql) => sql }.getOrElse(Some(MixedBooleanSql))
+            case _ => Some(MixedBooleanSql)
+          }
+        case _ => Some(MixedBooleanSql)
+      }
+
+    /** The table, subquery or join in the FROM clause of comprehension `c` that a path refers to.
+      * Paths refer to the generators of `c` and `Join`s in it, and to the sides of a join by
+      * `ElementSymbol(1)` and `ElementSymbol(2)`. */
+    private def pathSource(path: Node, c: Comprehension.Base): Option[Node] = path match {
+      case slick.ast.Ref(s) => generatorSource(s, c.sym, c.from)
+      case Select(in, ElementSymbol(idx)) =>
+        pathSource(in, c).flatMap {
+          case j: Join if idx == 1 => Some(j.left)
+          case j: Join if idx == 2 => Some(j.right)
+          case _ => None
+        }
+      case _ => None
+    }
+
+    /** The source that generator symbol `s` ranges over in a FROM clause */
+    private def generatorSource(s: TermSymbol, gen: TermSymbol, from: Node): Option[Node] = from match {
+      case _ if gen == s => Some(from)
+      case j: Join => generatorSource(s, j.leftGen, j.left).orElse(generatorSource(s, j.rightGen, j.right))
+      case _ => None
+    }
+
+    private def hasSqlType(field: TermSymbol): Boolean = field match {
+      case f: FieldSymbol => f.existsColumnOption[SqlProfile.ColumnOption.SqlType]
+      case _ => false
+    }
+
+    private def isNumericOtherBoolean(t: Type): Boolean =
+      Phase.rewriteBooleans.isBooleanLike(t) && NumericSqlTypes.contains(jdbcTypeFor(t).sqlType)
+
+    private def isOracleBoolean(t: Type): Boolean =
+      Phase.rewriteBooleans.isBooleanLike(t) && jdbcTypeFor(t).isInstanceOf[OracleJdbcTypes#OracleBooleanJdbcType]
+
+    /** Cast the Boolean values at the given positions of a union side to numbers, unless they
+      * already are numbers. */
+    private def castBooleanColumns(n: Node, positions: Seq[Boolean]): Node = n match {
+      case c: Comprehension.Base if positions.contains(true) =>
+        def cast(e: Node, i: Int) =
+          if (positions.lift(i).contains(true) && booleanSql(e, c).exists(_ != NumericBooleanSql))
+            Library.Cast.typed(e.nodeType, e, LiteralNode(BooleanNumberType))
+          else e
         val select = c.select match {
-          case Pure(StructNode(defs), ts) => Pure(StructNode(defs.map { case (s, n) => (s, cast(n)) }), ts)
-          case Pure(ProductNode(ch), ts) => Pure(ProductNode(ch.map(cast)), ts)
-          case Pure(v, ts) => Pure(cast(v), ts)
+          case Pure(StructNode(defs), ts) =>
+            Pure(StructNode(defs.zipWithIndex.map { case ((s, e), i) => (s, cast(e, i)) }), ts)
+          case Pure(ProductNode(ch), ts) => Pure(ProductNode(ch.zipWithIndex.map { case (e, i) => cast(e, i) }), ts)
+          case Pure(v, ts) => Pure(cast(v, 0), ts)
           case s => s
         }
+
         c.copy(select = select) :@ c.nodeType
+      case Union(left, right, all) if positions.contains(true) =>
+        Union(castBooleanColumns(left, positions), castBooleanColumns(right, positions), all)
       case _ => n
     }
   }
+
+  /** The `java.sql.Types` of numbers */
+  private val NumericSqlTypes = {
+    import java.sql.Types.*
+
+    Set(BIT, TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, DECIMAL, REAL, FLOAT, DOUBLE)
+  }
+
+  /** The SQL type to which unions cast Boolean columns */
+  private val BooleanNumberType = "NUMBER(1)"
+
+  /** How a Boolean value is represented in Oracle SQL */
+  private[slick] sealed trait BooleanSql
+  /** A Boolean column: CHAR(1) */
+  private[slick] case object CharBooleanSql extends BooleanSql
+  /** A Boolean literal, parameter or expression: a number */
+  private[slick] case object NumericBooleanSql extends BooleanSql
+  /** Different or unknown representations, which are cast to numbers in unions */
+  private[slick] case object MixedBooleanSql extends BooleanSql
 
   class OracleTableDDLBuilder(table: Table[?])
     extends TableDDLBuilder(table)
@@ -333,6 +480,9 @@ END;
       override def sqlType = java.sql.Types.CHAR
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+      /* The driver binds values set with setBoolean as numbers. Bind NULL as a number too, so that a
+       * parameter has the same type whether or not it is None, e.g. in a union with a literal. */
+      override def setNull(p: PreparedStatement, idx: Int): Unit = p.setNull(idx, java.sql.Types.NUMERIC)
     }
 
     class OracleBlobJdbcType extends BlobJdbcType {
