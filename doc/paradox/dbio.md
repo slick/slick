@@ -176,6 +176,13 @@ A pre-existing value or failure can be converted with
 @scaladoc[DBIO.successful](slick.dbio.DBIOAction$#successful[R](R):DBIOAction[R,NoStream,Effect])
 and @scaladoc[DBIO.failed](slick.dbio.DBIOAction$#failed(Throwable):DBIOAction[Nothing,NoStream,Effect]), respectively.
 
+To suspend the construction of an action until it is run, use
+@scaladoc[DBIO.defer](slick.dbio.DBIOAction$#defer[R,S%3C:NoStream,E%3C:Effect](=%3EDBIOAction[R,S,E]):DBIOAction[R,S,E]).
+Its by-name argument is evaluated each time the resulting action is run rather than once when it
+is built, and an exception thrown while evaluating it fails the action instead of the caller:
+
+@@snip [DBIOCombinators.scala](../code/DBIOCombinators.scala) { #defer }
+
 ### Cats Type Classes {#cats-type-classes}
 
 Database I/O Actions have [cats](https://typelevel.org/cats/) instances: `MonadError[F, Throwable]`, and a

@@ -37,6 +37,18 @@ object DBIOCombinators {
       ()
     }
     ;{
+      //#defer
+      var attempts = 0
+      // The block is evaluated each time the action is run, not when it is built
+      val countedInsert: DBIO[Int] = DBIO.defer {
+        attempts += 1
+        coffees += (s"Attempt $attempts", 1.0)
+      }
+      //#defer
+
+      ()
+    }
+    ;{
       //#cats
       // Values typed with DBIO or DBIOEffect, and the results of Slick's own combinators, have
       // cats instances. toAction gives a profile action the DBIOEffect type with its effect.
