@@ -228,7 +228,10 @@ object StandardTestDBs {
   }
 
   lazy val SQLServerSQLJDBC = new SQLServerDB("sqlserver-sqljdbc") {
-    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
+    // The SQL Server JDBC driver rejects the empty catalog ("objects without a catalog") of MQName.local in
+    // getFunctions, getProcedures and getUDTs instead of returning no rows
+    override def capabilities =
+      super.capabilities - JdbcCapabilities.createModel - TestDB.capabilities.jdbcMetaEmptyCatalog
   }
 
   lazy val Oracle = new ExternalJdbcTestDB("oracle") {

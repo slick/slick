@@ -30,6 +30,8 @@ object TestDB {
     val jdbcMetaGetClientInfoProperties = new Capability("test.jdbcMetaGetClientInfoProperties")
     /** Supports JDBC metadata getFunctions method */
     val jdbcMetaGetFunctions = new Capability("test.jdbcMetaGetFunctions")
+    /** Accepts an empty catalog (objects without a catalog) in JDBC metadata lookups */
+    val jdbcMetaEmptyCatalog = new Capability("test.jdbcMetaEmptyCatalog")
     /** Supports JDBC metadata getIndexInfo method */
     val jdbcMetaGetIndexInfo = new Capability("test.jdbcMetaGetIndexInfo")
     /** Supports all tested transaction isolation levels */
@@ -37,8 +39,8 @@ object TestDB {
     /** Supports select for update row locking */
     val selectForUpdateRowLocking = new Capability("test.selectForUpdateRowLocking")
 
-    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo,
-      transactionIsolation, selectForUpdateRowLocking)
+    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaEmptyCatalog,
+      jdbcMetaGetIndexInfo, transactionIsolation, selectForUpdateRowLocking)
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */

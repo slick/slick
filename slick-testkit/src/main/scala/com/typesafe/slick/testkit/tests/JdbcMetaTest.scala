@@ -25,6 +25,11 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
   }
   lazy val orders = TableQuery[Orders]
 
+  /** All objects without a catalog and schema, or without a schema in the current catalog where an empty catalog is
+    * not accepted */
+  def anyLocal =
+    if (tdb.capabilities.contains(tcap.jdbcMetaEmptyCatalog)) MQName.local("%") else MQName(None, Some(""), "%")
+
   def testMeta = ifCap(tcap.jdbcMeta)(DBIO.seq(
     (users.schema ++ orders.schema).create.named("DDL used to create tables"),
 
@@ -32,14 +37,14 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
 
     ifCap(tcap.jdbcMetaGetFunctions) {
       /* Not supported by PostgreSQL, SQLite and H2. */
-      MFunction.getFunctions(MQName.local("%")).flatMap { fs =>
+      MFunction.getFunctions(anyLocal).flatMap { fs =>
         DBIO.sequence(fs.map(_.getFunctionColumns()))
       }
     }.named("Functions from DatabaseMetaData"),
 
-    MUDT.getUDTs(MQName.local("%")).named("UDTs from DatabaseMetaData"),
+    MUDT.getUDTs(anyLocal).named("UDTs from DatabaseMetaData"),
 
-    MProcedure.getProcedures(MQName.local("%")).flatMap { ps =>
+    MProcedure.getProcedures(anyLocal).flatMap { ps =>
       DBIO.sequence(ps.map(_.getProcedureColumns()))
     }.named("Procedures from DatabaseMetaData"),
 
