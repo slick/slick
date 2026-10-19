@@ -158,6 +158,33 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield result shouldBe inputs
   }
 
+  def testDefer: IO[Unit] = {
+    class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    var evaluated = 0
+    val deferred: DBIOAction[?, NoStream, Effect.Write] = DBIO.defer {
+      evaluated += 1
+      ts += evaluated
+    }
+    val failing: DBIO[Int] = DBIO.defer(throw new IllegalStateException("defer failed"))
+    evaluated shouldBe 0
+
+    for {
+      _ <- db.run(ts.schema.create)
+      _ = evaluated shouldBe 0
+      _ <- db.run(deferred >> deferred)
+      _ = evaluated shouldBe 2
+      result <- db.run(ts.sortBy(_.a).map(_.a).result)
+      _ = result shouldBe Seq(1, 2)
+      failure <- db.run(failing.asTry)
+      _ = failure.failed.get.getMessage shouldBe "defer failed"
+    } yield ()
+  }
+
   def testFlatten: IO[Unit] = {
     class T(tag: Tag) extends Table[Int](tag, "t".withUniquePostFix) {
       def a = column[Int]("a")

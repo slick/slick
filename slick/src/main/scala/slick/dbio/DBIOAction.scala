@@ -347,6 +347,23 @@ object DBIOAction {
   /** A no-op [[DBIOAction]]. A cached value of `DBIOAction.successful(())` to avoid allocations. */
   def unit: DBIOEffect[Effect, Unit] = UnitAction
 
+  /** Suspend the construction of an action until it is run. The by-name argument is not
+    * evaluated when `defer` is called but each time the resulting action is run, and the action
+    * it produces is then run in its place, with the same result, streaming and effect types.
+    * An exception thrown while evaluating the argument fails the resulting action instead of
+    * propagating to the caller.
+    *
+    * {{{
+    * // A new timestamp is computed for each run instead of once when the action is built
+    * val logRun: DBIO[Int] = DBIO.defer(runLog += java.time.Instant.now())
+    * }}}
+    *
+    * This is equivalent to `DBIO.unit.flatMap(_ => a)` and corresponds to `cats.Defer.defer` and
+    * `cats.effect.IO.defer`. To lift a lazily computed value rather than an action, use
+    * `DBIO.defer(DBIO.successful(v))`. */
+  def defer[R, S <: NoStream, E <: Effect](a: => DBIOAction[R, S, E]): DBIOAction[R, S, E] =
+    UnitAction.flatMap(_ => a)
+
   /** Lift any `F[R]` effect (e.g. `cats.effect.IO[R]`) into a [[DBIOAction]].
     *
     * The effect is executed on the CE3 compute pool, outside of any JDBC blocking context.
