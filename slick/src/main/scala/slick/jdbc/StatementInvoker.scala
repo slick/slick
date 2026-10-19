@@ -37,7 +37,8 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
       count =>
         if (acceptUpdateCount) new CloseableIterator.Single[R](count.asInstanceOf[R])
         else throw new SlickException(s"Statement did not return a ResultSet (update count $count); " +
-          s"use asUpdate or sqlu for non-query statements: $getStatement"),
+          "use asUpdate or sqlu for non-query statements (on SQL Server, SET NOCOUNT ON before a query): " +
+          getStatement),
       identity
     )
 

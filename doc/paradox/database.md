@@ -91,7 +91,13 @@ day numbers.
 
 @@@ warning
 These properties change the format of the stored data. They do not convert values already stored in an
-existing database, and they apply only to values passed as bind parameters. Slick always renders date and
+existing database, and those values are then also read back wrongly: after switching to `date_precision = SECONDS`,
+a millisecond value from 2020 reads as a date in the year 51972. Migrate the existing values first, for example
+with `update t set ts = ts / 1000` when switching from milliseconds to seconds. Do this only for the columns stored
+as INTEGER milliseconds (`java.sql.Date`, `Time`, `Timestamp`, `LocalDate`, `LocalDateTime` and `Instant`); the
+ISO-8601 TEXT columns (`LocalTime`, `OffsetTime`, `OffsetDateTime` and `ZonedDateTime`) are not affected and must
+be left unchanged.
+The properties apply only to values passed as bind parameters. Slick always renders date and
 time **literals** as milliseconds since the epoch. With `date_precision = SECONDS` or a `date_class` other than
 `INTEGER`, a query such as `table.filter(_.createdAt === timestamp)`, where the value is inlined as a literal,
 does not match the stored values. Use `timestamp.bind` or a @ref:[compiled query](queries.md#compiled-queries)

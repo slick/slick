@@ -36,13 +36,18 @@ with a literal SQL string:
 The `sqlu` interpolator is used for DML statements which produce a row count instead of a result
 set. Therefore they are of type `DBIO[Int]`. Use `sqlu` (or `.asUpdate`) for every statement that does
 not return a result set, including DDL: reading such a statement with `.as[R]` fails with a
-`SlickException`.
+`SlickException`. On SQL Server and Sybase, a batch or stored procedure that modifies rows before its
+`SELECT` (directly or through a trigger) first returns an update count, so `.as[R]` fails the same way.
+Start the batch or procedure with `SET NOCOUNT ON` to suppress those update counts.
 
 A Plain SQL action should contain a single SQL statement. Several statements separated by `;` are not
 portable: H2, PostgreSQL and SQL Server run all of them, MySQL runs them only with the
 `allowMultiQueries=true` connection property, HSQLDB, Derby, Oracle and DB2 reject them, and SQLite
 silently runs only the first one. Where they do run, the action returns the result of the first
-statement and fails if a later one fails. Use `DBIO.seq(sqlu"...", sqlu"...")` to run several statements.
+statement. A later statement that fails makes the action fail only if Slick reads its result: always when the
+first statement returns an update count, but after a query only when its result set is read to the end.
+`.head` and `.headOption`, which stop after the first row, and a stream that is cancelled early can miss
+the error. Use `DBIO.seq(sqlu"...", sqlu"...")` to run several statements.
 
 Any variable or expression injected into a query gets turned into a bind variable in the resulting
 query string. It is not inserted directly into a query string, so there is no danger of SQL
