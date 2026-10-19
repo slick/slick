@@ -110,6 +110,10 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected val parenthesizeNestedRHSJoin = false
     protected val pi = "3.1415926535897932384626433832795"
     protected val alwaysAliasSubqueries = true
+    /** Alias every table in a FROM clause and qualify the column references, also in single-table
+      * SELECTs. SQLite needs this because it reads an unknown, unqualified double-quoted column
+      * name as a string literal instead of failing. */
+    protected val alwaysAliasTables = false
     protected val supportsLiteralGroupBy = false
     protected val quotedJdbcFns: Option[Seq[Library.JdbcFunction]] = None // quote all by default
     /** The maximum number of operands of an `and` or `or` that are rendered as one flat list.
@@ -124,6 +128,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     val symbolName: SymbolNamer = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new mutable.HashMap[TermSymbol, Join]
     protected var currentUniqueFrom: Option[TermSymbol] = None
+    /** The name of the target table of the UPDATE or DELETE statement being built. A subquery that
+      * reads the same table must alias it, so that its columns don't resolve to the target table. */
+    protected var dmlTargetTableName: Option[String] = None
 
     private[this] var _skipParens = false
 
@@ -166,7 +173,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           .flatMap(_.collect { case c: Comprehension.Base => c }.toSeq.flatMap(_.findNode(_ == Ref(s))))
           .nonEmpty
       currentUniqueFrom = from match {
-        case Seq((s, _: TableNode)) if !containsSymbolInSubquery(s) => Some(s)
+        case Seq((s, t: TableNode)) =>
+          if (alwaysAliasTables || dmlTargetTableName.contains(t.tableName) || containsSymbolInSubquery(s)) None
+          else Some(s)
         case Seq((s, _)) if !alwaysAliasSubqueries && !containsSymbolInSubquery(s) => Some(s)
         case _ => None
       }
@@ -522,6 +531,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
       val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because UPDATE does not support aliases
+      dmlTargetTableName = Some(from.tableName)
       b"update $qtn set "
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
       if(where.isDefined) {
@@ -551,6 +561,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       }
       val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
+      dmlTargetTableName = Some(from.tableName)
       buildDeleteFrom(qtn)
       if(where.isDefined) {
         b" where "
