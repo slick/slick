@@ -49,7 +49,8 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if the
   *     data to insert contains an `AutoInc` field. Otherwise the operation
-  *     is performed natively on the server side.</li>
+  *     is performed natively on the server side with
+  *     `INSERT ... ON CONFLICT (primary key) DO UPDATE`.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.defaultValueMetaData]]:
   *     The stable xerial sqlite-jdbc driver 3.7.2 does not return default values
   *     for columns in the DatabaseMetaData. Consequently they also do not appear
@@ -268,10 +269,16 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     }
   }
 
-  /* Extending super.InsertBuilder here instead of super.UpsertBuilder.
-   INSERT OR REPLACE is almost identical to INSERT. */
-  class SQLiteUpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
-    override protected def buildInsertStart = allNames.mkString(s"insert or replace into $tableName (", ",", ") ")
+  /* Uses UPSERT with the primary key as the conflict target. INSERT OR REPLACE would resolve a conflict on any
+   unique constraint by deleting the conflicting rows, and it would reset the columns that are not inserted. */
+  class SQLiteUpsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
+    override def buildInsert: InsertBuilderResult = {
+      val conflict = pkNames.mkString("on conflict (", ",", ")")
+      val action =
+        if (softNames.isEmpty) "do nothing"
+        else softNames.map(n => s"$n=excluded.$n").mkString("do update set ", ", ", "")
+      new InsertBuilderResult(table, s"$buildInsertStart values $allVars $conflict $action", syms)
+    }
   }
 
   class SQLiteInsertBuilder(ins: Insert) extends InsertBuilder(ins) {
