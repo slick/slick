@@ -215,6 +215,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected val concatOperator: Some[String] = Some("||")
     override protected val parenthesizeNestedRHSJoin = true
     override protected val alwaysAliasSubqueries = false
+    override protected val alwaysAliasTables = true
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
     override protected def buildOrdering(n: Node, o: Ordering): Unit = {
