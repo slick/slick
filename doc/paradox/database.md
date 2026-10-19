@@ -281,6 +281,48 @@ Note that reasonable defaults for the connection pool sizes are calculated autom
 Slick uses *prepared* statements wherever possible but it does not cache them on its own. You
 should therefore enable prepared statement caching in the connection pool's configuration.
 
+### HikariCP settings
+
+With `connectionPool = "HikariCP"` (the default), the pool is configured from the same config section
+as the database. Most keys have the same names as the
+[HikariCP configuration properties](https://github.com/brettwooldridge/HikariCP#gear-configuration-knobs-baby) and are passed on to
+HikariCP. These keys need some explanation:
+
+- `dataSourceClass` or `dataSourceClassName`: the `javax.sql.DataSource` class provided by the JDBC
+  driver, configured with `properties`. Without it, the pool uses `driver` (or `driverClassName`) and
+  `url` (or `jdbcUrl`). Slick fails with a `SlickException` when the class is not a `DataSource`.
+- `maximumPoolSize` or `maxConnections` (default: `numThreads`, or 20): the maximum pool size. Slick also
+  limits concurrent JDBC work to the pool size. If both keys are set, `maximumPoolSize` is used and Slick
+  logs a warning, because a `maximumPoolSize` in a `reference.conf` file would otherwise silently override
+  your `maxConnections`.
+- `minimumIdle` or `minConnections` (default: `maxConnections`, or `numThreads`, or 20): the minimum
+  number of idle connections.
+- `initializationFailTimeout` (default: `-1`): what happens when the pool cannot get a first connection
+  while starting. A positive value is the time to try (in milliseconds, or a duration such as `5s`) before
+  the pool fails to start; `1` makes the pool fail fast. With `0` the pool starts even if it cannot get
+  a connection, and with `-1` it does not try to get one. Note that Slick's default (`-1`) differs from
+  HikariCP's (`1`).
+
+#### Pool metrics
+
+To register metrics or health checks on the HikariCP pool, write a
+@scaladoc[JdbcDataSourceFactory](slick.jdbc.JdbcDataSourceFactory) object that calls
+@scaladoc[HikariCPJdbcDataSource.forConfig](slick.jdbc.hikaricp.HikariCPJdbcDataSource$) and then sets them
+on the pool, which is available as `ds`:
+
+```scala
+object InstrumentedHikariCP extends JdbcDataSourceFactory {
+  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
+    val source = HikariCPJdbcDataSource.forConfig(c, driver, name, classLoader)
+    source.ds.setMetricRegistry(myMetricRegistry) // or setMetricsTrackerFactory
+    source.ds.setHealthCheckRegistry(myHealthCheckRegistry)
+    source
+  }
+}
+```
+
+Name that object in the configuration with `connectionPool = "com.example.InstrumentedHikariCP$"`.
+
 Execution Concurrency Model
 ---------------------------
 
