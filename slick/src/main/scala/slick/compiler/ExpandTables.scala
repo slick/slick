@@ -62,7 +62,56 @@ class ExpandTables extends Phase {
           }
           d.mapChildren(tr)
       }
-      val tree2 = tr(tree).infer()
+      val tree2a = tr(tree).infer()
+
+      /* The result of a query is expanded with the star projections of the tables whose rows it contains. A
+       * Union has the row type of its left side, so the left side's projections are used for the rows of both
+       * sides. Columns line up by position, so that is correct for them, but anything else in a star projection
+       * (literals, computed values, a column used twice) has to be computed by each side (#1559). Under a Union,
+       * replace each table that has such elements with a struct that contains one field per element of its star
+       * projection, followed by the table's other fields, under a new identity whose expansion reads the fields.
+       * Both sides of the Union then have the elements of their star projections at the same positions. */
+      def elements(n: Node): Vector[Node] = n match {
+        case _: ProductNode | _: TypeMapping | _: OptionApply => n.children.toSeq.toVector.flatMap(elements)
+        case _ => Vector(n)
+      }
+      def replaceElements(n: Node, replacements: IndexedSeq[Node]): Node = {
+        var i = -1
+        def f(n: Node): Node = n match {
+          case _: ProductNode | _: TypeMapping | _: OptionApply => n.mapChildren(f)
+          case _ => i += 1; replacements(i)
+        }
+        f(n)
+      }
+      def liftElements(t: TableNode): Option[Node] = for {
+        (gen, columns) <- tables.get(t.identity)
+        fields = t.nodeType.asCollectionType.elementType.structural match {
+          case StructType(defs) => defs.toSeq.map(_._1)
+          case _ => Nil
+        }
+        es = elements(columns)
+        // The field of each element that is a column, unless an earlier element is the same column
+        columnFields = es.zipWithIndex.collect { case (Select(Ref(s), f), i) if s == gen && fields.contains(f) => (f, i) }
+          .distinctBy(_._1).map(_.swap).toMap
+        if columnFields.size < es.length
+      } yield {
+        val syms = es.indices.map(i => columnFields.getOrElse(i, new AnonSymbol))
+        val others = fields.filterNot(syms.contains)
+        val g = new AnonSymbol
+        val struct = StructNode(ConstArray.from(syms.zip(es) ++ others.map(f => (f, Select(Ref(gen), f)))).map {
+          case (s, n) => (s, n.replace { case Ref(`gen`) => Ref(g) })
+        })
+        val ts = new AnonTableIdentitySymbol
+        tables += ((ts, (gen, replaceElements(columns, syms.map(Select(Ref(gen), _))))))
+        Bind(g, t, Pure(struct, ts))
+      }
+      def liftInUnions(n: Node, inUnion: Boolean): Node = n match {
+        case t: TableNode if inUnion => liftElements(t).getOrElse(t)
+        case u: Union => u.mapChildren(liftInUnions(_, true))
+        case _ => n.mapChildren(liftInUnions(_, inUnion))
+      }
+      val tree2b = liftInUnions(tree2a, false)
+      val tree2 = if (tree2b eq tree2a) tree2a else tree2b.replace { case r: Ref => r.untyped }.infer()
       logger.debug("With correct table types:", tree2)
       logger.debug("Table expansions: " + tables.mkString(", "))
 
