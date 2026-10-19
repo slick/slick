@@ -11,6 +11,7 @@ import cats.{MonadError, Monoid, Semigroup, StackSafeMonad}
 import slick.SlickException
 import slick.basic.BasicBackend
 import slick.compat.collection.*
+import slick.dbio.SynchronousDatabaseAction.guardStackOverflow
 import slick.util.CloseableIterator
 import slick.util.{ignoreFollowOnError, Dumpable, DumpInfo}
 
@@ -658,9 +659,10 @@ trait SynchronousDatabaseAction[+R, +S <: NoStream, -C <: BasicBackend#BasicActi
   override def andFinally[E2 <: Effect](a: DBIOAction[?, NoStream, E2]): DBIOAction[R, S, E with E2] = a match {
     case a: SynchronousDatabaseAction[?, ?, ?, ?] => new SynchronousDatabaseAction.Fused[R, S, C, E with E2] {
       def run(context: C): R = {
-        val res = try self.run(context) catch {
+        val res = try guardStackOverflow(self.run(context)) catch {
           case NonFatal(ex) =>
-            try a.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, C, E2]].run(context) catch ignoreFollowOnError
+            try guardStackOverflow(a.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, C, E2]].run(context))
+            catch ignoreFollowOnError
             throw ex
         }
         a.asInstanceOf[SynchronousDatabaseAction[Any, S, C, E2]].run(context)
@@ -682,7 +684,7 @@ trait SynchronousDatabaseAction[+R, +S <: NoStream, -C <: BasicBackend#BasicActi
     def run(context: C): Throwable = {
       var ok = false
       try {
-        self.run(context)
+        guardStackOverflow(self.run(context))
         ok = true
         throw new NoSuchElementException("Action.failed (fused) not completed with a Throwable")
       } catch {
@@ -695,7 +697,7 @@ trait SynchronousDatabaseAction[+R, +S <: NoStream, -C <: BasicBackend#BasicActi
   private[this] def superAsTry: DBIOAction[Try[R], NoStream, E] = super.asTry
   override def asTry: DBIOAction[Try[R], NoStream, E] = new SynchronousDatabaseAction.Fused[Try[R], NoStream, C, E] {
     def run(context: C): Try[R] = {
-      try Success(self.run(context)) catch {
+      try Success(guardStackOverflow(self.run(context))) catch {
         case NonFatal(ex) => Failure(ex)
       }
     }
@@ -704,6 +706,16 @@ trait SynchronousDatabaseAction[+R, +S <: NoStream, -C <: BasicBackend#BasicActi
 }
 
 object SynchronousDatabaseAction {
+  /** Evaluate user or compiler code (a continuation, a cleanup function or a synchronous action)
+    * that runs inside an action. A `StackOverflowError` is rethrown as a `SlickException`: the
+    * effect runtime treats it as fatal, which would skip the release of the action's in-flight
+    * slot, connection and transaction, so it must fail the action like any other error. Fused
+    * combinators that recover from failures (`asTry`, `andFinally`, `cleanUp`, `failed`) use it
+    * so that they handle an overflow like their non-fused forms. */
+  private[slick] def guardStackOverflow[A](thunk: => A): A =
+    try thunk
+    catch { case e: StackOverflowError => throw new SlickException("Stack overflow while running a database action", e) }
+
   /** A fused SynchronousDatabaseAction */
   trait Fused[+R, +S <: NoStream, C <: BasicBackend#BasicActionContext, -E <: Effect] extends SynchronousDatabaseAction[R, S, C, E] {
     def getDumpInfo = DumpInfo(name = "SynchronousDatabaseAction.Fused", children = Vector(("non-fused", nonFusedEquivalentAction)))
@@ -749,10 +761,10 @@ object SynchronousDatabaseAction {
       case CleanUpAction(base: SynchronousDatabaseAction[?, ?, ?, ?], f, keepFailure) =>
         new SynchronousDatabaseAction.Fused[R, S, BasicBackend#BasicActionContext, E] {
           def run(context: BasicBackend#BasicActionContext): R = {
-            val res = try {
+            val res = try guardStackOverflow {
               base.asInstanceOf[SynchronousDatabaseAction[R, S, BasicBackend#BasicActionContext, Effect]].run(context)
             } catch { case NonFatal(ex) =>
-              try {
+              try guardStackOverflow {
                 val a2 = f(Some(ex))
                 a2.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, BasicBackend#BasicActionContext, Effect]].run(context)
               } catch { case NonFatal(_) if keepFailure => () }
