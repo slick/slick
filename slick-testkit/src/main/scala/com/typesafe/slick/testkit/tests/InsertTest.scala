@@ -576,6 +576,73 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       } yield ()).withPinnedSession
     }
 
+  // Regression test for https://github.com/slick/slick/issues/3846: SQLite's INSERT OR REPLACE deleted the other row
+  def testInsertOrUpdateClashOnUniqueColumn: DBIOAction[Unit, NoStream, Effect.All] = {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge_unique") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name", O.Length(20), O.Unique)
+      def * = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    (for {
+      _ <- ts.schema.create
+      _ <- ts ++= Seq((2, "Abcd"), (3, "c"))
+      result <- ts.insertOrUpdate((1, "Abcd")).asTry
+      _ <- ts.sortBy(_.id).result.map { rows =>
+        if (tdb.profile.isInstanceOf[MySQLProfile]) {
+          // ON DUPLICATE KEY UPDATE matches the unique key and gives the other row the new primary key
+          result.isSuccess shouldBe true
+          rows shouldBe Seq((1, "Abcd"), (3, "c"))
+        } else {
+          result match {
+            case Failure(_: java.sql.SQLException) => ()
+            case other => throw new RuntimeException(s"insertOrUpdate should fail on the unique column, got $other")
+          }
+          rows shouldBe Seq((2, "Abcd"), (3, "c"))
+        }
+      }
+    } yield ()).withPinnedSession
+  }
+
+  // Regression test for https://github.com/slick/slick/issues/3846: SQLite's INSERT OR REPLACE reset other columns
+  def testInsertOrUpdateKeepsColumnsNotInProjection: DBIOAction[Unit, NoStream, Effect.All] = {
+    class T(tag: Tag) extends Table[(Int, String, String)](tag, "t_merge_partial") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name", O.Length(20))
+      def note = column[String]("note", O.Length(20), O.Default("none"))
+      def * = (id, name, note)
+    }
+    val ts = TableQuery[T]
+    val idAndName = ts.map(t => (t.id, t.name))
+
+    (for {
+      _ <- ts.schema.create
+      _ <- ts += ((1, "a", "kept"))
+      _ <- idAndName.insertOrUpdate((1, "b")).map(_ shouldBe 1)
+      _ <- idAndName.insertOrUpdate((2, "c")).map(_ shouldBe 1)
+      _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "b", "kept"), (2, "c", "none")))
+    } yield ()).withPinnedSession
+  }
+
+  def testInsertOrUpdateTableNamedExcluded: DBIOAction[Unit, NoStream, Effect.All] = {
+    // SQLite's upsert refers to the proposed row as `excluded`, which must not resolve to the table itself
+    class T(tag: Tag) extends Table[(Int, String)](tag, "excluded") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name", O.Length(20))
+      def * = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    (for {
+      _ <- ts.schema.create
+      _ <- ts += ((1, "old"))
+      _ <- ts.insertOrUpdate((1, "new"))
+      _ <- ts.result.map(_ shouldBe Seq((1, "new")))
+      _ <- ts.schema.drop
+    } yield ()).withPinnedSession
+  }
+
   // Regression test for https://github.com/slick/slick/issues/2045
   def testInsertOrUpdateWithIntegrityError: DBIOAction[Unit, NoStream, Effect.All] = {
     case class Book(id: Long, title: String, code: Option[String] = None)
