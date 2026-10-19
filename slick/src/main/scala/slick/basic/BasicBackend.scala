@@ -673,9 +673,11 @@ trait BasicBackend { self =>
                   case Outcome.Canceled() =>
                     // Run cleanup with a CancellationException so user code can react to cancel.
                     // Errors from cleanup are swallowed so as not to mask the cancellation.
-                    interpret[Any](
+                    // guaranteeCase builds this finalizer before the base action runs, so the call
+                    // to f is deferred: it must only happen when the action is really canceled.
+                    F.defer(interpret[Any](
                       guardStackOverflow(f(Some(new java.util.concurrent.CancellationException("DBIO action canceled"))))
-                        .asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx).attempt.void
+                        .asInstanceOf[DBIOAction[Any, NoStream, Nothing]], ctx)).attempt.void
                 }
             }
 
