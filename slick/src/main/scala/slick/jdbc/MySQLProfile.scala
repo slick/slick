@@ -9,7 +9,7 @@ import slick.ast.TypeUtil.*
 import slick.ast.Util.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, ResolveZipJoins}
-import slick.dbio.DBIO
+import slick.dbio.{DBIO, Effect, NoStream}
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
 import slick.lifted.*
 import slick.relational.{RelationalCapabilities, RelationalProfile}
@@ -177,6 +177,22 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new MySQLQueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new MySQLUpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[?]): TableDDLBuilder = new MySQLTableDDLBuilder(table)
+  override def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
+    new JdbcSchemaActionExtensionMethodsImpl(schema) {
+      override def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] =
+        new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
+          def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = {
+            import java.sql.SQLException
+            for (s <- sql) try {
+              executeDDL(ctx, s)
+            } catch {
+              // MySQL has no "DROP FOREIGN KEY IF EXISTS": ignore dropping a foreign key that does not exist yet
+              // (ER_CANT_DROP_FIELD_OR_KEY: Can't DROP '<name>'; check that column/key exists)
+              case e: SQLException if e.getErrorCode == 1091 => ()
+            }
+          }
+        }
+    }
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): ColumnDDLBuilder =
     new MySQLColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[?]): SequenceDDLBuilder = new MySQLSequenceDDLBuilder(seq)
@@ -328,6 +344,10 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override protected def dropForeignKey(fk: ForeignKey) = {
       "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP FOREIGN KEY " + quoteIdentifier(fk.name)
     }
+    // MySQL has no "DROP FOREIGN KEY IF EXISTS". This is only used by createIfNotExists, whose action
+    // (see createSchemaActionExtensionMethods) ignores the error 1091 that it raises for a missing key.
+    override protected def dropForeignKeyIfExists(fk: ForeignKey): String =
+      dropForeignKey(fk)
     override protected def dropPrimaryKey(pk: PrimaryKey): String = {
       "ALTER TABLE " + quoteTableName(table.tableNode) + " DROP PRIMARY KEY"
     }
