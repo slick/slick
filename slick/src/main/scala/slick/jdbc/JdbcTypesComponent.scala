@@ -36,6 +36,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     def updateValue(v: T, r: ResultSet, idx: Int) = tmd.updateValue(map(v), r, idx)
     def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
     def hasLiteralForm = newHasLiteralForm.getOrElse(tmd.hasLiteralForm)
+    override def hasLiteralFormFor(value: T) = newHasLiteralForm.getOrElse(tmd.hasLiteralFormFor(map(value)))
     override def scalaType: ScalaBaseType[T] = ScalaBaseType[T]
     override def toString = s"MappedJdbcType[${classTag.runtimeClass.getName} -> $tmd]"
     override def hashCode = tmd.hashCode() + classTag.hashCode()
@@ -383,7 +384,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       // NaN and the infinities have no numeric literal form. Queries send them as bind variables, so this cast
       // is only used where a literal is required (e.g. column defaults) and works only on some databases
       override def valueToSQLLiteral(value: Double) =
-        if(value.isNaN || value.isInfinite) s"cast('$value' as ${sqlTypeName(None)})" else value.toString
+        if (java.lang.Double.isFinite(value)) value.toString else s"cast('$value' as ${sqlTypeName(None)})"
+      override def hasLiteralFormFor(value: Double) = hasLiteralForm && java.lang.Double.isFinite(value)
     }
 
     class FloatJdbcType extends DriverJdbcType[Float] with NumericTypedType {
@@ -395,7 +397,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       // NaN and the infinities have no numeric literal form. Queries send them as bind variables, so this cast
       // is only used where a literal is required (e.g. column defaults) and works only on some databases
       override def valueToSQLLiteral(value: Float) =
-        if(value.isNaN || value.isInfinite) s"cast('$value' as ${sqlTypeName(None)})" else value.toString
+        if (java.lang.Float.isFinite(value)) value.toString else s"cast('$value' as ${sqlTypeName(None)})"
+      override def hasLiteralFormFor(value: Float) = hasLiteralForm && java.lang.Float.isFinite(value)
     }
 
     class IntJdbcType extends DriverJdbcType[Int] with NumericTypedType {
@@ -534,14 +537,4 @@ object JdbcTypesComponent {
   private[slick] lazy val typeNames = Map() ++
     (for(f <- classOf[java.sql.Types].getFields)
       yield f.get(null).asInstanceOf[Int] -> f.getName)
-
-  /** Check if a literal value is a NaN or infinite floating-point number. Databases disagree on whether and how
-    * these can be written in SQL (some silently turn a string cast into 0), so query builders send them as bind
-    * variables and let the JDBC driver handle them. */
-  private[slick] def isNonFiniteFloatingPoint(v: Any): Boolean = v match {
-    case d: Double => d.isNaN || d.isInfinite
-    case f: Float  => f.isNaN || f.isInfinite
-    case Some(x)   => isNonFiniteFloatingPoint(x)
-    case _         => false
-  }
 }
