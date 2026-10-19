@@ -41,6 +41,7 @@ object PlainSQL {
         insertCoffees,
         printAll,
         printParameterized,
+        printUntyped,
         coffeeByName("Colombian").map { s =>
           println(s"Coffee Colombian: $s")
         },
@@ -138,6 +139,19 @@ object PlainSQL {
         for (t <- l2)
           println("* " + t._1 + " supplied by " + t._2)
         supplierById(49).map(s => println(s"Supplier #49: $s"))
+      }
+    }
+
+    def printUntyped: DBIO[Unit] = {
+      //#untyped
+      val rows: DBIO[Seq[Seq[Any]]] =
+        sql"select name, price from coffees order by name".asSeqOfAny
+      val maps: DBIO[Seq[Map[String, Any]]] =
+        sql"select name as coffee, price from coffees order by name".asMapOfAny
+      //#untyped
+      rows.zip(maps).map { case (r, m) =>
+        println(s"First coffee as Seq: ${r.head.mkString(", ")}")
+        println(s"First coffee as Map: ${m.head.map { case (k, v) => s"$k = $v" }.mkString(", ")}")
       }
     }
 
