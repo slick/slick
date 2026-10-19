@@ -206,7 +206,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
          * NullPointerException when using bind variables in a SELECT clause.
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
          * explicit type annotation (in the form of a CAST expression). */
-        if(c.volatileHint || !ti.hasLiteralForm) {
+        if(c.volatileHint || !ti.hasLiteralForm || JdbcTypesComponent.isNonFiniteFloatingPoint(v)) {
           b"cast("
           b +?= { (p, idx, _) =>
             if (option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx) else ti.setValue(v, p, idx)
