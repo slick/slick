@@ -184,7 +184,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
           def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = {
             import java.sql.SQLException
             for (s <- sql) try {
-              ctx.session.withPreparedStatement(s)(_.execute)
+              executeDDL(ctx, s)
             } catch {
               // MySQL has no "DROP FOREIGN KEY IF EXISTS": ignore dropping a foreign key that does not exist yet
               // (ER_CANT_DROP_FIELD_OR_KEY: Can't DROP '<name>'; check that column/key exists)

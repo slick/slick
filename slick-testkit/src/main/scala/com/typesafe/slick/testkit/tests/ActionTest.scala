@@ -412,6 +412,30 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
+  def testCreateIfNotExistsWithFKToMissingTable = {
+    class A(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_missing_a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def * = id
+    }
+    val as = TableQuery[A]
+
+    class B(_tag: Tag) extends Table[(Int, Int)](_tag, "ddl_test_fk_missing_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def aId = column[Int]("a_id")
+      def * = (id, aId)
+      // A name that contains the text of a foreign key drop must not hide the error of adding the foreign key
+      def fk = foreignKey("fk drop constraint x", aId, as)(_.id)
+    }
+    val bs = TableQuery[B]
+
+    // The heap database and SQLite don't check that the referenced table exists
+    val checksFKTargets = tdb.profile != slick.memory.MemoryProfile && !tdb.profile.isInstanceOf[slick.jdbc.SQLiteProfile]
+
+    // Table "ddl_test_fk_missing_a" is never created
+    if (checksFKTargets) bs.schema.createIfNotExists.failed.andThen(bs.schema.dropIfExists)
+    else bs.schema.createIfNotExists.andThen(bs.schema.drop)
+  }
+
   def testDropIfExistsWithPK = {
     case class D(a: Int, b: Int)
     class T1(tag: Tag) extends Table[D](tag, "t1") {

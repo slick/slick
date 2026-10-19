@@ -125,7 +125,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
           def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = {
             import java.sql.SQLException
             for (s <- sql) try {
-              ctx.session.withPreparedStatement(s)(_.execute)
+              executeDDL(ctx, s)
             } catch {
               //<value> '<value>' already exists in <value> '<value>'.
               case e: SQLException if e.getSQLState.equals("X0Y32") => ()
@@ -139,7 +139,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
           def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit = {
             import java.sql.SQLException
             for (s <- sql) try {
-              ctx.session.withPreparedStatement(s)(_.execute)
+              executeDDL(ctx, s)
             } catch {
               //'<value>' cannot be performed on '<value>' because it does not exist.
               case e: SQLException if e.getSQLState.equals("42Y55") => ()
