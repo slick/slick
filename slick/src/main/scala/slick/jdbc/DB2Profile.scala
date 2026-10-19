@@ -34,12 +34,6 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.forShare]]:
   *     DB2 does not support SELECT ... FOR SHARE.</li>
   * </ul>
-  *
-  * Note: The DB2 JDBC driver has problems with quoted identifiers. Columns
-  * which are returned from inserts must not require quoted names (in
-  * particular, they must not contain lower-case characters or be equal to a
-  * reserved word), otherwise a bug in the DB2 JDBC driver triggers a SQL
-  * Error -206 (SQLState 42703).
   */
 trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
@@ -53,6 +47,9 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
+
+  // The driver puts the returned column names into its generated SQL unquoted
+  override protected def returnedColumnName(name: String): String = quoteIdentifier(name)
   override protected val invokerMutateType: ResultSetType = ResultSetType.ScrollSensitive
 
   override protected def computeQueryCompiler =
