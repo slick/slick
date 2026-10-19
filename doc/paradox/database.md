@@ -313,8 +313,8 @@ HikariCP. These keys need some explanation:
   driver, configured with `properties`. Without it, the pool uses `driver` (or `driverClassName`) and
   `url` (or `jdbcUrl`). Slick fails with a `SlickException` when the class is not a `DataSource`.
 - `maximumPoolSize` or `maxConnections` (default: `numThreads`, or 20): the maximum pool size. Slick also
-  limits concurrent JDBC work to the pool size. If both keys are set, `maximumPoolSize` is used and Slick
-  logs a warning, because a `maximumPoolSize` in a `reference.conf` file would otherwise silently override
+  limits concurrent JDBC work to the pool size. If both keys are set, `maximumPoolSize` is used, and if
+  their values differ, Slick logs a warning, because a `maximumPoolSize` in a `reference.conf` file would otherwise silently override
   your `maxConnections`.
 - `minimumIdle` or `minConnections` (default: `maxConnections`, or `numThreads`, or 20): the minimum
   number of idle connections.
@@ -327,17 +327,17 @@ HikariCP. These keys need some explanation:
 #### Pool metrics
 
 To register metrics or health checks on the HikariCP pool, write a
-@scaladoc[JdbcDataSourceFactory](slick.jdbc.JdbcDataSourceFactory) object that calls
-@scaladoc[HikariCPJdbcDataSource.forConfig](slick.jdbc.hikaricp.HikariCPJdbcDataSource$) and then sets them
-on the pool, which is available as `ds`:
+@scaladoc[JdbcDataSourceFactory](slick.jdbc.JdbcDataSourceFactory) object that gets the pool configuration
+from @scaladoc[HikariCPJdbcDataSource.hikariConfig](slick.jdbc.hikaricp.HikariCPJdbcDataSource$), sets them
+on it and then creates the pool:
 
 ```scala
 object InstrumentedHikariCP extends JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
-    val source = HikariCPJdbcDataSource.forConfig(c, driver, name, classLoader)
-    source.ds.setMetricRegistry(myMetricRegistry) // or setMetricsTrackerFactory
-    source.ds.setHealthCheckRegistry(myHealthCheckRegistry)
-    source
+    val hconf = HikariCPJdbcDataSource.hikariConfig(c, name, classLoader)
+    hconf.setMetricRegistry(myMetricRegistry) // or setMetricsTrackerFactory
+    hconf.setHealthCheckRegistry(myHealthCheckRegistry)
+    new HikariCPJdbcDataSource(new HikariDataSource(hconf), hconf)
   }
 }
 ```
