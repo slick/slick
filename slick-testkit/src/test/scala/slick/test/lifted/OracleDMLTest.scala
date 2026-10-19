@@ -56,4 +56,16 @@ class OracleDMLTest {
     assertTrue("Should update columns besides those on the primary key ",
       TableQuery[TableWithOnlyIdColumns].insertOrUpdate((1, Some(""))).statements.mkString.contains("when matched then update set t.\"optionalColumn\"=s.\"optionalColumn\""))
   }
+
+  @Test def testUnionCastsBooleansToNumbers(): Unit = {
+    class T(tag: Tag) extends Table[(Int, Boolean)](tag, "t") {
+      def a = column[Int]("a")
+      def b = column[Boolean]("b")
+      def * = (a, b)
+    }
+    val ts = TableQuery[T]
+    // Boolean columns are CHAR(1) and Boolean literals are numbers, so union sides cast them to the same type
+    val sql = ts.map(t => (t.a, t.b)).union(ts.map(t => (t.a, LiteralColumn(true)))).result.statements.mkString.replaceAll("\\s+", " ")
+    assertTrue(sql, sql.contains("""cast("b" as NUMBER(1))""") && sql.contains("cast(1 as NUMBER(1))"))
+  }
 }
