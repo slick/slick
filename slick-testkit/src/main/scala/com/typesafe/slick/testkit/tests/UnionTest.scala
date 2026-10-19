@@ -418,4 +418,27 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
         .map(_.sorted shouldBe Seq((1, false), (1, false), (2, true), (3, false)))
     ).andFinally(schema.drop)
   }
+
+  def testUnionOfBooleanColumnsAndValues = {
+    class T(tag: Tag) extends Table[(Int, Boolean)](tag, "u_bool") {
+      def a = column[Int]("a")
+      def b = column[Boolean]("b")
+      def * = (a, b)
+    }
+    val ts = TableQuery[T]
+    val columns = ts.map(t => (t.a, t.b))
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq((1, true), (5, false)),
+      mark("column and literal", columns.union(ts.map(t => (t.a + 1, LiteralColumn(false)))).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (2, false), (6, false))),
+      mark("literal and column", ts.map(t => (t.a + 1, LiteralColumn(true))).union(columns).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (2, true), (6, true))),
+      mark("column and parameter", columns.union(ts.map(t => (t.a + 1, false.bind))).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (2, false), (6, false))),
+      mark("column and expression", columns.union(ts.map(t => (t.a + 1, t.a > 3))).result)
+        .map(_.toSet shouldBe Set((1, true), (5, false), (2, false), (6, true)))
+    ).andFinally(ts.schema.drop)
+  }
 }
