@@ -16,6 +16,7 @@ object GenerateMainSources extends TestCodeGenerator {
   lazy val configurations = Seq(
     new Config("CG1", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")),
     new Config("CG2", StandardTestDBs.HsqldbMem, "HsqldbMem", Seq("/dbs/hsqldb.sql")),
+    new UUIDConfig("CG12", StandardTestDBs.HsqldbMem, "HsqldbMem", Seq("/dbs/uuid-hsqldb.sql")),
     new Config("CG3", StandardTestDBs.SQLiteMem, "SQLiteMem", Seq("/dbs/sqlite.sql")),
     new Config("DB2", StandardTestDBs.DB2, "DB2", Seq("/dbs/db2.sql")),
     new Config("DerbyMem", StandardTestDBs.DerbyMem, "DerbyMem", Seq("/dbs/derby.sql")),
