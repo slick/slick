@@ -306,6 +306,13 @@ object LiftedEmbedding {
           println(q1.shaped.result.statements.head)
           println(q2.shaped.result.statements.head)
 
+          //#aggregationLong
+          val q3: Rep[Long] = coffees.lengthLong
+          val q4: Rep[Long] = coffees.map(_.supID).countDistinctLong
+          //#aggregationLong
+          println(q3.shaped.result.statements.head)
+          println(q4.shaped.result.statements.head)
+
           val r1 = {
             //#result
             val q = coffees.map(_.price)

@@ -69,7 +69,7 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
     }
 
     def transformCountAll(gen: TermSymbol, n: Node): Node = n match {
-      case Apply(Library.CountAll, ch @ ConstArray(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _))))
+      case Apply(Library.CountAll | Library.CountAllLong, ch @ ConstArray(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _))))
         if s == gen && s2 == gen2 =>
         Apply(Library.Count, ch)(n.nodeType)
       case n                      =>

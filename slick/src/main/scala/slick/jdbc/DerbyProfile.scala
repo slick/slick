@@ -75,6 +75,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     (<a href="https://issues.apache.org/jira/browse/DERBY-3609" target="_parent"></a>DERBY-3609</li>)
   *   <li>[[slick.jdbc.JdbcCapabilities.forShare]]:
   *     Derby does not support SELECT ... FOR SHARE.</li>
+  *   <li>[[slick.relational.RelationalCapabilities.countLong]]:
+  *     Derby has no 64-bit count function, so <code>lengthLong</code> and
+  *     <code>countDistinctLong</code> use <code>count</code> and are limited to
+  *     the <code>Int</code> range.</li>
   * </ul>
   */
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
@@ -96,7 +100,8 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       JdbcCapabilities.supportsByte -
       RelationalCapabilities.repeat -
       JdbcCapabilities.returnMultipleInsertKey -
-      JdbcCapabilities.forShare
+      JdbcCapabilities.forShare -
+      RelationalCapabilities.countLong
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

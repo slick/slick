@@ -4,6 +4,10 @@ import slick.basic.Capability
 
 /** Capabilities for [[slick.relational.RelationalProfile]]. */
 object RelationalCapabilities {
+  /** Computes `lengthLong` and `countDistinctLong` with a 64-bit count.
+    * A profile without this capability uses a 32-bit count, so these
+    * methods are limited to the `Int` range. */
+  val countLong = Capability("relational.countLong")
   /** Supports default values in column definitions */
   val columnDefaults = Capability("relational.columnDefaults")
   /** Supports foreignKeyActions */
@@ -53,7 +57,7 @@ object RelationalCapabilities {
   val other = Capability("relational.other")
 
   /** All relational capabilities */
-  val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
+  val all = Set(other, columnDefaults, countLong, foreignKeyActions, functionDatabase,
     functionUser, joinFull, joinLeft, joinRight, likeEscape, pagingDrop, pagingNested,
     pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
     zip, replace, reverse, indexOf, repeat)

@@ -385,6 +385,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         case Library.Between(left, start, end) => b"$left between $start and $end"
         case Library.CountDistinct(e) => b"count(distinct $e)"
         case Library.CountAll(e) => b"count($e)"
+        case Library.CountDistinctLong(e) => b"count(distinct $e)"
+        case Library.CountAllLong(e) => b"count($e)"
         case Library.Like(l, r) => b"\($l like $r\)"
         case Library.Like(l, r, LiteralNode(esc: Char)) =>
           if(esc == '\'' || esc == '%' || esc == '_')
