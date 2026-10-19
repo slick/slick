@@ -93,18 +93,35 @@ class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Bool
 }
 
 object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
+  /** The configured DataSource class name together with the key it was set under
+    * (`dataSourceClassName`, falling back to `dataSourceClass`), if any. */
+  private[jdbc] def dataSourceClassSetting(c: Config): Option[(String, String)] =
+    c.getStringOpt("dataSourceClassName").map(("dataSourceClassName", _))
+      .orElse(c.getStringOpt("dataSourceClass").map(("dataSourceClass", _)))
+
+  /** Fail with a clear message if the class configured under `key` is not a `javax.sql.DataSource`,
+    * for example when a Slick profile or a `java.sql.Driver` was configured there by mistake. */
+  private[jdbc] def requireDataSourceClass(key: String, cls: Class[?]): Unit =
+    if (!classOf[DataSource].isAssignableFrom(cls))
+      throw new SlickException(
+        s"The `$key` setting must name a javax.sql.DataSource class provided by the JDBC driver, but ${cls.getName} " +
+          "is not a DataSource. Configure the Slick profile with `profile` and a java.sql.Driver class with `driver`.")
+
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): DataSourceJdbcDataSource = {
     val (ds, maxConnections) =
-      c.getStringOpt("dataSourceClassName").orElse(c.getStringOpt("dataSourceClass")) match {
+      dataSourceClassSetting(c) match {
 
-        case Some(dsClass) =>
+        case Some((key, dsClass)) =>
           val propsO = c.getPropertiesOpt("properties")
+          def error(ex: Exception) = new SlickException("Error configuring DataSource " + dsClass, ex)
+          val cls = try Class.forName(dsClass) catch { case ex: Exception => throw error(ex) }
+          requireDataSourceClass(key, cls)
           try {
-            val ds = Class.forName(dsClass).getConstructor().newInstance().asInstanceOf[DataSource]
+            val ds = cls.getConstructor().newInstance().asInstanceOf[DataSource]
             propsO.foreach(BeanConfigurator.configure(ds, _))
             val maxConnections = c.getIntOpt("maxConnections")
             (ds, maxConnections)
-          } catch { case ex: Exception => throw new SlickException("Error configuring DataSource " + dsClass, ex) }
+          } catch { case ex: Exception => throw error(ex) }
 
         case None =>
           val ds = new DriverDataSource
