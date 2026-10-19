@@ -324,6 +324,10 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   def createReturningInsertActionComposer[U, QR, RU](compiled: CompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
     new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
 
+  /** The name of a returned column as passed to `Connection.prepareStatement(sql, columnNames)`.
+    * Most drivers quote the names themselves, so they are passed unquoted by default. */
+  protected def returnedColumnName(name: String): String = name
+
   protected lazy val useServerSideUpsert = capabilities contains JdbcCapabilities.insertOrUpdate
   protected lazy val useTransactionForUpsert = !useServerSideUpsert
   protected lazy val useServerSideUpsertReturning = useServerSideUpsert
@@ -722,7 +726,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     protected lazy val (keyColumns, keyConverter, keyReturnOther) = compiled.buildReturnColumns(keys)
 
     override protected def preparedInsert[T](sql: String, session: JdbcBackend#Session)(f: PreparedStatement => T) =
-      session.withPreparedInsertStatement(sql, keyColumns.toArray)(f)
+      session.withPreparedInsertStatement(sql, keyColumns.map(returnedColumnName).toArray)(f)
 
     protected def retOne(st: Statement, value: U, updateCount: Int) = mux(value, buildKeysResult(st).first(null))
 
