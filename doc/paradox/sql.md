@@ -85,6 +85,19 @@ the next `Int` or `String` value in the current row. The second one uses the sho
 `<<` which returns a value of whatever type is expected at this place. (Of course you can only
 use it when the type is actually known like in this constructor call.)
 
+If the columns of a query are not known statically, use `asSeqOfAny` instead of `as` to read each row
+as a `Seq[Any]` (the values in column order), or `asMapOfAny` to read it as a `Map[String, Any]` (from
+column label to value, in column order):
+
+@@snip [PlainSQL.scala](../code/PlainSQL.scala) { #untyped }
+
+Both read every column of the row with JDBC's `getObject`, so the values are of whatever type the
+JDBC driver returns for the column (for example, a numeric column may be read as a
+`java.lang.Integer` on one database and a `java.math.BigDecimal` on another) and SQL NULL becomes
+`null`. The keys of the `Map` are the column labels reported by the driver, which take `AS` aliases
+into account but whose case depends on the database; if several columns have the same label, only
+the first one is included.
+
 Splicing Literal Values
 -----------------------
 
