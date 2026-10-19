@@ -76,6 +76,10 @@ only thing that changes is how you construct the database.
   overflow the stack. The generated SQL drops the redundant inner parentheses (`(a or b) or c` becomes `a or b or c`),
   and chains of more than 64 operands are split into balanced parenthesized groups. Custom compiler phases and
   profiles that match `Library.And(l, r)` or `Library.Or(l, r)` with exactly two operands need to handle more.
+- **Plain SQL `.as[R]` on non-query statements:** `sql"...".as[R]` on a statement that returns an update count
+  instead of a result set (an insert, update, delete or DDL statement) now fails with a `SlickException`. In Slick 3
+  it returned the update count cast to `R`. Use `sqlu"..."` or `.asUpdate` for such statements, also where
+  `.as[Int]` or `.as[Unit]` was used.
 
 ---
 
