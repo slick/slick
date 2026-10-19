@@ -1,7 +1,7 @@
 package slick.jdbc.meta
 
 import slick.dbio.Effect
-import slick.jdbc.ResultSetAction
+import slick.jdbc.{JdbcBackend, ResultSetAction}
 import slick.basic.BasicStreamingAction
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTables(). */
@@ -30,11 +30,20 @@ object MTable {
     * If a search pattern argument is set to null, that argument's criterion will be dropped from the search.
     */
   def getTables(cat: Option[String], schemaPattern: Option[String], namePattern: Option[String],
-    types: Option[Seq[String]]) = ResultSetAction[MTable](
-      _.metaData.getTables(cat.orNull, schemaPattern.orNull, namePattern.orNull, types.map(_.toArray).orNull) ) { r =>
-      if(r.numColumns > 5) MTable(MQName.from(r), r.<<, r.<<, MQName.optionalFrom(r), r.<<, r.<<)
+    types: Option[Seq[String]]) = getTablesIn(_ => (cat, schemaPattern), namePattern, types)
+  /** Tables matching `namePattern` in the connection's current catalog and schema */
+  def getTables(namePattern: String): BasicStreamingAction[Vector[MTable], MTable, Effect.Read] =
+    getTablesIn(MQName.currentCatalogAndSchema, Some(namePattern), None)
+  /** All tables in the connection's current catalog and schema */
+  def getTables: BasicStreamingAction[Vector[MTable], MTable, Effect.Read] =
+    getTablesIn(MQName.currentCatalogAndSchema, None, None)
+
+  private def getTablesIn(catalogAndSchemaPattern: JdbcBackend#JdbcSessionDef => (Option[String], Option[String]),
+    namePattern: Option[String], types: Option[Seq[String]]) = ResultSetAction[MTable] { s =>
+      val (cat, schemaPattern) = catalogAndSchemaPattern(s)
+      s.metaData.getTables(cat.orNull, schemaPattern.orNull, namePattern.orNull, types.map(_.toArray).orNull)
+    } { r =>
+      if (r.numColumns > 5) MTable(MQName.from(r), r.<<, r.<<, MQName.optionalFrom(r), r.<<, r.<<)
       else MTable(MQName.from(r), r.<<, r.<<, None, None, None)
   }
-  def getTables(namePattern: String): BasicStreamingAction[Vector[MTable], MTable, Effect.Read] = getTables(Some(""), Some(""), Some(namePattern), None)
-  def getTables: BasicStreamingAction[Vector[MTable], MTable, Effect.Read] = getTables(Some(""), Some(""), None, None)
 }
