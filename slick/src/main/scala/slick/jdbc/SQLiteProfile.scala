@@ -322,7 +322,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     extends CountingInsertActionComposerImpl[U](compiled) {
     // SQLite cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
     // the same in ReturningInsertInvoker because SQLite does not allow returning non-AutoInc keys anyway.
-    override protected val useServerSideUpsert =
+    override protected lazy val useServerSideUpsert =
       compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }

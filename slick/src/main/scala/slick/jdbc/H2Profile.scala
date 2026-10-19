@@ -176,7 +176,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     extends CountingInsertActionComposerImpl[U](compiled) {
     // H2 cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
     // the same in ReturningInsertInvoker because H2 does not allow returning non-AutoInc keys anyway.
-    override protected val useServerSideUpsert =
+    override protected lazy val useServerSideUpsert =
       compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }

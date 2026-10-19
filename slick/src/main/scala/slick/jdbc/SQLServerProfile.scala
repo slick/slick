@@ -242,6 +242,9 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     // SQL Server requires MERGE statements to end with a semicolon (unlike all other
     // statements that you can execute via JDBC)
     override protected def buildMergeEnd: String = super.buildMergeEnd + ";"
+
+    // SQL Server does not accept DEFAULT as an explicit value for an IDENTITY column
+    override protected def mergeInsertDefaultValues: String = "insert default values"
   }
 
   class SQLServerTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {

@@ -500,24 +500,34 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession
   }
 
-  // MySQL used to emit a plain INSERT for a table whose only column is AutoInc, which failed when the row existed.
-  // Other databases handle such tables differently (some cannot insert into them without a value), so this is MySQL only.
-  def testInsertOrUpdateOnlyAutoIncColumn: DBIOAction[Unit, NoStream, Effect.All] =
-    if (!tdb.profile.isInstanceOf[MySQLProfile]) DBIO.successful(())
-    else {
-      class T(tag: Tag) extends Table[Int](tag, "T_ONLY_AUTOINC") {
-        def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
-        def * = id
-      }
-      val ts = TableQuery[T]
-      (for {
-        _ <- ts.schema.create
-        _ <- ts.forceInsertAll(Seq(1, 2))
-        _ <- ts.insertOrUpdate(1)
-        _ <- ts.insertOrUpdate(0)
-        _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq(1, 2, 3))
-      } yield ()).withPinnedSession
+  // Regression test for https://github.com/slick/slick/issues/3867: a table whose only column is an AutoInc primary
+  // key has nothing to insert but generated values, so a new key inserts a row with a generated key and an existing
+  // key leaves the table unchanged
+  def testInsertOrUpdateOnlyAutoIncColumn: DBIOAction[Unit, NoStream, Effect.All] = {
+    class T(tag: Tag) extends Table[Int](tag, "T_ONLY_AUTOINC") {
+      def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
+      def * = id
     }
+    val ts = TableQuery[T]
+    (for {
+      _ <- ts.schema.create
+      _ <- ts.insertOrUpdate(0).map(_ shouldBe 1)
+      ids <- ts.result
+      _ = ids.length shouldBe 1
+      _ <- ts.insertOrUpdate(ids.head).map(_ shouldBe 1)
+      _ <- ts.result.map(_ shouldBe ids)
+      _ <- ifCap(jcap.returnInsertKey) {
+        val q = ts.returning(ts.map(_.id))
+        for {
+          _ <- q.insertOrUpdate(ids.head).map(_ shouldBe None)
+          _ <- ts.result.map(_ shouldBe ids)
+          inserted <- q.insertOrUpdate(0)
+          _ = inserted.isDefined shouldBe true
+          _ <- ts.sortBy(_.id).result.map(_ shouldBe (ids ++ inserted).sorted)
+        } yield ()
+      }
+    } yield ()).withPinnedSession
+  }
 
   // Regression test for https://github.com/slick/slick/issues/1627
   def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] =
