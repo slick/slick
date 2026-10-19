@@ -59,6 +59,12 @@ only thing that changes is how you construct the database.
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts a `Future[R]` — **unchanged** in `slick-future` |
 | `GetResult.apply` / `SetParameter.apply` | function parameter is `implicit` | regular parameter; `GetResult(r => ...)` and `SetParameter[T]((v, pp) => ...)` are unchanged. `GetResult(using r => ...)` / `SetParameter(using (v, pp) => ...)` (Scala 3) no longer compile — drop the `using`. Summoning a `GetResult[T]` from an implicit function via `GetResult[T]` (no argument) also no longer works |
 
+### Changed in database profiles
+
+- **Custom insert builders:** `checkInsertCompiler` now compiles all columns, not only the primary key, and
+  `reorderColumns` skips columns that are not in the given order instead of failing. This only matters to custom
+  profiles that override `CheckInsertBuilder` or call `reorderColumns`.
+
 ---
 
 ## 1. Dependencies
