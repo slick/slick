@@ -339,4 +339,83 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       mark("mapTo", mfs.union(mts).result).map(_.toSet shouldBe Set(R(1, "f"), R(2, "t")))
     ).andFinally(schema.drop)
   }
+
+  def testUnionOfRowsContainingTablesWithNonColumnProjections = {
+    abstract class AB(tag: Tag, name: String) extends Table[(Int, Boolean)](tag, name) {
+      def a = column[Int]("a")
+    }
+    class TF(tag: Tag) extends AB(tag, "u1559_rf") {
+      def * = (a, LiteralColumn(false))
+    }
+    class TT(tag: Tag) extends AB(tag, "u1559_rt") {
+      def * = (a, LiteralColumn(true))
+    }
+    class TC(tag: Tag) extends AB(tag, "u1559_rc") {
+      def b = column[Boolean]("b")
+      def * = (a, b)
+    }
+    class TP(tag: Tag, name: String) extends Table[(Int, Int)](tag, name) {
+      def a = column[Int]("a")
+      def b = column[Int]("b")
+      def * = (a, b)
+    }
+    case class R(a: Int, s: String)
+    class MF(tag: Tag) extends Table[R](tag, "u1559_rmf") {
+      def a = column[Int]("a")
+      def * = (a, LiteralColumn("f")).mapTo[R]
+    }
+    class MT(tag: Tag) extends Table[R](tag, "u1559_rmt") {
+      def a = column[Int]("a")
+      def * = (a, LiteralColumn("t")).<>({ (t: (Int, String)) => R(t._1, t._2) }, (r: R) => Some((r.a, r.s)))
+    }
+    val tfs = TableQuery[TF]
+    val tts = TableQuery[TT]
+    val tcs = TableQuery[TC]
+    val p1 = TableQuery(new TP(_, "u1559_rp1"))
+    val p2 = TableQuery(new TP(_, "u1559_rp2"))
+    val mfs = TableQuery[MF]
+    val mts = TableQuery[MT]
+    val schema = tfs.schema ++ tts.schema ++ tcs.schema ++ p1.schema ++ p2.schema ++ mfs.schema ++ mts.schema
+
+    val joins = tfs.join(tts).on(_.a < _.a) ++ tts.join(tfs).on(_.a < _.a)
+    val joinRows = Set(((1, false), (2, true)), ((2, true), (3, false)))
+
+    seq(
+      schema.create,
+      tfs.map(_.a) ++= Seq(1, 3),
+      tts.map(_.a) += 2,
+      tcs ++= Seq((5, true), (6, false)),
+      p1 ++= Seq((1, 10), (3, 30)),
+      p2 += ((2, 20)),
+      mfs.map(_.a) += 1,
+      mts.map(_.a) += 2,
+      mark("joins of column-only tables", p1.join(p2).on(_.a < _.a).union(p2.join(p1).on(_.a < _.a)).result)
+        .map(_.toSet shouldBe Set(((1, 10), (2, 20)), ((2, 20), (3, 30)))),
+      mark("joins", joins.result).map(_.toSet shouldBe joinRows),
+      mark("filtered joins", joins.filter(_._1.a > 1).map(_._1).result).map(_.toSet shouldBe Set((2, true))),
+      mark("swapped joins", joins.map { case (x, y) => (y, x) }.result).map(_.toSet shouldBe joinRows.map(_.swap)),
+      mark("nested joins", (joins ++ tcs.join(tcs).on(_.a < _.a)).result)
+        .map(_.toSet shouldBe joinRows + (((5, true), (6, false)))),
+      mark("joinLeft of column-only tables", p1.joinLeft(p2).on(_.a < _.a).union(p2.joinLeft(p1).on(_.a < _.a)).result)
+        .map(_.toSet shouldBe Set(((1, 10), Some((2, 20))), ((3, 30), None), ((2, 20), Some((3, 30))))),
+      mark("joinLeft", tfs.joinLeft(tts).on(_.a < _.a).union(tts.joinLeft(tfs).on(_.a < _.a)).result)
+        .map(_.toSet shouldBe Set(((1, false), Some((2, true))), ((3, false), None), ((2, true), Some((3, false))))),
+      mark("tuple", tfs.map(t => (t, t.a)).union(tts.map(t => (t, t.a))).result)
+        .map(_.toSet shouldBe Set(((1, false), 1), ((3, false), 3), ((2, true), 2))),
+      mark("nested tuple", tfs.map(t => ((t, t.a), t.a)).union(tts.map(t => ((t, t.a), t.a))).result)
+        .map(_.toSet shouldBe Set((((1, false), 1), 1), (((3, false), 3), 3), (((2, true), 2), 2))),
+      mark("mapTo and <>", mfs.map(m => (m, m.a)).union(mts.map(m => (m, m.a))).result)
+        .map(_.toSet shouldBe Set((R(1, "f"), 1), (R(2, "t"), 2))),
+      mark("table and mapped table", tfs.union(tts.map(t => t)).result)
+        .map(_.toSet shouldBe Set((1, false), (3, false), (2, true))),
+      mark("mapped table and table", tfs.map(t => t).union(tts).result)
+        .map(_.toSet shouldBe Set((1, false), (3, false), (2, true))),
+      mark("columns and literal", tcs.union(tts).filter(_.a > 1).result)
+        .map(_.toSet shouldBe Set((5, true), (6, false), (2, true))),
+      mark("literal and columns", tfs.union(tcs).result)
+        .map(_.toSet shouldBe Set((1, false), (3, false), (5, true), (6, false))),
+      mark("right-nested", (tfs ++ (tts ++ tfs.filter(_.a === 1))).result)
+        .map(_.sorted shouldBe Seq((1, false), (1, false), (2, true), (3, false)))
+    ).andFinally(schema.drop)
+  }
 }
