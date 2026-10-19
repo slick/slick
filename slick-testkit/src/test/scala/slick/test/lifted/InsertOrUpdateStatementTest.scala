@@ -121,10 +121,10 @@ class InsertOrUpdateStatementTest {
     * instead of deleting the other row as INSERT OR REPLACE did (https://github.com/slick/slick/issues/3846). */
   @Test def testSQLite(): Unit = {
     check(SQLiteProfile, allColumnsPK = false)(Seq(
-      """insert into "t" ("a","b","c")  values (?,?,?) on conflict ("a","b") do update set "c"=excluded."c""""
+      """insert into "t" as "upsert_target" ("a","b","c")  values (?,?,?) on conflict ("a","b") do update set "c"=excluded."c""""
     ))
     check(SQLiteProfile, allColumnsPK = true)(Seq(
-      """insert into "t" ("a","b","c")  values (?,?,?) on conflict ("a","b","c") do nothing"""
+      """insert into "t" as "upsert_target" ("a","b","c")  values (?,?,?) on conflict ("a","b","c") do nothing"""
     ))
     check(SQLiteProfile, allColumnsPK = false, returning = true)(emulatedWithSoftColumn)
     check(SQLiteProfile, allColumnsPK = true, returning = true)(emulatedAllColumnsPK)

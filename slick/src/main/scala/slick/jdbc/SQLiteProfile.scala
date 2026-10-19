@@ -272,6 +272,11 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
   /* Uses UPSERT with the primary key as the conflict target. INSERT OR REPLACE would resolve a conflict on any
    unique constraint by deleting the conflicting rows, and it would reset the columns that are not inserted. */
   class SQLiteUpsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
+    // Alias the target table so that `excluded` in the update always means the proposed row, even for a table
+    // that is itself named "excluded"
+    override protected def buildInsertStart: String =
+      allNames.iterator.mkString(s"insert into $tableName as ${quoteIdentifier("upsert_target")} (", ",", ") ")
+
     override def buildInsert: InsertBuilderResult = {
       val conflict = pkNames.mkString("on conflict (", ",", ")")
       val action =

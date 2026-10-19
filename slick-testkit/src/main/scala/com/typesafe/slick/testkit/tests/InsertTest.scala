@@ -625,6 +625,24 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession
   }
 
+  def testInsertOrUpdateTableNamedExcluded: DBIOAction[Unit, NoStream, Effect.All] = {
+    // SQLite's upsert refers to the proposed row as `excluded`, which must not resolve to the table itself
+    class T(tag: Tag) extends Table[(Int, String)](tag, "excluded") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name", O.Length(20))
+      def * = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    (for {
+      _ <- ts.schema.create
+      _ <- ts += ((1, "old"))
+      _ <- ts.insertOrUpdate((1, "new"))
+      _ <- ts.result.map(_ shouldBe Seq((1, "new")))
+      _ <- ts.schema.drop
+    } yield ()).withPinnedSession
+  }
+
   // Regression test for https://github.com/slick/slick/issues/2045
   def testInsertOrUpdateWithIntegrityError: DBIOAction[Unit, NoStream, Effect.All] = {
     case class Book(id: Long, title: String, code: Option[String] = None)
