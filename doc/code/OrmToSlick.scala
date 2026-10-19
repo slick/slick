@@ -59,9 +59,9 @@ object OrmToSlick {
       val setup = DBIO.seq(
         addresses.schema.create,
         people.schema.create,
-        sql"ALTER TABLE PERSON ALTER COLUMN NAME VARCHAR(255) DEFAULT('')".as[Int],
-        sql"ALTER TABLE PERSON ALTER COLUMN AGE INT DEFAULT(-1)".as[Int],
-        sql"ALTER TABLE PERSON ALTER COLUMN ADDRESS_ID INT DEFAULT(1)".as[Int],
+        sqlu"ALTER TABLE PERSON ALTER COLUMN NAME VARCHAR(255) DEFAULT('')",
+        sqlu"ALTER TABLE PERSON ALTER COLUMN AGE INT DEFAULT(-1)",
+        sqlu"ALTER TABLE PERSON ALTER COLUMN ADDRESS_ID INT DEFAULT(1)",
         SqlToSlick.inserts
       )
       db.run(setup).flatMap { _ =>

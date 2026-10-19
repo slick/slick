@@ -34,7 +34,15 @@ with a literal SQL string:
 @@snip [PlainSQL.scala](../code/PlainSQL.scala) { #sqlu }
 
 The `sqlu` interpolator is used for DML statements which produce a row count instead of a result
-set. Therefore they are of type `DBIO[Int]`.
+set. Therefore they are of type `DBIO[Int]`. Use `sqlu` (or `.asUpdate`) for every statement that does
+not return a result set, including DDL: reading such a statement with `.as[R]` fails with a
+`SlickException`.
+
+A Plain SQL action should contain a single SQL statement. Several statements separated by `;` are not
+portable: H2, PostgreSQL and SQL Server run all of them, MySQL runs them only with the
+`allowMultiQueries=true` connection property, HSQLDB, Derby, Oracle and DB2 reject them, and SQLite
+silently runs only the first one. Where they do run, the action returns the result of the first
+statement and fails if a later one fails. Use `DBIO.seq(sqlu"...", sqlu"...")` to run several statements.
 
 Any variable or expression injected into a query gets turned into a bind variable in the resulting
 query string. It is not inserted directly into a query string, so there is no danger of SQL
