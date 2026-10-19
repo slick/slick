@@ -22,12 +22,6 @@ import slick.util.QueryInterpolator.queryInterpolator
   * ''without'' the following capabilities:
   *
   * <ul>
-  *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
-  *     InsertOrUpdate operations are emulated on the server side with a single
-  *     JDBC statement executing multiple server-side statements in a transaction.
-  *     This is faster than a client-side emulation but may still fail due to
-  *     concurrent updates. InsertOrUpdate operations with `returning` are
-  *     emulated on the client side.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.nullableNoDefault]]:
   *     Nullable columns always have NULL as a default according to the SQL
   *     standard. Consequently Postgres treats no specifying a default value
@@ -42,6 +36,13 @@ import slick.util.QueryInterpolator.queryInterpolator
   * Notes:
   *
   * <ul>
+  *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations use `INSERT ... ON CONFLICT (primary key) DO UPDATE`,
+  *     which needs a primary key or unique constraint on the table's primary key
+  *     columns in the database. They are emulated on the client side if the data to
+  *     insert contains an `AutoInc` field, and for operations with `returning`.
+  *     `insertOrUpdateAll` is not supported for a table with an `AutoInc` field, and
+  *     with `RowsPerStatement.All` it fails if two of the rows have the same key.</li>
   *   <li>[[slick.relational.RelationalCapabilities.typeBlob]]:
   *   The default implementation of the <code>Blob</code> type uses the
   *   database type <code>lo</code> and the stored procedure
@@ -53,7 +54,6 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
 
   override protected def computeCapabilities: Set[Capability] =
     super.computeCapabilities -
-      JdbcCapabilities.insertOrUpdate -
       JdbcCapabilities.nullableNoDefault -
       JdbcCapabilities.supportsByte
 
@@ -159,8 +159,6 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   override def createTableDDLBuilder(table: Table[?]): PostgresTableDDLBuilder = new PostgresTableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[?]): PostgresColumnDDLBuilder =
     new PostgresColumnDDLBuilder(column)
-  override protected lazy val useServerSideUpsert = true
-  override protected lazy val useTransactionForUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new PostgresCountingInsertActionComposerImpl[T](compiled)
@@ -223,37 +221,37 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     }
   }
 
+  /* Uses INSERT ... ON CONFLICT with the primary key as the conflict target, which inserts or updates the row in one
+   atomic statement. An UPDATE followed by an INSERT ... WHERE NOT EXISTS could miss a row that a concurrent
+   transaction committed between the two statements. */
   class PostgresUpsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
-    override def buildInsert: InsertBuilderResult = {
-      val update =
-        "update " +
-          tableName +
-          " set " +
-          softNames.map(n => s"$n=?").mkString(",") +
-          " where " +
-          pkNames.map(n => s"$n=?").mkString(" and ")
-      val nonAutoIncNames = nonAutoIncSyms.map(fs => quoteIdentifier(fs.name)).mkString(",")
-      val nonAutoIncVars = nonAutoIncSyms.map(_ => "?").mkString(",")
-      val cond = pkNames.map(n => s"$n=?").mkString(" and ")
-      val insert =
-        s"insert into $tableName ($nonAutoIncNames)" +
-          s" select $nonAutoIncVars where not exists (select 1 from $tableName where $cond)"
-      // When all columns are part of the primary key there is nothing to update
-      val sql = if (softSyms.isEmpty) insert else s"$update; $insert"
-      new InsertBuilderResult(table, sql, ConstArray.from(softSyms ++ pkSyms))
-    }
+    // Alias the target table so that `excluded` in the update always means the proposed row, even for a table
+    // that is itself named "excluded"
+    override protected def buildInsertStart: String =
+      allNames.iterator.mkString(s"insert into $tableName as ${quoteIdentifier("upsert_target")} (", ",", ") ")
 
-    override def transformMapping(n: Node) =
-      if (softSyms.isEmpty) reorderColumns(n, nonAutoIncSyms.toSeq ++ pkSyms)
-      else reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
+    override def buildInsert: InsertBuilderResult = {
+      val conflict = pkNames.mkString("on conflict (", ",", ")")
+      val action =
+        if (softNames.isEmpty) "do nothing"
+        else softNames.map(n => s"$n=excluded.$n").mkString("do update set ", ", ", "")
+      def makeSql(rows: Int) =
+        s"$buildInsertStart values ${Iterator.fill(rows)(allVars).mkString(",")} $conflict $action"
+
+      new InsertBuilderResult(table, makeSql(1), syms) {
+        override def buildMultiRowInsert(size: Int): String = makeSql(size)
+      }
+    }
   }
 
   class PostgresCountingInsertActionComposerImpl[U](compiled: CompiledInsert)
     extends CountingInsertActionComposerImpl[U](compiled) {
-    // The server-side upsert inserts with INSERT ... SELECT, which cannot insert a row of only default values. A table
-    // whose columns are all AutoInc uses the client-side emulation instead, whose plain INSERT can.
+    // INSERT ... ON CONFLICT cannot insert a row without its AutoInc value and update an existing row by that value,
+    // so a table with an AutoInc column uses the client-side emulation. We don't have to do the same in
+    // ReturningInsertInvoker because upserts with `returning` are always emulated.
     override protected lazy val useServerSideUpsert =
-      compiled.upsert.fields.exists(fs => !fs.options.contains(ColumnOption.AutoInc))
+      compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
+    override protected def useTransactionForUpsert = !useServerSideUpsert
 
     override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
       MultiInsertResult,
@@ -262,9 +260,9 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     ] =
       if (!useServerSideUpsert)
         throw new SlickException(
-          s"PostgresProfile does not support insertOrUpdateAll for table ${compiled.upsert.table.tableName}, whose " +
-            "columns are all AutoInc: its server-side upsert (INSERT ... SELECT) cannot insert a row of only " +
-            "default values. Use insertOrUpdate for each row instead, which emulates the upsert on the client.")
+          s"PostgresProfile does not support insertOrUpdateAll for table ${compiled.upsert.table.tableName}, which " +
+            "has an AutoInc column: INSERT ... ON CONFLICT cannot insert a row without its AutoInc value. Use " +
+            "insertOrUpdate for each row instead, which emulates the upsert on the client.")
       else super.insertOrUpdateAll(values, rowsPerStatement)
   }
 

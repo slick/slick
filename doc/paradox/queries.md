@@ -346,6 +346,10 @@ Profiles without a native upsert emulate it on the client: Slick selects the row
 runs an `UPDATE` or an `INSERT`. Used outside `transactionally`, these statements run in a transaction of their
 own.
 
+On PostgreSQL, `insertOrUpdate` and `insertOrUpdateAll` use `INSERT ... ON CONFLICT (primary key) DO UPDATE`,
+which needs a primary key or unique constraint on the table's primary key columns in the database. Tables with an
+`AutoInc` column use the emulation, and `insertOrUpdateAll` is not supported for them.
+
 On MySQL, `insertOrUpdate` and `insertOrUpdateAll` use `INSERT ... ON DUPLICATE KEY UPDATE`, which MySQL applies
 to *any* unique key, not only the primary key. If the new row clashes with a different row on a unique non-key
 column, that other row is updated, including its primary key columns (except AutoInc ones), instead of the call
