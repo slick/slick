@@ -263,6 +263,27 @@ Run and stream queries:
 
 @@snip [ConnectingZio.scala](../code/ConnectingZio.scala) { #zioStream }
 
+### Action listeners
+
+An @scaladoc[ActionListener](slick.basic.ActionListener) wraps the execution of every action, for example for
+tracing or timing. By default, Slick uses a listener that writes to the `slick.basic.BasicBackend.action` and
+`slick.basic.BasicBackend.timing` @ref:[loggers](config.md#logging) when they are enabled at debug level.
+
+To use your own listener instead, create the database with `makeDatabase` on the profile's backend and wrap it with
+`fromCore` of your facade (`slick.cats.Database`, `slick.future.Database` or `slick.zio.Database`). You are then
+responsible for closing it. `ActionListener.combine(first, second)` installs several listeners, the first one being
+the outermost; combine your listener with `ActionListener.timing` to keep the `slick.basic.BasicBackend.timing` log:
+
+```scala
+import cats.effect.{IO, Resource}
+import slick.basic.ActionListener
+
+val listener = ActionListener.combine(myListener, ActionListener.timing[IO])
+val database: Resource[IO, slick.cats.Database] =
+  Resource.make(dc.profile.backend.makeDatabase[IO](dc, listener).map(slick.cats.Database.fromCore))(db =>
+    IO.blocking(db.close()))
+```
+
 Connection pools
 ----------------
 
