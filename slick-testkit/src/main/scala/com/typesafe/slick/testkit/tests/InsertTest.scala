@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.util.{Failure, Success}
-import slick.jdbc.{DerbyProfile, JdbcCapabilities}
+import slick.jdbc.{JdbcCapabilities, MySQLProfile}
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -270,9 +270,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testInsertOrUpdatePlainWithFuncDefinedPK: DBIOAction[Unit, NoStream, Effect.All] = {
-    //FIXME remove this after fixed checkInsert issue
-    if (tdb.profile.isInstanceOf[DerbyProfile]) return DBIO.successful(())
-
     class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge3") {
       def id = column[Int]("id")
       def name = column[String]("name")
@@ -289,6 +286,37 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       _ <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
       _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
     } yield ()
+  }
+
+  // Regression test for https://github.com/slick/slick/issues/2114
+  def testInsertOrUpdateWithFuncDefinedCompositePK: DBIOAction[Unit, NoStream, Effect.All] = {
+    // Upper-case names because Oracle and DB2 cannot return columns with lower-case names
+    class T(tag: Tag) extends Table[(Int, String, String)](tag, "T_MERGE_COMPOSITE") {
+      def a = column[Int]("A")
+      def b = column[String]("B", O.Length(20))
+      def name = column[String]("NAME")
+      def * = (a, b, name)
+      def pk = primaryKey("T_MERGE_COMPOSITE_PK", (a, b))
+    }
+    val ts = TableQuery[T]
+
+    (for {
+      _ <- ts.schema.create
+      _ <- ts ++= Seq((1, "x", "a"), (2, "x", "b"))
+      _ <- ts.insertOrUpdate((1, "y", "c")).map(_ shouldBe 1)
+      _ <- ts.insertOrUpdate((1, "x", "d")).map(_ shouldBe 1)
+      _ <- ts.sortBy(t => (t.a, t.b)).result.map(_ shouldBe Seq((1, "x", "d"), (1, "y", "c"), (2, "x", "b")))
+      _ <- ifCap(jcap.returnInsertOther) {
+        val q = ts.returning(ts)
+        for {
+          _ <- q.insertOrUpdate((3, "x", "e")).map(_ shouldBe Some((3, "x", "e")))
+          _ <- q.insertOrUpdate((2, "x", "f")).map(_ shouldBe None)
+          _ <- ts.sortBy(t => (t.a, t.b)).result.map(
+            _ shouldBe Seq((1, "x", "d"), (1, "y", "c"), (2, "x", "f"), (3, "x", "e"))
+          )
+        } yield ()
+      }
+    } yield ()).withPinnedSession
   }
 
   def testInsertOrUpdateNotIncrement() =
@@ -450,6 +478,25 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession
   }
 
+  // MySQL used to emit a plain INSERT for a table whose only column is AutoInc, which failed when the row existed.
+  // Other databases handle such tables differently (some cannot insert into them without a value), so this is MySQL only.
+  def testInsertOrUpdateOnlyAutoIncColumn: DBIOAction[Unit, NoStream, Effect.All] =
+    if (!tdb.profile.isInstanceOf[MySQLProfile]) DBIO.successful(())
+    else {
+      class T(tag: Tag) extends Table[Int](tag, "T_ONLY_AUTOINC") {
+        def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
+        def * = id
+      }
+      val ts = TableQuery[T]
+      (for {
+        _ <- ts.schema.create
+        _ <- ts.forceInsertAll(Seq(1, 2))
+        _ <- ts.insertOrUpdate(1)
+        _ <- ts.insertOrUpdate(0)
+        _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq(1, 2, 3))
+      } yield ()).withPinnedSession
+    }
+
   // Regression test for https://github.com/slick/slick/issues/1627
   def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] =
     if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly))
@@ -466,18 +513,44 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         def * = (id, value) <> ((V.apply _).tupled, V.unapply)
         def pk = primaryKey("pk", (id, value))
       }
+      // Upper-case names because Oracle and DB2 cannot return columns with lower-case names
+      class T3(tag: Tag) extends Table[V](tag, "MYTABLE3") {
+        def id = column[Int]("ID")
+        def value = column[String]("VAL", O.Length(20))
+        def * = (id, value) <> ((V.apply _).tupled, V.unapply)
+        def pk = primaryKey("MYTABLE3_PK", (id, value))
+      }
       val ts1 = TableQuery[T]
       val ts2 = TableQuery[T2]
+      val ts3 = TableQuery[T3]
+      // insertOrUpdate returns 1 whichever statements ran, so check that none of them has an empty SET or WHERE
+      val emptyClause = """(?i)\bset\s+where\b|\bwhere\s*(;|$)""".r
+      def checkClauses(statements: Iterable[String]): Unit =
+        statements.foreach(s => emptyClause.findFirstIn(s) shouldBe None)
+      checkClauses(ts1.insertOrUpdate(1).statements ++ ts2.insertOrUpdate(V(1, "a")).statements)
       (for {
         _ <- ts1.schema.create
         _ <- ts1 ++= Seq(1, 2)
         _ <- ts1.insertOrUpdate(0).map(_ shouldBe 1)
         _ <- ts1.insertOrUpdate(1).map(_ shouldBe 1)
+        _ <- ts1.sortBy(_.id).result.map(_ shouldBe Seq(0, 1, 2))
         _ <- ts2.schema.create
         _ <- ts2 ++= Seq(V(1, "a"), V(2, "b"))
         _ <- ts2.insertOrUpdate(V(0, "c")).map(_ shouldBe 1)
         _ <- ts2.insertOrUpdate(V(1, "a")).map(_ shouldBe 1)
         _ <- ts2.insertOrUpdate(V(2, "d")).map(_ shouldBe 1)
+        _ <- ts2.sortBy(t => (t.id, t.value)).result.map(_ shouldBe Seq(V(0, "c"), V(1, "a"), V(2, "b"), V(2, "d")))
+        _ <- ifCap(jcap.returnInsertOther) {
+          val q = ts3.returning(ts3)
+          checkClauses(q.insertOrUpdate(V(1, "a")).statements)
+          for {
+            _ <- ts3.schema.create
+            _ <- ts3 += V(1, "a")
+            _ <- q.insertOrUpdate(V(2, "b")).map(_ shouldBe Some(V(2, "b")))
+            _ <- q.insertOrUpdate(V(1, "a")).map(_ shouldBe None)
+            _ <- ts3.sortBy(t => (t.id, t.value)).result.map(_ shouldBe Seq(V(1, "a"), V(2, "b")))
+          } yield ()
+        }
       } yield ()).withPinnedSession
     }
 

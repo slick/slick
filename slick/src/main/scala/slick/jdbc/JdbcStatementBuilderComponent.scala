@@ -587,10 +587,12 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       else s"insert into $tableName (${quoteIdentifier(allFields.head.name)}) values (default)"
 
     /** Reorder InsertColumn indices in a mapping Node in the order of the given
-      * sequence of FieldSymbols (which may contain duplicates). */
+      * sequence of FieldSymbols (which may contain duplicates). Columns that do not
+      * appear in the sequence are not set at all. */
     protected def reorderColumns(n: Node, order: IndexedSeq[FieldSymbol]): Node = {
       val newIndices = order.zipWithIndex.groupBy(_._1)
-      lazy val reordering: ConstArray[IndexedSeq[Int]] = syms.map(fs => newIndices(fs).map(_._2 + 1))
+      lazy val reordering: ConstArray[IndexedSeq[Int]] =
+        syms.map(fs => newIndices.get(fs).fold(IndexedSeq.empty[Int])(_.map(_._2 + 1)))
       n.replace({ case InsertColumn(ConstArray(Select(ref, ElementSymbol(idx))), fs, tpe) =>
         val newPaths = reordering(idx-1).map(i => Select(ref, ElementSymbol(i)))
         InsertColumn(ConstArray.from(newPaths), fs, tpe) :@ tpe
@@ -645,6 +647,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         sql = pkNames.map(n => s"$n=?").mkString(s"select 1 from $tableName where ", " and ", ""),
         fields = ConstArray.from(pkSyms)
       )
+
+    override def transformMapping(n: Node) = reorderColumns(n, pkSyms)
   }
 
   /** Builder for UPDATE statements used as part of an insertOrUpdate operation
@@ -657,7 +661,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           "update " +
             tableName +
             " set " +
-            softNames.map(n => s"$n=?").mkString(",") +
+            // When all columns are part of the primary key there is nothing to update, so set a key column to itself
+            (if (softNames.isEmpty) s"${pkNames.head}=${pkNames.head}" else softNames.map(n => s"$n=?").mkString(",")) +
             " where " +
             pkNames.map(n => s"$n=?").mkString(" and "),
         fields = ConstArray.from(softSyms ++ pkSyms)

@@ -53,7 +53,6 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   override protected def computeCapabilities: Set[Capability] =
     super.computeCapabilities -
       JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly -
       JdbcCapabilities.nullableNoDefault -
       JdbcCapabilities.supportsByte
 
@@ -236,10 +235,14 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       val insert =
         s"insert into $tableName ($nonAutoIncNames)" +
           s" select $nonAutoIncVars where not exists (select 1 from $tableName where $cond)"
-      new InsertBuilderResult(table, s"$update; $insert", ConstArray.from(softSyms ++ pkSyms))
+      // When all columns are part of the primary key there is nothing to update
+      val sql = if (softSyms.isEmpty) insert else s"$update; $insert"
+      new InsertBuilderResult(table, sql, ConstArray.from(softSyms ++ pkSyms))
     }
 
-    override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
+    override def transformMapping(n: Node) =
+      if (softSyms.isEmpty) reorderColumns(n, nonAutoIncSyms.toSeq ++ pkSyms)
+      else reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
   }
 
   class PostgresTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {

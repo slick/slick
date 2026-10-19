@@ -303,8 +303,9 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
       val names = syms.filter(!_.existsColumnOption[ColumnOption.AutoInc.type]).map(s => quoteIdentifier(s.name))
+      // When the only column is AutoInc, a no-op update keeps the existing row instead of failing on the duplicate key
       val update =
-        if (names.isEmpty) ""
+        if (names.isEmpty) s"on duplicate key update ${allNames.head}=${allNames.head}"
         else s"on duplicate key update ${names.map(n => s"$n=VALUES($n)").mkString(", ")}"
       def makeValues(size: Int) =
         (1 to size).map(_ => allVars).mkString(",")
