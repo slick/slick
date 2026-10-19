@@ -6,6 +6,7 @@ import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
 
+import slick.SlickException
 import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
@@ -161,6 +162,8 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useTransactionForUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
+  override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
+    new PostgresCountingInsertActionComposerImpl[T](compiled)
 
   override def defaultSqlTypeName(tmd: JdbcType[?], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
@@ -243,6 +246,26 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override def transformMapping(n: Node) =
       if (softSyms.isEmpty) reorderColumns(n, nonAutoIncSyms.toSeq ++ pkSyms)
       else reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
+  }
+
+  class PostgresCountingInsertActionComposerImpl[U](compiled: CompiledInsert)
+    extends CountingInsertActionComposerImpl[U](compiled) {
+    // The server-side upsert inserts with INSERT ... SELECT, which cannot insert a row of only default values. A table
+    // whose columns are all AutoInc uses the client-side emulation instead, whose plain INSERT can.
+    override protected lazy val useServerSideUpsert =
+      compiled.upsert.fields.exists(fs => !fs.options.contains(ColumnOption.AutoInc))
+
+    override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
+      MultiInsertResult,
+      NoStream,
+      Effect.Write
+    ] =
+      if (!useServerSideUpsert)
+        throw new SlickException(
+          s"PostgresProfile does not support insertOrUpdateAll for table ${compiled.upsert.table.tableName}, whose " +
+            "columns are all AutoInc: its server-side upsert (INSERT ... SELECT) cannot insert a row of only " +
+            "default values. Use insertOrUpdate for each row instead, which emulates the upsert on the client.")
+      else super.insertOrUpdateAll(values, rowsPerStatement)
   }
 
   class PostgresTableDDLBuilder(table: Table[?]) extends TableDDLBuilder(table) {
