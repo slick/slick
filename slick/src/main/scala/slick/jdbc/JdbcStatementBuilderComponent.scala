@@ -112,6 +112,11 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
     protected val alwaysAliasSubqueries = true
     protected val supportsLiteralGroupBy = false
     protected val quotedJdbcFns: Option[Seq[Library.JdbcFunction]] = None // quote all by default
+    /** The maximum number of operands of an `and` or `or` that are rendered as one flat list.
+      * Longer chains are split into a balanced tree of parenthesized groups, so that their nesting
+      * depth in the database's SQL parser stays logarithmic (e.g. SQLite limits the expression
+      * depth to 1000 and Derby's SQL compiler recurses over it). */
+    protected val maxFlatBooleanOperands = 64
 
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
@@ -412,6 +417,13 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           if(supportsCast) b"cast(${ch.head} as $tn)"
           else b"{fn convert(!${ch.head},$tn)}"
         case Library.SilentCast(ch)  => b"$ch"
+        case Apply(sym @ (Library.And | Library.Or), ch) if ch.length > maxFlatBooleanOperands =>
+          val half = ch.length / 2
+          b"\("
+          expr(Apply(sym, ch.take(half))(n.nodeType), false)
+          b += " " + sym.name + " "
+          expr(Apply(sym, ch.drop(half))(n.nodeType), false)
+          b"\)"
         case Apply(sym: Library.SqlOperator, ch) =>
           b"\("
           if(ch.length == 1) {
