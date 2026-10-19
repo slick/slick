@@ -223,12 +223,6 @@ import CustomTyping.SimpleA
     extends Config(objectName, tdb, tdbName, initScripts) {
     override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
       override def Table = new Table(_) {
-        override def Column = new Column(_){
-          override def defaultCode: Any => String = {
-            case v: java.util.UUID => s"""java.util.UUID.fromString("${v.toString}")"""
-            case v => super.defaultCode(v)
-          }
-        }
         override def code = {
           Seq("""
                 |  /* default UUID, which is the same as for 'uuid.sql' */
