@@ -205,8 +205,10 @@ abstract class PositionedResultIterator[+T](val pr: PositionedResult, maxRows: I
 
   final def close(): Unit = {
     if(!closed) {
-      pr.close()
+      // Set first: pr.close() may fail (e.g. with an error of a later statement), and a second call
+      // from a `finally` block must not fail again and replace that error
       closed = true
+      pr.close()
     }
   }
 

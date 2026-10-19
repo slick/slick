@@ -77,18 +77,24 @@ object SQLActionBuilder {
 }
 
 case class SQLActionBuilder(sql: String, setParameter: SetParameter[Unit]) {
-  def as[R](implicit getResult: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
+  def as[R](implicit getResult: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] =
+    build(getResult, updateCount = false)
+
+  /** Builds the action. With `updateCount`, a statement that returns an update count instead of a
+    * ResultSet yields that count as its single element; otherwise it fails. */
+  private def build[R](getResult: GetResult[R], updateCount: Boolean): SqlStreamingAction[Vector[R], R, Effect] = {
     new StreamingInvokerAction[Vector[R], R, Effect] {
       def statements: Iterable[String] = List(sql)
       protected[this] def createInvoker(statements: Iterable[String]): Invoker[R] = new StatementInvoker[R] {
         val getStatement                                    = statements.head
+        override protected def acceptUpdateCount            = updateCount
         protected def setParam(st: PreparedStatement)       = setParameter((), new PositionedParameters(st))
         protected def extractValue(rs: PositionedResult): R = getResult(rs)
       }
       protected[this] def createBuilder: collection.mutable.Builder[R, Vector[R]] = Vector.newBuilder[R]
     }
   }
-  def asUpdate = as[Int](GetResult.GetUpdateValue).head
+  def asUpdate = build[Int](GetResult.GetUpdateValue, updateCount = true).head
 
   /** Runs the query and reads each row as a `Seq` of all its column values, in column order. Use it
     * for queries whose columns are not known statically.
