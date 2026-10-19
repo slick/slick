@@ -249,6 +249,18 @@ and
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #insert1 }
 
+Like other SQL-based Actions, every insert Action (`+=`, `++=`, `insertAll`, `forceInsert`, `forceInsertAll`,
+`insertOrUpdate`, `forceInsertQuery`, `forceInsertExpr`, also after `returning` and `into`) has a `statements`
+method that returns the SQL it executes, without running it. Without an Action at hand, use `insertStatement` and
+`forceInsertStatement` on the insert target, or `forceInsertStatementFor` for an insert from a query or expression:
+
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #insertStatements }
+
+The statements contain `?` placeholders where the values are bound when the Action runs; the values are not
+part of the SQL string. To see them, enable the `slick.jdbc.JdbcBackend.parameter` or
+`slick.jdbc.JdbcBackend.statementAndParameter` @ref:[loggers](config.md#logging). An emulated `insertOrUpdate`
+consists of three statements (a check, an update and an insert), of which only some are executed for a given row.
+
 When you include an `AutoInc` column in an insert operation, it is silently
 ignored, so that the database can generate the proper value.
 In this case you usually want to get back the auto-generated primary key

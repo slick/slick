@@ -669,4 +669,60 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  def testInsertStatements = {
+    class A(tname: String)(tag: Tag) extends Table[(Int, String)](tag, tname) {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val as = TableQuery(new A("insert_statements")(_))
+    val bs = TableQuery(new A("insert_statements_b")(_))
+    val names = as.map(_.name)
+    val rows = Seq((1, "a"), (2, "b"), (3, "c"))
+    def placeholders(sql: String) = sql.count(_ == '?')
+
+    // The soft insert skips the AutoInc column, the forced insert includes it
+    placeholders(as.insertStatement) shouldBe 1
+    placeholders(as.forceInsertStatement) shouldBe 2
+
+    (as += ((1, "a"))).statements.toList shouldBe List(as.insertStatement)
+    as.forceInsert((1, "a")).statements.toList shouldBe List(as.forceInsertStatement)
+    (as ++= rows).statements.toList shouldBe List(as.insertStatement)
+    as.forceInsertAll(rows).statements.toList shouldBe List(as.forceInsertStatement)
+    (names += "a").statements.toList shouldBe List(names.insertStatement)
+
+    // insertAll uses one multi-row statement by default where the profile supports it
+    val insertAllStatements = as.insertAll(rows).statements.toList
+    if (tdb.profile.defaultRowsPerStatement == slick.jdbc.RowsPerStatement.All) {
+      insertAllStatements.size shouldBe 1
+      placeholders(insertAllStatements.head) shouldBe rows.size
+    } else insertAllStatements shouldBe List(as.insertStatement)
+
+    val returning = as.returning(as.map(_.id))
+    (returning += ((1, "a"))).statements.toList shouldBe List(returning.insertStatement)
+    (returning ++= rows).statements.toList shouldBe List(returning.insertStatement)
+    val into = returning.into((row, id) => row.copy(_1 = id))
+    (into += ((1, "a"))).statements.toList shouldBe List(into.insertStatement)
+
+    // A server-side upsert is a single statement; the emulation is a check, an update and an insert
+    val upsertStatements = as.insertOrUpdate((1, "a")).statements.toList
+    if (upsertStatements.size != 1) {
+      upsertStatements.size shouldBe 3
+      upsertStatements.last shouldBe as.insertStatement
+    }
+    upsertStatements.foreach(sql => placeholders(sql) should (_ > 0))
+
+    val q = bs.filter(_.id > 1)
+    as.forceInsertQuery(q).statements.toList shouldBe List(as.forceInsertStatementFor(q))
+    as.forceInsertExpr((42, "x".bind)).statements.toList shouldBe List(as.forceInsertStatementFor((42, "x".bind)))
+
+    DBIO.seq(
+      (as.schema ++ bs.schema).create,
+      // The statements of an insert action are the ones it executes, so overriding them redirects the insert
+      (as += ((1, "a"))).overrideStatements(List(bs.insertStatement)).map(_ shouldBe 1),
+      as.result.map(_ shouldBe Nil),
+      bs.map(_.name).result.map(_ shouldBe Seq("a"))
+    )
+  }
+
 }
