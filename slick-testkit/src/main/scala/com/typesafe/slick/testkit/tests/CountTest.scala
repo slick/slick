@@ -107,4 +107,39 @@ class CountTest extends AsyncTest[RelationalTestDB] {
       ts.length.result.map(_ shouldBe 1)
     ).withPinnedSession
   }
+
+  def testLong = {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "COUNTLONG_T") {
+      def id = column[Int]("ID")
+      def name = column[String]("NAME")
+      def * = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    val total: Rep[Long] = ts.lengthLong
+    val distinctNames: Rep[Long] = ts.map(_.name).countDistinctLong
+    val grouped: Query[(Rep[String], Rep[Long], Rep[Int], Rep[Long]), (String, Long, Int, Long), Seq] =
+      ts.groupBy(_.name).map { case (name, g) => (name, g.lengthLong, g.length, g.map(_.id).countDistinctLong) }
+
+    for {
+      _ <- ts.schema.create
+      _ <- ts ++= Seq((1, "a"), (2, "a"), (3, "b"), (4, "c"), (5, "c"), (5, "c"))
+      _ <- total.result.map(_ shouldBe 6L)
+      _ <- ts.length.result.map(_ shouldBe 6)
+      _ <- ts.size.result.map(_ shouldBe 6)
+      _ <- ts.filter(_.id > 2).lengthLong.result.map(_ shouldBe 4L)
+      _ <- Query(ts.lengthLong).result.map(_ shouldBe Vector(6L))
+      _ <- distinctNames.result.map(_ shouldBe 3L)
+      _ <- ts.map(_.name).countDistinct.result.map(_ shouldBe 3)
+      _ <- grouped.sortBy(_._1).result.map { r =>
+        r shouldBe Vector(("a", 2L, 2, 2L), ("b", 1L, 1, 1L), ("c", 3L, 3, 2L))
+        // Tuple equality treats 2 and 2L as equal, so check the boxed types too
+        r.map(t => (t._2: Any, t._3: Any, t._4: Any)).foreach { case (l, i, d) =>
+          l.getClass shouldBe classOf[java.lang.Long]
+          i.getClass shouldBe classOf[java.lang.Integer]
+          d.getClass shouldBe classOf[java.lang.Long]
+        }
+      }
+    } yield ()
+  }
 }

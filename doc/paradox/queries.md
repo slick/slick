@@ -187,6 +187,13 @@ one column):
 
 @@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #aggregation2 }
 
+`length` (and its alias `size`) and `countDistinct` return an `Int`. When a count can exceed `Int.MaxValue`, use
+`lengthLong` and `countDistinctLong`, which return a `Long`. On SQL Server and DB2 they compile to `count_big`.
+Derby has no 64-bit count, so there they are limited to the `Int` range
+(the profile lacks the `countLong` capability in @scaladoc[RelationalCapabilities](slick.relational.RelationalCapabilities$)):
+
+@@snip [LiftedEmbedding.scala](../code/LiftedEmbedding.scala) { #aggregationLong }
+
 Grouping is done with the `groupBy` method. It has the same semantics as for
 Scala collections:
 

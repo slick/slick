@@ -344,6 +344,20 @@ class QueryInterpreter(db: HeapBackend#AnyHeapDatabaseDef, params: Any) extends 
     res
   }
 
+  /** Return a count as a `Long` if the function's result type is `Long`, otherwise as an `Int`.
+    * `Count` has a `Long` result when the memory profile rewrites `CountAllLong` to it. */
+  private def countResult(count: Int, retType: Type): Any =
+    if(retType.classTag.runtimeClass == java.lang.Long.TYPE) count.toLong else count
+
+  private def countDistinct(arg: (Type, Any)): Int = {
+    val CollectionType(_, elType) = arg._1: @unchecked
+    val coll = arg._2.asInstanceOf[Coll]
+    (elType match {
+      case ProductType(_) => coll.toSeq.distinct
+      case _ => coll.toSeq.filter(v => v != null && v != None).distinct
+    }).size
+  }
+
   //noinspection ZeroIndexToHead
   def evalFunction(sym: TermSymbol, args: Seq[(Type, Any)], retType: Type) = sym match {
     case Library.equal => args(0)._2 == args(1)._2
@@ -376,20 +390,16 @@ class QueryInterpreter(db: HeapBackend#AnyHeapDatabaseDef, params: Any) extends 
       t.fromDouble(scala.math.ceil(t.toDouble(args(0)._2)))
     case Library.Concat => args.iterator.map(_._2.toString).mkString
     case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
+    case Library.CountAllLong => args(0)._2.asInstanceOf[Coll].size.toLong
     case Library.Count =>
       val CollectionType(_, elType) = args(0)._1: @unchecked
       val coll = args(0)._2.asInstanceOf[Coll]
-      (elType match {
+      countResult((elType match {
         case ProductType(_) => coll
         case _ => coll.iterator.filter(v => v != null && v != None)
-      }).size
-    case Library.CountDistinct =>
-      val CollectionType(_, elType) = args(0)._1: @unchecked
-      val coll = args(0)._2.asInstanceOf[Coll]
-      (elType match {
-        case ProductType(_) => coll.toSeq.distinct
-        case _ => coll.toSeq.filter(v => v != null && v != None).distinct
-      }).size
+      }).size, retType)
+    case Library.CountDistinct => countDistinct(args(0))
+    case Library.CountDistinctLong => countDistinct(args(0)).toLong
     case Library.Database => ""
     case Library.Degrees =>
       val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]

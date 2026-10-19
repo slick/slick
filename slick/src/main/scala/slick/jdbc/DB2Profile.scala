@@ -89,6 +89,10 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
       case Library.CurrentValue(SequenceNode(name)) => b += "(prevval for " += quoteIdentifier(name) += ")"
       case Library.User() => b += "current user"
       case Library.Database() => b += "current server"
+      // count returns INTEGER, so use count_big for lengthLong / countDistinctLong
+      case Library.CountAllLong(LiteralNode(1)) => b"count_big(*)"
+      case Library.CountAllLong(e) => b"count_big($e)"
+      case Library.CountDistinctLong(e) => b"count_big(distinct $e)"
       case Library.CountAll(LiteralNode(1)) => b"count(*)"
       case RewriteBooleans.ToFakeBoolean(a @ Apply(Library.SilentCast, _)) =>
         expr(RewriteBooleans.rewriteFakeBooleanWithEquals(a))

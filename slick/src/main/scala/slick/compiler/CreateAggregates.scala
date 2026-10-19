@@ -18,7 +18,7 @@ class CreateAggregates extends Phase {
           val CollectionType(_, elType @ Type.Structural(StructType(els))) = from.nodeType
           val s = new AnonSymbol
           val a = Aggregate(s, from, Apply(f, ConstArray(f match {
-            case Library.CountAll => LiteralNode(1)
+            case Library.CountAll | Library.CountAllLong => LiteralNode(1)
             case _ => Select(Ref(s) :@ elType, els.head._1) :@ els.head._2
           }))(n.nodeType)).infer()
           logger.debug("Converted aggregation function application", a)
