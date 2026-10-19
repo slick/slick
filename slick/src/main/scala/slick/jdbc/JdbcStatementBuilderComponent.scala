@@ -341,7 +341,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           case _ => throw new SlickException("Cannot resolve "+p+" as field or view")
         }
       case (n @ LiteralNode(v)) :@ JdbcType(ti, option) =>
-        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, idx, _) =>
+        if(n.volatileHint || !ti.hasLiteralForm || JdbcTypesComponent.isNonFiniteFloatingPoint(v)) b +?= { (p, idx, _) =>
           if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx)
           else ti.setValue(v, p, idx)
         } else b += valueToSQLLiteral(v, n.nodeType)

@@ -13,7 +13,7 @@ import scala.util.Random
 import cats.effect.IO
 
 import slick.ast.FieldSymbol
-import slick.jdbc.{H2Profile, PostgresProfile, SQLiteProfile}
+import slick.jdbc.{H2Profile, HsqldbProfile, PostgresProfile, SQLiteProfile}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import javax.sql.rowset.serial.{SerialBlob, SerialClob}
@@ -546,6 +546,67 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       (0 to 50).map(offset => baseLocalDateTime.plusMinutes(offset * 5500)).toList.
         flatMap(offsetLocalDateTime => zoneIds.map(zoneId => offsetLocalDateTime.atZone(ZoneId.of(zoneId)))),
       generateTestZonedDateTime
+    )
+  }
+
+  def testNonFiniteFloatingPoint = {
+    class T(tag: Tag) extends Table[(Int, Double, Float)](tag, "test_nonfinite") {
+      def id = column[Int]("id")
+      def d = column[Double]("d")
+      def f = column[Float]("f")
+      def * = (id, d, f)
+    }
+    val ts = TableQuery[T]
+
+    // Derby, MySQL, SQL Server and DB2 cannot store NaN or the infinities; SQLite stores NaN as NULL.
+    // Oracle's BINARY_DOUBLE can, but its driver's setDouble rejects them ("Overflow").
+    val (supportsNaN, supportsInfinity) = tdb.profile match {
+      case _: H2Profile | _: HsqldbProfile | _: PostgresProfile => (true, true)
+      case _: SQLiteProfile                                     => (false, true)
+      case _                                                    => (false, false)
+    }
+
+    val infinities = seq(
+      ts += (2, Double.PositiveInfinity, Float.PositiveInfinity),
+      ts += (3, Double.NegativeInfinity, Float.NegativeInfinity),
+      ts.filter(_.d === Double.PositiveInfinity).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.d === Double.NegativeInfinity).map(_.id).result.map(_ shouldBe Seq(3)),
+      ts.filter(_.f === Float.PositiveInfinity).map(_.id).result.map(_ shouldBe Seq(2)),
+      ts.filter(_.f === Float.NegativeInfinity).map(_.id).result.map(_ shouldBe Seq(3)),
+      ts.filter(_.id === 1).map(_ => Double.PositiveInfinity).result.head.map(_ shouldBe Double.PositiveInfinity)
+    )
+
+    val nan = seq(
+      ts += (4, Double.NaN, Float.NaN),
+      ts.filter(_.d === Double.NaN).map(_.id).result.map(_ shouldBe Seq(4)),
+      ts.filter(_.f === Float.NaN).map(_.id).result.map(_ shouldBe Seq(4)),
+      ts.filter(_.id === 1).map(_ => Double.NaN).result.head.map(_.isNaN shouldBe true)
+    )
+
+    // Column defaults have to be rendered as SQL literals (a string cast)
+    class D(tag: Tag) extends Table[(Int, Double, Double)](tag, "test_nonfinite_default") {
+      def id = column[Int]("id")
+      def nan = column[Double]("nan", O.Default(Double.NaN))
+      def inf = column[Double]("inf", O.Default(Double.NegativeInfinity))
+      def * = (id, nan, inf)
+    }
+    val ds = TableQuery[D]
+    val defaults = seq(
+      ds.schema.create,
+      ds.map(_.id) += 1,
+      ds.map(d => (d.nan, d.inf)).result.head.map { case (n, i) =>
+        n.isNaN shouldBe true
+        i shouldBe Double.NegativeInfinity
+      }
+    )
+
+    seq(
+      ts.schema.create,
+      ts += (1, 1.5, 1.5f),
+      if (supportsInfinity) infinities else DBIO.successful(()),
+      if (supportsNaN) nan else DBIO.successful(()),
+      if (supportsNaN) defaults else DBIO.successful(()),
+      ts.filter(_.d === 1.5).map(_.id).result.map(_ shouldBe Seq(1))
     )
   }
 
