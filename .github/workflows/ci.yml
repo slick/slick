@@ -57,7 +57,9 @@ jobs:
         # before the database exists (SQLCODE=-1035, SQLSTATE=57019).
         # The image touches this marker right after ACTIVATE DATABASE, on every
         # start. The marker survives a container restart, so it only counts once
-        # it is newer than this start (/proc/1); this matches docker-compose.yml.
+        # it is newer than /proc/1. procfs sets that mtime when the inode is
+        # first looked up, which is always after this container started; this
+        # matches docker-compose.yml.
         # Do not probe with `db2 connect` instead: each CLP probe leaves an
         # orphaned db2bp connection behind, which makes admin_drop_schema fail
         # in the testkit cleanup (SQL0478N).

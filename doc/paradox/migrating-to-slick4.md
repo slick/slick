@@ -72,10 +72,8 @@ only thing that changes is how you construct the database.
   `java.sql.Blob`. `BINARY(16)` columns are still generated as `java.sql.Blob`, because the database metadata does
   not say that they hold UUIDs.
 - **`&&` and `||` chains:** a new first compiler phase, `flattenBooleanChains`, turns nested `and` / `or` operations
-  into a single operation with any number of operands, so that long chains built with `reduce(_ || _)` no longer
-  overflow the stack. The generated SQL drops the redundant inner parentheses (`(a or b) or c` becomes `a or b or c`),
-  and chains of more than 64 operands are split into balanced parenthesized groups. Custom compiler phases and
-  profiles that match `Library.And(l, r)` or `Library.Or(l, r)` with exactly two operands need to handle more.
+  into a single operation with any number of operands. Custom compiler phases and profiles that match
+  `Library.And(l, r)` or `Library.Or(l, r)` with exactly two operands need to handle more.
 - **Plain SQL `.as[R]` on non-query statements:** `sql"...".as[R]` on a statement that returns an update count
   instead of a result set (an insert, update, delete or DDL statement) now fails with a `SlickException`. In Slick 3
   it returned the update count cast to `R`. Use `sqlu"..."` or `.asUpdate` for such statements, also where
