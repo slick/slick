@@ -1,6 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.jdbc.{GetResult, SetParameter}
+import java.sql.SQLException
+
+import slick.SlickException
+import slick.jdbc.{GetResult, SetParameter, SQLiteProfile}
 import slick.jdbc.PositionedResult.SqlNullException
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
@@ -211,5 +214,64 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
     }
 
     seq(create, populate, seqs, maps, dupSeq, dupMap)
+  }
+
+  def testAsOnNonQueryStatement = {
+    // A statement that returns an update count instead of a ResultSet cannot be read with `as`
+    def failsWithUpdateCount(a: DBIO[?]) = a.failed.map { e =>
+      e.getClass shouldBe classOf[SlickException]
+      e.getMessage should (_.startsWith("Statement did not return a ResultSet"))
+    }
+
+    val create = sqlu"create table NONQUERY(ID int not null, NAME varchar(255))".map(_ shouldBe 0)
+
+    seq(
+      create,
+      failsWithUpdateCount(sql"insert into NONQUERY values (1, 'a')".as[String]),
+      failsWithUpdateCount(sql"insert into NONQUERY values (2, 'b')".as[(Int, String)]),
+      failsWithUpdateCount(sql"insert into NONQUERY values (3, 'c')".as[Int]),
+      failsWithUpdateCount(sql"update NONQUERY set NAME = 'x'".as[String].head),
+      failsWithUpdateCount(sql"create table NONQUERY2(ID int not null)".as[Unit]),
+      sql"update NONQUERY set NAME = 'y'".asUpdate.map(_ shouldBe 3),
+      sqlu"insert into NONQUERY values (4, 'd')".map(_ shouldBe 1),
+      sql"select ID, NAME from NONQUERY order by ID".as[(Int, String)]
+        .map(_ shouldBe Vector((1, "y"), (2, "y"), (3, "y"), (4, "d")))
+    )
+  }
+
+  def testMultipleStatements = {
+    // H2, PostgreSQL and SQL Server run all statements of a multi-statement string. HSQLDB, Derby,
+    // Oracle, DB2 and MySQL (without allowMultiQueries) reject it. SQLite runs only the first
+    // statement. Where the later statements run, their errors must not be lost.
+    //
+    // The first two cases are the shape from #2140 that loses the error on SQL Server: a DELETE of an
+    // existing row, then an INSERT into a missing table. Presumably because of SQL Server's deferred name
+    // resolution, the batch compiles and the missing table is reported only at run time, after the
+    // DELETE's update count, so the caller sees the error only when it moves on to the later results.
+    val onlyFirstRuns = tdb.profile.isInstanceOf[SQLiteProfile]
+
+    def fails(a: DBIO[?]) = a.asTry.map(_.isSuccess shouldBe onlyFirstRuns)
+    // With `as`, an update count first fails with a SlickException (#1597), so check that the error of
+    // the later statement comes first
+    def failsWithSQLException(a: DBIO[?]) = a.failed.map { e =>
+      if (onlyFirstRuns) e.getClass shouldBe classOf[SlickException]
+      else e should (_.isInstanceOf[SQLException])
+    }
+    val reset = DBIO.seq(sqlu"delete from MULTI", sqlu"insert into MULTI values (1)")
+
+    seq(
+      sqlu"create table MULTI(ID int not null primary key)".map(_ shouldBe 0),
+      reset,
+      // Update count first
+      fails(sqlu"delete from MULTI; insert into MULTI_MISSING (ID) values (42);"),
+      reset,
+      failsWithSQLException(sql"delete from MULTI; insert into MULTI_MISSING (ID) values (42);".as[Int]),
+      reset,
+      fails(sqlu"insert into MULTI values (2); insert into MULTI values (2);"),
+      reset,
+      // Result set first, read to the end
+      fails(sql"select ID from MULTI; insert into MULTI_MISSING (ID) values (42);".as[Int]),
+      fails(sql"select ID from MULTI; insert into MULTI values (1);".as[Int])
+    )
   }
 }
