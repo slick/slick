@@ -400,6 +400,21 @@ object LiftedEmbedding {
         //#insert1
         println(insertSql)
 
+        //#insertStatements
+        val batchInsert = coffees ++= Seq(
+          ("French_Roast_Decaf", 49, 9.99, 0, 0),
+          ("Espresso_Decaf", 150, 10.99, 0, 0)
+        )
+
+        // Get the statements of an insert Action without running it:
+        val batchInsertSql = batchInsert.statements
+
+        // compiles to SQL (one statement, executed once per row in a JDBC batch):
+        //   insert into "COFFEES" ("COF_NAME","SUP_ID","PRICE","SALES","TOTAL") values (?,?,?,?,?)
+        //#insertStatements
+        batchInsertSql.foreach(println)
+        assert(batchInsertSql.toList == List(insertSql))
+
         db.run(DBIO.seq(
           suppliers ++= Seq(
             (101, "", "", "", "", ""),

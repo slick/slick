@@ -48,6 +48,11 @@ The following loggers are particularly interesting:
 - `slick.jdbc.JdbcBackend.parameter`:
    Shows bind variable contents (for supported types) of all SQL statements which are executed.
 
+- `slick.jdbc.JdbcBackend.statementAndParameter`:
+   Shows executed prepared inserts, updates and batch entries (but not queries) as rendered by the JDBC driver's
+   `PreparedStatement.toString`. For drivers that include the bound values there, this shows the SQL together with
+   the values.
+
 - `slick.jdbc.JdbcBackend.benchmark`:
    Shows execution times for SQL statements.
 
