@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import slick.jdbc.{DerbyProfile, H2Profile, HsqldbProfile, SimpleJdbcAction}
 import slick.jdbc.meta._
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
@@ -104,4 +105,32 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     _ <- MTable.getTables("lookup_xx").map(_.map(_.name.name) shouldBe Vector("lookup_xx"))
     _ <- MTable.getTables.map(_.map(_.name.name) should (_ contains "lookup_xx"))
   } yield ()
+
+  class SchemaWt(tag: Tag, schema: String) extends Table[Int](tag, Some(schema), "wt") {
+    def id = column[Int]("id", O.PrimaryKey)
+    def * = id
+  }
+
+  /** The current schema's name is not a search pattern: `_` in it does not match another character */
+  def testLookupsInCurrentSchemaWithWildcard = tdb.profile match {
+    case _: H2Profile | _: HsqldbProfile | _: DerbyProfile => // CREATE SCHEMA and SET SCHEMA
+      val schemas = Seq("MY_S", "MYXS")
+      val tables = schemas.map(s => TableQuery(new SchemaWt(_, s)))
+      SimpleJdbcAction(_.session.conn.getSchema).flatMap { defaultSchema =>
+        (for {
+          _ <- DBIO.seq(schemas.map(s => sqlu"create schema #$s")*)
+          _ <- DBIO.seq(tables.map(_.schema.create)*)
+          _ <- sqlu"set schema MY_S"
+          _ <- MTable.getTables("wt").map(_.map(_.name.schema) shouldBe Vector(Some("MY_S")))
+          _ <- MTable.getTables("wt").headOption.map(_.map(_.name.schema) shouldBe Some(Some("MY_S")))
+          _ <- MTable.getTables.map(_.filter(_.name.name == "wt").map(_.name.schema) shouldBe Vector(Some("MY_S")))
+          _ <- MPrimaryKey.getPrimaryKeys("wt").map(_.map(_.table.schema) shouldBe Vector(Some("MY_S")))
+        } yield ()).andFinally(DBIO.seq(
+          sqlu"""set schema "#$defaultSchema"""",
+          DBIO.seq(tables.map(_.schema.dropIfExists)*),
+          DBIO.seq(schemas.map(s => sqlu"drop schema #$s restrict")*)
+        ))
+      }.withPinnedSession
+    case _ => DBIO.successful(())
+  }
 }
