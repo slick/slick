@@ -2,13 +2,14 @@ package slick.test.future
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, DurationInt}
+import scala.util.{Failure, Try}
 
-import org.junit.Assert.assertEquals
+import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Test
 
 import slick.future.Database
-import slick.jdbc.{DatabaseConfig, H2Profile}
+import slick.jdbc.{DatabaseConfig, GetResult, H2Profile}
 
 class FutureApiTest {
   implicit val ec: ExecutionContext = ExecutionContext.global
@@ -128,6 +129,26 @@ class FutureApiTest {
       assertEquals(List("10", "20", "30"), buf1.toList)
       assertEquals(List("10", "20", "30"), buf2.toList)
 
+      Await.result(db.run(items.schema.dropIfExists), Duration.Inf)
+    } finally db.close()
+  }
+
+  /** Recurses until the stack overflows. */
+  private def overflow(n: Int): Int = if (n < 0) n else overflow(n + 1) + 1
+
+  @Test
+  def streamFailsOnStackOverflowWhileReadingRows(): Unit = {
+    val db = Await.result(Database.open(dc), Duration.Inf)
+    try {
+      Await.result(db.run(items.schema.createIfNotExists >> (items ++= Seq(1, 2, 3))), Duration.Inf)
+      implicit val overflowingRow: GetResult[Int] = GetResult(_ => overflow(0))
+      // A finite timeout: without the guard the Future never completes.
+      val result = Try(Await.result(db.stream(sql"""select "id" from "future_api_items"""".as[Int]).foreach(_ => ()), 30.seconds))
+      result match {
+        case Failure(e: SlickException) => assertTrue(String.valueOf(e), e.getCause.isInstanceOf[StackOverflowError])
+        case other                      => throw new AssertionError(s"Expected a SlickException caused by StackOverflowError, got $other")
+      }
+      assertEquals(List(1, 2, 3), Await.result(db.run(items.sortBy(_.id).result), 30.seconds).toList)
       Await.result(db.run(items.schema.dropIfExists), Duration.Inf)
     } finally db.close()
   }
