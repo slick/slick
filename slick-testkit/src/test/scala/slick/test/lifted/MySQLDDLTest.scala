@@ -43,6 +43,17 @@ class MySQLDDLTest(testSchema: Option[String]) {
     val t2DropStatements = ts2.schema.dropStatements.toList
     t2DropStatements.foreach(s => assertTrue("DDL (drop) uses escaped table name: " + s, s.contains(table2QualifiedName)))
     assertTrue("Fk name must be escaped", t2DropStatements.exists(_.contains(fkEscapedName)))
+
+    // MySQL rejects "DROP CONSTRAINT IF EXISTS"; createIfNotExists drops the foreign key with "DROP FOREIGN KEY"
+    val t2CreateIfNotExistsStatements = ts2.schema.createIfNotExistsStatements.toList
+    assertTrue(
+      "DDL (createIfNotExists) must drop the foreign key with DROP FOREIGN KEY: " + t2CreateIfNotExistsStatements,
+      t2CreateIfNotExistsStatements.contains(s"ALTER TABLE $table2QualifiedName DROP FOREIGN KEY $fkEscapedName")
+    )
+    assertFalse(
+      "DDL (createIfNotExists) must not use DROP CONSTRAINT IF EXISTS: " + t2CreateIfNotExistsStatements,
+      t2CreateIfNotExistsStatements.exists(_.toLowerCase.contains("drop constraint if exists"))
+    )
   }
 
   @Test def testLongStringUsesMediumText: Unit = {
