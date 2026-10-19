@@ -29,23 +29,15 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
   private lazy val logger = SlickLogger[HikariCPJdbcDataSource]
 
-  /** Warnings about the pool settings in `c` that are deprecated or that conflict with each other. */
-  private[hikaricp] def configWarnings(c: Config): Seq[String] = {
-    val failFast = c.getBooleanOpt("initializationFailFast").map { failFast =>
-      "The `initializationFailFast` setting is deprecated because HikariCP no longer supports it. Use " +
-        "`initializationFailTimeout = 1` to fail fast, or `initializationFailTimeout = 0` or `-1` otherwise." +
-        (if (c.hasPath("initializationFailTimeout")) " It is ignored because `initializationFailTimeout` is also set."
-         else s" `initializationFailFast = $failFast` is treated as `initializationFailTimeout = ${if (failFast) 1 else 0}`.")
-    }
-    val poolSize = for {
+  /** Warnings about the pool settings in `c` that conflict with each other. */
+  private[hikaricp] def configWarnings(c: Config): Seq[String] =
+    (for {
       maximumPoolSize <- c.getIntOpt("maximumPoolSize")
       maxConnections <- c.getIntOpt("maxConnections")
     } yield
       s"Both `maximumPoolSize` ($maximumPoolSize) and `maxConnections` ($maxConnections) are set. The pool size is " +
         s"taken from `maximumPoolSize` and `maxConnections` is ignored for it. Set only one of them; a " +
-        "`maximumPoolSize` can also come from a `reference.conf` file of a library."
-    failFast.toSeq ++ poolSize
-  }
+        "`maximumPoolSize` can also come from a `reference.conf` file of a library.").toSeq
 
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
     configWarnings(c).foreach(logger.warn(_))
@@ -94,20 +86,9 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     // Infrequently used
 
-    // The default value for `initializationFailFast` was false, which means the pool
-    // will not fail to start if there is a problem when connecting to the database.
-    // To keep this behavior, we need to set `initializationFailTimeout` to -1 as
-    // documented by HikariCP.
-    hconf.setInitializationFailTimeout(c.getMillisecondsOr("initializationFailTimeout", default = {
-      // `initializationFailFast` is deprecated and should be replaced by
-      // `initializationFailTimeout`. See HikariCP docs for more information:
-      // https://github.com/brettwooldridge/HikariCP#infrequently-used
-      // But for backwards compatibility we check for it if initializationFailTimeout is missing
-      c.getBooleanOpt("initializationFailFast").map { failFast =>
-        if (failFast) 1L
-        else 0L
-      }.getOrElse(-1L)
-    }))
+    // Slick's default is -1 instead of HikariCP's 1, so the pool starts even if it cannot
+    // connect to the database.
+    hconf.setInitializationFailTimeout(c.getMillisecondsOr("initializationFailTimeout", -1L))
 
     c.getBooleanOpt("isolateInternalQueries").foreach(hconf.setIsolateInternalQueries)
     c.getBooleanOpt("allowPoolSuspension").foreach(hconf.setAllowPoolSuspension)

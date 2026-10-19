@@ -41,7 +41,8 @@ only thing that changes is how you construct the database.
 - All profile imports: `import slick.jdbc.PostgresProfile.api.*`
 - The phantom effect type system: `Effect.Read`, `Effect.Write`, `Effect.Schema`,
   `Effect.Transactional`
-- `slick-hikaricp`: HikariCP integration is unchanged; `DataSource` is still the integration point
+- `slick-hikaricp`: HikariCP integration is unchanged, except for `initializationFailFast` (see below);
+  `DataSource` is still the integration point
 - `slick-codegen`: code generation is unchanged. If you have previously generated code that
   contains `import scala.concurrent.ExecutionContext` (added by older codegen versions), that
   import is now unused — remove it or regenerate.
@@ -58,6 +59,7 @@ only thing that changes is how you construct the database.
 | `map`/`flatMap` on `DBIOAction` | require `(implicit ec: ExecutionContext)` | no EC parameter |
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts a `Future[R]` — **unchanged** in `slick-future` |
 | `GetResult.apply` / `SetParameter.apply` | function parameter is `implicit` | regular parameter; `GetResult(r => ...)` and `SetParameter[T]((v, pp) => ...)` are unchanged. `GetResult(using r => ...)` / `SetParameter(using (v, pp) => ...)` (Scala 3) no longer compile — drop the `using`. Summoning a `GetResult[T]` from an implicit function via `GetResult[T]` (no argument) also no longer works |
+| HikariCP `initializationFailFast` | `true` makes the pool fail fast | no longer read — use `initializationFailTimeout` with a value > 0, e.g. `initializationFailTimeout = 1` |
 
 ### Changed in database profiles
 

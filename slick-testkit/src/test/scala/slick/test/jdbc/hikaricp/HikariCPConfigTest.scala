@@ -57,26 +57,14 @@ class HikariCPConfigTest {
     assertEquals(Nil, warnings)
   }
 
-  @Test def testInitializationFailFastIsDeprecated(): Unit = {
-    val warnings = warningsDuring {
-      withSource(config(s"$h2, initializationFailFast = true")) { source =>
-        assertEquals(1L, source.hconf.getInitializationFailTimeout)
-      }
+  @Test def testInitializationFailTimeout(): Unit = {
+    withSource(config(s"$h2, initializationFailTimeout = 1")) { source =>
+      assertEquals(1L, source.hconf.getInitializationFailTimeout)
     }
-    assertEquals(1, warnings.size)
-    assertTrue(warnings.head, warnings.head.contains("`initializationFailFast` setting is deprecated"))
-    assertTrue(warnings.head, warnings.head.contains("`initializationFailTimeout = 1` to fail fast"))
-    assertTrue(warnings.head, warnings.head.contains("treated as `initializationFailTimeout = 1`"))
-  }
-
-  @Test def testInitializationFailFastIgnoredWithInitializationFailTimeout(): Unit = {
-    val warnings = warningsDuring {
-      withSource(config(s"$h2, initializationFailFast = true, initializationFailTimeout = -1")) { source =>
-        assertEquals(-1L, source.hconf.getInitializationFailTimeout)
-      }
+    // The removed `initializationFailFast` key is no longer read
+    withSource(config(s"$h2, initializationFailFast = true")) { source =>
+      assertEquals(-1L, source.hconf.getInitializationFailTimeout)
     }
-    assertEquals(1, warnings.size)
-    assertTrue(warnings.head, warnings.head.contains("ignored because `initializationFailTimeout` is also set"))
   }
 
   @Test def testMaximumPoolSizeAndMaxConnections(): Unit = {

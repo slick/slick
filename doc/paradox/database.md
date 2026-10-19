@@ -268,9 +268,6 @@ HikariCP. These keys need some explanation:
   the pool fails to start; `1` makes the pool fail fast. With `0` the pool starts even if it cannot get
   a connection, and with `-1` it does not try to get one. Note that Slick's default (`-1`) differs from
   HikariCP's (`1`).
-- `initializationFailFast`: deprecated, because HikariCP no longer supports it. Slick still accepts it if
-  `initializationFailTimeout` is not set, and treats `true` as `initializationFailTimeout = 1` and
-  `false` as `initializationFailTimeout = 0`, but logs a warning. Use `initializationFailTimeout` instead.
 
 #### Pool metrics
 
