@@ -9,6 +9,8 @@ Parameterized StaticQuery:
 * French_Roast supplied by Superior Coffee
 * Colombian_Decaf supplied by Acme, Inc.
 Supplier #49: Vector(Supplier(49,Superior Coffee,1 Party Place,Mendocino,CA,95460))
+First coffee as Seq: Colombian, 7.99
+First coffee as Map: COFFEE = Colombian, PRICE = 7.99
 Coffee Colombian: Some(Coffee(Colombian,101,7.99,0,0))
 Deleted 1 rows
 Coffee Colombian: None

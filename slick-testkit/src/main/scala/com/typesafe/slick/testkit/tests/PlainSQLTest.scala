@@ -171,4 +171,45 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
 
     seq(create, selectMaxFromEmptyFails)
   }
+
+  def testAsSeqOfAnyAndAsMapOfAny = ifCap(tcap.plainSql) {
+    // getObject returns driver-specific types (e.g. java.math.BigDecimal for an int on Oracle) and
+    // unquoted labels come back upper-case or lower-case depending on the database, so normalize
+    def norm(v: Any): Any = v match {
+      case n: java.lang.Number => n.longValue
+      case v => v
+    }
+    def normRow(m: Map[String, Any]): List[(String, Any)] =
+      m.toList.map { case (k, v) => (k.toUpperCase, norm(v)) }
+
+    val create =
+      sqlu"create table ANYROWS(ID int not null primary key, NAME varchar(255), NICK varchar(255))".map(_ shouldBe 0)
+    val populate = DBIO.seq(
+      sqlu"insert into ANYROWS values (1, 'szeiger', NULL)",
+      sqlu"insert into ANYROWS values (2, 'guest', 'g')"
+    )
+
+    // Values in column order, SQL NULL as null
+    val seqs = sql"select NICK, ID, NAME from ANYROWS order by ID".asSeqOfAny.map { rows =>
+      rows.map(_.map(norm)) shouldBe Vector(Vector(null, 1L, "szeiger"), Vector("g", 2L, "guest"))
+    }
+
+    // Keys are column labels (respecting aliases), in column order, SQL NULL as null
+    val maps = sql"select NAME as USER_NAME, ID as USER_ID, NICK from ANYROWS order by ID".asMapOfAny.map { rows =>
+      rows.map(normRow) shouldBe Vector(
+        List("USER_NAME" -> "szeiger", "USER_ID" -> 1L, "NICK" -> null),
+        List("USER_NAME" -> "guest", "USER_ID" -> 2L, "NICK" -> "g")
+      )
+    }
+
+    // Duplicate labels: the Seq has all columns, the Map only the first column with that label
+    val dupSeq = sql"select ID as X, NAME as X from ANYROWS where ID = 1".asSeqOfAny.map { rows =>
+      rows.map(_.map(norm)) shouldBe Vector(Vector(1L, "szeiger"))
+    }
+    val dupMap = sql"select ID as X, NAME as X from ANYROWS where ID = 1".asMapOfAny.map { rows =>
+      rows.map(normRow) shouldBe Vector(List("X" -> 1L))
+    }
+
+    seq(create, populate, seqs, maps, dupSeq, dupMap)
+  }
 }
