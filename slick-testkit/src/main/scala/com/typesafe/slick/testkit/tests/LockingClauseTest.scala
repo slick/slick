@@ -148,6 +148,8 @@ class LockingClauseTest extends AsyncTest[JdbcTestDB] with Logging {
           _ = thread3StartLatch.countDown() // start thread 3
           // thread 3 update must wait for the shared lock of the main transaction
           thread3Finished = thread3Latch.await(500, TimeUnit.MILLISECONDS)
+          // a child thread that failed (for example thread 3 failing fast) also counts the latch down
+          _ = Assert.assertTrue("a child thread failed", success.get)
           _ = Assert.assertFalse("thread 3 update did not wait for the shared lock", thread3Finished)
           r1 <- rowSelect(1).result
           _ = r1 shouldBe Seq((1, None))
