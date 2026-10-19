@@ -266,7 +266,9 @@ Run and stream queries:
 ### Action listeners
 
 An @scaladoc[ActionListener](slick.basic.ActionListener) wraps the execution of every action, for example for
-tracing or timing. By default, Slick uses a listener that writes to the `slick.basic.BasicBackend.action` and
+tracing or timing. Synchronous actions combined with `>>`, `DBIO.seq`, `zip`, `asTry` and similar combinators are
+fused into one action, which the listener sees as one node. For `db.stream`, the listener wraps opening the stream,
+not reading the rows. By default, Slick uses a listener that writes to the `slick.basic.BasicBackend.action` and
 `slick.basic.BasicBackend.timing` @ref:[loggers](config.md#logging) when they are enabled at debug level.
 
 To use your own listener instead, create the database with `makeDatabase` on the profile's backend and wrap it with
