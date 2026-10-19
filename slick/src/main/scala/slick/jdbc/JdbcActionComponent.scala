@@ -257,29 +257,37 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   class JdbcSchemaActionExtensionMethodsImpl(schema: SchemaDescription)
     extends RelationalSchemaActionExtensionMethodsImpl {
 
+    /** Execute a DDL statement and move past any further results, so that the error of a later statement in a
+      * batch is reported. SQL Server reports it only when the caller gets to that statement's results. */
+    protected def executeDDL(ctx: JdbcBackend#JdbcActionContext, statement: String): Unit =
+      ctx.session.withPreparedStatement(statement) { st =>
+        st.execute
+        StatementInvoker.skipMoreResults(st)
+      }
+
     def create: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.create", schema.createStatements.toVector) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+        for (s <- sql) executeDDL(ctx, s)
     }
 
     def createIfNotExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.createIfNotExists", schema.createIfNotExistsStatements.toVector) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+        for (s <- sql) executeDDL(ctx, s)
     }
 
     def truncate: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.truncate" , schema.truncateStatements.toVector ){
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+        for (s <- sql) executeDDL(ctx, s)
     }
 
     def drop: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.drop", schema.dropStatements.toVector) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+        for (s <- sql) executeDDL(ctx, s)
     }
 
     def dropIfExists: ProfileAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcProfileAction[Unit]("schema.dropIfExists", schema.dropIfExistsStatements.toVector) {
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]): Unit =
-        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
+        for (s <- sql) executeDDL(ctx, s)
     }
   }
 

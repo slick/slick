@@ -380,6 +380,62 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
+  /** createIfNotExists() must work for tables with a FK, both when they don't exist yet and when they do,
+    * and the FK must be in place afterwards. */
+  def testCreateIfNotExistsWithFK = {
+    class A(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_create_a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def * = id
+    }
+    val as = TableQuery[A]
+
+    class B(_tag: Tag) extends Table[(Int, Int)](_tag, "ddl_test_fk_create_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def aId = column[Int]("a_id")
+      def * = (id, aId)
+      def fk = foreignKey("ddl_test_fk_create_fk", aId, as)(_.id)
+    }
+    val bs = TableQuery[B]
+
+    val schema = as.schema ++ bs.schema
+    // The heap database and SQLite (without "PRAGMA foreign_keys") don't enforce foreign keys
+    val enforcesFKs = tdb.profile != slick.memory.MemoryProfile && !tdb.profile.isInstanceOf[slick.jdbc.SQLiteProfile]
+
+    for {
+      _ <- schema.createIfNotExists
+      _ <- schema.createIfNotExists
+      _ <- as += 1
+      _ <- bs += ((1, 1))
+      _ <- if (enforcesFKs) (bs += ((2, 42))).failed else DBIO.successful(())
+      _ <- bs.result.map(_ shouldBe Seq((1, 1)))
+      _ <- schema.drop
+    } yield ()
+  }
+
+  def testCreateIfNotExistsWithFKToMissingTable = {
+    class A(_tag: Tag) extends Table[Int](_tag, "ddl_test_fk_missing_a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def * = id
+    }
+    val as = TableQuery[A]
+
+    class B(_tag: Tag) extends Table[(Int, Int)](_tag, "ddl_test_fk_missing_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def aId = column[Int]("a_id")
+      def * = (id, aId)
+      // A name that contains the text of a foreign key drop must not hide the error of adding the foreign key
+      def fk = foreignKey("fk drop constraint x", aId, as)(_.id)
+    }
+    val bs = TableQuery[B]
+
+    // The heap database and SQLite don't check that the referenced table exists
+    val checksFKTargets = tdb.profile != slick.memory.MemoryProfile && !tdb.profile.isInstanceOf[slick.jdbc.SQLiteProfile]
+
+    // Table "ddl_test_fk_missing_a" is never created
+    if (checksFKTargets) bs.schema.createIfNotExists.failed.andThen(bs.schema.dropIfExists)
+    else bs.schema.createIfNotExists.andThen(bs.schema.drop)
+  }
+
   def testDropIfExistsWithPK = {
     case class D(a: Int, b: Int)
     class T1(tag: Tag) extends Table[D](tag, "t1") {
