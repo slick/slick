@@ -38,10 +38,13 @@ The following loggers are particularly interesting:
    Shows how long each SQL action took, on one line together with its SQL, e.g.
    `SQL action took 1.234 ms: select "NAME" from "USERS"`, so you can see which statement took how long even when
    many actions run concurrently. Failed actions are logged as `failed after`. The time is measured around the whole
-   action, so it can include waiting for a connection. Nothing is measured unless this logger is enabled at debug
-   level. This logger and `slick.basic.BasicBackend.action` are written by the default
-   @ref:[action listener](database.md#action-listeners); if you install your own listener, combine it with
-   `ActionListener.timing` to keep the timing log.
+   action, so it can include waiting for a connection. Synchronous actions combined with `>>`, `DBIO.seq`, `zip`,
+   `asTry` and similar combinators run as one fused action, which is logged on one line with its total time and all
+   its statements, e.g. `SQL action took 3.210 ms: select ...; insert ...`. For `db.stream`, the line
+   `SQL stream opened after 1.234 ms: select ...` covers opening the stream (running the query), not reading the
+   rows. Nothing is measured unless this logger is enabled at debug level. This logger and
+   `slick.basic.BasicBackend.action` are written by the default @ref:[action listener](database.md#action-listeners);
+   if you install your own listener, combine it with `ActionListener.timing` to keep the timing log.
 
 - `slick.compiler.QueryCompiler`:
    Shows a dump of the AST after every phase of the query compiler when compiling a query.

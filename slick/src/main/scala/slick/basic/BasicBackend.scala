@@ -582,7 +582,7 @@ trait BasicBackend { self =>
           interpret[Seq[T]](other.asInstanceOf[DBIOAction[Seq[T], NoStream, Nothing]], ctx)
             .map(seq => noCleanup(CloseableIterator.wrap(seq.iterator)))
       }
-      actionListener.around(a, streamExec)
+      actionListener.aroundStreamOpen(a, streamExec)
     }
 
     /** Set up a transaction on a freshly-acquired connection.
