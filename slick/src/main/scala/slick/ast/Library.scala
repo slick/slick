@@ -74,6 +74,11 @@ object Library {
   val Count = new SqlAggregateFunction("count")
   val CountAll = new AggregateFunction("count(*)")
   val CountDistinct = new AggregateFunction("count distinct")
+  /* The `Long` counts are separate symbols rather than CountAll / CountDistinct with a `Long` result
+   * type because nodes are compared without their types, so the compiler would merge them with the
+   * `Int` counts when deduplicating identical expressions. */
+  val CountAllLong = new AggregateFunction("count(*) long")
+  val CountDistinctLong = new AggregateFunction("count distinct long")
 
   val Exists = new SqlFunction("exists")
 

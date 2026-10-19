@@ -207,6 +207,9 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         b"cast("
         super.expr(n)
         b" as ${columnTypes.timeJdbcType.sqlTypeName(None)})"
+      // count returns INT, so use count_big for lengthLong / countDistinctLong
+      case Library.CountAllLong(e) => b"count_big($e)"
+      case Library.CountDistinctLong(e) => b"count_big(distinct $e)"
       case Library.Substring(n, start) =>
         val startNode = QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())
         b"\({fn substring($n, $startNode, ${Int.MaxValue})}\)"

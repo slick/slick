@@ -233,6 +233,20 @@ sealed trait QueryBase[T] extends Rep[T]
   /** The number of distinct elements of the query. */
   def countDistinct: Rep[Int] = Library.CountDistinct.column(toNode)
 
+  /** The total number of elements (i.e. rows) as a `Long`. Use this instead of
+    * [[length]] when the count can exceed `Int.MaxValue`.
+    *
+    * Profiles with the [[slick.relational.RelationalCapabilities.countLong]]
+    * capability compute the count with 64 bits (e.g. `count_big` on SQL Server
+    * and DB2). Derby does not have it: there the count is computed with the
+    * 32-bit `count` and is limited to the `Int` range. */
+  def lengthLong: Rep[Long] = Library.CountAllLong.column(toNode)
+
+  /** The number of distinct elements of the query as a `Long`. Use this instead
+    * of [[countDistinct]] when the count can exceed `Int.MaxValue`. See
+    * [[lengthLong]] for which databases compute it with 64 bits. */
+  def countDistinctLong: Rep[Long] = Library.CountDistinctLong.column(toNode)
+
   /** Test whether this query is non-empty. */
   def exists = Library.Exists.column[Boolean](toNode)
 
