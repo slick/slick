@@ -609,8 +609,21 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         }
     }
 
+    /** Whether the UPDATE statement of the insertOrUpdate emulation sets any column that is not part of the primary
+      * key. When all columns are part of the key, an existing row already has the given values, so the emulation
+      * skips the UPDATE (which could only assign a key column to itself, and SQL Server rejects that for an
+      * IDENTITY column). */
+    private lazy val emulationHasColumnsToUpdate: Boolean = {
+      val keyFields = compiled.checkInsert.fields.toSet
+
+      compiled.updateInsert.fields.exists(f => !keyFields.contains(f))
+    }
+
     class InsertOrUpdateAction(value: U) extends SimpleJdbcProfileAction[SingleInsertOrUpdateResult]("InsertOrUpdateAction",
-      if(useServerSideUpsert) Vector(compiled.upsert.sql) else Vector(compiled.checkInsert.sql, compiled.updateInsert.sql, compiled.standardInsert.sql)) {
+      if (useServerSideUpsert) Vector(compiled.upsert.sql)
+      else if (emulationHasColumnsToUpdate)
+        Vector(compiled.checkInsert.sql, compiled.updateInsert.sql, compiled.standardInsert.sql)
+      else Vector(compiled.checkInsert.sql, compiled.standardInsert.sql)) {
 
       private def tableHasPrimaryKey: Boolean =
         List(compiled.upsert, compiled.checkInsert, compiled.updateInsert)
@@ -625,7 +638,9 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
       def run(ctx: JdbcBackend#JdbcActionContext, sql: Vector[String]) = {
         def f: SingleInsertOrUpdateResult =
-          if(useServerSideUpsert) nativeUpsert(value, sql.head)(ctx.session) else emulate(value, sql(0), sql(1), sql(2))(ctx.session)
+          if (useServerSideUpsert) nativeUpsert(value, sql.head)(ctx.session)
+          else if (emulationHasColumnsToUpdate) emulate(value, sql(0), Some(sql(1)), sql(2))(ctx.session)
+          else emulate(value, sql(0), None, sql(1))(ctx.session)
         if(useTransactionForUpsert) {
           val conn = ctx.session.conn
           val wasAutoCommit = conn.getAutoCommit
@@ -655,17 +670,21 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           retOneInsertOrUpdate(st, value, count)
         }
 
-      protected def emulate(value: U, checkSql: String, updateSql: String, insertSql: String)(implicit session: JdbcBackend#Session): SingleInsertOrUpdateResult = {
+      protected def emulate(value: U, checkSql: String, updateSql: Option[String], insertSql: String)(implicit session: JdbcBackend#Session): SingleInsertOrUpdateResult = {
         val found = preparedOther(checkSql, session) { st =>
           st.clearParameters()
           compiled.checkInsert.converter.set(value, st, 0)
           val rs = st.executeQuery()
           try rs.next() finally rs.close()
         }
-        if(found) preparedOther(updateSql, session) { st =>
-          st.clearParameters()
-          compiled.updateInsert.converter.set(value, st, 0)
-          st.executeUpdate()
+        if (found) {
+          updateSql.foreach { sql =>
+            preparedOther(sql, session) { st =>
+              st.clearParameters()
+              compiled.updateInsert.converter.set(value, st, 0)
+              st.executeUpdate()
+            }
+          }
           retOneInsertOrUpdateFromUpdate
         } else preparedInsert(insertSql, session) { st =>
           st.clearParameters()

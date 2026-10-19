@@ -655,11 +655,20 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         case Nil => ""
         case list => s"when matched then update set ${list.map(n => s"t.$n=s.$n").mkString(", ")}"
       }
-      val insertCols = nonAutoIncNames /*.map(n => s"t.$n")*/ .mkString(", ")
-      val insertVals = nonAutoIncNames.map(n => s"s.$n").mkString(", ")
+      val insert =
+        if (nonAutoIncNames.isEmpty) mergeInsertDefaultValues
+        else {
+          val insertCols = nonAutoIncNames /*.map(n => s"t.$n")*/ .mkString(", ")
+          val insertVals = nonAutoIncNames.map(n => s"s.$n").mkString(", ")
+          s"insert ($insertCols) values ($insertVals)"
+        }
       val cond = pkNames.map(n => s"t.$n=s.$n").mkString(" and ")
-      s") s on ($cond) $updateCols  when not matched then insert ($insertCols) values ($insertVals)"
+      s") s on ($cond) $updateCols  when not matched then $insert"
     }
+
+    /** The insert action of a MERGE statement for a table whose columns are all AutoInc, so that the inserted row
+      * gets only generated values. */
+    protected def mergeInsertDefaultValues: String = s"insert (${allNames.head}) values (default)"
   }
 
   /** Builder for SELECT statements that can be used to check for the existing of
@@ -686,7 +695,8 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
           "update " +
             tableName +
             " set " +
-            // When all columns are part of the primary key there is nothing to update, so set a key column to itself
+            // When all columns are part of the primary key there is nothing to update, so set a key column to itself.
+            // The insertOrUpdate emulation does not run the statement in that case.
             (if (softNames.isEmpty) s"${pkNames.head}=${pkNames.head}" else softNames.map(n => s"$n=?").mkString(",")) +
             " where " +
             pkNames.map(n => s"$n=?").mkString(" and "),

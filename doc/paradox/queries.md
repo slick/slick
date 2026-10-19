@@ -267,6 +267,7 @@ The statements contain `?` placeholders where the values are bound when the Acti
 part of the SQL string. To see them, enable the `slick.jdbc.JdbcBackend.parameter` or
 `slick.jdbc.JdbcBackend.statementAndParameter` @ref:[loggers](config.md#logging). An emulated `insertOrUpdate`
 consists of three statements (a check, an update and an insert), of which only some are executed for a given row.
+When all columns are part of the primary key there is nothing to update, and it consists of the check and the insert.
 
 When you include an `AutoInc` column in an insert operation, it is silently
 ignored, so that the database can generate the proper value.
