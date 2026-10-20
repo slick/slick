@@ -3,7 +3,7 @@ package slick.jdbc
 import java.sql.{PreparedStatement, ResultSet, Types}
 import java.time.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
-import java.time.temporal.ChronoField
+import java.time.temporal.{ChronoField, ChronoUnit}
 import java.util.UUID
 
 import slick.SlickException
@@ -186,6 +186,10 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
 
       override def sqlTypeName(sym: Option[FieldSymbol]) = "TIME(3)"
 
+      // A bound value is truncated to TIME(3); a TIME literal with more digits would not equal it
+      override def valueToSQLLiteral(value: LocalTime) =
+        s"TIME ${super.valueToSQLLiteral(value.truncatedTo(ChronoUnit.MILLIS))}"
+
       override def getValue(r: ResultSet, idx: Int): LocalTime = {
         // Fixes an issue caused because Hsqldb outputs the time in a non-standard format
         // not adding leading zeros to the hours. For example: '2:14:41.421' instead of '02:14:41.421'
@@ -198,6 +202,10 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
       }
     }
 
+    override val localDateTimeType = new LocalDateTimeJdbcType {
+      // A bound value is truncated to TIMESTAMP's 6 fractional digits; a literal with more would not equal it
+      override def valueToSQLLiteral(value: LocalDateTime) = super.valueToSQLLiteral(value.truncatedTo(ChronoUnit.MICROS))
+    }
     override val offsetTimeType: HsqldbOffsetTimeJdbcType = new HsqldbOffsetTimeJdbcType
     override val offsetDateTimeType: HsqldbOffsetDateTimeJdbcType = new HsqldbOffsetDateTimeJdbcType
     override val instantType: HsqldbInstantJdbcType = new HsqldbInstantJdbcType
@@ -340,6 +348,10 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
             OffsetDateTime.parse(normalizedIsoString,datetimeFormatter).toInstant
         }
       }
+
+      // Only used for column defaults (hasLiteralForm is false): the same string as a bound value
+      override def valueToSQLLiteral(v: Instant): String =
+        s"'${offsetConvertISOToHsqldb(OffsetDateTime.ofInstant(v, ZoneOffset.UTC).format(datetimeFormatter))}'"
     }
   }
 

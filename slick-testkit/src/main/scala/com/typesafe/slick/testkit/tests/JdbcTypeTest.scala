@@ -576,6 +576,80 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  def testTemporalLiterals = {
+    // Inlined java.time literals must have the column's SQL type: compared with a column,
+    // unioned with one (strict databases reject a string there) and selected back unchanged.
+    class T(tag: Tag) extends Table[(Int, LocalDate, LocalTime, LocalDateTime, Instant)](tag, "test_temporal_lit") {
+      def id = column[Int]("id")
+      def d = column[LocalDate]("d")
+      def t = column[LocalTime]("t")
+      def dt = column[LocalDateTime]("dt")
+      def i = column[Instant]("i")
+      def * = (id, d, t, dt, i)
+    }
+    val ts = TableQuery[T]
+    // SQLite stores date/time values as milliseconds since the epoch
+    val nanos = if (tdb.profile.isInstanceOf[SQLiteProfile]) 123000000 else 123456000
+    val d1 = LocalDate.of(2020, 1, 2)
+    val d2 = LocalDate.of(2021, 3, 4)
+    // HSQLDB's LocalTime column is TIME(3)
+    val t1 = LocalTime.of(3, 4, 5, 123000000)
+    val t2 = LocalTime.of(6, 7, 8, 456000000)
+    val dt1 = LocalDateTime.of(2020, 1, 2, 3, 4, 5, nanos)
+    val dt2 = LocalDateTime.of(2021, 3, 4, 6, 7, 8, nanos)
+    val i1 = dt1.toInstant(ZoneOffset.UTC)
+    val i2 = dt2.toInstant(ZoneOffset.UTC)
+
+    seq(
+      ts.schema.create,
+      ts += (1, d1, t1, dt1, i1),
+      ts.filter(_.d === LiteralColumn(d1)).map(_.id).result.map(_ shouldBe Seq(1)),
+      ts.filter(_.t === LiteralColumn(t1)).map(_.id).result.map(_ shouldBe Seq(1)),
+      ts.filter(_.dt === LiteralColumn(dt1)).map(_.id).result.map(_ shouldBe Seq(1)),
+      ts.filter(_.i === LiteralColumn(i1)).map(_.id).result.map(_ shouldBe Seq(1)),
+      (ts.map(_.d) ++ ts.map(_ => LiteralColumn(d2))).result.map(_.toSet shouldBe Set(d1, d2)),
+      (ts.map(_.t) ++ ts.map(_ => LiteralColumn(t2))).result.map(_.toSet shouldBe Set(t1, t2)),
+      (ts.map(_.dt) ++ ts.map(_ => LiteralColumn(dt2))).result.map(_.toSet shouldBe Set(dt1, dt2)),
+      (ts.map(_.i) ++ ts.map(_ => LiteralColumn(i2))).result.map(_.toSet shouldBe Set(i1, i2)),
+      ts.map(_ => (LiteralColumn(d2), LiteralColumn(t2), LiteralColumn(dt2), LiteralColumn(i2))).result
+        .map(_ shouldBe Seq((d2, t2, dt2, i2))),
+      ts.schema.drop
+    )
+  }
+
+  def testSQLServerTimestampLiteralRounding = {
+    // SQL Server stores Timestamp and LocalDateTime as DATETIME2(6), so a literal with more
+    // fractional digits must round to the value that a bound parameter stores, carry included.
+    class T(tag: Tag) extends Table[(Int, Timestamp, LocalDateTime)](tag, "test_ts_lit_round") {
+      def id = column[Int]("id")
+      def ts = column[Timestamp]("ts")
+      def dt = column[LocalDateTime]("dt")
+      def * = (id, ts, dt)
+    }
+    val ts = TableQuery[T]
+    val values = Seq(123456499, 123456500, 999999999).map(LocalDateTime.of(2020, 1, 2, 3, 4, 5, _))
+
+    def check(v: LocalDateTime): DBIO[Unit] = {
+      val tsLit = LiteralColumn(Timestamp.valueOf(v))
+      val dtLit = LiteralColumn(v)
+
+      seq(
+        ts.delete,
+        ts += (1, Timestamp.valueOf(v), v),
+        ts.forceInsertQuery(Query((LiteralColumn(2), tsLit, dtLit))),
+        ts.sortBy(_.id).map(t => (t.ts, t.dt)).result.map { rows =>
+          rows.size shouldBe 2
+          rows(1) shouldBe rows(0)
+        },
+        ts.filter(_.ts === tsLit).sortBy(_.id).map(_.id).result.map(_ shouldBe Seq(1, 2)),
+        ts.filter(_.dt === dtLit).sortBy(_.id).map(_.id).result.map(_ shouldBe Seq(1, 2))
+      )
+    }
+
+    if (!tdb.profile.isInstanceOf[SQLServerProfile]) DBIO.successful(())
+    else ts.schema.create >> seq(values.map(check)*) >> ts.schema.drop
+  }
+
   def testNonFiniteFloatingPoint = {
     class T(tag: Tag) extends Table[(Int, Double, Float)](tag, "test_nonfinite") {
       def id = column[Int]("id")

@@ -308,6 +308,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override val byteJdbcType: SQLServerByteJdbcType = new SQLServerByteJdbcType
     override val byteArrayJdbcType: SQLServerByteArrayJdbcType = new SQLServerByteArrayJdbcType
     override val dateJdbcType: SQLServerDateJdbcType = new SQLServerDateJdbcType
+    override val localDateType: SQLServerLocalDateJdbcType = new SQLServerLocalDateJdbcType
     override val timeJdbcType: SQLServerTimeJdbcType = new SQLServerTimeJdbcType
     override val localTimeType: SQLServerLocalTimeJdbcType = new SQLServerLocalTimeJdbcType
     override val timestampJdbcType: SQLServerTimestampJdbcType = new SQLServerTimestampJdbcType
@@ -355,6 +356,9 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     class SQLServerDateJdbcType extends DateJdbcType {
       override def valueToSQLLiteral(value: Date) = "(convert(date, {d '" + value + "'}))"
     }
+    class SQLServerLocalDateJdbcType extends LocalDateJdbcType {
+      override def valueToSQLLiteral(value: LocalDate) = s"(convert(date, ${super.valueToSQLLiteral(value)}))"
+    }
     class SQLServerTimeJdbcType extends TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = "(convert(time, {t '" + value + "'}))"
       override def getValue(r: ResultSet, idx: Int) = {
@@ -400,12 +404,25 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         s"(convert(time(6), '$value'))"
       }
     }
+    /* A '...' string converts to DATETIME2 with at most 7 fractional digits; that is enough
+     * for DATETIME2(6) to round the value like a bound parameter. */
+    private[this] val dateTime2Formatter: DateTimeFormatter = {
+      new DateTimeFormatterBuilder()
+        .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        .appendFraction(ChronoField.NANO_OF_SECOND, 0, 7, true)
+        .toFormatter()
+    }
+    private[this] def dateTime2Literal(value: LocalDateTime): String =
+      s"(convert(datetime2(6), '${dateTime2Formatter.format(value)}'))"
+
     class SQLServerTimestampJdbcType extends TimestampJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
-      override def valueToSQLLiteral(value: Timestamp) = s"'$value'"
+      override def valueToSQLLiteral(value: Timestamp) = dateTime2Literal(value.toLocalDateTime)
     }
     class SQLServerLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME2(6)"
+      // Normalize like the bound Timestamp.valueOf, which moves a time in a daylight saving gap forward
+      override def valueToSQLLiteral(value: LocalDateTime) = dateTime2Literal(Timestamp.valueOf(value).toLocalDateTime)
       override def getValue(r: ResultSet, idx: Int): LocalDateTime = {
         r.getTimestamp(idx) match {
           case null =>

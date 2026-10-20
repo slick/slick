@@ -565,7 +565,7 @@ END;
     // and with DST changes, there are some times which will be unrepresentable during the switchover
     class OracleLocalDateTimeJdbcType extends LocalDateTimeJdbcType {
       override def valueToSQLLiteral(value: LocalDateTime) = {
-        s"TO_TIMESTAMP(${super.valueToSQLLiteral(value)}, 'YYYY-MM-DD HH24:MI:SS.FF9')"
+        s"TO_TIMESTAMP('${Timestamp.valueOf(value)}', 'YYYY-MM-DD HH24:MI:SS.FF9')"
       }
     }
 

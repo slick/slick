@@ -162,7 +162,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
         r.updateObject(idx, if (v == null) null else v.atOffset(ZoneOffset.UTC))
       }
       override def valueToSQLLiteral(value: Instant) : String = {
-        s"'${value.toString}'"
+        s"TIMESTAMP WITH TIME ZONE '${value.toString}'"
       }
     }
   }

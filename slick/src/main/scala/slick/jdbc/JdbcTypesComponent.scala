@@ -205,7 +205,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         r.updateDate(idx, Date.valueOf(v))
       }
       override def valueToSQLLiteral(value: LocalDate) = {
-        s"'${value.toString}'"
+        s"{d '${Date.valueOf(value)}'}"
       }
     }
 
@@ -261,7 +261,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         r.updateTimestamp(idx, Timestamp.valueOf(v))
       }
       override def valueToSQLLiteral(value: LocalDateTime) = {
-        s"'${Timestamp.valueOf(value)}'"
+        s"{ts '${Timestamp.valueOf(value)}'}"
       }
     }
 
@@ -284,7 +284,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         r.updateTimestamp(idx, Timestamp.from(v))
       }
       override def valueToSQLLiteral(value: Instant) = {
-        s"'${Timestamp.from(value)}'"
+        s"{ts '${Timestamp.from(value)}'}"
       }
     }
 
