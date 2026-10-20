@@ -1,7 +1,6 @@
 package com.typesafe.slick.docs
 
 //#strictUpsertProfile
-import slick.basic.Capability
 import slick.jdbc.{JdbcCapabilities, MySQLProfile}
 
 trait StrictUpsertMySQLProfile extends MySQLProfile {

@@ -7,8 +7,8 @@ import slick.jdbc.*
 
 /** A NULL literal that is a column of a select list is written as a NULL of its SQL type (#3890). */
 class NullLiteralStatementTest {
+  import PostgresProfile.api.*
   private def sql(profile: JdbcProfile): String = {
-    import profile.api.*
 
     class T(tag: Tag) extends Table[(Int, Option[Int])](tag, "t") {
       def a = column[Int]("a")
@@ -52,7 +52,6 @@ class NullLiteralStatementTest {
 
   private def dateTimeSql(profile: JdbcProfile): String = {
     import java.time.{LocalDate, LocalDateTime, LocalTime}
-    import profile.api.*
 
     val q = Query((LiteralColumn(Option.empty[LocalDate]), LiteralColumn(Option.empty[LocalTime]),
       LiteralColumn(Option.empty[LocalDateTime])))

@@ -3,7 +3,6 @@ package slick.test.codegen
 import java.sql.Blob
 
 import slick.codegen.SourceCodeGenerator
-import slick.dbio.DBIO
 
 import com.typesafe.slick.testkit.util.{JdbcTestDB, StandardTestDBs, TestCodeGenerator}
 
@@ -22,7 +21,7 @@ object GenerateMainSources extends TestCodeGenerator {
     new Config("DerbyMem", StandardTestDBs.DerbyMem, "DerbyMem", Seq("/dbs/derby.sql")),
     new Config("CG7", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       import tdb.profile.api._
-      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def entityName = {
           case "COFFEES" => "Coff"
           case other => super.entityName(other)
@@ -45,7 +44,7 @@ object GenerateMainSources extends TestCodeGenerator {
     },
     new Config("CG8", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
       import tdb.profile.api._
-      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def EntityType: EntityType = new EntityType{
             override def enabled = false
@@ -73,7 +72,7 @@ import CustomTyping.SimpleA
     },
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
       import tdb.profile.api._
-      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def autoIncLast = true
           override def Column = new Column(_){
@@ -85,7 +84,7 @@ import CustomTyping.SimpleA
     new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
     new Config("CG11", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
       import tdb.profile.api._
-      override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def Column = new Column(_){
             override def asOption = true
@@ -164,7 +163,7 @@ import CustomTyping.SimpleA
     },
     new Config("MySQL", StandardTestDBs.MySQL, "MySQL", Seq("/dbs/mysql.sql") ){
       import tdb.profile.api._
-      override def generator: DBIO[SourceCodeGenerator] =
+      override def generator =
         tdb.profile.createModel(ignoreInvalidDefaults=false).map(new SourceCodeGenerator(_){
           override def parentType: Option[String] = Some("com.typesafe.slick.testkit.util.TestCodeRunner.TestCase")
           override def code = {
@@ -227,7 +226,7 @@ import CustomTyping.SimpleA
   class UUIDConfig(objectName: String, tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String])
     extends Config(objectName, tdb, tdbName, initScripts) {
     import tdb.profile.api._
-    override def generator: DBIO[SourceCodeGenerator] = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+    override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
       override def Table = new Table(_) {
         override def code = {
           Seq("""
