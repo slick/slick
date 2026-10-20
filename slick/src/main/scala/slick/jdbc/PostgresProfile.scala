@@ -395,8 +395,10 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
       override val sqlType = java.sql.Types.DATE
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATE"
       override def getValue(r: ResultSet, idx: Int): LocalDate = parseTime(r.getString(idx))
+      // Bind a typed date: the driver binds a String set as Types.DATE as an untyped date with a time
+      // zone suffix, which a select list returns as text like '2021-03-04 +02'
       override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) = {
-        p.setObject(idx, serializeTime(v), sqlType)
+        p.setObject(idx, createPGObject(serializeTime(v), sqlTypeName(None)))
       }
       override def updateValue(v: LocalDate, r: ResultSet, idx: Int) = {
         r.updateObject(idx, createPGObject(serializeTime(v), sqlTypeName(None)))
