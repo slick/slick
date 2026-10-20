@@ -141,6 +141,25 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     materialize(p1).map(_.toSet shouldBe Set((1,"abc"), (2,"de")))
   }
 
+  def testClobNullLiteral = {
+    class T(tag: Tag) extends Table[Int](tag, "test_clob_null") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    val ts = TableQuery[T]
+
+    // DB2 rejects a parameter in the select list whose type it cannot infer (SQLCODE=-418)
+    val untypedParametersInSelect = tdb.profile != slick.jdbc.DB2Profile
+
+    // A Clob has no literal form, so a NULL Clob in a select list is a bind variable
+    seq(
+      ts.schema.create,
+      ts += 1,
+      if (untypedParametersInSelect) ts.map(t => (t.id, LiteralColumn(Option.empty[Clob]))).result.map(_ shouldBe Seq((1, None)))
+      else DBIO.successful(())
+    ).andFinally(ts.schema.drop)
+  }
+
   def testMappedBlob = ifCap(rcap.typeBlob) {
     case class Serialized[T](value: T)
 

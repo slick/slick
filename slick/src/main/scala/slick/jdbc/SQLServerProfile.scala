@@ -169,6 +169,12 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override protected val supportsTuples = false
     override protected val concatOperator: Some[String] = Some("+")
 
+    /* A union of DECIMALs needs the largest scale plus the largest number of integer digits of its
+     * sides, and above 38 digits SQL Server reduces the scale. A DECIMAL(21,2) NULL would round the
+     * values of a DECIMAL(38,30) column to 19 decimals, so a DECIMAL NULL stays untyped. SQL Server
+     * types an untyped NULL column of a union by the other sides. */
+    override protected def castNullLiteralInSelect(ti: JdbcType[?]): Boolean = ti.sqlType != java.sql.Types.DECIMAL
+
     override protected def buildSelectModifiers(c: Comprehension.Base): Unit = {
       super.buildSelectModifiers(c)
       (c.fetch, c.offset) match {
