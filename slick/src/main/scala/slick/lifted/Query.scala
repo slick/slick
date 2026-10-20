@@ -37,48 +37,52 @@ sealed trait QueryBase[T] extends Rep[T]
     flatMap(v => Query[F, T, G](f(v)))
 
   /** Select all elements of this query which satisfy a predicate. */
-  private def filterHelper[T](f: E => T, wrapExpr: Node => Node)
-                             (implicit wt: CanBeQueryCondition[T]): Query[E, U, C] = {
+  private def filterHelper[T](f: E => T, wt: T => Rep[?], wrapExpr: Node => Node): Query[E, U, C] = {
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator))
     val fv = f(aliased.value)
     new WrappingQuery[E, U, C](Filter.ifRefutable(generator, toNode, wrapExpr(wt(fv).toNode)), shaped)
   }
   /** Select all elements of this query which satisfy a predicate. Unlike
-    * `withFilter`, this method only allows `Rep`-valued predicates, so it
-    * guards against the accidental use plain Booleans. */
+    * `withFilter`, this method only allows `Rep`-valued predicates (`Rep[Boolean]` or
+    * `Rep[Option[Boolean]]`), so it guards against the accidental use of plain Booleans,
+    * e.g. `==` instead of `===`. Use `filterIf` for a condition that is known before the query runs. */
   def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
-    withFilter(f)
+    filterHelper(f, wt, identity)
+
+  /** Select all elements of this query which do not satisfy a predicate. Like `filter`, this method
+    * only allows `Rep`-valued predicates. */
   def filterNot[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
-    filterHelper(f, node => Library.Not.typed(node.nodeType, node) )
+    filterHelper(f, wt, node => Library.Not.typed(node.nodeType, node) )
 
   /** Applies the given filter, if the Option value is defined.
     * If the value is None, the filter will not be part of the query. */
   def filterOpt[V, T : CanBeQueryCondition](optValue: Option[V])(f: (E, V) => T): Query[E, U, C] =
-    optValue.map(v => withFilter(a => f(a, v))).getOrElse(this)
+    optValue.map(v => filter(a => f(a, v))).getOrElse(this)
 
   /** Applies the given filter function, if the boolean parameter `p` evaluates to true. 
     * If not, the filter will not be part of the query. */
   def filterIf[T : CanBeQueryCondition](p: Boolean)(f: E => T): Query[E, U, C] =
-    if (p) withFilter(f) else this
+    if (p) filter(f) else this
 
   /** Applies the given filterNot, if the Option value is defined.
    * If the value is None, the filter will not be part of the query. */
   def filterNotOpt[V, T: CanBeQueryCondition](optValue: Option[V])(f: (E, V) => T): Query[E, U, C] =
     optValue
-      .map(v => filterHelper(e => f(e, v), node => Library.Not.typed(node.nodeType, node)))
+      .map(v => filterNot(e => f(e, v)))
       .getOrElse(this)
 
   /** Applies the given filterNot function, if the boolean parameter `p` evaluates to true.
    * If not, the filter will not be part of the query. */
   def filterNotIf[T: CanBeQueryCondition](p: Boolean)(f: E => T): Query[E, U, C] =
-    if (p) filterHelper(f, node => Library.Not.typed(node.nodeType, node))
-    else this
+    if (p) filterNot(f) else this
 
   /** Select all elements of this query which satisfy a predicate. This method
-    * is used when desugaring for-comprehensions over queries. There is no
-    * reason to call it directly because it is the same as `filter`. */
-  def withFilter[T : CanBeQueryCondition](f: E => T): Query[E, U, C] = filterHelper(f, identity)
+    * is used when desugaring for-comprehensions over queries; call `filter` instead.
+    * Unlike `filter`, it also accepts a plain Scala `Boolean`, because Scala 2 desugars a pattern
+    * generator such as `(a, b) <- q` to `withFilter { case (a, b) => true; case _ => false }`. */
+  def withFilter[T](f: E => T)(implicit wt: CanBeQueryCondition.OrBoolean[T]): Query[E, U, C] =
+    filterHelper(f, wt, identity)
 
   /** Join two queries with a cross join or inner join.
     * An optional join predicate can be specified later by calling `on`. */
@@ -318,9 +322,10 @@ object Query {
     RepShape[Level, Q, T]
 }
 
-/** A typeclass for types that can be used as predicates in `filter` calls. */
+/** A typeclass for types that can be used as predicates in `filter` calls, join conditions (`on`) and
+  * `Case.If`: `Rep[Boolean]` and `Rep[Option[Boolean]]`. */
 @implicitNotFound(
-  "Type ${T} cannot be a query condition (only Boolean, Rep[Boolean] and Rep[Option[Boolean]] are allowed"
+  "Type ${T} cannot be a query condition (only Rep[Boolean] and Rep[Option[Boolean]] are allowed; use === instead of ==)"
 )
 trait CanBeQueryCondition[-T] extends (T => Rep[?])
 
@@ -330,7 +335,20 @@ object CanBeQueryCondition {
   // See https://github.com/slick/slick/pull/217
   implicit val BooleanColumnCanBeQueryCondition: CanBeQueryCondition[Rep[Boolean]] = value => value
   implicit val BooleanOptionColumnCanBeQueryCondition: CanBeQueryCondition[Rep[Option[Boolean]]] = value => value
-  implicit val BooleanCanBeQueryCondition: CanBeQueryCondition[Boolean] = value => LiteralColumn(value)
+
+  /** The predicates that `withFilter` accepts: a [[CanBeQueryCondition]] or a plain Scala `Boolean`.
+    * For-comprehensions need the `Boolean`: Scala 2 desugars a pattern generator such as `(a, b) <- q` to
+    * `withFilter { case (a, b) => true; case _ => false }`, and the constant `true` filter is dropped from the
+    * query. */
+  @implicitNotFound(
+    "Type ${T} cannot be a query condition (only Boolean, Rep[Boolean] and Rep[Option[Boolean]] are allowed)"
+  )
+  trait OrBoolean[-T] extends (T => Rep[?])
+
+  object OrBoolean {
+    implicit def fromQueryCondition[T](implicit wt: CanBeQueryCondition[T]): OrBoolean[T] = value => wt(value)
+    implicit val BooleanCanBeQueryCondition: OrBoolean[Boolean] = value => LiteralColumn(value)
+  }
 }
 
 class WrappingQuery[+E, U, C[_]](val toNode: Node, val shaped: ShapedValue[? <: E, U]) extends Query[E, U, C]
@@ -345,6 +363,6 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: TermSymbol,
                                                             b2: B2)
     extends WrappingQuery[(E1, E2), (U1,  U2), C](AJoin(leftGen, rightGen, left, right, jt, LiteralNode(true)), base) {
   /** Add a join condition to a join operation. */
-  def on[T <: Rep[?]](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
+  def on[T](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
     new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(b1, b2)).toNode), base)
 }

@@ -25,6 +25,15 @@ class OptionBooleanTest extends AsyncTest[JdbcTestDB] {
         val r2 = r1.getOrElse(false)
         r2
       }.map(_.id).result.map(_ shouldBe Seq(3)),
+      as.filter(_.b).map(_.id).result.map(_ shouldBe Seq(1)),
+      as.filterNot(_.b).map(_.id).result.map(_ shouldBe Seq(2)),
+      as.filterIf(true)(_.b).map(_.id).result.map(_ shouldBe Seq(1)),
+      as.filterOpt(Some(2))((a, i) => a.oi.map(_ === i)).map(_.id).result.map(_ shouldBe Seq(3)),
+      // On Scala 2 a tuple pattern generator desugars to `withFilter` with a plain Scala `Boolean`
+      (for {
+        (id, b) <- as.map(a => (a.id, a.b))
+        if b
+      } yield id).result.map(_ shouldBe Seq(1)),
       as.schema.drop
     )
   }
