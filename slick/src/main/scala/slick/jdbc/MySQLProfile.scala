@@ -251,6 +251,8 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override protected val supportsCast = false
     override protected val parenthesizeNestedRHSJoin = true
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
+    // MySQL's CAST accepts only a few target types, and MySQL types a NULL column of a union by the other sides
+    override protected def castNullLiteralInSelect(ti: JdbcType[?]): Boolean = false
 
     override def expr(n: Node): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>

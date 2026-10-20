@@ -141,6 +141,78 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     materialize(p1).map(_.toSet shouldBe Set((1,"abc"), (2,"de")))
   }
 
+  def testClobNullLiteral = {
+    class T(tag: Tag) extends Table[Int](tag, "test_clob_null") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    val ts = TableQuery[T]
+
+    // DB2 rejects a parameter in the select list whose type it cannot infer (SQLCODE=-418)
+    val untypedParametersInSelect = tdb.profile != slick.jdbc.DB2Profile
+
+    // A Clob has no literal form, so a NULL Clob in a select list is a bind variable
+    seq(
+      ts.schema.create,
+      ts += 1,
+      if (untypedParametersInSelect) ts.map(t => (t.id, LiteralColumn(Option.empty[Clob]))).result.map(_ shouldBe Seq((1, None)))
+      else DBIO.successful(())
+    ).andFinally(ts.schema.drop)
+  }
+
+  /* java.time literals are written as string literals, which must still match a NULL of the same type in a union */
+  def testUnionOfNullAndDateTimeLiterals = {
+    class T(tag: Tag) extends Table[(Int, LocalDate, LocalTime, LocalDateTime)](tag, "test_union_null_datetime") {
+      def a = column[Int]("a")
+      def d = column[LocalDate]("d")
+      def t = column[LocalTime]("t")
+      def dt = column[LocalDateTime]("dt")
+      def * = (a, d, t, dt)
+    }
+    val ts = TableQuery[T]
+    val date = LocalDate.of(2020, 1, 2)
+    val time = LocalTime.of(3, 4, 5)
+    val dateTime = LocalDateTime.of(2020, 1, 2, 3, 4, 5)
+    val nulls = ts.map(t => (t.a, LiteralColumn(Option.empty[LocalDate]), LiteralColumn(Option.empty[LocalTime]),
+      LiteralColumn(Option.empty[LocalDateTime])))
+
+    seq(
+      ts.schema.create,
+      ts += (1, date, time, dateTime),
+      mark("NULL java.time union literal", nulls.union(ts.map(t => (t.a + 1, LiteralColumn(Option(date)),
+        LiteralColumn(Option(time)), LiteralColumn(Option(dateTime))))).result)
+        .map(_.toSet shouldBe Set((1, None, None, None), (2, Some(date), Some(time), Some(dateTime)))),
+      mark("NULL java.time union column", nulls.union(ts.map(t => (t.a + 1, t.d.?, t.t.?, t.dt.?))).result)
+        .map(_.toSet shouldBe Set((1, None, None, None), (2, Some(date), Some(time), Some(dateTime))))
+    ).andFinally(ts.schema.drop)
+  }
+
+  /* A String mapped onto a PostgreSQL enum column has a VARCHAR NULL, which does not match the
+   * column in a union. Casting the NULL to the enum type in the query makes it match. */
+  def testPostgresEnumNullCast: IO[Unit] = tdb.profile match {
+    case _: PostgresProfile =>
+      class T(tag: Tag) extends Table[(Int, String)](tag, "test_enum_null_cast") {
+        def id = column[Int]("id")
+        def mood = column[String]("mood")
+        def * = (id, mood)
+      }
+      val ts = TableQuery[T]
+      val noMood = LiteralColumn(Option.empty[String]).asColumnOfType[Option[String]]("test_mood")
+      val q = ts.map(t => (t.id, t.mood.?)).union(ts.map(t => (t.id + 10, noMood)))
+      val sql = q.result.statements.mkString
+
+      sql should (_.contains("cast(null as test_mood)"))
+      sql should (!_.contains("cast(cast("))
+      db.run(seq(
+        sqlu"create type test_mood as enum ('Happy', 'Sad')",
+        sqlu"create table test_enum_null_cast (id int not null, mood test_mood not null)",
+        sqlu"insert into test_enum_null_cast values (1, 'Happy')",
+        q.result.map(_.toSet shouldBe Set((1, Some("Happy")), (11, None)))
+      ).andFinally(sqlu"drop table if exists test_enum_null_cast" >> sqlu"drop type if exists test_mood"))
+    case _ =>
+      IO.unit
+  }
+
   def testMappedBlob = ifCap(rcap.typeBlob) {
     case class Serialized[T](value: T)
 

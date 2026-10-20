@@ -169,6 +169,15 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
     override protected val supportsTuples = false
     override protected val concatOperator: Some[String] = Some("+")
 
+    /* A union of DECIMALs needs the largest scale plus the largest number of integer digits of its
+     * sides, and above 38 digits SQL Server reduces the scale. A DECIMAL(21,2) NULL would round the
+     * values of a DECIMAL(38,30) column to 19 decimals, so a DECIMAL NULL stays untyped. SQL Server
+     * types an untyped NULL column of a union by the other sides.
+     * Timestamp NULLs stay typed: a union of DATETIME2s takes the larger precision, so no column loses
+     * digits. Only a timestamp literal with more than 6 fractional digits, more than Slick's DATETIME2(6)
+     * columns store, is rounded to 6 digits by a union with a NULL. */
+    override protected def castNullLiteralInSelect(ti: JdbcType[?]): Boolean = ti.sqlType != java.sql.Types.DECIMAL
+
     override protected def buildSelectModifiers(c: Comprehension.Base): Unit = {
       super.buildSelectModifiers(c)
       (c.fetch, c.offset) match {
