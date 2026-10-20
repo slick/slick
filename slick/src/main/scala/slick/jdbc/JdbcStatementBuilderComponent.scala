@@ -309,9 +309,31 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         b"\["
         buildComprehension(c)
         b"\]"
+      /* A None of an Option type; a None of a type that maps a whole Option may have another value.
+       * A None of a type without a literal form stays a bind variable, as in `expr`. */
+      case (l @ LiteralNode(None)) :@ JdbcType(ti, true) if !l.volatileHint && ti.hasLiteralForm && castNullLiteralInSelect(ti) =>
+        b"cast(null as ${ti.sqlTypeName(None)})"
       case n =>
         expr(n, true)
     }
+
+    /** Whether a NULL literal of type `ti` that is a column of a select list is written as
+      * `cast(null as <type>)`. Without the cast, a database has to guess the type of the column,
+      * e.g. in a subquery or a union of NULLs, and PostgreSQL and HSQLDB guess one that does not
+      * match the other side of a union or the column's use in an outer query. A bind variable is
+      * never cast.
+      *
+      * The cast's type is the default SQL type of `ti`, not the type of the other sides of a union.
+      * A union of strings, times or most numbers takes the largest length or precision of its sides,
+      * so the cast can only widen the result. A union of DECIMALs adds up the largest scale and the
+      * largest number of integer digits of its sides, so where that sum is capped (38 digits on
+      * SQL Server, 31 on DB2), the cast's `DECIMAL(21,2)` can cost a high-scale column its scale or
+      * integer digits. Those profiles leave a DECIMAL NULL untyped.
+      *
+      * A `String` mapped onto a column of a custom database type, such as a PostgreSQL enum, has the
+      * SQL type VARCHAR, so its NULL is cast to VARCHAR and does not match the column in a union.
+      * Such a type needs a `sqlTypeName` that names the real type. */
+    protected def castNullLiteralInSelect(ti: JdbcType[?]): Boolean = true
 
     protected final def buildFrom(n: Node, alias: Option[TermSymbol], skipParens: Boolean): Unit =
       withSkipParens(skipParens)(buildFrom(n, alias))

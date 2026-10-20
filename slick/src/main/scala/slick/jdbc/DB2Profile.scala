@@ -77,6 +77,12 @@ trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerSta
     override protected val hasRadDegConversion = false
     override protected val pi = "decfloat(3.1415926535897932384626433832)"
 
+    /* A union of DECIMALs needs the largest scale plus the largest number of integer digits of its
+     * sides, but DB2 caps the precision at 31 digits, so a DECIMAL(21,2) NULL could cost a high-scale
+     * column its scale or integer digits. A DECIMAL NULL stays untyped: DB2 types an untyped NULL
+     * column of a union by the other sides. */
+    override protected def castNullLiteralInSelect(ti: JdbcType[?]): Boolean = ti.sqlType != java.sql.Types.DECIMAL
+
     override def expr(c: Node): Unit = c match {
       case RowNumber(by) =>
         b += "row_number() over("
