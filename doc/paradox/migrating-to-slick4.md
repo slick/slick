@@ -59,6 +59,7 @@ only thing that changes is how you construct the database.
 | `map`/`flatMap` on `DBIOAction` | require `(implicit ec: ExecutionContext)` | no EC parameter |
 | `DBIO.from(x)` | lifts a `Future[R]` | lifts a `Future[R]` — **unchanged** in `slick-future` |
 | `GetResult.apply` / `SetParameter.apply` | function parameter is `implicit` | regular parameter; `GetResult(r => ...)` and `SetParameter[T]((v, pp) => ...)` are unchanged. `GetResult(using r => ...)` / `SetParameter(using (v, pp) => ...)` (Scala 3) no longer compile — drop the `using`. Summoning a `GetResult[T]` from an implicit function via `GetResult[T]` (no argument) also no longer works |
+| `filter`, `filterNot`, `filterOpt`, `filterIf`, `filterNotOpt`, `filterNotIf` and `Rep[Option[T]].filter` predicates; on Scala 3 also `on` and `Case.If` | a plain Scala `Boolean` compiles, e.g. `q.filter(_.name == "x")` (Scala `==` instead of `===`) becomes `where false` | only `Rep[Boolean]` and `Rep[Option[Boolean]]` compile. Replace an accidental `==` with `===`; for a condition known before the query runs, use `q.filterIf(flag)(...)` or `q.filter(_ => LiteralColumn(flag))`. `withFilter` and for-comprehensions are unchanged |
 | HikariCP `initializationFailFast` | `true` makes the pool fail fast | no longer read — use `initializationFailTimeout` with a value > 0, e.g. `initializationFailTimeout = 1` |
 
 ### Changed in database profiles
