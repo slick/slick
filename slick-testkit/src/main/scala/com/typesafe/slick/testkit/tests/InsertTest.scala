@@ -1,7 +1,12 @@
 package com.typesafe.slick.testkit.tests
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.atomic.AtomicInteger
+
+import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
-import slick.jdbc.{JdbcCapabilities, MySQLProfile}
+import cats.effect.IO
+import slick.jdbc.{JdbcCapabilities, MySQLProfile, PostgresProfile}
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -253,11 +258,13 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       def ins = (id, name)
     }
     val ts = TableQuery[T]
+    val isMySQL = tdb.profile.isInstanceOf[MySQLProfile]
     def prepare = DBIO.seq(ts.schema.create, ts ++= Seq((1, "a"), (2, "b")))
     if (tdb.capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
       for {
         _ <- prepare
-        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe 3))
+        // MySQL counts an updated row as two affected rows
+        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe (if (isMySQL) 3 else 2)))
         _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
       } yield ()
     } else {
@@ -400,7 +407,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
 
   def testInsertOrUpdateWithInsertedWhen0IsSpecifiedForAutoInc: DBIOAction[Unit, NoStream, Effect.All] =
-    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
+    // Uses MySQL's AUTO_INCREMENT DDL and tests how ON DUPLICATE KEY UPDATE treats an AutoInc value of 0
+    if (!tdb.profile.isInstanceOf[MySQLProfile]) DBIO.successful(()) else {
       case class C(id1: Int, id2: Int)
       class CTable(tag: Tag) extends Table[C](tag, "CTABLE") {
         def id1 = column[Int]("id1", O.AutoInc)
@@ -454,7 +462,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
 
   def testInertOrUpdateWithAutoIncAndUniqueColumn() =
-    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdate)) DBIO.successful(()) else {
+    // Tests that MySQL's ON DUPLICATE KEY UPDATE also matches a unique column that is not the primary key
+    if (!tdb.profile.isInstanceOf[MySQLProfile]) DBIO.successful(()) else {
       case class AnimalRow(id: Int, name: String, location: String)
       class Animals(tag: Tag) extends Table[AnimalRow](tag, "animals") {
         def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -652,6 +661,61 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       _ <- ts.schema.drop
     } yield ()).withPinnedSession
   }
+
+  // Regression test for https://github.com/slick/slick/issues/2970: PostgreSQL's upsert ran an UPDATE and then an
+  // INSERT ... WHERE NOT EXISTS, so a row with the same key that another transaction inserted and committed while the
+  // upsert was running made the upsert fail with a duplicate key or lose its update. INSERT ... ON CONFLICT waits for
+  // the other transaction and then updates its row.
+  def testInsertOrUpdateConcurrentInsert: IO[Unit] =
+    if (!tdb.profile.isInstanceOf[PostgresProfile]) IO.unit
+    else {
+      class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge_concurrent") {
+        def id = column[Int]("id", O.PrimaryKey)
+        def name = column[String]("name", O.Length(20))
+        def * = (id, name)
+      }
+      val ts = TableQuery[T]
+      val timeout = 10.seconds
+      val otherInserted = new CountDownLatch(1)
+      val commitOther = new CountDownLatch(1)
+      val upsertPid = new AtomicInteger
+      val upsertPidKnown = new CountDownLatch(1)
+
+      def await(latch: CountDownLatch, what: String): Unit =
+        if (!latch.await(timeout.toSeconds, TimeUnit.SECONDS))
+          throw new RuntimeException(s"Timed out waiting for $what")
+
+      // Inserts the key and keeps its transaction open until the upsert waits for it
+      val otherInsert =
+        (ts += ((1, "other"))).andThen(SimpleDBIO { _ =>
+          otherInserted.countDown()
+          await(commitOther, "the upsert to wait for the other transaction")
+        }).transactionally
+      val upsert =
+        sql"select pg_backend_pid()".as[Int].head.flatMap { pid =>
+          upsertPid.set(pid)
+          upsertPidKnown.countDown()
+          ts.insertOrUpdate((1, "new"))
+        }.withPinnedSession
+      def awaitUpsertWaitingForLock: IO[Unit] =
+        db.run(sql"select wait_event_type from pg_stat_activity where pid = ${upsertPid.get}".as[Option[String]].head)
+          .flatMap { waitEventType =>
+            if (waitEventType.contains("Lock")) IO.unit
+            else IO.sleep(10.millis) >> awaitUpsertWaitingForLock
+          }
+
+      for {
+        _ <- db.run(ts.schema.create)
+        other <- db.run(otherInsert).start
+        _ <- IO.blocking(await(otherInserted, "the other transaction to insert its row"))
+        upserting <- db.run(upsert).start
+        _ <- IO.blocking(await(upsertPidKnown, "the upsert's connection"))
+        _ <- awaitUpsertWaitingForLock.timeout(timeout).guarantee(IO(commitOther.countDown()))
+        _ <- other.joinWithNever.timeout(timeout)
+        _ <- upserting.joinWithNever.timeout(timeout)
+        _ <- db.run(ts.result).map(_ shouldBe Seq((1, "new")))
+      } yield ()
+    }
 
   // Regression test for https://github.com/slick/slick/issues/2045
   def testInsertOrUpdateWithIntegrityError: DBIOAction[Unit, NoStream, Effect.All] = {

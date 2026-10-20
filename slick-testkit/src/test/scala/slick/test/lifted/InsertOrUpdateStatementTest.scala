@@ -50,16 +50,73 @@ class InsertOrUpdateStatementTest {
     check(DerbyProfile, allColumnsPK = true)(emulatedAllColumnsPK)
   }
 
+  /** PostgreSQL upserts atomically with `INSERT ... ON CONFLICT` (https://github.com/slick/slick/issues/2970). */
   @Test def testPostgres(): Unit = {
     check(PostgresProfile, allColumnsPK = false)(Seq(
-      """update "t" set "c"=? where "a"=? and "b"=?; """ +
-        """insert into "t" ("a","b","c") select ?,?,? where not exists (select 1 from "t" where "a"=? and "b"=?)"""
+      """insert into "t" as "upsert_target" ("a","b","c")  values (?,?,?) on conflict ("a","b") do update set "c"=excluded."c""""
     ))
     check(PostgresProfile, allColumnsPK = true)(Seq(
-      """insert into "t" ("a","b","c") select ?,?,? where not exists (select 1 from "t" where "a"=? and "b"=? and "c"=?)"""
+      """insert into "t" as "upsert_target" ("a","b","c")  values (?,?,?) on conflict ("a","b","c") do nothing"""
     ))
     check(PostgresProfile, allColumnsPK = false, returning = true)(emulatedWithSoftColumn)
     check(PostgresProfile, allColumnsPK = true, returning = true)(emulatedAllColumnsPK)
+    assertEquals(
+      Seq("""insert into "users" as "upsert_target" ("id","name")  values (?,?) on conflict ("id") do update set "name"=excluded."name""""),
+      new Users(PostgresProfile).statements
+    )
+  }
+
+  @Test def testPostgresInsertOrUpdateAll(): Unit = {
+    import PostgresProfile.api.*
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val ts = TableQuery[T]
+    assertEquals(
+      Seq("""insert into "t" as "upsert_target" ("id","name")  values (?,?),(?,?) on conflict ("id") do update set "name"=excluded."name""""),
+      ts.insertOrUpdateAll(Seq((1, "a"), (2, "b"))).statements.toSeq
+    )
+    assertEquals(
+      Seq("""insert into "t" as "upsert_target" ("id","name")  values (?,?) on conflict ("id") do update set "name"=excluded."name""""),
+      ts.insertOrUpdateAll(Seq((1, "a"), (2, "b")), slick.jdbc.RowsPerStatement.One).statements.toSeq
+    )
+  }
+
+  /** The target alias keeps `excluded` meaning the proposed row for a table that is itself named "excluded". */
+  @Test def testPostgresTableNamedExcluded(): Unit = {
+    import PostgresProfile.api.*
+    class T(tag: Tag) extends Table[(Int, String)](tag, "excluded") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    assertEquals(
+      Seq("""insert into "excluded" as "upsert_target" ("id","name")  values (?,?) on conflict ("id") do update set "name"=excluded."name""""),
+      TableQuery[T].insertOrUpdate((1, "a")).statements.toSeq
+    )
+  }
+
+  /** Tables with an AutoInc column keep the client-side emulation on PostgreSQL, and insertOrUpdateAll fails. */
+  @Test def testPostgresAutoInc(): Unit = {
+    import PostgresProfile.api.*
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val ts = TableQuery[T]
+    assertEquals(
+      Seq(
+        """select 1 from "t" where "id"=?""",
+        """update "t" set "name"=? where "id"=?""",
+        """insert into "t" ("name")  values (?)"""
+      ),
+      ts.insertOrUpdate((1, "a")).statements.toSeq
+    )
+    val e = assertThrows(classOf[SlickException], () => ts.insertOrUpdateAll(Seq((1, "a"))))
+    assertTrue(e.getMessage, e.getMessage.contains("table t, which has an AutoInc column"))
   }
 
   @Test def testMySQL(): Unit = {
@@ -95,7 +152,8 @@ class InsertOrUpdateStatementTest {
       assertEquals(emulatedOnlyAutoInc, new OnlyAutoInc(profile).plain)
       assertEquals(emulatedOnlyAutoInc, new OnlyAutoInc(profile).returningId)
     }
-    // PostgreSQL's server-side upsert cannot insert such a row, and insertOrUpdateAll has no emulation
+    // PostgreSQL's server-side upsert cannot insert a row without its AutoInc value, and insertOrUpdateAll has no
+    // emulation
     val e = assertThrows(classOf[SlickException], () => new OnlyAutoInc(PostgresProfile).insertOrUpdateAll())
     assertTrue(e.getMessage, e.getMessage.contains("PostgresProfile") && e.getMessage.contains("table t,"))
     assertEquals(

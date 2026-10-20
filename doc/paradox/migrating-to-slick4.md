@@ -78,6 +78,10 @@ only thing that changes is how you construct the database.
   instead of a result set (an insert, update, delete or DDL statement) now fails with a `SlickException`. In Slick 3
   it returned the update count cast to `R`. Use `sqlu"..."` or `.asUpdate` for such statements, also where
   `.as[Int]` or `.as[Unit]` was used.
+- **PostgreSQL `insertOrUpdate`:** `insertOrUpdate` and `insertOrUpdateAll` now use `INSERT ... ON CONFLICT`, which
+  needs a primary key or unique constraint on the table's declared key columns. A table without one (a view, or a
+  schema that does not match the Slick table) now fails with "there is no unique or exclusion constraint matching the
+  ON CONFLICT specification"; add the constraint. Tables with an `AutoInc` column are still emulated.
 
 ---
 
