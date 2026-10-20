@@ -6,7 +6,6 @@ import slick.ast.*
 import slick.basic.{BasicActionComponent, BasicProfile, Capability}
 import slick.compiler.{EmulateOuterJoins, Phase, QueryCompiler}
 import slick.dbio.*
-import slick.jdbc.JdbcCapabilities
 import slick.lifted.*
 import slick.lifted.FunctionSymbolExtensionMethods.*
 import slick.sql.SqlCapabilities

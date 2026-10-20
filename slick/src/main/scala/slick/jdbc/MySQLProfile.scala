@@ -68,11 +68,11 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   import MySQLProfile.{RowNum, RowNumGen}
 
   trait MySQLAPI extends JdbcAPI {
-    override val returnInsertOther = deregister(JdbcCapabilities.returnInsertOther)
-    override val sequenceLimited = deregister(SqlCapabilities.sequenceLimited)
-    override val joinFull = deregister(RelationalCapabilities.joinFull)
-    override val nullableNoDefault = deregister(JdbcCapabilities.nullableNoDefault)
-    override val distinguishesIntTypes = deregister(JdbcCapabilities.distinguishesIntTypes) //https://override val com = deregister(github.com)/slick/slick/pull/1735
+    override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
+    override val sequenceLimitedCap = deregister(SqlCapabilities.sequenceLimited)
+    override val joinFullCap = deregister(RelationalCapabilities.joinFull)
+    override val nullableNoDefaultCap = deregister(JdbcCapabilities.nullableNoDefault)
+    override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes) //https://override val comCap = deregister(github.com)/slick/slick/pull/1735
   }
   override val api: MySQLAPI = new MySQLAPI{}
 

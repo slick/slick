@@ -8,7 +8,7 @@ trait StrictUpsertMySQLProfile extends MySQLProfile {
   // Use the client-side emulation (select by primary key, then update or insert)
   // instead of INSERT ... ON DUPLICATE KEY UPDATE
   trait StrictUpsertMySQLAPI extends MySQLAPI {
-    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
   }
   override val api: StrictUpsertMySQLAPI = new StrictUpsertMySQLAPI{}
 }

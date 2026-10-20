@@ -40,14 +40,14 @@ import slick.util.QueryInterpolator.queryInterpolator
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   trait H2API extends JdbcAPI {
-    override val sequenceMin = deregister(SqlCapabilities.sequenceMin)
-    override val sequenceMax = deregister(SqlCapabilities.sequenceMax)
-    override val sequenceCycle = deregister(SqlCapabilities.sequenceCycle)
-    override val returnInsertOther = deregister(JdbcCapabilities.returnInsertOther)
-    override val joinFull = deregister(RelationalCapabilities.joinFull)
-    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
-    override val reverse = deregister(RelationalCapabilities.reverse)
-    override val forShare = deregister(JdbcCapabilities.forShare)
+    override val sequenceMinCap = deregister(SqlCapabilities.sequenceMin)
+    override val sequenceMaxCap = deregister(SqlCapabilities.sequenceMax)
+    override val sequenceCycleCap = deregister(SqlCapabilities.sequenceCycle)
+    override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
+    override val joinFullCap = deregister(RelationalCapabilities.joinFull)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val reverseCap = deregister(RelationalCapabilities.reverse)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
   }
   override val api: H2API = new H2API{}
 

@@ -23,12 +23,12 @@ object SqlCapabilities { caps =>
   /** All SQL capabilities */
   val all = new All{}.capabilities
   trait All extends Capabilities {
-    implicit val otherSql: Registration[caps.other.type] = register(caps.other)
-    implicit val sequence: Registration[caps.sequence.type] = register(caps.sequence)
-    implicit val sequenceCurr: Registration[caps.sequenceCurr.type] = register(caps.sequenceCurr)
-    implicit val sequenceCycle: Registration[caps.sequenceCycle.type] = register(caps.sequenceCycle)
-    implicit val sequenceLimited: Registration[caps.sequenceLimited.type] = register(caps.sequenceLimited)
-    implicit val sequenceMax: Registration[caps.sequenceMax.type] = register(caps.sequenceMax)
-    implicit val sequenceMin: Registration[caps.sequenceMin.type] = register(caps.sequenceMin)
+    implicit val otherSqlCap: Registration[caps.other.type] = register(caps.other)
+    implicit val sequenceCap: Registration[caps.sequence.type] = register(caps.sequence)
+    implicit val sequenceCurrCap: Registration[caps.sequenceCurr.type] = register(caps.sequenceCurr)
+    implicit val sequenceCycleCap: Registration[caps.sequenceCycle.type] = register(caps.sequenceCycle)
+    implicit val sequenceLimitedCap: Registration[caps.sequenceLimited.type] = register(caps.sequenceLimited)
+    implicit val sequenceMaxCap: Registration[caps.sequenceMax.type] = register(caps.sequenceMax)
+    implicit val sequenceMinCap: Registration[caps.sequenceMin.type] = register(caps.sequenceMin)
   }
 }

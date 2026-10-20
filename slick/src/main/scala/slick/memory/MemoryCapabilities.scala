@@ -10,6 +10,6 @@ object MemoryCapabilities { caps =>
   /** All MemoryProfile capabilities */
   val all = new All {}.capabilities
   trait All extends Capabilities {
-    implicit val otherMemory: Registration[caps.other.type] = register(caps.other)
+    implicit val otherMemoryCap: Registration[caps.other.type] = register(caps.other)
   }
 }

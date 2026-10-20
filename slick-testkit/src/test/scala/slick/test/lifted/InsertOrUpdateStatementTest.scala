@@ -140,7 +140,7 @@ class InsertOrUpdateStatementTest {
   @Test def testMySQLWithoutUpsertCapability(): Unit = {
     object StrictUpsertMySQLProfile extends MySQLProfile {
       trait StrictUpsertMySQLAPI extends MySQLAPI {
-        override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+        override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
       }
       override val api: StrictUpsertMySQLAPI = new StrictUpsertMySQLAPI{}
     }

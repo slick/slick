@@ -77,22 +77,22 @@ import slick.util.QueryInterpolator.queryInterpolator
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   trait DerbyAPI extends JdbcAPI {
-    override val functionDatabase = deregister(RelationalCapabilities.functionDatabase)
-    override val returnInsertOther = deregister(JdbcCapabilities.returnInsertOther)
-    override val sequenceCurr = deregister(SqlCapabilities.sequenceCurr)
+    override val functionDatabaseCap = deregister(RelationalCapabilities.functionDatabase)
+    override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
+    override val sequenceCurrCap = deregister(SqlCapabilities.sequenceCurr)
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
-    override val sequenceCycle = deregister(SqlCapabilities.sequenceCycle)
-    override val zip = deregister(RelationalCapabilities.zip)
-    override val joinFull = deregister(RelationalCapabilities.joinFull)
-    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
-    override val replace = deregister(RelationalCapabilities.replace)
-    override val reverse = deregister(RelationalCapabilities.reverse)
-    override val booleanMetaData = deregister(JdbcCapabilities.booleanMetaData)
-    override val supportsByte = deregister(JdbcCapabilities.supportsByte)
-    override val repeat = deregister(RelationalCapabilities.repeat)
-    override val returnMultipleInsertKey = deregister(JdbcCapabilities.returnMultipleInsertKey)
-    override val forShare = deregister(JdbcCapabilities.forShare)
-    override val countLong = deregister(RelationalCapabilities.countLong)
+    override val sequenceCycleCap = deregister(SqlCapabilities.sequenceCycle)
+    override val zipCap = deregister(RelationalCapabilities.zip)
+    override val joinFullCap = deregister(RelationalCapabilities.joinFull)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val replaceCap = deregister(RelationalCapabilities.replace)
+    override val reverseCap = deregister(RelationalCapabilities.reverse)
+    override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
+    override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
+    override val repeatCap = deregister(RelationalCapabilities.repeat)
+    override val returnMultipleInsertKeyCap = deregister(JdbcCapabilities.returnMultipleInsertKey)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
+    override val countLongCap = deregister(RelationalCapabilities.countLong)
   }
   override val api: DerbyAPI = new DerbyAPI{}
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)

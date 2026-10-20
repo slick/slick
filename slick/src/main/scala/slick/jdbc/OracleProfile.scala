@@ -63,14 +63,14 @@ import slick.util.QueryInterpolator.queryInterpolator
 trait OracleProfile extends JdbcProfile {
 
   trait OracleAPI extends JdbcAPI {
-    override val foreignKeyActions = deregister(RelationalCapabilities.foreignKeyActions)
-    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
-    override val booleanMetaData = deregister(JdbcCapabilities.booleanMetaData)
-    override val distinguishesIntTypes = deregister(JdbcCapabilities.distinguishesIntTypes)
-    override val supportsByte = deregister(JdbcCapabilities.supportsByte)
-    override val returnMultipleInsertKey = deregister(JdbcCapabilities.returnMultipleInsertKey)
-    override val insertMultipleRowsWithSingleStatement = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
-    override val forShare = deregister(JdbcCapabilities.forShare)
+    override val foreignKeyActionsCap = deregister(RelationalCapabilities.foreignKeyActions)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
+    override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes)
+    override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
+    override val returnMultipleInsertKeyCap = deregister(JdbcCapabilities.returnMultipleInsertKey)
+    override val insertMultipleRowsWithSingleStatementCap = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
   }
   override val api: OracleAPI = new OracleAPI{}
 

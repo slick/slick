@@ -51,9 +51,9 @@ import slick.util.QueryInterpolator.queryInterpolator
 trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   trait PostgresAPI extends JdbcAPI {
-    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
-    override val nullableNoDefault = deregister(JdbcCapabilities.nullableNoDefault)
-    override val supportsByte = deregister(JdbcCapabilities.supportsByte)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val nullableNoDefaultCap = deregister(JdbcCapabilities.nullableNoDefault)
+    override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
   }
   override val api: PostgresAPI = new PostgresAPI {}
 
