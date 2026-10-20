@@ -13,7 +13,7 @@ import scala.util.Random
 import cats.effect.IO
 
 import slick.ast.FieldSymbol
-import slick.jdbc.{H2Profile, HsqldbProfile, PostgresProfile, SQLiteProfile, SQLServerProfile}
+import slick.jdbc.{DB2Profile, H2Profile, HsqldbProfile, PostgresProfile, SQLiteProfile, SQLServerProfile}
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 import javax.sql.rowset.serial.{SerialBlob, SerialClob}
@@ -470,6 +470,29 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
       )
     case _                  =>
       IO.unit
+  }
+
+  def testBoundLocalDateInSelectList = {
+    // A bound LocalDate in a select list has no column type to infer from, so the
+    // parameter itself must be typed as a date to be returned unchanged.
+    class T(tag: Tag) extends Table[(Int, LocalDate)](tag, "test_bound_localdate") {
+      def id = column[Int]("id")
+      def d = column[LocalDate]("d")
+      def * = (id, d)
+    }
+    val ts = TableQuery[T]
+    val d1 = LocalDate.of(2020, 1, 2)
+    val d2 = LocalDate.of(2021, 3, 4)
+
+    // DB2 rejects an untyped parameter marker in a select list (SQLCODE -418)
+    if (tdb.profile.isInstanceOf[DB2Profile]) DBIO.successful(())
+    else seq(
+      ts.schema.create,
+      ts += (1, d1),
+      ts.map(_ => d2.bind).result.map(_ shouldBe Seq(d2)),
+      ts.map(t => (t.d, d2.bind)).result.map(_ shouldBe Seq((d1, d2))),
+      ts.schema.drop
+    )
   }
 
   def testPostgresLocalTimeWithInfiniteValues: IO[Unit] = tdb.profile match {
