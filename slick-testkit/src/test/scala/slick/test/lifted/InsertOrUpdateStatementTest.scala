@@ -139,8 +139,10 @@ class InsertOrUpdateStatementTest {
   /** Removing the capability, as documented for a strict primary-key upsert on MySQL, selects the emulation. */
   @Test def testMySQLWithoutUpsertCapability(): Unit = {
     object StrictUpsertMySQLProfile extends MySQLProfile {
-      override protected def computeCapabilities: Set[Capability] =
-        super.computeCapabilities - JdbcCapabilities.insertOrUpdate
+      trait StrictUpsertMySQLAPI extends MySQLAPI {
+        override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+      }
+      override val api: StrictUpsertMySQLAPI = new StrictUpsertMySQLAPI{}
     }
     assertEquals(
       Seq(

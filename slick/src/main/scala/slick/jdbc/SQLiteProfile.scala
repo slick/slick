@@ -9,7 +9,6 @@ import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.SlickException
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.CompilerState
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
@@ -90,26 +89,28 @@ import slick.util.QueryInterpolator.queryInterpolator
   * (<code>.bind</code> or compiled queries). See the "SQLite" section of the "Database" chapter of the manual.
   */
 trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      RelationalCapabilities.functionDatabase -
-      RelationalCapabilities.functionUser -
-      RelationalCapabilities.joinFull -
-      RelationalCapabilities.joinRight -
-      JdbcCapabilities.mutable -
-      SqlCapabilities.sequence -
-      JdbcCapabilities.returnInsertOther -
-      RelationalCapabilities.typeBigDecimal -
-      RelationalCapabilities.typeBlob -
-      RelationalCapabilities.zip -
-      JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.defaultValueMetaData -
-      JdbcCapabilities.booleanMetaData -
-      JdbcCapabilities.supportsByte -
-      JdbcCapabilities.distinguishesIntTypes -
-      JdbcCapabilities.forUpdate -
-      JdbcCapabilities.forShare -
-      JdbcCapabilities.returnMultipleInsertKey
+
+  trait SQLiteAPI extends JdbcAPI {
+    override val functionDatabase = deregister(RelationalCapabilities.functionDatabase)
+    override val functionUser = deregister(RelationalCapabilities.functionUser)
+    override val joinFull = deregister(RelationalCapabilities.joinFull)
+    override val joinRight = deregister(RelationalCapabilities.joinRight)
+    override val mutable = deregister(JdbcCapabilities.mutable)
+    override val sequence = deregister(SqlCapabilities.sequence)
+    override val returnInsertOther = deregister(JdbcCapabilities.returnInsertOther)
+    override val typeBigDecimal = deregister(RelationalCapabilities.typeBigDecimal)
+    override val typeBlob = deregister(RelationalCapabilities.typeBlob)
+    override val zip = deregister(RelationalCapabilities.zip)
+    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+    override val defaultValueMetaData = deregister(JdbcCapabilities.defaultValueMetaData)
+    override val booleanMetaData = deregister(JdbcCapabilities.booleanMetaData)
+    override val supportsByte = deregister(JdbcCapabilities.supportsByte)
+    override val distinguishesIntTypes = deregister(JdbcCapabilities.distinguishesIntTypes)
+    override val forUpdate = deregister(JdbcCapabilities.forUpdate)
+    override val forShare = deregister(JdbcCapabilities.forShare)
+    override val returnMultipleInsertKey = deregister(JdbcCapabilities.returnMultipleInsertKey)
+  }
+  override val api: SQLiteAPI = new SQLiteAPI{}
 
   class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

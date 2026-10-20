@@ -7,7 +7,6 @@ import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
 import slick.ast.Util.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, ResolveZipJoins}
 import slick.dbio.{DBIO, Effect, NoStream}
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
@@ -68,13 +67,14 @@ import com.typesafe.config.Config
 trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { profile =>
   import MySQLProfile.{RowNum, RowNumGen}
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      JdbcCapabilities.returnInsertOther -
-      SqlCapabilities.sequenceLimited -
-      RelationalCapabilities.joinFull -
-      JdbcCapabilities.nullableNoDefault -
-      JdbcCapabilities.distinguishesIntTypes //https://github.com/slick/slick/pull/1735
+  trait MySQLAPI extends JdbcAPI {
+    override val returnInsertOther = deregister(JdbcCapabilities.returnInsertOther)
+    override val sequenceLimited = deregister(SqlCapabilities.sequenceLimited)
+    override val joinFull = deregister(RelationalCapabilities.joinFull)
+    override val nullableNoDefault = deregister(JdbcCapabilities.nullableNoDefault)
+    override val distinguishesIntTypes = deregister(JdbcCapabilities.distinguishesIntTypes) //https://override val com = deregister(github.com)/slick/slick/pull/1735
+  }
+  override val api: MySQLAPI = new MySQLAPI{}
 
   override protected[this] def loadProfileConfig: Config = {
     if(!GlobalConfig.profileConfig("slick.driver.MySQL").entrySet().isEmpty)

@@ -1,9 +1,9 @@
 package slick.relational
 
-import slick.basic.Capability
+import slick.basic.{Capabilities, Capability}
 
 /** Capabilities for [[slick.relational.RelationalProfile]]. */
-object RelationalCapabilities {
+object RelationalCapabilities { caps =>
   /** Computes `lengthLong` and `countDistinctLong` with a 64-bit count.
     * A profile without this capability uses a 32-bit count, so these
     * methods are limited to the `Int` range. */
@@ -57,8 +57,29 @@ object RelationalCapabilities {
   val other = Capability("relational.other")
 
   /** All relational capabilities */
-  val all = Set(other, columnDefaults, countLong, foreignKeyActions, functionDatabase,
-    functionUser, joinFull, joinLeft, joinRight, likeEscape, pagingDrop, pagingNested,
-    pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
-    zip, replace, reverse, indexOf, repeat)
+  val all = new All{}.capabilities
+  trait All extends Capabilities {
+    implicit val otherRelational: Registration[caps.other.type] = register(caps.other)
+    implicit val columnDefaults: Registration[caps.columnDefaults.type] = register(caps.columnDefaults)
+    implicit val countLong: Registration[caps.countLong.type] = register(caps.countLong)
+    implicit val foreignKeyActions: Registration[caps.foreignKeyActions.type] = register(caps.foreignKeyActions)
+    implicit val functionDatabase: Registration[caps.functionDatabase.type] = register(caps.functionDatabase)
+    implicit val functionUser: Registration[caps.functionUser.type] = register(caps.functionUser)
+    implicit val joinFull: Registration[caps.joinFull.type] = register(caps.joinFull)
+    implicit val joinLeft: Registration[caps.joinLeft.type] = register(caps.joinLeft)
+    implicit val joinRight: Registration[caps.joinRight.type] = register(caps.joinRight)
+    implicit val likeEscape: Registration[caps.likeEscape.type] = register(caps.likeEscape)
+    implicit val pagingDrop: Registration[caps.pagingDrop.type] = register(caps.pagingDrop)
+    implicit val pagingNested: Registration[caps.pagingNested.type] = register(caps.pagingNested)
+    implicit val pagingPreciseTake: Registration[caps.pagingPreciseTake.type] = register(caps.pagingPreciseTake)
+    implicit val setByteArrayNull: Registration[caps.setByteArrayNull.type] = register(caps.setByteArrayNull)
+    implicit val typeBigDecimal: Registration[caps.typeBigDecimal.type] = register(caps.typeBigDecimal)
+    implicit val typeBlob: Registration[caps.typeBlob.type] = register(caps.typeBlob)
+    implicit val typeLong: Registration[caps.typeLong.type] = register(caps.typeLong)
+    implicit val zip: Registration[caps.zip.type] = register(caps.zip)
+    implicit val replace: Registration[caps.replace.type] = register(caps.replace)
+    implicit val reverse: Registration[caps.reverse.type] = register(caps.reverse)
+    implicit val indexOf: Registration[caps.indexOf.type] = register(caps.indexOf)
+    implicit val repeat: Registration[caps.repeat.type] = register(caps.repeat)
+  }
 }

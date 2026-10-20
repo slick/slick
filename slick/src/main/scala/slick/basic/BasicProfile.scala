@@ -20,10 +20,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
 
   /** The capabilities supported by this profile. This can be used to query at
     * runtime whether a specific feature is supported. */
-  final lazy val capabilities: Set[Capability] = computeCapabilities
-  /** Compute the capabilities. This should be overridden in subclasses as needed. */
-  // todo remove and just get capabilities from api
-  protected def computeCapabilities: Set[Capability] = api.capabilities
+  final lazy val capabilities: Set[Capability] = api.capabilities
 
   /** The type of a schema description (DDL) */
   type SchemaDescription <: SchemaDescriptionDef

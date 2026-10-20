@@ -1,9 +1,9 @@
 package slick.sql
 
-import slick.basic.Capability
+import slick.basic.{Capabilities, Capability}
 
 /** Capabilities for [[slick.sql.SqlProfile]]. */
-object SqlCapabilities {
+object SqlCapabilities { caps =>
   /** Supports sequences (real or emulated) */
   val sequence = Capability("sql.sequence")
   /** Can get current sequence value */
@@ -21,6 +21,14 @@ object SqlCapabilities {
   val other = Capability("sql.other")
 
   /** All SQL capabilities */
-  val all = Set(other, sequence, sequenceCurr, sequenceCycle,
-    sequenceLimited, sequenceMax, sequenceMin)
+  val all = new All{}.capabilities
+  trait All extends Capabilities {
+    implicit val otherSql: Registration[caps.other.type] = register(caps.other)
+    implicit val sequence: Registration[caps.sequence.type] = register(caps.sequence)
+    implicit val sequenceCurr: Registration[caps.sequenceCurr.type] = register(caps.sequenceCurr)
+    implicit val sequenceCycle: Registration[caps.sequenceCycle.type] = register(caps.sequenceCycle)
+    implicit val sequenceLimited: Registration[caps.sequenceLimited.type] = register(caps.sequenceLimited)
+    implicit val sequenceMax: Registration[caps.sequenceMax.type] = register(caps.sequenceMax)
+    implicit val sequenceMin: Registration[caps.sequenceMin.type] = register(caps.sequenceMin)
+  }
 }

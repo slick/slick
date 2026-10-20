@@ -7,7 +7,6 @@ import java.util.UUID
 
 import slick.SlickException
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MTable}
@@ -62,16 +61,18 @@ import slick.util.QueryInterpolator.queryInterpolator
   * Updating Blob values in updatable result sets is not supported.
   */
 trait OracleProfile extends JdbcProfile {
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      RelationalCapabilities.foreignKeyActions -
-      JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.booleanMetaData -
-      JdbcCapabilities.distinguishesIntTypes -
-      JdbcCapabilities.supportsByte -
-      JdbcCapabilities.returnMultipleInsertKey -
-      JdbcCapabilities.insertMultipleRowsWithSingleStatement -
-      JdbcCapabilities.forShare
+
+  trait OracleAPI extends JdbcAPI {
+    override val foreignKeyActions = deregister(RelationalCapabilities.foreignKeyActions)
+    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+    override val booleanMetaData = deregister(JdbcCapabilities.booleanMetaData)
+    override val distinguishesIntTypes = deregister(JdbcCapabilities.distinguishesIntTypes)
+    override val supportsByte = deregister(JdbcCapabilities.supportsByte)
+    override val returnMultipleInsertKey = deregister(JdbcCapabilities.returnMultipleInsertKey)
+    override val insertMultipleRowsWithSingleStatement = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
+    override val forShare = deregister(JdbcCapabilities.forShare)
+  }
+  override val api: OracleAPI = new OracleAPI{}
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false

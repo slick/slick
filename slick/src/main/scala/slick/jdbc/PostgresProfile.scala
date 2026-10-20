@@ -8,7 +8,6 @@ import java.util.UUID
 
 import slick.SlickException
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MIndexInfo, MTable}
@@ -51,14 +50,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.nullableNoDefault -
-      JdbcCapabilities.supportsByte
-
   trait PostgresAPI extends JdbcAPI {
     override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+    override val nullableNoDefault = deregister(JdbcCapabilities.nullableNoDefault)
+    override val supportsByte = deregister(JdbcCapabilities.supportsByte)
   }
   override val api: PostgresAPI = new PostgresAPI {}
 

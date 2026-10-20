@@ -19,13 +19,11 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   type Backend <: RelationalBackend
 
-  override protected def computeCapabilities = super.computeCapabilities ++ RelationalCapabilities.all
-
   type ResultConverterReader
   type ResultConverterWriter
   type ResultConverterUpdater
 
-  trait RelationalAPI extends BasicAPI with RelationalImplicitColumnTypes {
+  trait RelationalAPI extends BasicAPI with RelationalImplicitColumnTypes with RelationalCapabilities.All {
     type FastPath[T] = SimpleFastPathResultConverter[ResultConverterReader, ResultConverterWriter, ResultConverterUpdater, T]
     type Table[T] = self.Table[T]
     type Sequence[T] = self.Sequence[T]

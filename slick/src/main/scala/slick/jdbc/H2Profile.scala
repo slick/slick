@@ -5,7 +5,6 @@ import java.time.*
 import java.util.UUID
 
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.relational.{RelationalCapabilities, RelationalProfile}
@@ -40,16 +39,17 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      SqlCapabilities.sequenceMin -
-      SqlCapabilities.sequenceMax -
-      SqlCapabilities.sequenceCycle -
-      JdbcCapabilities.returnInsertOther -
-      RelationalCapabilities.joinFull -
-      JdbcCapabilities.insertOrUpdate -
-      RelationalCapabilities.reverse -
-      JdbcCapabilities.forShare
+  trait H2API extends JdbcAPI {
+    override val sequenceMin = deregister(SqlCapabilities.sequenceMin)
+    override val sequenceMax = deregister(SqlCapabilities.sequenceMax)
+    override val sequenceCycle = deregister(SqlCapabilities.sequenceCycle)
+    override val returnInsertOther = deregister(JdbcCapabilities.returnInsertOther)
+    override val joinFull = deregister(RelationalCapabilities.joinFull)
+    override val insertOrUpdate = deregister(JdbcCapabilities.insertOrUpdate)
+    override val reverse = deregister(RelationalCapabilities.reverse)
+    override val forShare = deregister(JdbcCapabilities.forShare)
+  }
+  override val api: H2API = new H2API{}
 
   class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

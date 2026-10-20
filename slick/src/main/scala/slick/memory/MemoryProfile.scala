@@ -34,8 +34,6 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
       new MemoryInsertCodeGen
     )
 
-  override protected def computeCapabilities = super.computeCapabilities ++ MemoryCapabilities.all
-
   def createInsertInvoker[T](tree: Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
   def buildSequenceSchemaDescription(seq: Sequence[?]): SchemaDescription = ??
   def buildTableSchemaDescription(table: Table[?]): SchemaDescription = new DDL(Vector(table))
@@ -74,7 +72,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { self:
     }
   }
 
-  trait MemoryAPI extends RelationalAPI with MemoryQueryingAPI {
+  trait MemoryAPI extends RelationalAPI with MemoryQueryingAPI with MemoryCapabilities.All {
     type SimpleDBIO[+R] = SimpleMemoryAction[R]
     val SimpleDBIO = SimpleMemoryAction
   }

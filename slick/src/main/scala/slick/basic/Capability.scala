@@ -13,11 +13,11 @@ object Capability {
   // this one is used if current profile is in scope
   @implicitNotFound("${P} does not support ${C}")
   class ForProfile[P <: BasicProfile, C <: Capability](val cap: C)
-  implicit def ForProfile[P <: BasicProfile, C <: Capability](implicit cap: Capabilities#Registered[C]): ForProfile[P, C] = new ForProfile[P, C](cap.c)
+  implicit def ForProfile[P <: BasicProfile, C <: Capability](implicit cap: Capabilities#Registration[C]): ForProfile[P, C] = new ForProfile[P, C](cap.cap)
 
   // this one has a less useful error message
   @implicitNotFound("Current profile does not support ${C}")
   class UnknownProfile[C <: Capability](val cap: C)
-  implicit def UnknownProfile[C <: Capability](implicit cap: Capabilities#Registered[C]): UnknownProfile[C] = new UnknownProfile[C](cap.c)
+  implicit def UnknownProfile[C <: Capability](implicit cap: Capabilities#Registration[C]): UnknownProfile[C] = new UnknownProfile[C](cap.cap)
   // todo perhaps it's not worth it to have both, ie either abandon mentioning exact profile in error, or add current profile to Query etc
 }
