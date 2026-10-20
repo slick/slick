@@ -78,6 +78,10 @@ only thing that changes is how you construct the database.
   instead of a result set (an insert, update, delete or DDL statement) now fails with a `SlickException`. In Slick 3
   it returned the update count cast to `R`. Use `sqlu"..."` or `.asUpdate` for such statements, also where
   `.as[Int]` or `.as[Unit]` was used.
+- **`None` literals in a select list:** these are now written as `cast(null as <type>)` with the SQL type of the
+  literal's column type (except on MySQL and Oracle). If you map a `String` onto a PostgreSQL column of a custom type
+  such as an enum or `jsonb`, a `None` literal of it is now cast to `VARCHAR`, and a union of it with that column
+  fails. Give such a column type the real SQL type name, see @ref:[Custom Database Types](userdefined.md#custom-database-types).
 
 ---
 

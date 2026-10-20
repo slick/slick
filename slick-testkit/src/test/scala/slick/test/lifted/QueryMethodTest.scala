@@ -71,7 +71,7 @@ class QueryMethodTest {
     val z = Rep.None[Int].getOrElse(0) //https://github.com/slick/slick/issues/2674
     val s13 = z.result.statements.head
     println(s13)
-    assertTrue("zero", s13 == "select null")
+    assertTrue("zero", s13 == "select cast(null as INTEGER)")
 
     def rep1: Rep[Option[Boolean]] = ???
     def rep2: Rep[Boolean] = ???
