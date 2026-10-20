@@ -12,19 +12,19 @@ object JdbcCapabilities { caps =>
    * is emulated on the client side. The emulation uses transactions for
    * consistency but does not guarantee atomicity, so it may fail if another
    * insert for the same key happens concurrently. */
-  val insertOrUpdate = Capability("jdbc.insertOrUpdate")
+  val insertOrUpdate = Capability("jdbc.insertOrUpdate") // todo:caps
   /** Supports `insertOrUpdate` with only primary keys (equivalent to "insert if not exists") */
-  val insertOrUpdateWithPrimaryKeyOnly = Capability("jdbc.insertOrUpdateWithPrimaryKeyOnly")
+  val insertOrUpdateWithPrimaryKeyOnly = Capability("jdbc.insertOrUpdateWithPrimaryKeyOnly") // todo:caps-unused
   /** Supports `insertAll` with `rowsPerStatement = RowsPerStatement.One` */
-  val insertMultipleRowsWithSingleStatement = Capability("jdbc.insertMultipleRowsWithSingleStatement")
+  val insertMultipleRowsWithSingleStatement = Capability("jdbc.insertMultipleRowsWithSingleStatement") // todo:caps
   /** Supports mutable result sets */
   val mutable = Capability("jdbc.mutable")
   /** Can return primary key of inserted rows */
   val returnInsertKey = Capability("jdbc.returnInsertKey")
   /** Can return multiple primary key of inserted rows in a single statement */
-  val returnMultipleInsertKey = Capability("jdbc.returnMultipleInsertKey")
+  val returnMultipleInsertKey = Capability("jdbc.returnMultipleInsertKey") // todo:caps
   /** Can also return non-primary-key columns of inserted rows */
-  val returnInsertOther = Capability("jdbc.returnInsertOther")
+  val returnInsertOther = Capability("jdbc.returnInsertOther") // todo:caps
   /** Returns column default values in meta data */
   val defaultValueMetaData = Capability("jdbc.defaultValueMetaData")
   /** Doesn't map types to Boolean in DatabaseMetaData */

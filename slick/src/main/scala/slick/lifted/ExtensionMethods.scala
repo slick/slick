@@ -7,6 +7,7 @@ import slick.lifted.FunctionSymbolExtensionMethods.*
 import slick.util.ConstArray
 import slick.SlickException
 import slick.basic.{BasicProfile, Capability}
+import slick.relational.RelationalCapabilities
 
 trait ExtensionMethods[B1, P1] extends Any {
   protected[this] def c: Rep[P1]
@@ -114,7 +115,11 @@ final class StringColumnExtensionMethods[P1, P <: BasicProfile](val c: Rep[P1]) 
 
   def length[R](implicit om: o#to[Int, R]) =
     om.column(Library.Length, n)
-  def like[P2, R](e: Rep[P2], esc: Char = '\u0000')(implicit om: o#arg[String, P2]#to[Boolean, R]) =
+  def like[P2, R](e: Rep[P2])(implicit om: o#arg[String, P2]#to[Boolean, R]): Rep[R] =
+    likeImpl(e, '\u0000')
+  def like[P2, R](e: Rep[P2], esc: Char)(implicit om: o#arg[String, P2]#to[Boolean, R], cap: Capability.ForProfile[P, RelationalCapabilities.likeEscape.type]): Rep[R] =
+    likeImpl(e, esc)
+  private def likeImpl[P2, R](e: Rep[P2], esc: Char = '\u0000')(implicit om: o#arg[String, P2]#to[Boolean, R]) =
     if(esc == '\u0000') om.column(Library.Like, n, e.toNode)
     else om.column(Library.Like, n, e.toNode, LiteralNode(esc))
   def ++[P2, R](e: Rep[P2])(implicit om: o#arg[String, P2]#to[String, R]) =
@@ -128,7 +133,8 @@ final class StringColumnExtensionMethods[P1, P <: BasicProfile](val c: Rep[P1]) 
   def ltrim = Library.LTrim.column[P1](n)
   def rtrim = Library.RTrim.column[P1](n)
   def trim = Library.Trim.column[P1](n)
-  def reverseString = Library.Reverse.column[P1](n)
+  def reverseString(implicit cap: Capability.ForProfile[P, RelationalCapabilities.reverse.type]) =
+    Library.Reverse.column[P1](n)
   def substring[P2, P3, R](start: Rep[P2], end: Rep[P3])(implicit om: o#arg[Int, P2]#arg[Int, P3]#to[String, R]) =
     om.column(Library.Substring, n, start.toNode, end.toNode)
   def substring[P2, R](start: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
@@ -137,11 +143,11 @@ final class StringColumnExtensionMethods[P1, P <: BasicProfile](val c: Rep[P1]) 
     substring[Int, P2, R](LiteralColumn(0), num)
   def drop[P2, R](num: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
     substring[P2, R](num)
-  def replace[P2, P3, R](target: Rep[P2], replacement: Rep[P3])(implicit om: o#arg[String, P2]#arg[String, P3]#to[String, R]) =
+  def replace[P2, P3, R](target: Rep[P2], replacement: Rep[P3])(implicit om: o#arg[String, P2]#arg[String, P3]#to[String, R], cap: Capability.ForProfile[P, RelationalCapabilities.replace.type]) =
     om.column(Library.Replace, n, target.toNode, replacement.toNode)
-  def indexOf[P2, R](str: Rep[P2])(implicit om: o#arg[String, P2]#to[Int, R]) =
+  def indexOf[P2, R](str: Rep[P2])(implicit om: o#arg[String, P2]#to[Int, R], cap: Capability.ForProfile[P, RelationalCapabilities.indexOf.type]) =
     om.column(Library.IndexOf, n, str.toNode)
-  def *[P2, R](i: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R], cap: Capability.ForProfile[P, slick.relational.RelationalCapabilities.repeat.type]) =
+  def *[P2, R](i: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R], cap: Capability.ForProfile[P, RelationalCapabilities.repeat.type]) =
     om.column(Library.Repeat, n, i.toNode)
 }
 

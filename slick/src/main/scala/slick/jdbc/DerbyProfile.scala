@@ -22,13 +22,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   * <ul>
   *   <li>[[slick.relational.RelationalCapabilities.functionDatabase]]:
   *     <code>Functions.database</code> is not available in Derby. Slick
-  *     will return an empty string instead.</li>
+  *     will return an empty string instead if the capability is re-enabled.</li>
   *   <li>[[slick.relational.RelationalCapabilities.replace]],
   *     [[slick.relational.RelationalCapabilities.reverse]]:
   *     These String functions are not available in Derby.</li>
-  *   <li>[[slick.relational.RelationalCapabilities.pagingNested]]:
-  *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
-  *     target="_parent">DERBY-5911</a>.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.returnInsertOther]]:
   *     When returning columns from an INSERT operation, only a single column
   *     may be specified which must be the table's AutoInc column.</li>
@@ -44,13 +41,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     Ordered sub-queries and window functions with orderings are currently
   *     not supported by Derby. These are required by <code>zip</code> and
   *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
-  *     feature causes the DB to throw an exception. We do not prevent these
-  *     queries from being generated because we expect future Derby versions to
-  *     support them with the standard SQL:2003 syntax (see
-  *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber" target="_parent"
-  *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
+  *     feature causes the DB to throw an exception.
+ *    </li>
   *   <li>[[slick.relational.RelationalCapabilities.joinFull]]:
-  *     Full outer joins are emulated because there is not native support
+  *     Full outer joins are emulated because there is no native support
   *     for them.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side because there
@@ -77,14 +71,13 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.relational.RelationalCapabilities.countLong]]:
   *     Derby has no 64-bit count function, so <code>lengthLong</code> and
   *     <code>countDistinctLong</code> use <code>count</code> and are limited to
-  *     the <code>Int</code> range.</li>
+  *     the <code>Int</code> range if the capability is re-enabled.</li>
   * </ul>
   */
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   trait DerbyAPI extends JdbcAPI {
     override val functionDatabase = deregister(RelationalCapabilities.functionDatabase)
-    override val pagingNested = deregister(RelationalCapabilities.pagingNested)
     override val returnInsertOther = deregister(JdbcCapabilities.returnInsertOther)
     override val sequenceCurr = deregister(SqlCapabilities.sequenceCurr)
     // Cycling is broken in Derby. It cycles to the start value instead of min or max

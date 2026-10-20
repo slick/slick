@@ -34,7 +34,7 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
     val s3 = Sequence[Int]("s3").start(3).inc(2)
     val s4 = Sequence[Int]("s4").cycle.start(3).min(2).max(5)
     val s5 = Sequence[Int]("s5").cycle.start(3).min(2).max(5).inc(-1)
-    val s6 = Sequence[Int]("s6").start(3).min(2).max(5)
+    val s6 = Sequence[Int]("s6").start(3).min(2).maxNoCycle(5)
 
     def values(s: Sequence[Int], count: Int = 5, create: Boolean = true) = {
       val q = Query(s.next)

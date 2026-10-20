@@ -5,12 +5,11 @@ import java.time.*
 import java.time.format.DateTimeFormatterBuilder
 import java.time.temporal.ChronoField
 import java.util.UUID
-
 import scala.reflect.ClassTag
-
 import slick.SlickException
 import slick.ast.*
-import slick.relational.{RelationalProfile, RelationalTypesComponent}
+import slick.basic.Capability
+import slick.relational.{RelationalCapabilities, RelationalProfile, RelationalTypesComponent}
 
 trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
 
@@ -507,7 +506,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
 
   trait JdbcImplicitColumnTypes extends RelationalImplicitColumnTypes {
     implicit def booleanColumnType:        DriverJdbcType[Boolean] = columnTypes.booleanJdbcType
-    implicit def blobColumnType:           DriverJdbcType[Blob] = columnTypes.blobJdbcType
+    implicit def blobColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeBlob.type]): DriverJdbcType[Blob] =
+      columnTypes.blobJdbcType
     implicit def byteColumnType:           DriverJdbcType[Byte] with NumericTypedType = columnTypes.byteJdbcType
     implicit def byteArrayColumnType:      DriverJdbcType[Array[Byte]] = columnTypes.byteArrayJdbcType
     implicit def charColumnType:           DriverJdbcType[Char] = columnTypes.charJdbcType
@@ -516,13 +516,15 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def doubleColumnType:         DriverJdbcType[Double] with NumericTypedType = columnTypes.doubleJdbcType
     implicit def floatColumnType:          DriverJdbcType[Float] with NumericTypedType = columnTypes.floatJdbcType
     implicit def intColumnType:            DriverJdbcType[Int] with NumericTypedType = columnTypes.intJdbcType
-    implicit def longColumnType:           DriverJdbcType[Long] with NumericTypedType = columnTypes.longJdbcType
+    override implicit def longColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeLong.type]): DriverJdbcType[Long] with NumericTypedType =
+      columnTypes.longJdbcType
     implicit def shortColumnType:          DriverJdbcType[Short] with NumericTypedType = columnTypes.shortJdbcType
     implicit def stringColumnType:         DriverJdbcType[String] = columnTypes.stringJdbcType
     implicit def timeColumnType:           DriverJdbcType[Time] = columnTypes.timeJdbcType
     implicit def timestampColumnType:      DriverJdbcType[Timestamp] = columnTypes.timestampJdbcType
     implicit def uuidColumnType:           DriverJdbcType[UUID] = columnTypes.uuidJdbcType
-    implicit def bigDecimalColumnType:     DriverJdbcType[BigDecimal] with NumericTypedType = columnTypes.bigDecimalJdbcType
+    override implicit def bigDecimalColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeBigDecimal.type]): DriverJdbcType[BigDecimal] with NumericTypedType =
+      columnTypes.bigDecimalJdbcType
     implicit def offsetDateTimeColumnType: DriverJdbcType[OffsetDateTime] = columnTypes.offsetDateTimeType
     implicit def zonedDateTimeColumnType:  DriverJdbcType[ZonedDateTime] = columnTypes.zonedDateType
     implicit def localTimeColumnType:      DriverJdbcType[LocalTime] = columnTypes.localTimeType

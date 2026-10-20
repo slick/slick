@@ -72,6 +72,7 @@ object SourceCodeGenerator {
                                    keepAliveConnection = true)
 
     Database.resource(dc).use { db =>
+      import profileInstance.api.*
       db.run(profileInstance.createModel(None, ignoreInvalidDefaults).withPinnedSession)
         .map { m =>
           val codeGenerator = codeGeneratorClass.getOrElse("slick.codegen.SourceCodeGenerator")
@@ -93,6 +94,7 @@ object SourceCodeGenerator {
     val profile = if(dc.profileIsObject) dc.profileName else "new " + dc.profileName
 
     Database.resource(dc).use { db =>
+      import dc.profile.api.*
       db.run(dc.profile.createModel(None, ignoreInvalidDefaults).withPinnedSession)
         .map { m =>
           val generator = new SourceCodeGenerator(m)

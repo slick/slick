@@ -11,7 +11,7 @@ object RelationalCapabilities { caps =>
   /** Supports default values in column definitions */
   val columnDefaults = Capability("relational.columnDefaults")
   /** Supports foreignKeyActions */
-  val foreignKeyActions = Capability("relational.foreignKeyActions")
+  val foreignKeyActions = Capability("relational.foreignKeyActions") // todo:caps
   /** Supports the ''database'' function to get the current database name.
     * A profile without this capability will return an empty string. */
   val functionDatabase = Capability("relational.functionDatabase")
@@ -25,7 +25,7 @@ object RelationalCapabilities { caps =>
   /** Supports full outer joins */
   val joinFull = Capability("relational.joinFull")
   /** Supports left outer joins */
-  val joinLeft = Capability("relational.joinLeft")
+  val joinLeft = Capability("relational.joinLeft") // todo:caps-unused
   /** Supports right outer joins */
   val joinRight = Capability("relational.joinRight")
   /** Supports escape characters in "like" */
@@ -33,17 +33,17 @@ object RelationalCapabilities { caps =>
   /** Supports .drop on queries */
   val pagingDrop = Capability("relational.pagingDrop")
   /** Supports properly compositional paging in sub-queries */
-  val pagingNested = Capability("relational.pagingNested")
+  val pagingNested = Capability("relational.pagingNested") // todo:caps-unused
   /** Returns only the requested number of rows even if some rows are not
     * unique. Without this capability, non-unique rows may be counted as
     * only one row each. */
-  val pagingPreciseTake = Capability("relational.pagingPreciseTake")
+  val pagingPreciseTake = Capability("relational.pagingPreciseTake") // todo:caps-unused
   /** Supports replace method on string columns */
   val replace = Capability("relational.replace")
   /** Supports reverse method on string columns */
   val reverse = Capability("relational.reverse")
   /** Can set an Option[ Array[Byte] ] column to None */
-  val setByteArrayNull = Capability("relational.setByteArrayNull")
+  val setByteArrayNull = Capability("relational.setByteArrayNull") // todo:caps-unused
   /** Supports the BigDecimal data type */
   val typeBigDecimal = Capability("relational.typeBigDecimal")
   /** Supports the Blob data type */

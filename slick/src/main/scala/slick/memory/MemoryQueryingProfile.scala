@@ -1,11 +1,10 @@
 package slick.memory
 
 import scala.collection.mutable.ArrayBuffer
-
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
-import slick.basic.BasicProfile
+import slick.basic.{BasicProfile, Capability}
 import slick.compiler.*
 import slick.relational.*
 import slick.util.{??, ConstArray}
@@ -24,13 +23,15 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
 
   trait ImplicitColumnTypes {
     implicit def booleanColumnType    : ScalaBaseType[Boolean]       = ScalaBaseType.booleanType
-    implicit def bigDecimalColumnType : ScalaNumericType[BigDecimal] = ScalaBaseType.bigDecimalType
+    implicit def bigDecimalColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeBigDecimal.type]): ScalaNumericType[BigDecimal] =
+      ScalaBaseType.bigDecimalType
     implicit def byteColumnType       : ScalaNumericType[Byte]       = ScalaBaseType.byteType
     implicit def charColumnType       : ScalaBaseType[Char]          = ScalaBaseType.charType
     implicit def doubleColumnType     : ScalaNumericType[Double]     = ScalaBaseType.doubleType
     implicit def floatColumnType      : ScalaNumericType[Float]      = ScalaBaseType.floatType
     implicit def intColumnType        : ScalaNumericType[Int]        = ScalaBaseType.intType
-    implicit def longColumnType       : ScalaNumericType[Long]       = ScalaBaseType.longType
+    implicit def longColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeLong.type]): ScalaNumericType[Long] =
+      ScalaBaseType.longType
     implicit def shortColumnType      : ScalaNumericType[Short]      = ScalaBaseType.shortType
     implicit def stringColumnType     : ScalaBaseType[String]        = ScalaBaseType.stringType
   }

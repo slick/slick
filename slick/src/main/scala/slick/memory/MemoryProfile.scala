@@ -4,13 +4,13 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.existentials
 import scala.reflect.ClassTag
-
 import slick.ast.*
 import slick.ast.TypeUtil.*
-import slick.basic.{FixedBasicAction, FixedBasicStreamingAction}
+import slick.basic.{Capability, FixedBasicAction, FixedBasicStreamingAction}
 import slick.compat.collection.*
 import slick.compiler.*
 import slick.dbio.*
+import slick.jdbc.JdbcCapabilities
 import slick.relational.{CompiledMapping, RelationalProfile, ResultConverter, ResultConverterCompiler}
 import slick.util.{??, CloseableIterator, DumpInfo}
 

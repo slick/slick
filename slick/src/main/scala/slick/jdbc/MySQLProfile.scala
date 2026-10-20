@@ -31,7 +31,7 @@ import com.typesafe.config.Config
   *   <li>[[slick.sql.SqlCapabilities.sequenceLimited]]:
   *     Non-cyclic sequence may not have an upper limit.</li>
   *   <li>[[slick.relational.RelationalCapabilities.joinFull]]:
-  *     Full outer joins are emulated because there is not native support
+  *     Full outer joins are emulated because there is no native support
   *     for them.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.nullableNoDefault]]:
   *     Nullable columns always have NULL as a default according to the SQL

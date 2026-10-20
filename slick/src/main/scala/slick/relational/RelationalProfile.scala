@@ -2,13 +2,14 @@ package slick.relational
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
-
 import slick.ast.*
-import slick.basic.{BasicActionComponent, BasicProfile}
+import slick.basic.{BasicActionComponent, BasicProfile, Capability}
 import slick.compiler.{EmulateOuterJoins, Phase, QueryCompiler}
 import slick.dbio.*
+import slick.jdbc.JdbcCapabilities
 import slick.lifted.*
 import slick.lifted.FunctionSymbolExtensionMethods.*
+import slick.sql.SqlCapabilities
 
 /** A profile for relational databases that does not assume the existence
   * of SQL (or any other text-based language for executing statements).
@@ -108,7 +109,8 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
   trait RelationalColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
-    def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
+    def Default[T](defaultValue: T)(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.columnDefaults.type]) =
+      RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
     val Unique = ColumnOption.Unique
     val Length = RelationalProfile.ColumnOption.Length
@@ -163,14 +165,23 @@ trait RelationalSequenceComponent { self: RelationalProfile =>
                                        val _cycle: Boolean)(implicit val tpe: TypedType[T], val integral: Integral[T])
     { seq =>
 
-    def min(v: T) = new Sequence[T](name, Some(v), _maxValue, _increment, _start, _cycle)
-    def max(v: T) = new Sequence[T](name, _minValue, Some(v), _increment, _start, _cycle)
+    def min(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceMin.type]) =
+      new Sequence[T](name, Some(v), _maxValue, _increment, _start, _cycle)
+    def max(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceMax.type]) =
+      new Sequence[T](name, _minValue, Some(v), _increment, _start, _cycle)
+
+    /** Special case for MySQL which only supports max value if there is no cycle. */
+    def maxNoCycle(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceLimited.type]) =
+      new Sequence[T](name, _minValue, Some(v), _increment, _start, false)
+
     def inc(v: T) = new Sequence[T](name, _minValue, _maxValue, Some(v), _start, _cycle)
     def start(v: T) = new Sequence[T](name, _minValue, _maxValue, _increment, Some(v), _cycle)
-    def cycle = new Sequence[T](name, _minValue, _maxValue, _increment, _start, true)
+    def cycle(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceCycle.type]) =
+      new Sequence[T](name, _minValue, _maxValue, _increment, _start, true)
 
     final def next = Library.NextValue.column[T](toNode)
-    final def curr = Library.CurrentValue.column[T](toNode)
+    final def curr(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceCurr.type]) =
+      Library.CurrentValue.column[T](toNode)
 
     def toNode = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
 
@@ -178,7 +189,8 @@ trait RelationalSequenceComponent { self: RelationalProfile =>
   }
 
   object Sequence {
-    def apply[T : TypedType : Integral](name: String) = new Sequence[T](name, None, None, None, None, false)
+    def apply[T : TypedType : Integral](name: String)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequence.type]) =
+      new Sequence[T](name, None, None, None, None, false)
   }
 }
 
@@ -199,13 +211,13 @@ trait RelationalTypesComponent { self: RelationalProfile =>
 
   trait RelationalImplicitColumnTypes {
     implicit def booleanColumnType: BaseColumnType[Boolean]
-    implicit def bigDecimalColumnType: BaseColumnType[BigDecimal] & NumericTypedType
+    implicit def bigDecimalColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeBigDecimal.type]): BaseColumnType[BigDecimal] & NumericTypedType
     implicit def byteColumnType: BaseColumnType[Byte] & NumericTypedType
     implicit def charColumnType: BaseColumnType[Char]
     implicit def doubleColumnType: BaseColumnType[Double] & NumericTypedType
     implicit def floatColumnType: BaseColumnType[Float] & NumericTypedType
     implicit def intColumnType: BaseColumnType[Int] & NumericTypedType
-    implicit def longColumnType: BaseColumnType[Long] & NumericTypedType
+    implicit def longColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeLong.type]): BaseColumnType[Long] & NumericTypedType
     implicit def shortColumnType: BaseColumnType[Short] & NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
   }

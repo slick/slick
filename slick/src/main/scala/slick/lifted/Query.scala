@@ -6,6 +6,7 @@ import scala.annotation.implicitNotFound
 import slick.ast.{Join as AJoin, *}
 import slick.ast.ScalaBaseType.*
 import slick.basic.Capability
+import slick.jdbc.JdbcCapabilities
 import slick.relational.RelationalCapabilities
 import slick.lifted.FunctionSymbolExtensionMethods.*
 
@@ -149,12 +150,13 @@ sealed trait QueryBase[T] extends Rep[T]
 
   /** Return a query formed from this query and another query by combining
     * corresponding elements in pairs. */
-  def zip[E2, U2, D[_]](q2: Query[E2, U2, D]): Query[(E, E2), (U, U2), C] = standardJoin(q2, JoinType.Zip)
+  def zip[E2, U2, D[_]](q2: Query[E2, U2, D])(implicit cap: Capability.UnknownProfile[RelationalCapabilities.zip.type]): Query[(E, E2), (U, U2), C] =
+    standardJoin(q2, JoinType.Zip)
 
   /** Return a query formed from this query and another query by combining
     * corresponding elements with the specified function. */
   def zipWith[E2, U2, F, G, T, D[_]](q2: Query[E2, U2, D], f: (E, E2) => F)
-                                    (implicit shape: Shape[? <: FlatShapeLevel, F, T, G]): Query[G, T, C] =
+                                    (implicit shape: Shape[? <: FlatShapeLevel, F, T, G], cap: Capability.UnknownProfile[RelationalCapabilities.zip.type]): Query[G, T, C] =
     standardJoin(q2, JoinType.Zip).map[F, G, T](x => f(x._1, x._2))
 
   /** Zip this query with its indices (starting at 0). */
@@ -199,10 +201,10 @@ sealed trait QueryBase[T] extends Rep[T]
   }
 
   /** Specify part of a select statement for update and marked for row level locking */
-  def forUpdate: Query[E, U, C] = locking(LockStrength.ForUpdate)
+  def forUpdate(implicit cap: Capability.UnknownProfile[JdbcCapabilities.forUpdate.type]): Query[E, U, C] = locking(LockStrength.ForUpdate)
 
   /** Specify part of a select statement for share and marked for row level locking */
-  def forShare: Query[E, U, C] = locking(LockStrength.ForShare)
+  def forShare(implicit cap: Capability.UnknownProfile[JdbcCapabilities.forShare.type]): Query[E, U, C] = locking(LockStrength.ForShare)
 
   /** Specify that part of a select statement should use row-level locking with
    * the given strength. */
@@ -245,12 +247,14 @@ sealed trait QueryBase[T] extends Rep[T]
     * capability compute the count with 64 bits (e.g. `count_big` on SQL Server
     * and DB2). Derby does not have it: there the count is computed with the
     * 32-bit `count` and is limited to the `Int` range. */
-  def lengthLong: Rep[Long] = Library.CountAllLong.column(toNode)
+  def lengthLong(implicit cap: Capability.UnknownProfile[RelationalCapabilities.countLong.type]): Rep[Long] =
+    Library.CountAllLong.column(toNode)
 
   /** The number of distinct elements of the query as a `Long`. Use this instead
     * of [[countDistinct]] when the count can exceed `Int.MaxValue`. See
     * [[lengthLong]] for which databases compute it with 64 bits. */
-  def countDistinctLong: Rep[Long] = Library.CountDistinctLong.column(toNode)
+  def countDistinctLong(implicit cap: Capability.UnknownProfile[RelationalCapabilities.countLong.type]): Rep[Long] =
+    Library.CountDistinctLong.column(toNode)
 
   /** Test whether this query is non-empty. */
   def exists = Library.Exists.column[Boolean](toNode)
@@ -269,11 +273,14 @@ sealed trait QueryBase[T] extends Rep[T]
   def take(num: Int): Query[E, U, C] = take(num.toLong)
 
   /** Select all elements except the first `num` ones. */
-  def drop(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Drop(toNode, num.toNode), shaped)
+  def drop(num: ConstColumn[Long])(implicit cap: Capability.UnknownProfile[RelationalCapabilities.pagingDrop.type]): Query[E, U, C] =
+    new WrappingQuery[E, U, C](Drop(toNode, num.toNode), shaped)
   /** Select all elements except the first `num` ones. */
-  def drop(num: Long): Query[E, U, C] = drop(LiteralColumn(num))
+  def drop(num: Long)(implicit cap: Capability.UnknownProfile[RelationalCapabilities.pagingDrop.type]): Query[E, U, C] =
+    drop(LiteralColumn(num))
   /** Select all elements except the first `num` ones. */
-  def drop(num: Int): Query[E, U, C] = drop(num.toLong)
+  def drop(num: Int)(implicit cap: Capability.UnknownProfile[RelationalCapabilities.pagingDrop.type]): Query[E, U, C] =
+    drop(num.toLong)
 
   /** Remove duplicate elements. When used on an ordered Query, there is no guarantee in which
     * order duplicates are removed. This method is equivalent to `distinctOn(identity)`. */

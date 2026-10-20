@@ -27,7 +27,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     When returning columns from an INSERT operation, only a single column
   *     may be specified which must be the table's AutoInc column.</li>
   *   <li>[[slick.relational.RelationalCapabilities.joinFull]]:
-  *     Full outer joins are emulated because there is not native support
+  *     Full outer joins are emulated because there is no native support
   *     for them.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if the

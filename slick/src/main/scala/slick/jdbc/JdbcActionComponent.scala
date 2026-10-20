@@ -204,7 +204,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       super.result.asInstanceOf[StreamingProfileAction[R, T, Effect.Read]]
 
     /** Same as `mutate(sendEndMarker = false)`. */
-    def mutate: ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = mutate(false)
+    def mutate(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.mutable.type]): ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = mutate(false)
 
     /** Create an Action that can be streamed in order to modify a mutable result set. All stream
       * elements will be the same [[slick.jdbc.ResultSetMutator]] object but it is in a different state each
@@ -215,7 +215,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       *                      set, poviding you with a chance to insert additional rows after
       *                      seeing all results. Only `end` (to check for this special event) and
       *                      `insert` may be called in the ResultSetMutator in this case. */
-    def mutate(sendEndMarker: Boolean = false): ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = {
+    def mutate(sendEndMarker: Boolean = false)(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.mutable.type]): ProfileAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = {
       val sql = tree.findNode(_.isInstanceOf[CompiledStatement]).get
         .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
       val (rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType))) :@ (ct: CollectionType) = tree: @unchecked
@@ -361,7 +361,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     /** Insert a single row, including AutoInc columns. This is not supported
       * by all database engines (see
       * [[slick.jdbc.JdbcCapabilities.forceInsert]]). */
-    def forceInsert(value: U): ProfileAction[SingleInsertResult, NoStream, Effect.Write]
+    def forceInsert(value: U)(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.forceInsert.type]): ProfileAction[SingleInsertResult, NoStream, Effect.Write]
 
     /** Insert multiple rows, skipping AutoInc columns.
       *
@@ -397,7 +397,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
       * Returns Some(rowsAffected), or None if the database returned no row
       * count for some part of the batch. If any part of the batch fails, an
       * exception is thrown. */
-    def forceInsertAll(values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write]
+    def forceInsertAll(values: Iterable[U])(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.forceInsert.type]): ProfileAction[MultiInsertResult, NoStream, Effect.Write]
 
     /** Insert a single row if its primary key does not exist in the table,
       * otherwise update the existing record.
@@ -455,7 +455,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     /** Add a mapping from the inserted values and the generated key to compute a new return value.
      * When using [[insertAll]], some JDBC drivers may not be able to return the generated key.
      * In that case, the collection of keys returned by [[insertAll]] will be Nil. */
-    def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertActionComposer[U, RU]
+    def returning[RT, RU, C[_]](value: Query[RT, RU, C])(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.returnInsertKey.type]): ReturningInsertActionComposer[U, RU]
   }
 
   /** An InsertActionComposer that returns generated keys or other columns. */
@@ -490,7 +490,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     def += (value: U): ProfileAction[SingleInsertResult, NoStream, Effect.Write] =
       new SingleInsertAction(compiled.standardInsert, value)
 
-    def forceInsert(value: U): ProfileAction[SingleInsertResult, NoStream, Effect.Write] =
+    def forceInsert(value: U)(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.forceInsert.type]): ProfileAction[SingleInsertResult, NoStream, Effect.Write] =
       new SingleInsertAction(compiled.forceInsert, value)
 
     def insertAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
@@ -500,7 +500,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     ] =
       new MultiInsertAction(compiled.standardInsert, values, rowsPerStatement)
 
-    def forceInsertAll(values: Iterable[U]): ProfileAction[MultiInsertResult, NoStream, Effect.Write] =
+    def forceInsertAll(values: Iterable[U])(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.forceInsert.type]): ProfileAction[MultiInsertResult, NoStream, Effect.Write] =
       new MultiInsertAction(compiled.forceInsert, values, RowsPerStatement.One)
 
     def insertOrUpdate(value: U): ProfileAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] =
@@ -716,7 +716,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   }
 
   protected class CountingInsertActionComposerImpl[U](compiled: CompiledInsert) extends InsertActionComposerImpl[U](compiled) with CountingInsertActionComposer[U] {
-    def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertActionComposer[U, RU] =
+    def returning[RT, RU, C[_]](value: Query[RT, RU, C])(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.returnInsertKey.type]): ReturningInsertActionComposer[U, RU] =
       createReturningInsertActionComposer[U, RU, RU](compiled, value.toNode, (_, r) => r)
 
     protected def retOne(st: Statement, value: U, updateCount: Int) = updateCount
