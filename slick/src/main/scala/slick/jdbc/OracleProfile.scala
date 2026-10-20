@@ -150,6 +150,11 @@ trait OracleProfile extends JdbcProfile {
      * these functions. */
     override protected val hasRadDegConversion = false
 
+    /* Oracle types a NULL column of a union by the other sides, and it cannot cast to every type
+     * (e.g. BLOB). A Boolean NULL must stay untyped because Boolean columns are CHAR(1) but Boolean
+     * literals are numbers, and a NULL of either type would not match the other in a union. */
+    override protected def castNullLiteralInSelect(ti: JdbcType[?]): Boolean = false
+
     override def expr(c: Node): Unit = c match {
       case RowNumber(_) => b"rownum"
       case Library.NextValue(SequenceNode(name)) => b += quoteIdentifier(name) += ".nextval"
@@ -255,7 +260,7 @@ trait OracleProfile extends JdbcProfile {
             case Some(_: TableNode) if hasSqlType(field) => Some(MixedBooleanSql)
             case Some(_: TableNode) => Some(CharBooleanSql)
             /* A subquery column that is NULL on every side stays `None`: Oracle accepts it in a union
-             * with a number (UnionTest.testUnionOfNullBooleanSubquery) */
+             * with a number (UnionTest.testUnionOfNullColumns) */
             case Some(sub @ (_: Comprehension.Base | _: Union)) =>
               resultBooleanSql(sub).collectFirst { case (Some(`field`), sql) => sql }.getOrElse(Some(MixedBooleanSql))
             case _ => Some(MixedBooleanSql)

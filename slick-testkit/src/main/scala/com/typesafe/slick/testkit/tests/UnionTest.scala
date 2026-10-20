@@ -512,26 +512,6 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     ).andFinally(ts.schema.drop)
   }
 
-  /** A subquery column that is NULL on every side needs no cast on Oracle, like an inline NULL */
-  def testUnionOfNullBooleanSubquery = {
-    class T(tag: Tag) extends Table[(Int, Boolean)](tag, "u_null_bool") {
-      def a = column[Int]("a")
-      def b = column[Boolean]("b")
-      def * = (a, b)
-    }
-    val ts = TableQuery[T]
-    val nulls = ts.map(t => (t.a, LiteralColumn(Option.empty[Boolean])))
-
-    // Checks Oracle's union casts; e.g. HSQLDB and PostgreSQL reject this union of a NULL-only column
-    if (tdb.profile != slick.jdbc.OracleProfile) DBIO.successful(())
-    else seq(
-      ts.schema.create,
-      ts ++= Seq((1, true), (5, false)),
-      mark("NULL subquery and literal", nulls.union(nulls).union(ts.map(t => (t.a + 1, LiteralColumn(Option(true))))).result)
-        .map(_.toSet shouldBe Set((1, None), (5, None), (2, Some(true)), (6, Some(true))))
-    ).andFinally(ts.schema.drop)
-  }
-
   /** A Boolean column stored as a number by a mapped type */
   object IntBoolean {
     // Shadows the profile's implicit Boolean type
@@ -578,5 +558,78 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       mark("NUMBER(1) column and NUMBER(1) column", ts.map(t => (t.a, t.n)).union(ts.map(t => (t.a + 1, t.n))).result)
         .map(_.toSet shouldBe Set((1, false), (5, true), (2, false), (6, true)))
     ).andFinally(ts.schema.drop)
+  }
+
+  /** A NULL literal in the select list has the literal's type (#3890). On Oracle, which writes an
+    * untyped NULL, a subquery column that is NULL on every side needs no cast in a union. */
+  def testUnionOfNullColumns = {
+    class T(tag: Tag) extends Table[(Int, Boolean)](tag, "u_null_column") {
+      def a = column[Int]("a")
+      def b = column[Boolean]("b")
+      def * = (a, b)
+    }
+    val ts = TableQuery[T]
+    val nullBooleans = ts.map(t => (t.a, LiteralColumn(Option.empty[Boolean])))
+    val nullInts = ts.map(t => (t.a, LiteralColumn(Option.empty[Int])))
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq((1, true), (5, false)),
+      // PostgreSQL resolves the type of a column that is NULL on both sides of a union as text
+      mark("NULL Boolean union and literal", nullBooleans.union(nullBooleans).union(ts.map(t => (t.a + 1, LiteralColumn(Option(true))))).result)
+        .map(_.toSet shouldBe Set((1, None), (5, None), (2, Some(true)), (6, Some(true)))),
+      mark("NULL Int union and column", nullInts.union(nullInts).union(ts.map(t => (t.a + 1, t.a.?))).result)
+        .map(_.toSet shouldBe Set((1, None), (5, None), (2, Some(1)), (6, Some(5)))),
+      mark("NULL Int subquery", nullInts.subquery.filter(_._2 === 1).map(_._1).result)
+        .map(_ shouldBe Nil),
+      mark("NULL Int subquery isEmpty", nullInts.subquery.filter(_._2.isEmpty).map(_._1).result)
+        .map(_.toSet shouldBe Set(1, 5))
+    ).andFinally(ts.schema.drop)
+  }
+
+  /* A NULL literal must not narrow the length, precision or scale of a union with a column (#3895) */
+  def testUnionOfNullAndPreciseColumns = {
+    class S(tag: Tag) extends Table[(Int, Option[String])](tag, "u_null_long_string") {
+      def a = column[Int]("a")
+      def s = column[Option[String]]("s", O.Length(1000))
+      def * = (a, s)
+    }
+    val ss = TableQuery[S]
+    val longString = "x" * 300
+
+    class D(tag: Tag) extends Table[(Int, Option[BigDecimal])](tag, "u_null_decimal") {
+      def a = column[Int]("a")
+      // 31 digits is the largest precision on DB2 and Derby
+      def d = column[Option[BigDecimal]]("d", slick.sql.SqlProfile.ColumnOption.SqlType("DECIMAL(31,25)"))
+      def * = (a, d)
+    }
+    val ds = TableQuery[D]
+    val highScale = BigDecimal("123456.1234567890123456789012345")
+    val nullDecimals = ds.map(t => (t.a + 1, LiteralColumn(Option.empty[BigDecimal])))
+    /* MySQL types a column that is NULL on both sides of a union as VARBINARY(0), and its union with
+     * a DECIMAL column as VARCHAR, which reads back as 123456.123456789 */
+    val nestedNullDecimalUnion = tdb.profile != slick.jdbc.MySQLProfile
+
+    seq(
+      ss.schema.create,
+      ss += (1, Some(longString)),
+      mark("long String union NULL", ss.map(t => (t.a, t.s)).union(ss.map(t => (t.a + 1, LiteralColumn(Option.empty[String])))).result)
+        .map(_.toSet shouldBe Set((1, Some(longString)), (2, None))),
+      ss.schema.drop,
+      ifCap(rcap.typeBigDecimal) {
+        seq(
+          ds.schema.create,
+          ds += (1, Some(highScale)),
+          // SQL Server would round to 19 decimals in a union with a DECIMAL(21,2) NULL
+          mark("high-scale DECIMAL union NULL", ds.map(t => (t.a, t.d)).union(nullDecimals).result)
+            .map(_.toSet shouldBe Set((1, Some(highScale)), (2, None))),
+          if (nestedNullDecimalUnion)
+            mark("high-scale DECIMAL union NULL union", nullDecimals.union(nullDecimals).union(ds.map(t => (t.a, t.d))).result)
+              .map(_.toSet shouldBe Set((1, Some(highScale)), (2, None)))
+          else DBIO.successful(()),
+          ds.schema.drop
+        )
+      }
+    )
   }
 }

@@ -63,6 +63,26 @@ The same works for any Scala `Enumeration`. To store the values by name instead,
 
 You can also subclass @scaladoc[MappedJdbcType](slick.jdbc.JdbcProfile#MappedJdbcType) for a bit more flexibility.
 
+### Custom Database Types
+
+A mapped column type has the SQL type of the type it maps to. Slick uses that SQL type in DDL, and in a select list
+it writes a `None` literal as `cast(null as <type>)`, so that the database knows the type of a column that is NULL
+on every row, e.g. in a union. If you map a column of a custom database type, such as a PostgreSQL enum or `jsonb`,
+to `String`, a `None` literal of it becomes `cast(null as VARCHAR)`, and a union of it with the column fails on
+PostgreSQL with `UNION types mood and character varying cannot be matched`. Give such a type the real type name by
+subclassing `MappedJdbcType`:
+
+@@snip [PostgresEnumType.scala](../code/PostgresEnumType.scala) { #postgresEnum }
+
+If you cannot change the column type, e.g. because it comes from a library, cast the `None` literal to the real type
+in the query with `asColumnOfType`. A cast is an expression, so the NULL inside it stays a bare `null`, and the
+column is written as `cast(null as mood)`:
+
+@@snip [PostgresEnumType.scala](../code/PostgresEnumType.scala) { #postgresEnumCast }
+
+The [slick-pg](https://github.com/tminglei/slick-pg) library provides such types for PostgreSQL enums, JSON and
+many other PostgreSQL types.
+
 Using Custom Record Types in Queries
 ------------------------------------
 

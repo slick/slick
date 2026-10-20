@@ -129,6 +129,13 @@ trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns: Some[Nil.type] = Some(Nil)
 
+    /* java.time literals are string literals, and HSQLDB rejects a union of a string with a DATE, TIME
+     * or TIMESTAMP NULL (incompatible data types in combination), so such a NULL stays untyped. */
+    override protected def castNullLiteralInSelect(ti: JdbcType[?]): Boolean = ti.sqlType match {
+      case Types.DATE | Types.TIME | Types.TIMESTAMP => false
+      case _                                         => true
+    }
+
     override def expr(c: Node): Unit = c match {
       case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.nodeType).sqlType != Types.CHAR =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
