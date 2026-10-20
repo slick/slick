@@ -5,9 +5,9 @@ import java.time.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.ChronoField
 import java.util.UUID
-
 import slick.SlickException
 import slick.ast.*
+import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MIndexInfo, MTable}
@@ -48,7 +48,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   extension in PostgreSQL.</li>
   * </ul>
   */
-trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
+trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { self =>
 
   trait PostgresAPI extends JdbcAPI {
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
@@ -255,7 +255,7 @@ trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsP
     override protected lazy val useServerSideUpsert =
       compiled.upsert.fields.exists(fs => !fs.options.contains(ColumnOption.AutoInc))
 
-    override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
+    override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement)(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.insertOrUpdate.type]): ProfileAction[
       MultiInsertResult,
       NoStream,
       Effect.Write
