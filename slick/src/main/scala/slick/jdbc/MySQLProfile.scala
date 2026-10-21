@@ -72,7 +72,7 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override val sequenceLimitedCap = deregister(SqlCapabilities.sequenceLimited)
     override val joinFullCap = deregister(RelationalCapabilities.joinFull)
     override val nullableNoDefaultCap = deregister(JdbcCapabilities.nullableNoDefault)
-    override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes) //https://override val comCap = deregister(github.com)/slick/slick/pull/1735
+    override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes) // todo:caps https://github.com/slick/slick/pull/1735
   }
   override val api: MySQLAPI = new MySQLAPI{}
 
