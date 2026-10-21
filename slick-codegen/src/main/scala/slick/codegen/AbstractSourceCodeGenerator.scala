@@ -129,8 +129,11 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         )
     }
 
+    // `(Row.apply(_, _)).tupled` compiles without warnings on Scala 2.12, 2.13 and 3. Scala 3.4+ warns about
+    // `(Row.apply _).tupled`, and Scala 2.12 cannot compile `Row.apply.tupled`.
     def factory   =
-      if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType else s"(${TableClass.elementType}.apply _).tupled"
+      if(columns.size == 1 || isMappedToHugeClass) TableClass.elementType
+      else s"(${TableClass.elementType}.apply(${columns.map(_ => "_").mkString(", ")})).tupled"
 
     trait AbstractSourceCodeEntityTypeDef extends AbstractEntityTypeDef {
       def code = {
