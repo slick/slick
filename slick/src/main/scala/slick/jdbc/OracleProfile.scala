@@ -23,14 +23,17 @@ import slick.util.QueryInterpolator.queryInterpolator
   * ''without'' the following capabilities:
   *
   * <ul>
-  *   <li>[[slick.relational.RelationalCapabilities.foreignKeyActions]]:
+  *   <li>
+  *     [[slick.relational.RelationalCapabilities.OnUpdateActionCapability]]
+  *     [[slick.relational.RelationalCapabilities.OnDeleteActionCapability]]:
   *     Foreign key actions ''Cascade'', ''SetNull'' and ''NoAction'' are
   *     directly supported for ''onDelete''. ''Restrict'' and ''SetDefault''
-  *     are ignored (i.e. equals to ''NoAction''). No ''onUpdate'' actions are
+  *     are ignored (i.e. equals to ''NoAction'') if capability is re-enabled.
+  *     No ''onUpdate'' actions are
   *     supported but specifying ''Cascade'' adds the option INITIALLY DEFERRED
   *     to the foreign key constraint, thus allowing you to perform the
   *     cascading update manually before committing the current transaction.
-  *     Other ''onUpdate'' actions are ignored.</li>
+  *     Other ''onUpdate'' actions are ignored if re-enabled.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
   *     keys should be returned. Otherwise the operation is performed
@@ -63,7 +66,6 @@ import slick.util.QueryInterpolator.queryInterpolator
 trait OracleProfile extends JdbcProfile {
 
   trait ProfileAPI extends JdbcAPI {
-    override val foreignKeyActionsCap = deregister(RelationalCapabilities.foreignKeyActions)
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
     override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
     override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes)
@@ -71,6 +73,13 @@ trait OracleProfile extends JdbcProfile {
     override val returnMultipleInsertKeyCap = deregister(JdbcCapabilities.returnMultipleInsertKey)
     override val insertMultipleRowsWithSingleStatementCap = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
     override val forShareCap = deregister(JdbcCapabilities.forShare)
+
+    override val onUpdateActionSetNullCap = deregister(new RelationalCapabilities.OnUpdateActionCapability(ForeignKeyAction.SetNull))
+    override val onUpdateActionRestrictCap = deregister(new RelationalCapabilities.OnUpdateActionCapability(ForeignKeyAction.Restrict))
+    override val onUpdateActionSetDefaultCap = deregister(new RelationalCapabilities.OnUpdateActionCapability(ForeignKeyAction.SetDefault))
+
+    override val onDeleteActionRestrictCap = deregister(new RelationalCapabilities.OnDeleteActionCapability(ForeignKeyAction.Restrict))
+    override val onDeleteActionSetDefaultCap = deregister(new RelationalCapabilities.OnDeleteActionCapability(ForeignKeyAction.SetDefault))
   }
   override val api: ProfileAPI = new ProfileAPI {}
 

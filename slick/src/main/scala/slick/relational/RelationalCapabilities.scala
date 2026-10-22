@@ -1,6 +1,7 @@
 package slick.relational
 
 import slick.basic.{Capabilities, Capability}
+import slick.model.ForeignKeyAction
 
 /** Capabilities for [[slick.relational.RelationalProfile]]. */
 object RelationalCapabilities { caps =>
@@ -10,8 +11,11 @@ object RelationalCapabilities { caps =>
   val countLong = Capability("relational.countLong")
   /** Supports default values in column definitions */
   val columnDefaults = Capability("relational.columnDefaults")
-  /** Supports foreignKeyActions */
-  val foreignKeyActions = Capability("relational.foreignKeyActions") // todo:caps
+  /** Supports onUpdate foreign key actions */
+  final class OnUpdateActionCapability[T <: ForeignKeyAction](a: T) extends Capability(s"relational.foreignKeyActions.update.${a.action}")
+  /** Supports onDelete foreign key actions */
+  final class OnDeleteActionCapability[T <: ForeignKeyAction](a: T) extends Capability(s"relational.foreignKeyActions.delete.${a.action}")
+
   /** Supports the ''database'' function to get the current database name.
     * A profile without this capability will return an empty string. */
   val functionDatabase = Capability("relational.functionDatabase")
@@ -62,7 +66,6 @@ object RelationalCapabilities { caps =>
     implicit val otherRelationalCap: Registration[caps.other.type] = register(caps.other)
     implicit val columnDefaultsCap: Registration[caps.columnDefaults.type] = register(caps.columnDefaults)
     implicit val countLongCap: Registration[caps.countLong.type] = register(caps.countLong)
-    implicit val foreignKeyActionsCap: Registration[caps.foreignKeyActions.type] = register(caps.foreignKeyActions)
     implicit val functionDatabaseCap: Registration[caps.functionDatabase.type] = register(caps.functionDatabase)
     implicit val functionUserCap: Registration[caps.functionUser.type] = register(caps.functionUser)
     implicit val joinFullCap: Registration[caps.joinFull.type] = register(caps.joinFull)
@@ -81,5 +84,17 @@ object RelationalCapabilities { caps =>
     implicit val reverseCap: Registration[caps.reverse.type] = register(caps.reverse)
     implicit val indexOfCap: Registration[caps.indexOf.type] = register(caps.indexOf)
     implicit val repeatCap: Registration[caps.repeat.type] = register(caps.repeat)
+
+    implicit val onUpdateActionNoCap: Registration[OnUpdateActionCapability[ForeignKeyAction.NoAction.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.NoAction))
+    implicit val onUpdateActionSetNullCap: Registration[OnUpdateActionCapability[ForeignKeyAction.SetNull.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.SetNull))
+    implicit val onUpdateActionCascadeCap: Registration[OnUpdateActionCapability[ForeignKeyAction.Cascade.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.Cascade))
+    implicit val onUpdateActionRestrictCap: Registration[OnUpdateActionCapability[ForeignKeyAction.Restrict.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.Restrict))
+    implicit val onUpdateActionSetDefaultCap: Registration[OnUpdateActionCapability[ForeignKeyAction.SetDefault.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.SetDefault))
+
+    implicit val onDeleteActionNoCap: Registration[OnDeleteActionCapability[ForeignKeyAction.NoAction.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.NoAction))
+    implicit val onDeleteActionSetNullCap: Registration[OnDeleteActionCapability[ForeignKeyAction.SetNull.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.SetNull))
+    implicit val onDeleteActionCascadeCap: Registration[OnDeleteActionCapability[ForeignKeyAction.Cascade.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.Cascade))
+    implicit val onDeleteActionRestrictCap: Registration[OnDeleteActionCapability[ForeignKeyAction.Restrict.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.Restrict))
+    implicit val onDeleteActionSetDefaultCap: Registration[OnDeleteActionCapability[ForeignKeyAction.SetDefault.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.SetDefault))
   }
 }

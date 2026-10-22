@@ -2,7 +2,9 @@ package slick.lifted
 
 import slick.ast.*
 import slick.ast.Util.nodeToNodeOps
+import slick.basic.Capability
 import slick.model.ForeignKeyAction
+import slick.relational.RelationalCapabilities
 
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
@@ -65,12 +67,15 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
    * @param onUpdate         A `ForeignKeyAction`, default being `NoAction`.
    * @param onDelete         A `ForeignKeyAction`, default being `NoAction`.
    */
-  def foreignKey[P, PU, TT <: AbstractTable[?], U](name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
+  def foreignKey[P, PU, TT <: AbstractTable[?], U, OUA <: ForeignKeyAction, ODA <: ForeignKeyAction]
+                                                  (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
                                                   (targetColumns: TT => P,
-                                                   onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-                                                   onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)
+                                                   onUpdate: OUA = ForeignKeyAction.NoAction,
+                                                   onDelete: ODA = ForeignKeyAction.NoAction)
                                                   (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
-                                                   unpackP: Shape[? <: FlatShapeLevel, P, PU, ?]
+                                                   unpackP: Shape[? <: FlatShapeLevel, P, PU, ?],
+                                                   ouc: Capability.UnknownProfile[RelationalCapabilities.OnUpdateActionCapability[OUA]],
+                                                   odc: Capability.UnknownProfile[RelationalCapabilities.OnDeleteActionCapability[ODA]]
                                                   ): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]

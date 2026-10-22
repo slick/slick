@@ -3,8 +3,13 @@ package slick.basic
 import scala.annotation.implicitNotFound
 
 /** Describes a feature that can be supported by a profile. */
-class Capability(name: String) {
+class Capability(val name: String) {
   override def toString = name
+  override def hashCode(): Int = name.hashCode
+  override def equals(obj: Any): Boolean = obj match {
+    case c: Capability => c.name.equals(name)
+    case _ => false
+  }
 }
 
 object Capability {
