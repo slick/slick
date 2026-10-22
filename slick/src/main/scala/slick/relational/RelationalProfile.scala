@@ -52,11 +52,10 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   protected def computeQueryCompiler: QueryCompiler = {
     val base = QueryCompiler.standard
-    val canJoinLeft = capabilities contains RelationalCapabilities.joinLeft
     val canJoinRight = capabilities contains RelationalCapabilities.joinRight
     val canJoinFull = capabilities contains RelationalCapabilities.joinFull
-    if(canJoinLeft && canJoinRight && canJoinFull) base
-    else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandRecords)
+    if (canJoinRight && canJoinFull) base
+    else base.addBefore(new EmulateOuterJoins(canJoinRight), Phase.expandRecords)
   }
 
   class TableQueryExtensionMethods[T <: Table[?], U](val q: Query[T, U, Seq] & TableQuery[T]) {
@@ -108,7 +107,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
   trait RelationalColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
-    def Default[T](defaultValue: T)(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.columnDefaults.type]) =
+    def Default[T](defaultValue: T) =
       RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
     val Unique = ColumnOption.Unique
@@ -216,7 +215,7 @@ trait RelationalTypesComponent { self: RelationalProfile =>
     implicit def doubleColumnType: BaseColumnType[Double] & NumericTypedType
     implicit def floatColumnType: BaseColumnType[Float] & NumericTypedType
     implicit def intColumnType: BaseColumnType[Int] & NumericTypedType
-    implicit def longColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeLong.type]): BaseColumnType[Long] & NumericTypedType
+    implicit def longColumnType: BaseColumnType[Long] & NumericTypedType
     implicit def shortColumnType: BaseColumnType[Short] & NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
   }

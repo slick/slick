@@ -516,8 +516,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def doubleColumnType:         DriverJdbcType[Double] with NumericTypedType = columnTypes.doubleJdbcType
     implicit def floatColumnType:          DriverJdbcType[Float] with NumericTypedType = columnTypes.floatJdbcType
     implicit def intColumnType:            DriverJdbcType[Int] with NumericTypedType = columnTypes.intJdbcType
-    override implicit def longColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeLong.type]): DriverJdbcType[Long] with NumericTypedType =
-      columnTypes.longJdbcType
+    implicit def longColumnType:           DriverJdbcType[Long] with NumericTypedType = columnTypes.longJdbcType
     implicit def shortColumnType:          DriverJdbcType[Short] with NumericTypedType = columnTypes.shortJdbcType
     implicit def stringColumnType:         DriverJdbcType[String] = columnTypes.stringJdbcType
     implicit def timeColumnType:           DriverJdbcType[Time] = columnTypes.timeJdbcType

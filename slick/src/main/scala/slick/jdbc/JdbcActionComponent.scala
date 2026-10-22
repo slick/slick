@@ -455,7 +455,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
     /** Add a mapping from the inserted values and the generated key to compute a new return value.
      * When using [[insertAll]], some JDBC drivers may not be able to return the generated key.
      * In that case, the collection of keys returned by [[insertAll]] will be Nil. */
-    def returning[RT, RU, C[_]](value: Query[RT, RU, C])(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.returnInsertKey.type]): ReturningInsertActionComposer[U, RU]
+    def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertActionComposer[U, RU]
   }
 
   /** An InsertActionComposer that returns generated keys or other columns. */
@@ -716,7 +716,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   }
 
   protected class CountingInsertActionComposerImpl[U](compiled: CompiledInsert) extends InsertActionComposerImpl[U](compiled) with CountingInsertActionComposer[U] {
-    def returning[RT, RU, C[_]](value: Query[RT, RU, C])(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.returnInsertKey.type]): ReturningInsertActionComposer[U, RU] =
+    def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertActionComposer[U, RU] =
       createReturningInsertActionComposer[U, RU, RU](compiled, value.toNode, (_, r) => r)
 
     protected def retOne(st: Statement, value: U, updateCount: Int) = updateCount

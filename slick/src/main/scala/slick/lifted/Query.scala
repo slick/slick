@@ -273,13 +273,13 @@ sealed trait QueryBase[T] extends Rep[T]
   def take(num: Int): Query[E, U, C] = take(num.toLong)
 
   /** Select all elements except the first `num` ones. */
-  def drop(num: ConstColumn[Long])(implicit cap: Capability.UnknownProfile[RelationalCapabilities.pagingDrop.type]): Query[E, U, C] =
+  def drop(num: ConstColumn[Long]): Query[E, U, C] =
     new WrappingQuery[E, U, C](Drop(toNode, num.toNode), shaped)
   /** Select all elements except the first `num` ones. */
-  def drop(num: Long)(implicit cap: Capability.UnknownProfile[RelationalCapabilities.pagingDrop.type]): Query[E, U, C] =
+  def drop(num: Long): Query[E, U, C] =
     drop(LiteralColumn(num))
   /** Select all elements except the first `num` ones. */
-  def drop(num: Int)(implicit cap: Capability.UnknownProfile[RelationalCapabilities.pagingDrop.type]): Query[E, U, C] =
+  def drop(num: Int): Query[E, U, C] =
     drop(num.toLong)
 
   /** Remove duplicate elements. When used on an ordered Query, there is no guarantee in which

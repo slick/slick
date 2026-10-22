@@ -13,20 +13,14 @@ object JdbcCapabilities { caps =>
    * consistency but does not guarantee atomicity, so it may fail if another
    * insert for the same key happens concurrently. */
   val insertOrUpdate = Capability("jdbc.insertOrUpdate") // todo:caps
-  /** Supports `insertOrUpdate` with only primary keys (equivalent to "insert if not exists") */
-  val insertOrUpdateWithPrimaryKeyOnly = Capability("jdbc.insertOrUpdateWithPrimaryKeyOnly") // todo:caps-unused
   /** Supports `insertAll` with `rowsPerStatement = RowsPerStatement.One` */
   val insertMultipleRowsWithSingleStatement = Capability("jdbc.insertMultipleRowsWithSingleStatement") // todo:caps
   /** Supports mutable result sets */
   val mutable = Capability("jdbc.mutable")
-  /** Can return primary key of inserted rows */
-  val returnInsertKey = Capability("jdbc.returnInsertKey")
   /** Can return multiple primary key of inserted rows in a single statement */
   val returnMultipleInsertKey = Capability("jdbc.returnMultipleInsertKey") // todo:caps
   /** Can also return non-primary-key columns of inserted rows */
   val returnInsertOther = Capability("jdbc.returnInsertOther") // todo:caps
-  /** Returns column default values in meta data */
-  val defaultValueMetaData = Capability("jdbc.defaultValueMetaData")
   /** Doesn't map types to Boolean in DatabaseMetaData */
   val booleanMetaData = Capability("jdbc.booleanMetaData")
   /** Reports no default and NULL default differently in meta data */
@@ -46,20 +40,17 @@ object JdbcCapabilities { caps =>
   /** All JDBC capabilities */
   val all = new All{}.capabilities
   trait All extends Capabilities {
+    implicit val otherJdbcCap: Registration[caps.other.type] = register(caps.other)
     implicit val booleanMetaDataCap: Registration[caps.booleanMetaData.type] = register(caps.booleanMetaData)
     implicit val createModelCap: Registration[caps.createModel.type] = register(caps.createModel)
-    implicit val defaultValueMetaDataCap: Registration[caps.defaultValueMetaData.type] = register(caps.defaultValueMetaData)
     implicit val distinguishesIntTypesCap: Registration[caps.distinguishesIntTypes.type] = register(caps.distinguishesIntTypes)
     implicit val forUpdateCap: Registration[caps.forUpdate.type] = register(caps.forUpdate)
     implicit val forShareCap: Registration[caps.forShare.type] = register(caps.forShare)
     implicit val forceInsertCap: Registration[caps.forceInsert.type] = register(caps.forceInsert)
     implicit val insertOrUpdateCap: Registration[caps.insertOrUpdate.type] = register(caps.insertOrUpdate)
-    implicit val insertOrUpdateWithPrimaryKeyOnlyCap: Registration[caps.insertOrUpdateWithPrimaryKeyOnly.type] = register(caps.insertOrUpdateWithPrimaryKeyOnly)
     implicit val insertMultipleRowsWithSingleStatementCap: Registration[caps.insertMultipleRowsWithSingleStatement.type] = register(caps.insertMultipleRowsWithSingleStatement)
     implicit val mutableCap: Registration[caps.mutable.type] = register(caps.mutable)
     implicit val nullableNoDefaultCap: Registration[caps.nullableNoDefault.type] = register(caps.nullableNoDefault)
-    implicit val otherJdbcCap: Registration[caps.other.type] = register(caps.other)
-    implicit val returnInsertKeyCap: Registration[caps.returnInsertKey.type] = register(caps.returnInsertKey)
     implicit val returnInsertOtherCap: Registration[caps.returnInsertOther.type] = register(caps.returnInsertOther)
     implicit val returnMultipleInsertKeyCap: Registration[caps.returnMultipleInsertKey.type] = register(caps.returnMultipleInsertKey)
     implicit val supportsByteCap: Registration[caps.supportsByte.type] = register(caps.supportsByte)

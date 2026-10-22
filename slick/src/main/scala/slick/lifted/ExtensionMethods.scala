@@ -115,11 +115,7 @@ final class StringColumnExtensionMethods[P1, P <: BasicProfile](val c: Rep[P1]) 
 
   def length[R](implicit om: o#to[Int, R]) =
     om.column(Library.Length, n)
-  def like[P2, R](e: Rep[P2])(implicit om: o#arg[String, P2]#to[Boolean, R]): Rep[R] =
-    likeImpl(e, '\u0000')
-  def like[P2, R](e: Rep[P2], esc: Char)(implicit om: o#arg[String, P2]#to[Boolean, R], cap: Capability.ForProfile[P, RelationalCapabilities.likeEscape.type]): Rep[R] =
-    likeImpl(e, esc)
-  private def likeImpl[P2, R](e: Rep[P2], esc: Char = '\u0000')(implicit om: o#arg[String, P2]#to[Boolean, R]) =
+  def like[P2, R](e: Rep[P2], esc: Char = '\u0000')(implicit om: o#arg[String, P2]#to[Boolean, R]) =
     if(esc == '\u0000') om.column(Library.Like, n, e.toNode)
     else om.column(Library.Like, n, e.toNode, LiteralNode(esc))
   def ++[P2, R](e: Rep[P2])(implicit om: o#arg[String, P2]#to[String, R]) =
@@ -145,7 +141,7 @@ final class StringColumnExtensionMethods[P1, P <: BasicProfile](val c: Rep[P1]) 
     substring[P2, R](num)
   def replace[P2, P3, R](target: Rep[P2], replacement: Rep[P3])(implicit om: o#arg[String, P2]#arg[String, P3]#to[String, R], cap: Capability.ForProfile[P, RelationalCapabilities.replace.type]) =
     om.column(Library.Replace, n, target.toNode, replacement.toNode)
-  def indexOf[P2, R](str: Rep[P2])(implicit om: o#arg[String, P2]#to[Int, R], cap: Capability.ForProfile[P, RelationalCapabilities.indexOf.type]) =
+  def indexOf[P2, R](str: Rep[P2])(implicit om: o#arg[String, P2]#to[Int, R]) =
     om.column(Library.IndexOf, n, str.toNode)
   def *[P2, R](i: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R], cap: Capability.ForProfile[P, RelationalCapabilities.repeat.type]) =
     om.column(Library.Repeat, n, i.toNode)

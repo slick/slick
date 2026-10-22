@@ -77,6 +77,7 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
   protected lazy val defaultStringType = profileConfig.getStringOpt("defaultStringType")
 
   trait ProfileAPI extends JdbcAPI {
+    override val createModelCap = deregister(JdbcCapabilities.createModel)
     override val forceInsertCap = deregister(JdbcCapabilities.forceInsert)
     override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)

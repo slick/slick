@@ -30,8 +30,7 @@ trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =
     implicit def doubleColumnType     : ScalaNumericType[Double]     = ScalaBaseType.doubleType
     implicit def floatColumnType      : ScalaNumericType[Float]      = ScalaBaseType.floatType
     implicit def intColumnType        : ScalaNumericType[Int]        = ScalaBaseType.intType
-    implicit def longColumnType(implicit cap: Capability.ForProfile[self.type, RelationalCapabilities.typeLong.type]): ScalaNumericType[Long] =
-      ScalaBaseType.longType
+    implicit def longColumnType       : ScalaNumericType[Long]       = ScalaBaseType.longType
     implicit def shortColumnType      : ScalaNumericType[Short]      = ScalaBaseType.shortType
     implicit def stringColumnType     : ScalaBaseType[String]        = ScalaBaseType.stringType
   }
