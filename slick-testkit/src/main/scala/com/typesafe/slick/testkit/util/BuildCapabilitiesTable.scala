@@ -44,8 +44,8 @@ object BuildCapabilitiesTable {
       cap <- caps.toVector.sortBy(c => if (c.name.endsWith(".other")) "" else c.name)
     } yield {
       val link = cap.name
-        .replaceFirst("foreignKeyActions.update.*", "OnUpdateActionCapability")
-        .replaceFirst("foreignKeyActions.delete.*", "OnDeleteActionCapability")
+        .replaceFirst("foreignKeyActions.update.*", "OnUpdateAction")
+        .replaceFirst("foreignKeyActions.delete.*", "OnDeleteAction")
         .replaceFirst("sequenceLimited.*", "SequenceLimited")
         .replaceFirst(".*\\.", "")
       (cap, linkBase + link + ":slick.basic.Capability")

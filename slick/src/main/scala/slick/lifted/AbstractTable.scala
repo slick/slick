@@ -74,8 +74,8 @@ abstract class AbstractTableBase[T, P <: BasicProfile](val tableTag: Tag, val sc
                                                    onDelete: ODA = ForeignKeyAction.NoAction)
                                                   (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
                                                    unpackP: Shape[? <: FlatShapeLevel, P, PU, ?],
-                                                   ouc: Capability.ForProfile[profile.type, RelationalCapabilities.OnUpdateActionCapability[OUA]],
-                                                   odc: Capability.ForProfile[profile.type, RelationalCapabilities.OnDeleteActionCapability[ODA]]
+                                                   ouc: Capability.ForProfile[profile.type, RelationalCapabilities.OnUpdateAction[OUA]],
+                                                   odc: Capability.ForProfile[profile.type, RelationalCapabilities.OnDeleteAction[ODA]]
                                                   ): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]

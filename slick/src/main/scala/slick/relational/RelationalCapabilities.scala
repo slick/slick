@@ -10,9 +10,9 @@ object RelationalCapabilities { caps =>
     * methods are limited to the `Int` range. */
   val countLong = Capability("relational.countLong")
   /** Supports onUpdate foreign key actions */
-  final class OnUpdateActionCapability[T <: ForeignKeyAction](a: T) extends Capability(s"relational.foreignKeyActions.update.${a.action}")
+  final class OnUpdateAction[T <: ForeignKeyAction](a: T) extends Capability(s"relational.foreignKeyActions.update.${a.action}")
   /** Supports onDelete foreign key actions */
-  final class OnDeleteActionCapability[T <: ForeignKeyAction](a: T) extends Capability(s"relational.foreignKeyActions.delete.${a.action}")
+  final class OnDeleteAction[T <: ForeignKeyAction](a: T) extends Capability(s"relational.foreignKeyActions.delete.${a.action}")
 
   /** Supports the ''database'' function to get the current database name.
     * A profile without this capability will return an empty string. */
@@ -56,16 +56,16 @@ object RelationalCapabilities { caps =>
     implicit val reverseCap: Registration[caps.reverse.type] = register(caps.reverse)
     implicit val repeatCap: Registration[caps.repeat.type] = register(caps.repeat)
 
-    implicit val onUpdateActionNoCap: Registration[OnUpdateActionCapability[ForeignKeyAction.NoAction.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.NoAction))
-    implicit val onUpdateActionSetNullCap: Registration[OnUpdateActionCapability[ForeignKeyAction.SetNull.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.SetNull))
-    implicit val onUpdateActionCascadeCap: Registration[OnUpdateActionCapability[ForeignKeyAction.Cascade.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.Cascade))
-    implicit val onUpdateActionRestrictCap: Registration[OnUpdateActionCapability[ForeignKeyAction.Restrict.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.Restrict))
-    implicit val onUpdateActionSetDefaultCap: Registration[OnUpdateActionCapability[ForeignKeyAction.SetDefault.type]] = register(new OnUpdateActionCapability(ForeignKeyAction.SetDefault))
+    implicit val onUpdateActionNoCap: Registration[OnUpdateAction[ForeignKeyAction.NoAction.type]] = register(new OnUpdateAction(ForeignKeyAction.NoAction))
+    implicit val onUpdateActionSetNullCap: Registration[OnUpdateAction[ForeignKeyAction.SetNull.type]] = register(new OnUpdateAction(ForeignKeyAction.SetNull))
+    implicit val onUpdateActionCascadeCap: Registration[OnUpdateAction[ForeignKeyAction.Cascade.type]] = register(new OnUpdateAction(ForeignKeyAction.Cascade))
+    implicit val onUpdateActionRestrictCap: Registration[OnUpdateAction[ForeignKeyAction.Restrict.type]] = register(new OnUpdateAction(ForeignKeyAction.Restrict))
+    implicit val onUpdateActionSetDefaultCap: Registration[OnUpdateAction[ForeignKeyAction.SetDefault.type]] = register(new OnUpdateAction(ForeignKeyAction.SetDefault))
 
-    implicit val onDeleteActionNoCap: Registration[OnDeleteActionCapability[ForeignKeyAction.NoAction.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.NoAction))
-    implicit val onDeleteActionSetNullCap: Registration[OnDeleteActionCapability[ForeignKeyAction.SetNull.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.SetNull))
-    implicit val onDeleteActionCascadeCap: Registration[OnDeleteActionCapability[ForeignKeyAction.Cascade.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.Cascade))
-    implicit val onDeleteActionRestrictCap: Registration[OnDeleteActionCapability[ForeignKeyAction.Restrict.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.Restrict))
-    implicit val onDeleteActionSetDefaultCap: Registration[OnDeleteActionCapability[ForeignKeyAction.SetDefault.type]] = register(new OnDeleteActionCapability(ForeignKeyAction.SetDefault))
+    implicit val onDeleteActionNoCap: Registration[OnDeleteAction[ForeignKeyAction.NoAction.type]] = register(new OnDeleteAction(ForeignKeyAction.NoAction))
+    implicit val onDeleteActionSetNullCap: Registration[OnDeleteAction[ForeignKeyAction.SetNull.type]] = register(new OnDeleteAction(ForeignKeyAction.SetNull))
+    implicit val onDeleteActionCascadeCap: Registration[OnDeleteAction[ForeignKeyAction.Cascade.type]] = register(new OnDeleteAction(ForeignKeyAction.Cascade))
+    implicit val onDeleteActionRestrictCap: Registration[OnDeleteAction[ForeignKeyAction.Restrict.type]] = register(new OnDeleteAction(ForeignKeyAction.Restrict))
+    implicit val onDeleteActionSetDefaultCap: Registration[OnDeleteAction[ForeignKeyAction.SetDefault.type]] = register(new OnDeleteAction(ForeignKeyAction.SetDefault))
   }
 }

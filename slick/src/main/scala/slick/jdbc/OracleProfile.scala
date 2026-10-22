@@ -24,8 +24,8 @@ import slick.util.QueryInterpolator.queryInterpolator
   *
   * <ul>
   *   <li>
-  *     [[slick.relational.RelationalCapabilities.OnUpdateActionCapability]]
-  *     [[slick.relational.RelationalCapabilities.OnDeleteActionCapability]]:
+  *     [[slick.relational.RelationalCapabilities.OnUpdateAction]]
+  *     [[slick.relational.RelationalCapabilities.OnDeleteAction]]:
   *     Foreign key actions ''Cascade'', ''SetNull'' and ''NoAction'' are
   *     directly supported for ''onDelete''. ''Restrict'' and ''SetDefault''
   *     are ignored (i.e. equals to ''NoAction'') if capability is re-enabled.
@@ -74,12 +74,12 @@ trait OracleProfile extends JdbcProfile {
     override val insertMultipleRowsWithSingleStatementCap = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
     override val forShareCap = deregister(JdbcCapabilities.forShare)
 
-    override val onUpdateActionSetNullCap = deregister(new RelationalCapabilities.OnUpdateActionCapability(ForeignKeyAction.SetNull))
-    override val onUpdateActionRestrictCap = deregister(new RelationalCapabilities.OnUpdateActionCapability(ForeignKeyAction.Restrict))
-    override val onUpdateActionSetDefaultCap = deregister(new RelationalCapabilities.OnUpdateActionCapability(ForeignKeyAction.SetDefault))
+    override val onUpdateActionSetNullCap = deregister(new RelationalCapabilities.OnUpdateAction(ForeignKeyAction.SetNull))
+    override val onUpdateActionRestrictCap = deregister(new RelationalCapabilities.OnUpdateAction(ForeignKeyAction.Restrict))
+    override val onUpdateActionSetDefaultCap = deregister(new RelationalCapabilities.OnUpdateAction(ForeignKeyAction.SetDefault))
 
-    override val onDeleteActionRestrictCap = deregister(new RelationalCapabilities.OnDeleteActionCapability(ForeignKeyAction.Restrict))
-    override val onDeleteActionSetDefaultCap = deregister(new RelationalCapabilities.OnDeleteActionCapability(ForeignKeyAction.SetDefault))
+    override val onDeleteActionRestrictCap = deregister(new RelationalCapabilities.OnDeleteAction(ForeignKeyAction.Restrict))
+    override val onDeleteActionSetDefaultCap = deregister(new RelationalCapabilities.OnDeleteAction(ForeignKeyAction.SetDefault))
   }
   override val api: ProfileAPI = new ProfileAPI {}
 
