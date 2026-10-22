@@ -19,8 +19,6 @@ import slick.util.QueryInterpolator.queryInterpolator
   * <ul>
   *   <li>[[slick.relational.RelationalCapabilities.reverse]]:
   *     This String function is not available in H2.</li>
-  *   <li>[[slick.sql.SqlCapabilities.SequenceLimited]]:
-  *     H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.returnInsertOther]]:
   *     When returning columns from an INSERT operation, only a single column
   *     may be specified which must be the table's AutoInc column.</li>
@@ -38,14 +36,6 @@ import slick.util.QueryInterpolator.queryInterpolator
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   trait ProfileAPI extends JdbcAPI {
-    override val sequenceLimitedNoMinNoMaxNoCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.No, SequenceParameter.No, SequenceParameter.No))
-    override val sequenceLimitedNoMinNoMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.No, SequenceParameter.No, SequenceParameter.Yes))
-    override val sequenceLimitedNoMinMaxNoCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.No, SequenceParameter.Yes, SequenceParameter.No))
-    override val sequenceLimitedNoMinMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.No, SequenceParameter.Yes, SequenceParameter.Yes))
-    override val sequenceLimitedMinNoMaxNoCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.Yes, SequenceParameter.No, SequenceParameter.No))
-    override val sequenceLimitedMinNoMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.Yes, SequenceParameter.No, SequenceParameter.Yes))
-    override val sequenceLimitedMinMaxNoCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.Yes, SequenceParameter.Yes, SequenceParameter.No))
-    override val sequenceLimitedMinMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.Yes, SequenceParameter.Yes, SequenceParameter.Yes))
     override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
     override val joinFullCap = deregister(RelationalCapabilities.joinFull)
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
