@@ -116,7 +116,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
   val columnOptions: RelationalColumnOptions = new RelationalColumnOptions {}
 
-  abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTableBase[T, self.type](_tableTag, _schemaName, _tableName, self) { table =>
+  abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTableBase[T, self.type](_tableTag, _schemaName, _tableName) { table =>
     final type TableElementType = T
 
     def this(_tableTag: Tag, _tableName: String) = this(_tableTag, None, _tableName)

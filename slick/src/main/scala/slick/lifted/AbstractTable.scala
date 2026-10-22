@@ -20,7 +20,7 @@ trait BaseTag extends Tag
 
 /** The profile-independent superclass of all table row objects.
   * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
-abstract class AbstractTableBase[T, P <: BasicProfile](val tableTag: Tag, val schemaName: Option[String], val tableName: String, val profile: P)
+abstract class AbstractTableBase[T, PROFILE <: BasicProfile](val tableTag: Tag, val schemaName: Option[String], val tableName: String)
   extends Rep[T] {
 
   /** The client-side type of the table as defined by its * projection */
@@ -74,8 +74,8 @@ abstract class AbstractTableBase[T, P <: BasicProfile](val tableTag: Tag, val sc
                                                    onDelete: ODA = ForeignKeyAction.NoAction)
                                                   (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
                                                    unpackP: Shape[? <: FlatShapeLevel, P, PU, ?],
-                                                   ouc: Capability.ForProfile[profile.type, RelationalCapabilities.OnUpdateAction[OUA]],
-                                                   odc: Capability.ForProfile[profile.type, RelationalCapabilities.OnDeleteAction[ODA]]
+                                                   ouc: Capability.ForProfile[PROFILE, RelationalCapabilities.OnUpdateAction[OUA]],
+                                                   odc: Capability.ForProfile[PROFILE, RelationalCapabilities.OnDeleteAction[ODA]]
                                                   ): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]
