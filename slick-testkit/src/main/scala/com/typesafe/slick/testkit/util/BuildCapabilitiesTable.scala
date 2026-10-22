@@ -41,8 +41,15 @@ object BuildCapabilitiesTable {
 
     val capabilities = for {
       (caps, linkBase) <- profileCapabilities
-      cap <- caps.toVector.sortBy(c => if (c.toString.endsWith(".other")) "" else c.toString)
-    } yield (cap, linkBase + cap.toString.replaceFirst(".*\\.", "") + ":slick.basic.Capability")
+      cap <- caps.toVector.sortBy(c => if (c.name.endsWith(".other")) "" else c.name)
+    } yield {
+      val link = cap.name
+        .replaceFirst("foreignKeyActions.update.*", "OnUpdateAction")
+        .replaceFirst("foreignKeyActions.delete.*", "OnDeleteAction")
+        .replaceFirst("sequenceLimited.*", "SequenceLimited")
+        .replaceFirst(".*\\.", "")
+      (cap, linkBase + link + ":slick.basic.Capability")
+    }
 
     val file = new File(args(0))
     file.getParentFile.mkdirs()

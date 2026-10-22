@@ -24,10 +24,9 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
         tbl.schema.drop
       )
     }
-
     seq(
       testStore[Int](-1, 0, 1, Int.MinValue, Int.MaxValue),
-      ifCap(rcap.typeLong) { testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue) },
+      testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue),
       testStore[Short](-1, 0, 1, Short.MinValue, Short.MaxValue),
       testStore[Byte](-1, 0, 1, Byte.MinValue, Byte.MaxValue),
       testStore[Double](-1.0, 0.0, 1.0),
