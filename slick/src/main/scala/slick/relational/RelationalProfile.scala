@@ -34,7 +34,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
     implicit def valueToConstColumn[T : TypedType](v: T): LiteralColumn[T] = new LiteralColumn[T](v)
     implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
-    implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[?], U](q: Query[T, U, Seq] & TableQuery[T]): TableQueryExtensionMethods[T, U] =
+    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[?], U](q: Query[T, U, Seq] & TableQuery[T]): TableQueryExtensionMethods[T, U] =
       new TableQueryExtensionMethods[T, U](q)
 
     implicit def streamableCompiledInsertActionExtensionMethods[EU](c: StreamableCompiled[?, ?, EU]): InsertActionExtensionMethods[EU] = createInsertActionExtensionMethods[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
@@ -59,7 +59,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandRecords)
   }
 
-  class TableQueryExtensionMethods[T <: RelationalProfile#Table[?], U](val q: Query[T, U, Seq] & TableQuery[T]) {
+  class TableQueryExtensionMethods[T <: Table[?], U](val q: Query[T, U, Seq] & TableQuery[T]) {
     /** Get the schema description (DDL) for this table. */
     def schema: SchemaDescription = buildTableSchemaDescription(q.shaped.value.asInstanceOf[Table[?]])
 
@@ -117,7 +117,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
 
   val columnOptions: RelationalColumnOptions = new RelationalColumnOptions {}
 
-  abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTable[T](_tableTag, _schemaName, _tableName) { table =>
+  abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTableBase[T, self.type](_tableTag, _schemaName, _tableName, self) { table =>
     final type TableElementType = T
 
     def this(_tableTag: Tag, _tableName: String) = this(_tableTag, None, _tableName)

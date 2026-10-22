@@ -2,7 +2,7 @@ package slick.lifted
 
 import slick.ast.*
 import slick.ast.Util.nodeToNodeOps
-import slick.basic.Capability
+import slick.basic.{BasicProfile, Capability}
 import slick.model.ForeignKeyAction
 import slick.relational.RelationalCapabilities
 
@@ -20,7 +20,7 @@ trait BaseTag extends Tag
 
 /** The profile-independent superclass of all table row objects.
   * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
-abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String)
+abstract class AbstractTableBase[T, P <: BasicProfile](val tableTag: Tag, val schemaName: Option[String], val tableName: String, val profile: P)
   extends Rep[T] {
 
   /** The client-side type of the table as defined by its * projection */
@@ -74,8 +74,8 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
                                                    onDelete: ODA = ForeignKeyAction.NoAction)
                                                   (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
                                                    unpackP: Shape[? <: FlatShapeLevel, P, PU, ?],
-                                                   ouc: Capability.UnknownProfile[RelationalCapabilities.OnUpdateActionCapability[OUA]],
-                                                   odc: Capability.UnknownProfile[RelationalCapabilities.OnDeleteActionCapability[ODA]]
+                                                   ouc: Capability.ForProfile[profile.type, RelationalCapabilities.OnUpdateActionCapability[OUA]],
+                                                   odc: Capability.ForProfile[profile.type, RelationalCapabilities.OnDeleteActionCapability[ODA]]
                                                   ): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]
