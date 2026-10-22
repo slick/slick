@@ -1,9 +1,12 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
+import slick.relational.RelationalSequenceComponent.SequenceParameter.{No, Yes}
+import slick.sql.SqlCapabilities.SequenceLimited
 
 class SequenceTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
+//  import slick.jdbc.MySQLProfile.api.*
 
   def test1 = ifCap(scap.sequence) {
     case class User(id: Int, first: String, last: String)
@@ -16,7 +19,7 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
 
     val mySequence = Sequence[Int]("mysequence").start(200).inc(10)
     val ddl = users.schema ++ mySequence.schema
-    val q1 = for(u <- users) yield (mySequence.next, u.id)
+    val q1 = for (u <- users) yield (mySequence.next, u.id)
     q1.result.statements
     ddl.createStatements
 
@@ -34,11 +37,11 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
     val s3 = Sequence[Int]("s3").start(3).inc(2)
     val s4 = Sequence[Int]("s4").cycle.start(3).min(2).max(5)
     val s5 = Sequence[Int]("s5").cycle.start(3).min(2).max(5).inc(-1)
-    val s6 = Sequence[Int]("s6").start(3).min(2).maxNoCycle(5)
+    val s6 = Sequence[Int]("s6").start(3).min(2).cycle.max(5)
 
     def values(s: Sequence[Int], count: Int = 5, create: Boolean = true) = {
       val q = Query(s.next)
-      (if(create) s.schema.create else DBIO.successful(())) >>
+      (if (create) s.schema.create else DBIO.successful(())) >>
         DBIO.sequence((1 to count).toList map (_ => q.result.map(_.head)))
     }
 
@@ -46,11 +49,11 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
       values(s1).map(_ shouldBe List(1, 2, 3, 4, 5)),
       values(s2).map(_ shouldBe List(3, 4, 5, 6, 7)),
       values(s3).map(_ shouldBe List(3, 5, 7, 9, 11)),
-      ifCap(scap.sequenceMin, scap.sequenceMax, scap.sequenceCycle)(seq(
+      ifCap(new SequenceLimited(min = Yes, max = Yes, cycle = Yes))(seq(
         values(s4).map(_ shouldBe List(3, 4, 5, 2, 3)),
         values(s5).map(_ shouldBe List(3, 2, 5, 4, 3))
       )),
-      ifCap(scap.sequenceMin, scap.sequenceMax, scap.sequenceLimited)(seq(
+      ifNotCap(new SequenceLimited(min = Yes, max = Yes, cycle = No))(seq(
         values(s6, 3).map(_ shouldBe List(3, 4, 5)),
         values(s6, 1, false).failed
       ))

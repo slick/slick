@@ -46,6 +46,7 @@ object BuildCapabilitiesTable {
       val link = cap.name
         .replaceFirst("foreignKeyActions.update.*", "OnUpdateActionCapability")
         .replaceFirst("foreignKeyActions.delete.*", "OnDeleteActionCapability")
+        .replaceFirst("sequenceLimited.*", "SequenceLimited")
         .replaceFirst(".*\\.", "")
       (cap, linkBase + link + ":slick.basic.Capability")
     }

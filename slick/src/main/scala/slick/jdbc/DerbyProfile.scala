@@ -3,7 +3,6 @@ package slick.jdbc
 import java.sql.{PreparedStatement, ResultSet}
 import java.time.Instant
 import java.util.UUID
-
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
@@ -11,6 +10,7 @@ import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio.*
 import slick.jdbc.meta.MTable
 import slick.relational.RelationalCapabilities
+import slick.relational.RelationalSequenceComponent.SequenceParameter
 import slick.sql.SqlCapabilities
 import slick.util.QueryInterpolator.queryInterpolator
 
@@ -33,7 +33,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     <code>Sequence.curr</code> to get the current value of a sequence is
   *     not supported by Derby. Trying to generate SQL code which uses this
   *     feature throws a SlickException.</li>
-  *   <li>[[slick.sql.SqlCapabilities.sequenceCycle]]:
+  *   <li>[[slick.sql.SqlCapabilities.SequenceLimited]]:
   *     Sequence cycling is supported but does not conform to SQL:2008
   *     semantics. Derby cycles back to the START value instead of MINVALUE or
   *     MAXVALUE.</li>
@@ -77,11 +77,13 @@ import slick.util.QueryInterpolator.queryInterpolator
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
   trait ProfileAPI extends JdbcAPI {
+    override val sequenceLimitedNoMinNoMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.No, SequenceParameter.No, SequenceParameter.Yes))
+    override val sequenceLimitedNoMinMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.No, SequenceParameter.Yes, SequenceParameter.Yes))
+    override val sequenceLimitedMinNoMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.Yes, SequenceParameter.No, SequenceParameter.Yes))
+    override val sequenceLimitedMinMaxCycleCap = deregister(new SqlCapabilities.SequenceLimited(SequenceParameter.Yes, SequenceParameter.Yes, SequenceParameter.Yes))
     override val functionDatabaseCap = deregister(RelationalCapabilities.functionDatabase)
     override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
     override val sequenceCurrCap = deregister(SqlCapabilities.sequenceCurr)
-    // Cycling is broken in Derby. It cycles to the start value instead of min or max
-    override val sequenceCycleCap = deregister(SqlCapabilities.sequenceCycle)
     override val zipCap = deregister(RelationalCapabilities.zip)
     override val joinFullCap = deregister(RelationalCapabilities.joinFull)
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)

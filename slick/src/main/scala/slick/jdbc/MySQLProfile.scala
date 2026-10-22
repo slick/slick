@@ -2,7 +2,6 @@ package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
 import java.time.{Instant, LocalDateTime}
-
 import slick.SlickException
 import slick.ast.*
 import slick.ast.TypeUtil.*
@@ -16,8 +15,9 @@ import slick.sql.SqlCapabilities
 import slick.util.{ConstArray, GlobalConfig, SlickLogger}
 import slick.util.ConfigExtensionMethods.configExtensionMethods
 import slick.util.QueryInterpolator.queryInterpolator
-
 import com.typesafe.config.Config
+import slick.relational.RelationalSequenceComponent.SequenceParameter
+import slick.sql.SqlCapabilities.SequenceLimited
 
 /** Slick profile for MySQL.
   *
@@ -28,7 +28,7 @@ import com.typesafe.config.Config
   *   <li>[[slick.jdbc.JdbcCapabilities.returnInsertOther]]:
   *     When returning columns from an INSERT operation, only a single column
   *     may be specified which must be the table's AutoInc column.</li>
-  *   <li>[[slick.sql.SqlCapabilities.sequenceLimited]]:
+  *   <li>[[slick.sql.SqlCapabilities.SequenceLimited]]:
   *     Non-cyclic sequence may not have an upper limit.</li>
   *   <li>[[slick.relational.RelationalCapabilities.joinFull]]:
   *     Full outer joins are emulated because there is no native support
@@ -69,7 +69,8 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
 
   trait ProfileAPI extends JdbcAPI {
     override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
-    override val sequenceLimitedCap = deregister(SqlCapabilities.sequenceLimited)
+    override val sequenceLimitedNoMinMaxNoCycleCap = deregister(new SequenceLimited(SequenceParameter.No, SequenceParameter.Yes, SequenceParameter.No))
+    override val sequenceLimitedMinMaxNoCycleCap = deregister(new SequenceLimited(SequenceParameter.Yes, SequenceParameter.Yes, SequenceParameter.No))
     override val joinFullCap = deregister(RelationalCapabilities.joinFull)
     override val nullableNoDefaultCap = deregister(JdbcCapabilities.nullableNoDefault)
     override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes) // todo:caps https://github.com/slick/slick/pull/1735

@@ -152,10 +152,12 @@ trait RelationalTableComponent { self: RelationalProfile =>
 }
 
 trait RelationalSequenceComponent { self: RelationalProfile =>
-
+  import RelationalSequenceComponent.SequenceParameter
   def buildSequenceSchemaDescription(seq: Sequence[?]): SchemaDescription
 
-  class Sequence[T] private[Sequence] (val name: String,
+  type Sequence[T] = SequenceBase[T, ?, ?, ?]
+  class SequenceBase[T, MIN <: SequenceParameter, MAX <: SequenceParameter, CYCLE <: SequenceParameter] private[relational]
+                                      (val name: String,
                                        val _minValue: Option[T],
                                        val _maxValue: Option[T],
                                        val _increment: Option[T],
@@ -163,19 +165,15 @@ trait RelationalSequenceComponent { self: RelationalProfile =>
                                        val _cycle: Boolean)(implicit val tpe: TypedType[T], val integral: Integral[T])
     { seq =>
 
-    def min(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceMin.type]) =
-      new Sequence[T](name, Some(v), _maxValue, _increment, _start, _cycle)
-    def max(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceMax.type]) =
-      new Sequence[T](name, _minValue, Some(v), _increment, _start, _cycle)
+    def min(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.SequenceLimited[SequenceParameter.Yes.type, MAX, CYCLE]]) =
+      new SequenceBase[T, cap.cap.Min, cap.cap.Max, cap.cap.Cycle](name, Some(v), _maxValue, _increment, _start, _cycle)
+    def max(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.SequenceLimited[MIN, SequenceParameter.Yes.type, CYCLE]]) =
+      new SequenceBase[T, cap.cap.Min, cap.cap.Max, cap.cap.Cycle](name, _minValue, Some(v), _increment, _start, _cycle)
+    def cycle(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.SequenceLimited[MIN, MAX, SequenceParameter.Yes.type]]) =
+      new SequenceBase[T, cap.cap.Min, cap.cap.Max, cap.cap.Cycle](name, _minValue, _maxValue, _increment, _start, true)
 
-    /** Special case for MySQL which only supports max value if there is no cycle. */
-    def maxNoCycle(v: T)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceLimited.type]) =
-      new Sequence[T](name, _minValue, Some(v), _increment, _start, false)
-
-    def inc(v: T) = new Sequence[T](name, _minValue, _maxValue, Some(v), _start, _cycle)
-    def start(v: T) = new Sequence[T](name, _minValue, _maxValue, _increment, Some(v), _cycle)
-    def cycle(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceCycle.type]) =
-      new Sequence[T](name, _minValue, _maxValue, _increment, _start, true)
+    def inc(v: T) = new SequenceBase[T, MIN, MAX, CYCLE](name, _minValue, _maxValue, Some(v), _start, _cycle)
+    def start(v: T) = new SequenceBase[T, MIN, MAX, CYCLE](name, _minValue, _maxValue, _increment, Some(v), _cycle)
 
     final def next = Library.NextValue.column[T](toNode)
     final def curr(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequenceCurr.type]) =
@@ -188,7 +186,14 @@ trait RelationalSequenceComponent { self: RelationalProfile =>
 
   object Sequence {
     def apply[T : TypedType : Integral](name: String)(implicit cap: Capability.ForProfile[self.type, SqlCapabilities.sequence.type]) =
-      new Sequence[T](name, None, None, None, None, false)
+      new SequenceBase[T, SequenceParameter.No.type, SequenceParameter.No.type, SequenceParameter.No.type](name, None, None, None, None, false)
+  }
+}
+object RelationalSequenceComponent {
+  sealed trait SequenceParameter
+  object SequenceParameter {
+    case object No  extends SequenceParameter
+    case object Yes extends SequenceParameter
   }
 }
 
