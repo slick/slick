@@ -50,12 +50,12 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait PostgresProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { self =>
 
-  trait PostgresAPI extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
     override val nullableNoDefaultCap = deregister(JdbcCapabilities.nullableNoDefault)
     override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
   }
-  override val api: PostgresAPI = new PostgresAPI {}
+  override val api: ProfileAPI = new ProfileAPI {}
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

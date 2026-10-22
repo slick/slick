@@ -36,14 +36,14 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  trait DB2API extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val reverseCap = deregister(RelationalCapabilities.reverse)
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
     override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
     override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
     override val forShareCap = deregister(JdbcCapabilities.forShare)
   }
-  override val api: DB2API = new DB2API{}
+  override val api: ProfileAPI = new ProfileAPI {}
   
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false

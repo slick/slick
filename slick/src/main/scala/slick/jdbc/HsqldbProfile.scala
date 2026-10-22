@@ -38,12 +38,12 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  trait Hsqldb2API extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val sequenceCurrCap = deregister(SqlCapabilities.sequenceCurr)
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
     override val forShareCap = deregister(JdbcCapabilities.forShare)
   }
-  override val api: Hsqldb2API = new Hsqldb2API{}
+  override val api: ProfileAPI = new ProfileAPI {}
 
   class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

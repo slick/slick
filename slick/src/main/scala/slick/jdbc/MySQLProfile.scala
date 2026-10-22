@@ -67,14 +67,14 @@ import com.typesafe.config.Config
 trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { profile =>
   import MySQLProfile.{RowNum, RowNumGen}
 
-  trait MySQLAPI extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
     override val sequenceLimitedCap = deregister(SqlCapabilities.sequenceLimited)
     override val joinFullCap = deregister(RelationalCapabilities.joinFull)
     override val nullableNoDefaultCap = deregister(JdbcCapabilities.nullableNoDefault)
     override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes) // todo:caps https://github.com/slick/slick/pull/1735
   }
-  override val api: MySQLAPI = new MySQLAPI{}
+  override val api: ProfileAPI = new ProfileAPI {}
 
   override protected[this] def loadProfileConfig: Config = {
     if(!GlobalConfig.profileConfig("slick.driver.MySQL").entrySet().isEmpty)

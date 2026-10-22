@@ -6,10 +6,10 @@ import slick.jdbc.{JdbcCapabilities, MySQLProfile}
 trait StrictUpsertMySQLProfile extends MySQLProfile {
   // Use the client-side emulation (select by primary key, then update or insert)
   // instead of INSERT ... ON DUPLICATE KEY UPDATE
-  trait StrictUpsertMySQLAPI extends MySQLAPI {
+  trait StrictUpsertMySQLAPI extends ProfileAPI {
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
   }
-  override val api: StrictUpsertMySQLAPI = new StrictUpsertMySQLAPI{}
+  override val api: StrictUpsertMySQLAPI = new StrictUpsertMySQLAPI {}
 }
 
 object StrictUpsertMySQLProfile extends StrictUpsertMySQLProfile

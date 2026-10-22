@@ -39,7 +39,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  trait H2API extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val sequenceMinCap = deregister(SqlCapabilities.sequenceMin)
     override val sequenceMaxCap = deregister(SqlCapabilities.sequenceMax)
     override val sequenceCycleCap = deregister(SqlCapabilities.sequenceCycle)
@@ -49,7 +49,7 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     override val reverseCap = deregister(RelationalCapabilities.reverse)
     override val forShareCap = deregister(JdbcCapabilities.forShare)
   }
-  override val api: H2API = new H2API{}
+  override val api: ProfileAPI = new ProfileAPI {}
 
   class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

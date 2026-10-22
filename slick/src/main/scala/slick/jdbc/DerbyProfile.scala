@@ -76,7 +76,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  trait DerbyAPI extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val functionDatabaseCap = deregister(RelationalCapabilities.functionDatabase)
     override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
     override val sequenceCurrCap = deregister(SqlCapabilities.sequenceCurr)
@@ -94,7 +94,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     override val forShareCap = deregister(JdbcCapabilities.forShare)
     override val countLongCap = deregister(RelationalCapabilities.countLong)
   }
-  override val api: DerbyAPI = new DerbyAPI{}
+  override val api: ProfileAPI = new ProfileAPI {}
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
 

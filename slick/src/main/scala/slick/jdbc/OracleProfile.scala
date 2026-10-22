@@ -62,7 +62,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait OracleProfile extends JdbcProfile {
 
-  trait OracleAPI extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val foreignKeyActionsCap = deregister(RelationalCapabilities.foreignKeyActions)
     override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
     override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
@@ -72,7 +72,7 @@ trait OracleProfile extends JdbcProfile {
     override val insertMultipleRowsWithSingleStatementCap = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
     override val forShareCap = deregister(JdbcCapabilities.forShare)
   }
-  override val api: OracleAPI = new OracleAPI{}
+  override val api: ProfileAPI = new ProfileAPI {}
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false

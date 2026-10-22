@@ -81,7 +81,7 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { self =>
 
-  trait SQLiteAPI extends JdbcAPI {
+  trait ProfileAPI extends JdbcAPI {
     override val functionDatabaseCap = deregister(RelationalCapabilities.functionDatabase)
     override val functionUserCap = deregister(RelationalCapabilities.functionUser)
     override val joinFullCap = deregister(RelationalCapabilities.joinFull)
@@ -100,7 +100,7 @@ trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPer
     override val forShareCap = deregister(JdbcCapabilities.forShare)
     override val returnMultipleInsertKeyCap = deregister(JdbcCapabilities.returnMultipleInsertKey)
   }
-  override val api: SQLiteAPI = new SQLiteAPI{}
+  override val api: ProfileAPI = new ProfileAPI {}
 
   class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

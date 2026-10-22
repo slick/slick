@@ -137,12 +137,16 @@ class InsertOrUpdateStatementTest {
 
   /** Removing the capability, as documented for a strict primary-key upsert on MySQL, selects the emulation. */
   @Test def testMySQLWithoutUpsertCapability(): Unit = {
-    object StrictUpsertMySQLProfile extends MySQLProfile {
-      trait StrictUpsertMySQLAPI extends MySQLAPI {
+    trait StrictUpsertMySQLProfile extends MySQLProfile {
+      // Use the client-side emulation (select by primary key, then update or insert)
+      // instead of INSERT ... ON DUPLICATE KEY UPDATE
+      trait StrictUpsertMySQLAPI extends ProfileAPI {
         override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
       }
-      override val api: StrictUpsertMySQLAPI = new StrictUpsertMySQLAPI{}
+      override val api: StrictUpsertMySQLAPI = new StrictUpsertMySQLAPI {}
     }
+
+    object StrictUpsertMySQLProfile extends StrictUpsertMySQLProfile
     assertEquals(
       Seq(
         "select 1 from `users` where `id`=?",
