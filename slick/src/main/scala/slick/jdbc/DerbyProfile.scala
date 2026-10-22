@@ -213,6 +213,7 @@ trait DerbyProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
         } else super.expr(c)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
+      case Library.Database() => b"''"
       case Union(left, right, all) =>
         b"\{"
         buildFrom(left, None, skipParens = true)
