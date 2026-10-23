@@ -237,8 +237,6 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 - **SQL generation**: Log the executed SQL with `-Dlog.jdbc.statement=debug` (see "Setting system properties for
   tests" in DEVELOPING.md)
 - **Database-specific features**: Verify profile capabilities
-- **PostgreSQL JDBC Compatibility**: When upgrading PostgreSQL JDBC drivers, catalog parameter handling may change. Use
-  `conn.getCatalog` instead of empty strings in `DatabaseMetaData.getTables()` calls
 - **"Relation already exists" errors**: Usually indicates database cleanup issues between tests. Check
   `dropUserArtifacts` implementations in test database configurations
 
