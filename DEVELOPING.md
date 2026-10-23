@@ -8,7 +8,7 @@ sbt testAll               # what CI runs: all test suites, then the scaladoc bui
 sbt testkit/test          # incremental: skips suites that passed before and are unaffected by your changes
 sbt testkit/testFull      # every testkit suite
 sbt testkit/DocTest/test  # the examples in the manual
-sbt "++3.9.0! testkit/test"  # under another Scala version (see `crossScalaVersions` for the supported ones)
+sbt "++3.x testkit/test"  # under the Scala 3 version in `crossScalaVersions` (likewise ++2.12.x, ++2.13.x)
 ```
 
 ## Working in a linked git worktree

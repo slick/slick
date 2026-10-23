@@ -22,13 +22,11 @@ It's a multi-module SBT project with the following key modules:
 # so separate multiple commands with ';' inside a single quoted argument.
 sbt "clean; compile"
 
-# Cross-compile for all supported Scala versions
-sbt ++2.12.21 compile
-sbt ++2.13.18 compile
-sbt ++3.9.0 compile
-
-# Force specific Scala version for testing
-sbt ++3.9.0! compile
+# Compile under each supported Scala version. `++2.13.x` switches every project to the 2.13 version listed in
+# `crossScalaVersions`
+sbt ++2.12.x compile
+sbt ++2.13.x compile
+sbt ++3.x compile
 
 # Generate API documentation
 sbt doc
