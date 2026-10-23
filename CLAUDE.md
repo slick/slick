@@ -235,10 +235,6 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 
 ### Code Generation (Codegen) Issues
 
-- **H2 VARCHAR Length Problems**: H2 reports default VARCHAR length as 1000000000, which can cause issues with other
-  databases during round-trip testing. This is handled in `H2ColumnBuilder.length` by filtering out large default values
-- **Derby VARCHAR Limits**: Derby has a VARCHAR length limit of 32,672 characters. Codegen tests use H2 for generation
-  but Derby for execution, requiring careful length handling
 - **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of
   capability differences (e.g., H2's features vs Derby's limitations)
 
