@@ -215,9 +215,6 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 - Use capability system to handle database-specific features
 - Test against multiple database profiles
 - Handle database-specific SQL generation in profiles
-- **Aggregate Functions**: When modifying aggregate functions (like AVG), be aware that different databases return
-  different types (INTEGER vs DECIMAL vs DOUBLE). Consider using `Option[Double]` for consistency and add
-  database-specific rounding logic in test suites
 
 ## Common Issues and Solutions
 
