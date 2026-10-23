@@ -112,6 +112,34 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
   }
   val typeTest = TableQuery[TypeTest]
 
+  def testMySQLPrecisionMetadata = if(tdb.confName.contains("mysql")) {
+    (for {
+      _ <- sqlu"""create table precision_metadata (
+        decimal_value decimal(31,25),
+        timestamp_value timestamp(3) null,
+        time_value time(3)
+      )"""
+      tables <- MTable.getTables(None, None, Some("precision_metadata"), Some(Seq("TABLE")))
+      columns <- tables.head.getColumns
+      model <- tdb.profile.createModel(Some(DBIO.successful(tables)), ignoreInvalidDefaults = false)
+      _ = {
+        val metadata = columns.map(c => c.name -> c).toMap
+        assertEquals(Some(31), metadata("decimal_value").size)
+        assertEquals(Some(25), metadata("decimal_value").decimalDigits)
+        assertEquals(Some(3), metadata("timestamp_value").decimalDigits)
+        assertEquals(Some(3), metadata("time_value").decimalDigits)
+
+        val generated = model.tables.head.columns.map(c => c.name -> c).toMap
+        def sqlType(name: String) = generated(name).options.collect {
+          case SqlProfile.ColumnOption.SqlType(value) => value
+        }.head
+        assertEquals("DECIMAL(31,25)", sqlType("decimal_value").toUpperCase)
+        assertEquals("TIMESTAMP(3)", sqlType("timestamp_value").toUpperCase)
+        assertEquals("TIME(3)", sqlType("time_value").toUpperCase)
+      }
+    } yield ()).andFinally(sqlu"drop table if exists precision_metadata")
+  } else DBIO.successful(())
+
   def testMySQLExpressionDefaults = if(tdb.confName.contains("mysql")) {
     val timestamp = java.sql.Timestamp.valueOf("2001-02-03 04:05:06")
     (for {

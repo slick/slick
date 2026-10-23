@@ -216,9 +216,28 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
       * Only valid for single column primary keys. */
     def createPrimaryKeyColumnOption: Boolean =
       tableBuilder.mPrimaryKeys.size == 1 && tableBuilder.mPrimaryKeys.head.column == meta.name
-    /** A (potentially non-portable) database column type. For string types, this should not
-      * include a length ascription. */
-    def dbType: Option[String] = Some(meta.typeName)
+    /** A (potentially non-portable) database column type. String lengths are stored separately
+      * as [[length]]. JDBC reports numeric precision in COLUMN_SIZE and numeric scale (or
+      * fractional-second precision for temporal types) in DECIMAL_DIGITS. Driver type names
+      * that already contain parameters are preserved. Override this method for other types. */
+    def dbType: Option[String] = {
+      import java.sql.Types.*
+
+      val name = meta.typeName
+      val bareName = name.toUpperCase(java.util.Locale.ROOT)
+      val numeric = Set("DECIMAL", "NUMERIC", "NUMBER", "DEC")
+      val temporal = Set("TIME", "TIMESTAMP", "DATETIME", "DATETIME2")
+      val suffix = (meta.sqlType, meta.size, meta.decimalDigits) match {
+        case (DECIMAL | NUMERIC, Some(precision), Some(scale))
+          if numeric.contains(bareName) && precision > 0 && scale >= 0 && scale <= precision =>
+          s"($precision,$scale)"
+        case (TIME | TIMESTAMP, _, Some(precision))
+          if temporal.contains(bareName) && precision >= 0 && precision <= 9 =>
+          s"($precision)"
+        case _ => ""
+      }
+      Some(name + suffix)
+    }
     /** Column length of string types */
     def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
     /** Indicates whether this should be a varchar in case of a string column.
