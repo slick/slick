@@ -295,7 +295,7 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
   class UpdateActionExtensionMethodsImpl[T](tree: Node, param: Any) {
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
-      CompiledMapping(_converter, _)) = tree: @unchecked
+      CompiledMapping(_converter, _)) = tree
     protected[this] val converter = _converter.asInstanceOf[ResultConverter[ResultSet, PreparedStatement, ResultSet, T]]
 
     /** An Action that updates the data selected by this query. */
