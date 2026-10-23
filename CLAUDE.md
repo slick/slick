@@ -5,13 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Slick is a functional relational mapping (FRM) library for Scala that provides type-safe, composable database access.
-It's a multi-module SBT project with the following key modules:
-
-- **slick**: Core library with lifted embedding, AST, compiler, and JDBC support
-- **slick-testkit**: Comprehensive test suite and database compatibility testing
-- **slick-codegen**: Code generation from database schemas
-- **slick-hikaricp**: HikariCP connection pool integration
-- **reactive-streams-tests**: Reactive Streams compliance tests
+It's a multi-module sbt project; `build.sbt` defines the modules.
 
 ## Common Development Commands
 
@@ -22,80 +16,33 @@ It's a multi-module SBT project with the following key modules:
 # so separate multiple commands with ';' inside a single quoted argument.
 sbt "clean; compile"
 
-# Cross-compile for all supported Scala versions
-sbt ++2.12.21 compile
-sbt ++2.13.18 compile
-sbt ++3.9.0 compile
-
-# Force specific Scala version for testing
-sbt ++3.9.0! compile
+# Compile under each supported Scala version. `++2.13.x` switches every project to the 2.13 version listed in
+# `crossScalaVersions`
+sbt ++2.12.x compile
+sbt ++2.13.x compile
+sbt ++3.x compile
 
 # Generate API documentation
 sbt doc
 ```
 
-### Testing Commands
+### Running Tests
 
-Use `sbt` directly from the repository root for all test runs.
-
-```bash
-# Run all tests (includes testkit, doctests, and reactive-streams tests)
-sbt testAll
-
-# Run only testkit tests (sbt 2's `test` is incremental and skips unchanged, previously passing suites;
-# use `testFull` to force a complete run)
-sbt testkit/test
-sbt testkit/testFull
-
-# Run documentation tests
-sbt testkit/DocTest/test
-
-# Run reactive streams tests  
-sbt reactive-streams-tests/test
-
-# Test specific database profiles
-sbt "testkit/testOnly slick.test.profile.H2MemTest"
-sbt "testkit/testOnly slick.test.profile.PostgresTest"
-
-# Test with pattern matching
-sbt "testkit/testOnly *JoinTest*"
-sbt "testkit/testOnly *MainTest* -- -z insertTest"
-
-# Fully-qualified test name filtering (recommended for a single Testkit test)
-sbt "testkit/testOnly slick.test.profile.H2MemTest -- -z com.typesafe.slick.testkit.tests.TransactionTest.testTransactions[h2mem]"
-
-# Run with debug output and SQL logging
-sbt -Dslick.ansiDump=true testkit/test
-
-# Cross-version testing
-sbt ++2.12.21 testkit/test
-sbt ++2.13.18 testkit/test
-sbt ++3.9.0! testkit/test
-
-# Codegen tests (requires cleaning managed sources first)
-rm -rf target/out/jvm/scala-2.13.18/slick-testkit/src_managed && sbt 'testOnly slick.test.codegen.*'
-```
+Read [DEVELOPING.md](DEVELOPING.md) before running tests. It covers the setting needed to load the build in a linked
+git worktree, how to select testkit tests (`testOnly` patterns and the arguments after `--`), how to set system
+properties in the forked test JVMs, and how to enable the service databases.
 
 ### Development Build Tasks
 
 ```bash
-# Check for dependency updates
-sbt dependencyUpdates
-
 # Build capabilities documentation table
 sbt testkit/buildCapabilitiesTable
 
 # Run compatibility report
 sbt site/buildCompatReport
 
-# Clean compile-time test artifacts
-sbt testkit/cleanCompileTimeTests
-
 # Check current version
 sbt "show version"
-
-# Run lint and type checking (for PR validation)
-# Note: Check build.sbt for specific lint/typecheck commands
 ```
 
 ## Architecture Overview
@@ -154,25 +101,7 @@ slick-testkit/src/
 └── doctest/       # Documentation example tests
 ```
 
-### Critical Scala 3 Compatibility
-
-The codebase includes Scala 3-specific implementations:
-
-- **slick/src/main/scala-3/**: Scala 3-specific code including `ShapedValue.scala`
-- **slick/src/main/scala-2.13/**: Scala 2.13-specific implementations
-- **Cross-compilation**: Supports Scala 2.12, 2.13, and 3.x with version-specific optimizations
-
 ## Testing Framework
-
-### Test Categories
-
-- **Unit Tests**: Basic functionality and edge cases
-- **Database Tests**: Cross-database compatibility (grouped by database type)
-- **Compile Tests**: Compile-time behavior verification
-- **Integration Tests**: End-to-end scenarios
-- **Performance Tests**: Benchmarks and stress tests
-- **Documentation Tests**: Code examples in documentation
-- **Reactive Streams Tests**: Streaming compliance tests
 
 ### Test Configuration System
 
@@ -183,119 +112,6 @@ Tests use Typesafe Config for database configuration:
 - **Test grouping**: Database-specific test groups with controlled concurrency
 - **Environment-specific configs**: GitHub Actions configurations in `test-dbs/`
 - **Key test databases**: H2 (default for fast testing), PostgreSQL, MySQL (for production database testing)
-
-### Running Tests
-
-```bash
-# Run all tests (includes testkit, doctests, and reactive-streams tests)
-sbt testAll
-
-# Run only testkit tests (sbt 2's `test` is incremental and skips unchanged, previously passing suites;
-# use `testFull` to force a complete run)
-sbt testkit/test
-sbt testkit/testFull
-
-# Run documentation tests
-sbt testkit/DocTest/test
-
-# Run reactive streams tests
-sbt reactive-streams-tests/test
-
-# Test specific database
-sbt -Dslick.dbs=postgres testkit/test
-
-# Test specific functionality
-sbt "testkit/testOnly *JoinTest*"
-
-# Run specific test with full qualification
-sbt "testkit/testOnly slick.test.profile.H2MemTest -- -z com.typesafe.slick.testkit.tests.JoinTest.testJoin[h2mem]"
-
-# Run with debug output
-sbt -Dslick.ansiDump=true testkit/test
-
-# Run with SQL debugging
-sbt -Dslick.ansiDump=true testkit/test
-```
-
-### Cross-Database Testing Configuration
-
-#### Configuration System Overview
-
-Slick's testkit uses a layered configuration system for database testing:
-
-1. **Default Configuration** (`testkit-reference.conf`): Embedded databases only (H2, Derby, HSQLDB, SQLite)
-   - Fast local testing with no external dependencies
-
-2. **Base Database Configuration** (`test-dbs/testkit-databases.conf`): All service database connection settings
-   - Contains connection details for PostgreSQL, MySQL, Oracle, DB2, SQL Server
-   - All service databases remain disabled by default
-   - Matches the services defined in GitHub Actions as well as `docker-compose.yml`
-
-3. **GitHub Actions Configuration** (`test-dbs/testkit.github-actions.conf`): CI comprehensive testing
-   - Includes the base database config and sets `enabled = true` for all service databases
-   - Used for comprehensive cross-database testing in CI
-
-4. **System Property Overrides**: Typesafe Config allows runtime configuration overrides
-   - `-D[database].enabled=true` enables specific databases when using base config
-   - Much simpler than having to disable everything else
-
-#### Testing Service Databases Locally
-
-Use the base config and enable only what you need:
-
-```bash
-# Test only PostgreSQL (start docker container and enable)
-docker compose up -d postgres
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
-  -Dpostgres.enabled=true \
-  "testkit/testOnly slick.test.profile.PostgresTest"
-
-# Test PostgreSQL + MySQL together
-docker compose up -d postgres mysql
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
-  -Dpostgres.enabled=true -Dmysql.enabled=true \
-  testkit/test
-
-# Test specific functionality across multiple databases
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit-databases.conf sbt \
-  -Dpostgres.enabled=true -Dmysql.enabled=true \
-  'project testkit; +testOnly -- -z com.typesafe.slick.testkit.tests.AggregateTest.testGroupBy*'
-```
-
-**CI Testing** (all databases enabled):
-
-```bash
-# Comprehensive testing (as used in GitHub Actions)
-env SLICK_TESTKIT_CONFIG=test-dbs/testkit.github-actions.conf sbt testkit/test
-```
-
-**Available Database Flags:**
-
-- `postgres.enabled=true` - Enable PostgreSQL testing
-- `mysql.enabled=true` - Enable MySQL testing  
-- `db2.enabled=true` - Enable DB2 testing
-- `oracle.enabled=true` - Enable Oracle testing
-- `sqlserver-sqljdbc.enabled=true` - Enable SQL Server testing
-
-#### Why This Design?
-
-- **Local simplicity**: Enable only what you want to test with `-D[database].enabled=true`
-- **Resource efficiency**: No need to disable multiple databases - just enable what you need
-- **CI simplicity**: GitHub Actions config enables everything for comprehensive testing
-- **Consistent connection settings**: Same connection parameters across all environments
-- **Clear separation**: Base config has connection details, CI config just enables everything
-
-### Local Database Testing with Docker
-
-```bash
-# Start databases using docker-compose
-docker compose up -d postgres
-docker compose up -d mysql
-docker compose up -d sqlserver
-
-# Wait for database readiness
-docker compose exec postgres pg_isready -U postgres
-```
 
 ### Test Development Patterns
 
@@ -309,20 +125,11 @@ docker compose exec postgres pg_isready -U postgres
 
 ### SBT Configuration
 
-- **Multi-module project**: Root project aggregates slick, codegen, hikaricp, testkit, and site modules
 - **Cross-compilation**: Supports Scala 2.12, 2.13, and 3.x with version-specific optimizations
 - **Custom tasks**: `testAll` runs comprehensive test suite across all modules
 - **Dependencies**: Managed in `project/Dependencies.scala` with version centralization
 - **Test concurrency**: Configured with test group tags to limit concurrent database tests
 - **Forked tests**: Database tests run in forked JVMs for isolation
-
-### Module Dependencies
-
-- **slick**: Core library, no dependencies on other modules
-- **slick-testkit**: Depends on slick, codegen, hikaricp for comprehensive testing
-- **slick-codegen**: Depends on slick for database schema code generation
-- **slick-hikaricp**: Depends on slick for connection pooling integration
-- **reactive-streams-tests**: Depends on testkit for streaming compliance tests
 
 ### Version Management
 
@@ -370,18 +177,6 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 
 ## Compiler Pipeline Architecture
 
-### Query Compilation Phases
-
-The `QueryCompiler` uses an immutable, configurable pipeline:
-
-1. **AssignUniqueSymbols**: Symbol resolution and uniqueness
-2. **InferTypes**: Type inference and validation
-3. **ExpandTables**: Table expansion and normalization
-4. **RewriteJoins**: Join transformation and optimization
-5. **MergeToComprehensions**: Query optimization and flattening
-6. **ResolveZipJoins**: Zip join resolution
-7. **Database-specific phases**: SQL generation for the target database
-
 ### Compilation Customization
 
 - **Profile-specific compilers**: Each database profile has customized compilation
@@ -405,13 +200,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Type mapping**: Database-specific type conversions and encodings
 - **Feature detection**: Runtime capability checking for database features
 
-### Performance Considerations
-
-- **Streaming support**: Reactive Streams integration for large result sets
-- **Connection pooling**: HikariCP integration with monitoring support
-- **Async operations**: Future-based API with proper resource management
-- **Compilation caching**: Prepared statement caching and reuse
-
 ## Development Guidelines
 
 ### Code Style
@@ -431,13 +219,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   different types (INTEGER vs DECIMAL vs DOUBLE). Consider using `Option[Double]` for consistency and add
   database-specific rounding logic in test suites
 
-### Performance Considerations
-
-- Compiler phases are optimized for query performance
-- Use streaming for large result sets via `DatabasePublisher`
-- Async operations with proper resource management
-- Connection pooling with HikariCP monitoring
-
 ## Common Issues and Solutions
 
 ### Compilation Problems
@@ -453,8 +234,8 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   cache (`~/.cache/sbt/v2`) restored a module's compiled classes without the `scoverage-data` directory that the
   coverage-instrumented compile creates, so instrumented code cannot record measurements. CI disables the disk cache
   for coverage builds (`disk-cache: false` on `sbt/setup-sbt`); locally, delete `~/.cache/sbt/v2` and rerun
-- **Connection issues**: Check database configuration in `application.conf`
-- **SQL generation**: Enable SQL logging with `slick.ansiDump=true`
+- **SQL generation**: Log the executed SQL with `-Dlog.jdbc.statement=debug` (see "Setting system properties for
+  tests" in DEVELOPING.md)
 - **Database-specific features**: Verify profile capabilities
 - **PostgreSQL JDBC Compatibility**: When upgrading PostgreSQL JDBC drivers, catalog parameter handling may change. Use
   `conn.getCatalog` instead of empty strings in `DatabaseMetaData.getTables()` calls
@@ -469,14 +250,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   but Derby for execution, requiring careful length handling
 - **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of
   capability differences (e.g., H2's features vs Derby's limitations)
-- **Codegen Test Cleanup**: Always delete `target/out/jvm/scala-2.13.18/slick-testkit/src_managed` before running codegen tests to
-  ensure clean regeneration
-
-### Performance Issues
-
-- **Large queries**: Use streaming with `DatabasePublisher`
-- **Connection pooling**: Configure HikariCP appropriately
-- **Query optimization**: Review compiled SQL output with debug logging
 
 ### Scala 3 Compatibility Issues
 
@@ -486,20 +259,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Coverage instrumentation**: Some Scala 3 versions have issues with coverage tools
 
 ## Key Files to Understand
-
-### Core Architecture
-
-- `slick/ast/Node.scala`: Base AST node with comprehensive type system
-- `slick/compiler/QueryCompiler.scala`: Multi-phase compilation pipeline
-- `slick/lifted/Query.scala`: Main query interface and combinators
-- `slick/lifted/Rep.scala`: Lifted representation with type safety
-- `slick/jdbc/JdbcProfile.scala`: JDBC backend implementation
-
-### Database Profiles
-
-- `slick/jdbc/H2Profile.scala`: H2 database support (default for testing)
-- `slick/jdbc/PostgresProfile.scala`: PostgreSQL support
-- `slick/basic/BasicProfile.scala`: Base profile abstraction
 
 ### Testing Infrastructure
 
@@ -532,7 +291,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 ### Scala Version Compatibility
 
 - **Cross-compilation**: Test thoroughly across Scala 2.12, 2.13, and 3.x
-- **Version-specific code**: Use `scala-2.13/` and `scala-3/` source directories appropriately
 - **Type inference**: Be aware of Scala 3's different type inference behavior
 - **Anonymous classes**: Changes in anonymous class generation can affect type casting
 
