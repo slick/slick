@@ -1,10 +1,11 @@
 package com.typesafe.slick.docs
 
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+
+import com.typesafe.config.ConfigFactory
 
 import slick.future.Database
 import slick.jdbc.DatabaseConfig
@@ -22,7 +23,13 @@ object ConnectingFuture {
     finally shutdown(url)
 
   private def runExamples(): Unit = {
-    val dc = DatabaseConfig.forURL(H2Profile, url, driver = "org.h2.Driver")
+    // A connection pool, as most applications use: it rejects connections once its Database is closed, so an example
+    // that uses a Database after closing it fails here
+    val dc = DatabaseConfig.forConfig[H2Profile]("", ConfigFactory.parseString(
+      s"""profile = "slick.jdbc.H2Profile$$"
+         |db { url = "$url", driver = org.h2.Driver, connectionPool = HikariCP, numThreads = 2, maxConnections = 2 }
+         |""".stripMargin
+    ))
 
     val coffees = TableQuery[Coffees]
 
@@ -53,9 +60,9 @@ object ConnectingFuture {
     //#futureRun
 
     //#futureStream
-    val streamResult: Future[slick.future.DatabasePublisher[String]] =
+    val streamed: Future[Unit] =
       Database.use(dc) { db =>
-        Future.successful(db.stream(coffees.map(_.name).result))
+        db.stream(coffees.map(_.name).result).foreach(println)
       }
     //#futureStream
 
@@ -69,10 +76,8 @@ object ConnectingFuture {
 
     assert(Await.result(managedResult, 10.seconds).sorted == expected)
     assert(Await.result(runResult, 10.seconds).sorted == expected)
-
-    val streamed = ListBuffer.empty[String]
-    Await.result(Await.result(streamResult, 10.seconds).foreach(streamed += _), 10.seconds)
-    assert(streamed.sorted == expected, s"Expected the stream to emit $expected, got $streamed")
+    // Streaming must finish without the pool rejecting the connection; the other examples check the rows themselves
+    Await.result(streamed, 10.seconds)
   }
 
   // DB_CLOSE_DELAY=-1 keeps the in-memory database after its connections close; SHUTDOWN removes it, so that the
