@@ -231,7 +231,7 @@ object StandardTestDBs {
     // The SQL Server JDBC driver rejects the empty catalog ("objects without a catalog") of MQName.local in
     // getFunctions, getProcedures and getUDTs instead of returning no rows
     override def capabilities =
-      super.capabilities - JdbcCapabilities.createModel - TestDB.capabilities.jdbcMetaEmptyCatalog
+      super.capabilities - TestDB.capabilities.jdbcMetaEmptyCatalog
   }
 
   lazy val Oracle = new ExternalJdbcTestDB("oracle") {
