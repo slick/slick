@@ -649,22 +649,22 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
           if (useServerSideUpsert) nativeUpsert(value, sql.head)(ctx.session)
           else if (emulationHasColumnsToUpdate) emulate(value, sql(0), Some(sql(1)), sql(2))(ctx.session)
           else emulate(value, sql(0), None, sql(1))(ctx.session)
-        if(useTransactionForUpsert) {
+        // With auto-commit off a transaction is already open, and whoever opened it commits or rolls it back
+        if(useTransactionForUpsert && ctx.session.conn.getAutoCommit) {
           val conn = ctx.session.conn
-          val wasAutoCommit = conn.getAutoCommit
-          if(wasAutoCommit) conn.setAutoCommit(false)
+          conn.setAutoCommit(false)
           var done = false
           try {
             val res = f
             done = true
             conn.commit()
-            if(wasAutoCommit) conn.setAutoCommit(true)
+            conn.setAutoCommit(true)
             res
           } finally {
             if(!done)
               try {
                 conn.rollback()
-                if(wasAutoCommit) conn.setAutoCommit(true)
+                conn.setAutoCommit(true)
               } catch { case scala.util.control.NonFatal(_) => () }
           }
         } else f

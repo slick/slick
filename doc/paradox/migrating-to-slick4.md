@@ -83,6 +83,15 @@ only thing that changes is how you construct the database.
   literal's column type (except on MySQL and Oracle). If you map a `String` onto a PostgreSQL column of a custom type
   such as an enum or `jsonb`, a `None` literal of it is now cast to `VARCHAR`, and a union of it with that column
   fails. Give such a column type the real SQL type name, see @ref:[Custom Database Types](userdefined.md#custom-database-types).
+- **`insertOrUpdate` on a connection with auto-commit off:** some upserts run their statements in a transaction of
+  their own: every upsert on PostgreSQL, and those that a profile emulates with several statements. Outside
+  `transactionally`, Slick 3 committed that transaction even when the connection's auto-commit was off. Slick 4
+  commits it only if auto-commit was on. With auto-commit off, the upsert runs in the transaction that is already
+  open, and whoever opened it commits or rolls it back. On a connection whose transaction belongs to the caller,
+  such as the one Flyway passes to a Java migration, the upsert now commits or rolls back with the caller's
+  transaction. On a pool configured with `autoCommit = false`, a standalone upsert is no longer committed, so it is
+  rolled back when the connection goes back to the pool, like every other write outside `transactionally`. Wrap it
+  in `.transactionally` to keep it.
 
 ---
 
