@@ -215,9 +215,6 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 - Use capability system to handle database-specific features
 - Test against multiple database profiles
 - Handle database-specific SQL generation in profiles
-- **Aggregate Functions**: When modifying aggregate functions (like AVG), be aware that different databases return
-  different types (INTEGER vs DECIMAL vs DOUBLE). Consider using `Option[Double]` for consistency and add
-  database-specific rounding logic in test suites
 
 ## Common Issues and Solutions
 
@@ -230,24 +227,14 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 
 ### Database Testing Issues
 
-- **Coverage runs fail with `FileNotFoundException: .../scoverage-data/scoverage.measurements...`**: sbt 2's disk
-  cache (`~/.cache/sbt/v2`) restored a module's compiled classes without the `scoverage-data` directory that the
-  coverage-instrumented compile creates, so instrumented code cannot record measurements. CI disables the disk cache
-  for coverage builds (`disk-cache: false` on `sbt/setup-sbt`); locally, delete `~/.cache/sbt/v2` and rerun
 - **SQL generation**: Log the executed SQL with `-Dlog.jdbc.statement=debug` (see "Setting system properties for
   tests" in DEVELOPING.md)
 - **Database-specific features**: Verify profile capabilities
-- **PostgreSQL JDBC Compatibility**: When upgrading PostgreSQL JDBC drivers, catalog parameter handling may change. Use
-  `conn.getCatalog` instead of empty strings in `DatabaseMetaData.getTables()` calls
 - **"Relation already exists" errors**: Usually indicates database cleanup issues between tests. Check
   `dropUserArtifacts` implementations in test database configurations
 
 ### Code Generation (Codegen) Issues
 
-- **H2 VARCHAR Length Problems**: H2 reports default VARCHAR length as 1000000000, which can cause issues with other
-  databases during round-trip testing. This is handled in `H2ColumnBuilder.length` by filtering out large default values
-- **Derby VARCHAR Limits**: Derby has a VARCHAR length limit of 32,672 characters. Codegen tests use H2 for generation
-  but Derby for execution, requiring careful length handling
 - **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of
   capability differences (e.g., H2's features vs Derby's limitations)
 

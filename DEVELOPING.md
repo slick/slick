@@ -99,3 +99,9 @@ was started with. `--server` runs sbt in the foreground with the current environ
 Testing a service database drops and recreates its test database (`slick_test` on PostgreSQL) and the tables in it,
 so two runs against the same server interfere with each other. To test databases installed without Docker, see
 [test-dbs/README.md](test-dbs/README.md).
+
+## Coverage runs fail with `FileNotFoundException: .../scoverage-data/scoverage.measurements...`
+
+sbt 2's disk cache (`~/.cache/sbt/v2`) can restore a module's compiled classes without the `scoverage-data` directory
+that a coverage-instrumented compile creates next to them, and the instrumented code then cannot record measurements.
+Delete `~/.cache/sbt/v2` and rerun. CI turns the disk cache off for coverage builds for the same reason.
