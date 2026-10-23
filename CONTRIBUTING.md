@@ -15,7 +15,8 @@ that make it easier to achieve our goals in an efficient way.
 A pull request is merged only once it meets these requirements:
 
 - **Tests.** Changes in behavior need tests. For a new feature, write a test for each thing you are afraid could go
-  wrong. For a bug fix, add a test that fails without the fix and passes with it.
+  wrong. For a bug fix, add a test that fails without the fix and passes with it. [DEVELOPING.md](DEVELOPING.md)
+  explains how to run the tests.
 - **Documentation.** Changes that users can see, in the public API or in behavior, need documentation:
   - Scaladoc for API changes;
   - a section in the manual (`doc/paradox`) for new or changed features;
