@@ -15,11 +15,11 @@ import slick.codegen.SourceCodeGenerator
 
 object CodeGenerator {
   // The same in-memory database as slick.db.default in application.conf
-  private val url = "jdbc:h2:mem:codegen;DB_CLOSE_DELAY=-1"
+  private val url = ExampleDatabases.h2Url("codegen")
 
   def main(args: Array[String]): Unit =
     try runExamples()
-    finally shutdown(url)
+    finally ExampleDatabases.shutdown(url)
 
   private def runExamples(): Unit = {
     val uri = "#slick.db.default"
@@ -129,13 +129,6 @@ object CodeGenerator {
     )
   }
 
-  // DB_CLOSE_DELAY=-1 keeps the in-memory database after its connections close; SHUTDOWN removes it, so that the
-  // next run in the same JVM starts from an empty database
-  private def shutdown(url: String): Unit = {
-    val connection = java.sql.DriverManager.getConnection(url)
-    try connection.createStatement().execute("SHUTDOWN")
-    finally connection.close()
-  }
 
   private def isEmptyDirectory(dir: Path): Boolean = {
     val entries = Files.list(dir)
