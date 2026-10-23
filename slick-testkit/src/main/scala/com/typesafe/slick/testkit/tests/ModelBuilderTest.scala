@@ -150,7 +150,19 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
           columns.values.filter(_.options.contains(ColumnOption.AutoInc)).map(_.name).toSet)
         assertTrue(columns("value").options.contains(RelationalProfile.ColumnOption.Default(7)))
       }
-    } yield ()).andFinally(sqlu"drop table if exists expression_defaults")
+      // MySQL reports the default of a TIMESTAMP(6) column as CURRENT_TIMESTAMP(6), which is not a literal either
+      _ <- sqlu"create table fractional_defaults (created_at timestamp(6) not null default current_timestamp(6))"
+      fractionalModel <- tdb.profile.createModel(
+        Some(MTable.getTables(None, None, Some("fractional_defaults"), Some(Seq("TABLE")))),
+        ignoreInvalidDefaults = false
+      )
+      _ = {
+        val createdAt = fractionalModel.tables.head.columns.head
+
+        assertEquals("java.sql.Timestamp", createdAt.tpe)
+        assertFalse(createdAt.options.exists(_.isInstanceOf[RelationalProfile.ColumnOption.Default[?]]))
+      }
+    } yield ()).andFinally(sqlu"drop table if exists expression_defaults, fractional_defaults")
   } else DBIO.successful(())
 
   def test = ifCap(jcap.createModel) {

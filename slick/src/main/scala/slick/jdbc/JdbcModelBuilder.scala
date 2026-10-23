@@ -199,6 +199,9 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
   class ColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) {
     /** Regex matcher to extract string out ouf surrounding '' */
     final val StringPattern = """^'(.*)'$""".r
+    /** Matches a default that is the current date or time, with an optional fractional-seconds precision, such
+      * as MySQL's `CURRENT_TIMESTAMP(6)` */
+    private val CurrentTimePattern = """(?i)(NOW|CURRENT_TIMESTAMP|CURRENT_DATE|CURRENT_TIME)(\(\d*\))?""".r
     /** Scala type this column is mapped to */
     def tpe = scalaTypeName(jdbcTypeToScala(meta.sqlType, meta.typeName)) match {
       case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
@@ -277,7 +280,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean) ext
       * If `ignoreInvalidDefaults = true`, Slick catches scala.MatchError and java.lang.NumberFormatException thrown by
       * this method, logs the message and treats it as no default value for convenience. */
     def defaultColumnOption: Option[RelationalProfile.ColumnOption.Default[?]] = rawDefault.map(v => (v,tpe)).collect {
-      case (v,_) if Seq("NOW","CURRENT_TIMESTAMP","CURRENT_DATE","CURRENT_TIME").contains(v.stripSuffix("()").toUpperCase) =>
+      case (v @ CurrentTimePattern(_, _), _) =>
         logger.debug(s"Ignoring"+formatDefault(v))
         None
     }.getOrElse {
