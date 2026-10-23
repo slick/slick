@@ -5,13 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Slick is a functional relational mapping (FRM) library for Scala that provides type-safe, composable database access.
-It's a multi-module SBT project with the following key modules:
-
-- **slick**: Core library with lifted embedding, AST, compiler, and JDBC support
-- **slick-testkit**: Comprehensive test suite and database compatibility testing
-- **slick-codegen**: Code generation from database schemas
-- **slick-hikaricp**: HikariCP connection pool integration
-- **reactive-streams-tests**: Reactive Streams compliance tests
+It's a multi-module sbt project; `build.sbt` defines the modules.
 
 ## Common Development Commands
 
@@ -41,23 +35,14 @@ properties in the forked test JVMs, and how to enable the service databases.
 ### Development Build Tasks
 
 ```bash
-# Check for dependency updates
-sbt dependencyUpdates
-
 # Build capabilities documentation table
 sbt testkit/buildCapabilitiesTable
 
 # Run compatibility report
 sbt site/buildCompatReport
 
-# Clean compile-time test artifacts
-sbt testkit/cleanCompileTimeTests
-
 # Check current version
 sbt "show version"
-
-# Run lint and type checking (for PR validation)
-# Note: Check build.sbt for specific lint/typecheck commands
 ```
 
 ## Architecture Overview
@@ -116,25 +101,7 @@ slick-testkit/src/
 └── doctest/       # Documentation example tests
 ```
 
-### Critical Scala 3 Compatibility
-
-The codebase includes Scala 3-specific implementations:
-
-- **slick/src/main/scala-3/**: Scala 3-specific code including `ShapedValue.scala`
-- **slick/src/main/scala-2.13/**: Scala 2.13-specific implementations
-- **Cross-compilation**: Supports Scala 2.12, 2.13, and 3.x with version-specific optimizations
-
 ## Testing Framework
-
-### Test Categories
-
-- **Unit Tests**: Basic functionality and edge cases
-- **Database Tests**: Cross-database compatibility (grouped by database type)
-- **Compile Tests**: Compile-time behavior verification
-- **Integration Tests**: End-to-end scenarios
-- **Performance Tests**: Benchmarks and stress tests
-- **Documentation Tests**: Code examples in documentation
-- **Reactive Streams Tests**: Streaming compliance tests
 
 ### Test Configuration System
 
@@ -158,20 +125,11 @@ Tests use Typesafe Config for database configuration:
 
 ### SBT Configuration
 
-- **Multi-module project**: Root project aggregates slick, codegen, hikaricp, testkit, and site modules
 - **Cross-compilation**: Supports Scala 2.12, 2.13, and 3.x with version-specific optimizations
 - **Custom tasks**: `testAll` runs comprehensive test suite across all modules
 - **Dependencies**: Managed in `project/Dependencies.scala` with version centralization
 - **Test concurrency**: Configured with test group tags to limit concurrent database tests
 - **Forked tests**: Database tests run in forked JVMs for isolation
-
-### Module Dependencies
-
-- **slick**: Core library, no dependencies on other modules
-- **slick-testkit**: Depends on slick, codegen, hikaricp for comprehensive testing
-- **slick-codegen**: Depends on slick for database schema code generation
-- **slick-hikaricp**: Depends on slick for connection pooling integration
-- **reactive-streams-tests**: Depends on testkit for streaming compliance tests
 
 ### Version Management
 
@@ -219,18 +177,6 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 
 ## Compiler Pipeline Architecture
 
-### Query Compilation Phases
-
-The `QueryCompiler` uses an immutable, configurable pipeline:
-
-1. **AssignUniqueSymbols**: Symbol resolution and uniqueness
-2. **InferTypes**: Type inference and validation
-3. **ExpandTables**: Table expansion and normalization
-4. **RewriteJoins**: Join transformation and optimization
-5. **MergeToComprehensions**: Query optimization and flattening
-6. **ResolveZipJoins**: Zip join resolution
-7. **Database-specific phases**: SQL generation for the target database
-
 ### Compilation Customization
 
 - **Profile-specific compilers**: Each database profile has customized compilation
@@ -254,13 +200,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Type mapping**: Database-specific type conversions and encodings
 - **Feature detection**: Runtime capability checking for database features
 
-### Performance Considerations
-
-- **Streaming support**: Reactive Streams integration for large result sets
-- **Connection pooling**: HikariCP integration with monitoring support
-- **Async operations**: Future-based API with proper resource management
-- **Compilation caching**: Prepared statement caching and reuse
-
 ## Development Guidelines
 
 ### Code Style
@@ -280,13 +219,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   different types (INTEGER vs DECIMAL vs DOUBLE). Consider using `Option[Double]` for consistency and add
   database-specific rounding logic in test suites
 
-### Performance Considerations
-
-- Compiler phases are optimized for query performance
-- Use streaming for large result sets via `DatabasePublisher`
-- Async operations with proper resource management
-- Connection pooling with HikariCP monitoring
-
 ## Common Issues and Solutions
 
 ### Compilation Problems
@@ -302,7 +234,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   cache (`~/.cache/sbt/v2`) restored a module's compiled classes without the `scoverage-data` directory that the
   coverage-instrumented compile creates, so instrumented code cannot record measurements. CI disables the disk cache
   for coverage builds (`disk-cache: false` on `sbt/setup-sbt`); locally, delete `~/.cache/sbt/v2` and rerun
-- **Connection issues**: Check database configuration in `application.conf`
 - **SQL generation**: Log the executed SQL with `-Dlog.jdbc.statement=debug` (see "Setting system properties for
   tests" in DEVELOPING.md)
 - **Database-specific features**: Verify profile capabilities
@@ -319,14 +250,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
   but Derby for execution, requiring careful length handling
 - **Cross-Database DDL Compatibility**: When generating code from one database profile for use with another, be aware of
   capability differences (e.g., H2's features vs Derby's limitations)
-- **Codegen Test Cleanup**: Always delete `target/out/jvm/scala-2.13.18/slick-testkit/src_managed` before running codegen tests to
-  ensure clean regeneration
-
-### Performance Issues
-
-- **Large queries**: Use streaming with `DatabasePublisher`
-- **Connection pooling**: Configure HikariCP appropriately
-- **Query optimization**: Review compiled SQL output with debug logging
 
 ### Scala 3 Compatibility Issues
 
@@ -336,20 +259,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 - **Coverage instrumentation**: Some Scala 3 versions have issues with coverage tools
 
 ## Key Files to Understand
-
-### Core Architecture
-
-- `slick/ast/Node.scala`: Base AST node with comprehensive type system
-- `slick/compiler/QueryCompiler.scala`: Multi-phase compilation pipeline
-- `slick/lifted/Query.scala`: Main query interface and combinators
-- `slick/lifted/Rep.scala`: Lifted representation with type safety
-- `slick/jdbc/JdbcProfile.scala`: JDBC backend implementation
-
-### Database Profiles
-
-- `slick/jdbc/H2Profile.scala`: H2 database support (default for testing)
-- `slick/jdbc/PostgresProfile.scala`: PostgreSQL support
-- `slick/basic/BasicProfile.scala`: Base profile abstraction
 
 ### Testing Infrastructure
 
@@ -382,7 +291,6 @@ The `QueryCompiler` uses an immutable, configurable pipeline:
 ### Scala Version Compatibility
 
 - **Cross-compilation**: Test thoroughly across Scala 2.12, 2.13, and 3.x
-- **Version-specific code**: Use `scala-2.13/` and `scala-3/` source directories appropriately
 - **Type inference**: Be aware of Scala 3's different type inference behavior
 - **Anonymous classes**: Changes in anonymous class generation can affect type casting
 
