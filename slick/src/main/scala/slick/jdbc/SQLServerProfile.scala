@@ -39,8 +39,6 @@ import com.typesafe.config.Config
   *   <li>[[slick.jdbc.JdbcCapabilities.forceInsert]]:
   *     Inserting explicit values into AutoInc columns with ''forceInsert''
   *     operations is not supported.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.createModel]]:
-  *     Reading the database schema is not supported.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
   *     keys should be returned. Otherwise the operation is performed
@@ -117,6 +115,33 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
         case _                        => super.tpe
       }
       val UUIDPattern = """^\(?'(.*)'\)?""".r
+      /** SQL Server wraps column defaults in parentheses, sometimes more than once. */
+      override def rawDefault = super.rawDefault.map(v => stripDefaultParentheses(v.trim))
+
+      @scala.annotation.tailrec
+      private def stripDefaultParentheses(value: String): String = {
+        if(!value.startsWith("(")) value
+        else {
+          var depth = 0
+          var quoted = false
+          var i = 0
+          // Only remove a pair enclosing the whole expression. Parentheses inside SQL string
+          // literals do not affect nesting; doubled quotes toggle twice and stay in the literal.
+          while(i < value.length && (i == 0 || depth > 0)) {
+            value.charAt(i) match {
+              case '\'' => quoted = !quoted
+              case '(' if !quoted => depth += 1
+              case ')' if !quoted => depth -= 1
+              case _ => ()
+            }
+            i += 1
+          }
+          if(depth == 0 && !quoted && i == value.length)
+            stripDefaultParentheses(value.substring(1, value.length - 1).trim)
+          else value
+        }
+      }
+
       override def default =
         rawDefault
           .map((_, tpe))
