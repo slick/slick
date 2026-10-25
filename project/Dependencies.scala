@@ -42,7 +42,7 @@ object Dependencies {
     "junit" % "junit-dep" % "4.11",
     "com.github.sbt" % "junit-interface" % "0.13.3"
   )
-  val logback = "ch.qos.logback" % "logback-classic" % "1.6.5"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.6.6"
   val hikariCP = "com.zaxxer" % "HikariCP" % "7.1.0"
   val dropwizardMetricsVersion = "4.2.40"
   val dropwizardMetrics = Seq(
