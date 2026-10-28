@@ -87,7 +87,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       as.sortBy(_.id).result.map(_ shouldBe records)
     )
   }
-  def testInsertAllAutoInc = ifCap (jcap.returnInsertKey, jcap.insertMultipleRowsWithSingleStatement) {
+  def testInsertAllAutoInc = ifCap(jcap.insertMultipleRowsWithSingleStatement) {
     class A(tag: Tag) extends Table[(Int, Int)](tag, "insert_all_auto_inc") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
       def v1 = column[Int]("V1")
@@ -141,7 +141,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
-  def testReturning = ifCap(jcap.returnInsertKey) {
+  def testReturning = {
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "A") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
       def s1 = column[String]("S1")
@@ -171,7 +171,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     } yield ()).withPinnedSession // Some database servers (e.g. DB2) preallocate ID blocks per session
   }
 
-  def testReturningColumnsThatNeedQuoting = ifCap(jcap.returnInsertKey) {
+  def testReturningColumnsThatNeedQuoting = {
     // Lower-case names and reserved words are only valid as quoted identifiers
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "a_quoted") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -489,7 +489,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       _ <- ts.insertOrUpdate((0, "c")).map(_ shouldBe 1)
       _ <- ts.insertOrUpdate((1, "d")).map(_ shouldBe 1)
       _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
-      _ <- ifCap(jcap.returnInsertKey) {
+      _ <- {
         val q = ts.returning(ts.map(_.id))
         for {
           _ <- q.insertOrUpdate((0, "e")).map(_ shouldBe Some(4))
@@ -516,7 +516,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       _ = ids.length shouldBe 1
       _ <- ts.insertOrUpdate(ids.head).map(_ shouldBe 1)
       _ <- ts.result.map(_ shouldBe ids)
-      _ <- ifCap(jcap.returnInsertKey) {
+      _ <- {
         val q = ts.returning(ts.map(_.id))
         for {
           _ <- q.insertOrUpdate(ids.head).map(_ shouldBe None)
@@ -530,10 +530,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   // Regression test for https://github.com/slick/slick/issues/1627
-  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] =
-    if (!tdb.profile.capabilities.contains(JdbcCapabilities.insertOrUpdateWithPrimaryKeyOnly))
-      DBIO.successful(())
-    else {
+  def testInsertOrUpdateWithPrimaryKeyOnly: DBIOAction[Unit, NoStream, Effect.All] = {
       class T(tag: Tag) extends Table[Int](tag, "mytable") {
         def id = column[Int]("id", O.PrimaryKey)
         def * = id

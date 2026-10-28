@@ -1,9 +1,9 @@
 package slick.jdbc
 
-import slick.basic.Capability
+import slick.basic.{Capabilities, Capability}
 
 /** Capabilities for [[slick.jdbc.JdbcProfile]]. */
-object JdbcCapabilities {
+object JdbcCapabilities { caps =>
   /** Can be used for reverse-engineering the database schema */
   val createModel = Capability("jdbc.createModel")
   /** Can insert into AutoInc columns. */
@@ -12,21 +12,15 @@ object JdbcCapabilities {
    * is emulated on the client side. The emulation uses transactions for
    * consistency but does not guarantee atomicity, so it may fail if another
    * insert for the same key happens concurrently. */
-  val insertOrUpdate = Capability("jdbc.insertOrUpdate")
-  /** Supports `insertOrUpdate` with only primary keys (equivalent to "insert if not exists") */
-  val insertOrUpdateWithPrimaryKeyOnly = Capability("jdbc.insertOrUpdateWithPrimaryKeyOnly")
+  val insertOrUpdate = Capability("jdbc.insertOrUpdate") // todo:caps
   /** Supports `insertAll` with `rowsPerStatement = RowsPerStatement.One` */
-  val insertMultipleRowsWithSingleStatement = Capability("jdbc.insertMultipleRowsWithSingleStatement")
+  val insertMultipleRowsWithSingleStatement = Capability("jdbc.insertMultipleRowsWithSingleStatement") // todo:caps
   /** Supports mutable result sets */
   val mutable = Capability("jdbc.mutable")
-  /** Can return primary key of inserted rows */
-  val returnInsertKey = Capability("jdbc.returnInsertKey")
   /** Can return multiple primary key of inserted rows in a single statement */
-  val returnMultipleInsertKey = Capability("jdbc.returnMultipleInsertKey")
+  val returnMultipleInsertKey = Capability("jdbc.returnMultipleInsertKey") // todo:caps
   /** Can also return non-primary-key columns of inserted rows */
-  val returnInsertOther = Capability("jdbc.returnInsertOther")
-  /** Returns column default values in meta data */
-  val defaultValueMetaData = Capability("jdbc.defaultValueMetaData")
+  val returnInsertOther = Capability("jdbc.returnInsertOther") // todo:caps
   /** Doesn't map types to Boolean in DatabaseMetaData */
   val booleanMetaData = Capability("jdbc.booleanMetaData")
   /** Reports no default and NULL default differently in meta data */
@@ -44,23 +38,21 @@ object JdbcCapabilities {
   val other = Capability("jdbc.other")
 
   /** All JDBC capabilities */
-  val all = Set(
-    booleanMetaData,
-    createModel,
-    defaultValueMetaData,
-    distinguishesIntTypes,
-    forUpdate,
-    forShare,
-    forceInsert,
-    insertOrUpdate,
-    insertOrUpdateWithPrimaryKeyOnly,
-    insertMultipleRowsWithSingleStatement,
-    mutable,
-    nullableNoDefault,
-    other,
-    returnInsertKey,
-    returnInsertOther,
-    returnMultipleInsertKey,
-    supportsByte,
-  )
+  val all = new All{}.capabilities
+  trait All extends Capabilities {
+    implicit val otherJdbcCap: Registration[caps.other.type] = register(caps.other)
+    implicit val booleanMetaDataCap: Registration[caps.booleanMetaData.type] = register(caps.booleanMetaData)
+    implicit val createModelCap: Registration[caps.createModel.type] = register(caps.createModel)
+    implicit val distinguishesIntTypesCap: Registration[caps.distinguishesIntTypes.type] = register(caps.distinguishesIntTypes)
+    implicit val forUpdateCap: Registration[caps.forUpdate.type] = register(caps.forUpdate)
+    implicit val forShareCap: Registration[caps.forShare.type] = register(caps.forShare)
+    implicit val forceInsertCap: Registration[caps.forceInsert.type] = register(caps.forceInsert)
+    implicit val insertOrUpdateCap: Registration[caps.insertOrUpdate.type] = register(caps.insertOrUpdate)
+    implicit val insertMultipleRowsWithSingleStatementCap: Registration[caps.insertMultipleRowsWithSingleStatement.type] = register(caps.insertMultipleRowsWithSingleStatement)
+    implicit val mutableCap: Registration[caps.mutable.type] = register(caps.mutable)
+    implicit val nullableNoDefaultCap: Registration[caps.nullableNoDefault.type] = register(caps.nullableNoDefault)
+    implicit val returnInsertOtherCap: Registration[caps.returnInsertOther.type] = register(caps.returnInsertOther)
+    implicit val returnMultipleInsertKeyCap: Registration[caps.returnMultipleInsertKey.type] = register(caps.returnMultipleInsertKey)
+    implicit val supportsByteCap: Registration[caps.supportsByte.type] = register(caps.supportsByte)
+  }
 }

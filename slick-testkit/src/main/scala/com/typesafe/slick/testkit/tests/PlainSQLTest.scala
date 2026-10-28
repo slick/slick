@@ -2,7 +2,6 @@ package com.typesafe.slick.testkit.tests
 
 import java.sql.SQLException
 
-import slick.SlickException
 import slick.jdbc.{GetResult, SetParameter, SQLiteProfile}
 import slick.jdbc.PositionedResult.SqlNullException
 

@@ -13,7 +13,7 @@ class TableQuery[E <: AbstractTable[?]](cons: Tag => E) extends Query[E, E#Table
   lazy val shaped: ShapedValue[? <: E, E#TableElementType] = {
     val baseTable = cons(new BaseTag { base =>
       def taggedAs(path: Node): AbstractTable[?] = cons(new RefTag(path) {
-        def taggedAs(path: Node) = base.taggedAs(path)
+        def taggedAs(path: Node): AbstractTable[?] = base.taggedAs(path)
       })
     })
     ShapedValue(baseTable, RepShape[FlatShapeLevel, E, E#TableElementType])

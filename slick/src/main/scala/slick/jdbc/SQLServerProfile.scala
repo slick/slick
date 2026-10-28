@@ -11,7 +11,6 @@ import scala.reflect.{classTag, ClassTag}
 
 import slick.ast.*
 import slick.ast.Util.*
-import slick.basic.Capability
 import slick.compiler.*
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MTable}
@@ -77,15 +76,17 @@ trait SQLServerProfile extends JdbcProfile with JdbcActionComponent.MultipleRows
 
   protected lazy val defaultStringType = profileConfig.getStringOpt("defaultStringType")
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      JdbcCapabilities.forceInsert -
-      JdbcCapabilities.returnInsertOther -
-      JdbcCapabilities.insertOrUpdate -
-      SqlCapabilities.sequence -
-      JdbcCapabilities.supportsByte -
-      JdbcCapabilities.returnMultipleInsertKey -
-      JdbcCapabilities.insertMultipleRowsWithSingleStatement
+  trait ProfileAPI extends JdbcAPI {
+    override val createModelCap = deregister(JdbcCapabilities.createModel)
+    override val forceInsertCap = deregister(JdbcCapabilities.forceInsert)
+    override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val sequenceCap = deregister(SqlCapabilities.sequence)
+    override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
+    override val returnMultipleInsertKeyCap = deregister(JdbcCapabilities.returnMultipleInsertKey)
+    override val insertMultipleRowsWithSingleStatementCap = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
+  }
+  override val api: ProfileAPI = new ProfileAPI {}
 
   override protected def computeQueryCompiler =
     super.computeQueryCompiler
