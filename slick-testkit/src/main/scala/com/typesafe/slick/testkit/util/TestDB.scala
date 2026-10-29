@@ -1,7 +1,6 @@
 package com.typesafe.slick.testkit.util
 
 import java.io.*
-import java.sql.Connection
 import java.util.Properties
 import java.util.zip.GZIPInputStream
 
@@ -12,7 +11,7 @@ import slick.jdbc.DatabaseConfig
 import slick.basic.{BasicProfile, Capability}
 import slick.util.ClassLoaderUtil
 import slick.dbio.{DBIO, DBIOAction, Effect, NoStream}
-import slick.jdbc.{JdbcDataSource, JdbcProfile, ResultSetAction}
+import slick.jdbc.{JdbcProfile, ResultSetAction}
 import slick.jdbc.GetResult.*
 import slick.relational.RelationalProfile
 import slick.sql.SqlProfile
@@ -188,18 +187,8 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
 
   /** Create a single-session database that reuses an existing connection.
     * Used internally by blockingRunOnSession. */
-  def createSingleSessionDatabase(implicit session: profile.backend.Session): IODatabase = {
-    val wrappedConn = new DelegateConnection(session.conn) {
-      override def close(): Unit = ()
-    }
-    val source = new JdbcDataSource {
-      def createConnection(): Connection = wrappedConn
-      def close(): Unit = ()
-      val maxConnections: Option[Int] = Some(1)
-    }
-    val dc = DatabaseConfig.forSource[profile.type](profile, source)
-    profile.backend.makeDatabase[IO](dc).unsafeRunSync()
-  }
+  def createSingleSessionDatabase(implicit session: profile.backend.Session): IODatabase =
+    profile.backend.makeDatabase[IO](DatabaseConfig.forConnection[profile.type](profile, session.conn)).unsafeRunSync()
 
   final def blockingRunOnSession[R](a: DBIOAction[R, NoStream, Nothing])
                                    (implicit session: profile.backend.Session): R = {

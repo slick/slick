@@ -51,6 +51,16 @@ object Connection {
       val db = Database.resource(dc)
       //#forName
     }
+    if(false) {
+      val action: DBIO[Unit] = DBIO.unit
+      //#forConnection
+      // The code calling `migrate` opened `connection` and will close it
+      def migrate(connection: java.sql.Connection): Unit =
+        Database.resource(DatabaseConfig.forConnection(H2Profile, connection))
+          .use(_.run(action))
+          .unsafeRunSync()
+      //#forConnection
+    }
     ;{
       //#forConfig
       val dc = DatabaseConfig.forProfileConfig(H2Profile, "mydb")
