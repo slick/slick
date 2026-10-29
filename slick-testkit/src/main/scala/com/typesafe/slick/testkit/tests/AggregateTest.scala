@@ -25,6 +25,8 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       q2_0._1.shaped.result
   }
 
+  // The AVG of an integer column has the column's integer type on these databases, which truncates the mean, and is
+  // a DECIMAL with 4 decimal places on MySQL
   private def roundAvg(avgResult: BigDecimal) =
     tdb.confName match {
       case "db2" | "derbydisk" | "derbymem" | "hsqldbdisk" | "hsqldbmem" | "sqlserver-sqljdbc" =>
