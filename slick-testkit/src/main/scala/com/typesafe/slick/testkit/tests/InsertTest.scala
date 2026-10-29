@@ -1,7 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.util.{Failure, Success}
+import cats.effect.{IO, Resource}
 import slick.jdbc.{JdbcCapabilities, MySQLProfile}
+import com.typesafe.slick.testkit.tests.InsertTest.ExpectedException
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -683,6 +685,142 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  // Upper-case names because Oracle and DB2 fail to return generated keys of lower-case columns
+  class Customers(tag: Tag, tableName: String) extends Table[(Int, String)](tag, tableName) {
+    def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
+    def name = column[String]("NAME")
+    def * = (id, name)
+  }
+
+  // Runs everything on the session's connection and leaves the connection open
+  def databaseOn(existingSession: tdb.profile.backend.Session) = {
+    implicit val session: tdb.profile.backend.Session = existingSession
+    Resource.make(IO.blocking(tdb.createSingleSessionDatabase))(db => IO.blocking(db.close()))
+  }
+
+  def testInsertOrUpdateInTransaction = {
+    val customers = TableQuery(new Customers(_, "CUSTOMERS_IN_TRANSACTION"))
+
+    for {
+      _ <- customers.schema.create
+      _ <- customers += ((0, "Alice"))
+      aliceId <- customers.map(_.id).result.head
+
+      _ <- (for {
+        _ <- customers += ((0, "Bob"))
+        _ <- customers.insertOrUpdate((aliceId, "Alice Smith"))
+        _ <- DBIO.failed(new ExpectedException)
+      } yield ()).transactionally.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+      _ <- customers.result.map(_ shouldBe Seq((aliceId, "Alice")))
+
+      _ <- (for {
+        _ <- customers += ((0, "Bob"))
+        _ <- customers.insertOrUpdate((aliceId, "Alice Smith"))
+      } yield ()).transactionally
+      _ <- customers.map(_.name).to[Set].result.map(_ shouldBe Set("Alice Smith", "Bob"))
+
+      // HSQLDB, Oracle, DB2 and SQL Server upsert in one statement, but emulate the `returning` variant with several
+      _ <- ifCap(jcap.returnInsertKey) {
+        for {
+          _ <- (for {
+            _ <- customers += ((0, "Carol"))
+            _ <- customers.returning(customers.map(_.id)).insertOrUpdate((aliceId, "Alice Jones"))
+            _ <- DBIO.failed(new ExpectedException)
+          } yield ()).transactionally.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+          _ <- customers.map(_.name).to[Set].result.map(_ shouldBe Set("Alice Smith", "Bob"))
+
+          _ <- (for {
+            _ <- customers += ((0, "Carol"))
+            _ <- customers.returning(customers.map(_.id)).insertOrUpdate((aliceId, "Alice Jones"))
+          } yield ()).transactionally
+          _ <- customers.map(_.name).to[Set].result.map(_ shouldBe Set("Alice Jones", "Bob", "Carol"))
+        } yield ()
+      }
+    } yield ()
+  }
+
+  def testInsertOrUpdateOutsideTransaction: IO[Unit] = {
+    val customers = TableQuery(new Customers(_, "CUSTOMERS_OUTSIDE_TRANSACTION"))
+
+    // A connection other than the one that ran the upsert sees only what it committed
+    val otherConnection =
+      Resource.make(IO.blocking(rawDb.createSession()))(session => IO.blocking(session.close())).flatMap(databaseOn)
+
+    for {
+      _ <- db.run(customers.schema.create)
+      _ <- db.run(customers += ((0, "Alice")))
+      aliceId <- db.run(customers.map(_.id).result.head)
+
+      _ <- db.run(customers.insertOrUpdate((aliceId, "Alice Smith")))
+      _ <- db.run(customers.insertOrUpdate((0, "Bob")))
+      _ <- otherConnection.use(_.run(customers.map(_.name).to[Set].result)).map(_ shouldBe Set("Alice Smith", "Bob"))
+
+      // HSQLDB, Oracle, DB2 and SQL Server upsert in one statement, but emulate the `returning` variant with several
+      _ <- ifCapF(jcap.returnInsertKey) {
+        for {
+          _ <- db.run(customers.returning(customers.map(_.id)).insertOrUpdate((aliceId, "Alice Jones")))
+          _ <- db.run(customers.returning(customers.map(_.id)).insertOrUpdate((0, "Carol")))
+          _ <- otherConnection.use(_.run(customers.map(_.name).to[Set].result))
+            .map(_ shouldBe Set("Alice Jones", "Bob", "Carol"))
+        } yield ()
+      }
+    } yield ()
+  }
+
+  def testInsertOrUpdateOnCallersConnection: IO[Unit] = {
+    val customers = TableQuery(new Customers(_, "CUSTOMERS_ON_CALLERS_CONNECTION"))
+
+    // A connection whose transaction belongs to the caller, like the one Flyway passes to a Java migration
+    val callersConnection = Resource.make(IO.blocking {
+      val session = rawDb.createSession()
+      session.conn.setAutoCommit(false)
+      session
+    })(session => IO.blocking(session.close()))
+
+    for {
+      _ <- db.run(customers.schema.create)
+      _ <- db.run(customers += ((0, "Alice")))
+      aliceId <- db.run(customers.map(_.id).result.head)
+
+      _ <- callersConnection.use { session =>
+        databaseOn(session).use(_.run(for {
+          _ <- customers += ((0, "Bob"))
+          _ <- customers.insertOrUpdate((aliceId, "Alice Smith"))
+        } yield ())) >> IO.blocking(session.conn.rollback())
+      }
+      _ <- db.run(customers.result).map(_ shouldBe Seq((aliceId, "Alice")))
+
+      _ <- callersConnection.use { session =>
+        databaseOn(session).use(_.run(for {
+          _ <- customers += ((0, "Bob"))
+          _ <- customers.insertOrUpdate((aliceId, "Alice Smith"))
+        } yield ())) >> IO.blocking(session.conn.commit())
+      }
+      _ <- db.run(customers.map(_.name).to[Set].result).map(_ shouldBe Set("Alice Smith", "Bob"))
+
+      // HSQLDB, Oracle, DB2 and SQL Server upsert in one statement, but emulate the `returning` variant with several
+      _ <- ifCapF(jcap.returnInsertKey) {
+        for {
+          _ <- callersConnection.use { session =>
+            databaseOn(session).use(_.run(for {
+              _ <- customers += ((0, "Carol"))
+              _ <- customers.returning(customers.map(_.id)).insertOrUpdate((aliceId, "Alice Jones"))
+            } yield ())) >> IO.blocking(session.conn.rollback())
+          }
+          _ <- db.run(customers.map(_.name).to[Set].result).map(_ shouldBe Set("Alice Smith", "Bob"))
+
+          _ <- callersConnection.use { session =>
+            databaseOn(session).use(_.run(for {
+              _ <- customers += ((0, "Carol"))
+              _ <- customers.returning(customers.map(_.id)).insertOrUpdate((aliceId, "Alice Jones"))
+            } yield ())) >> IO.blocking(session.conn.commit())
+          }
+          _ <- db.run(customers.map(_.name).to[Set].result).map(_ shouldBe Set("Alice Jones", "Bob", "Carol"))
+        } yield ()
+      }
+    } yield ()
+  }
+
   // sqlite donesn't care this case
   def testInsertAndUpdateShouldNotTruncateData = if (!tdb.confName.contains("sqlite")) {
     case class Test(id: Int, name: String)
@@ -802,4 +940,8 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+}
+
+object InsertTest {
+  private class ExpectedException extends RuntimeException
 }
