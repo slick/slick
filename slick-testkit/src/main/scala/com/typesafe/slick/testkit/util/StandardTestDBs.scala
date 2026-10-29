@@ -124,6 +124,8 @@ object StandardTestDBs {
 
   lazy val Postgres = new ExternalJdbcTestDB("postgres") {
     val profile: Profile = PostgresProfile
+    // Pass the current database as the catalog. To getTables, "" means tables without a catalog, which since
+    // PostgreSQL JDBC 42.7.5 matches none, so cleanup would miss the tables and the next run fails creating them.
     override def localTables: DBIO[Vector[String]] =
       ResultSetAction[(String,String,String, String)](ctx => ctx.conn.getMetaData.getTables(ctx.conn.getCatalog, "public", null, null))
         .map(_.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted)
