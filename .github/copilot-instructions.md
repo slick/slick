@@ -51,7 +51,7 @@ This is Slick, a functional relational mapping (FRM) library for Scala that prov
 - `sbt site/buildCompatReport` - Generate compatibility report
 
 ### Important Files to Reference
-- `CLAUDE.md` - Comprehensive project documentation and commands
+- `AGENTS.md` - Comprehensive project documentation and commands
 - `build.sbt` - Main build configuration
 - `project/Dependencies.scala` - Dependency management
 - `slick-testkit/` - Test framework and database tests
