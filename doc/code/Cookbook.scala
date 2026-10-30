@@ -1,8 +1,17 @@
 package com.typesafe.slick.docs
 
+import cats.effect.unsafe.implicits.global
+import slick.cats.Database
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
 
 object Cookbook {
+  def main(args: Array[String]): Unit = {
+    MoreThan22FieldsPattern.check()
+    TrackNumberOfQueryCompilations.check()
+    DistinguishDBIOActionsByEffectTypeAtRuntime.main(args)
+  }
 
   object MoreThan22FieldsPattern {
    
@@ -22,6 +31,53 @@ object Cookbook {
       def * = (id :: name /* as many as you like... */ :: HNil).mapTo[Row]
     }
     //#example22
+
+    // The recipe is about tables with more than 22 columns, so check the pattern with 23
+    case class Row23(
+      c1: Int, c2: Int, c3: Int, c4: Int, c5: Int, c6: Int, c7: Int, c8: Int, c9: Int, c10: Int, c11: Int, c12: Int,
+      c13: Int, c14: Int, c15: Int, c16: Int, c17: Int, c18: Int, c19: Int, c20: Int, c21: Int, c22: Int, c23: Int
+    )
+
+    class Table23(tag: Tag) extends Table[Row23](tag, "TABLE23") {
+      def c1  = column[Int]("C1", O.PrimaryKey)
+      def c2  = column[Int]("C2")
+      def c3  = column[Int]("C3")
+      def c4  = column[Int]("C4")
+      def c5  = column[Int]("C5")
+      def c6  = column[Int]("C6")
+      def c7  = column[Int]("C7")
+      def c8  = column[Int]("C8")
+      def c9  = column[Int]("C9")
+      def c10 = column[Int]("C10")
+      def c11 = column[Int]("C11")
+      def c12 = column[Int]("C12")
+      def c13 = column[Int]("C13")
+      def c14 = column[Int]("C14")
+      def c15 = column[Int]("C15")
+      def c16 = column[Int]("C16")
+      def c17 = column[Int]("C17")
+      def c18 = column[Int]("C18")
+      def c19 = column[Int]("C19")
+      def c20 = column[Int]("C20")
+      def c21 = column[Int]("C21")
+      def c22 = column[Int]("C22")
+      def c23 = column[Int]("C23")
+
+      def * = (
+        c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: c15 :: c16 :: c17 ::
+          c18 :: c19 :: c20 :: c21 :: c22 :: c23 :: HNil
+      ).mapTo[Row23]
+    }
+
+    def check(): Unit = {
+      val rows = TableQuery[Table23]
+      val row = Row23(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)
+      val dc = DatabaseConfig.forProfileConfig(H2Profile, "h2mem1")
+      val read = Database.resource(dc).use { db =>
+        db.run(rows.schema.create >> (rows += row) >> rows.result)
+      }.unsafeRunSync()
+      assert(read == Seq(row), s"Expected the inserted 23-column row back, got $read")
+    }
   }
 
   object TrackNumberOfQueryCompilations {
@@ -55,6 +111,26 @@ object Cookbook {
       }
     }
     //#exampleTrackNumberOfQueryCompilations
+
+    object CountingH2Profile extends slick.jdbc.H2Profile with MyProfile
+
+    def check(): Unit = {
+      import CountingH2Profile.api._
+
+      class Items(tag: Tag) extends Table[Int](tag, "ITEMS") {
+        def id = column[Int]("ID")
+        def * = id
+      }
+      val items = TableQuery[Items]
+
+      val before = CountingH2Profile.queryCompilationCounter.get
+      items.filter(_.id > 1).result.statements
+      val afterFirst = CountingH2Profile.queryCompilationCounter.get
+      assert(afterFirst == before + 1, s"Compiling one query should add 1 to the counter, but it went from $before to $afterFirst")
+      items.map(_.id).result.statements
+      val afterSecond = CountingH2Profile.queryCompilationCounter.get
+      assert(afterSecond == afterFirst + 1, s"Compiling a second query should add 1 more, but it went from $afterFirst to $afterSecond")
+    }
   }
 
   object DistinguishDBIOActionsByEffectTypeAtRuntime {
