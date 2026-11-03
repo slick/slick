@@ -31,7 +31,6 @@ object DocExamplesTest {
 
   /** Examples that cannot run here, each with the reason. They are reported as ignored. */
   val skipped: Map[String, String] = Map(
-    "ConnectingFuture" -> "Its \"mydb\" config points at a Postgres or MySQL server",
     "ConnectingZio" -> "Its \"mydb\" config points at a Postgres or MySQL server"
   )
 
