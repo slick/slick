@@ -37,9 +37,9 @@ object ConnectingFuture {
     //#futureRun
 
     //#futureStream
-    val streamResult: Future[slick.future.DatabasePublisher[String]] =
+    val streamed: Future[Unit] =
       Database.use(dc) { db =>
-        Future.successful(db.stream(coffees.map(_.name).result))
+        db.stream(coffees.map(_.name).result).foreach(println)
       }
     //#futureStream
 
@@ -52,7 +52,7 @@ object ConnectingFuture {
 
     Await.result(managedResult, 10.seconds)
     Await.result(runResult, 10.seconds)
-    Await.result(streamResult, 10.seconds)
+    Await.result(streamed, 10.seconds)
   }
 
   final class Coffees(tag: Tag) extends Table[(String, Int, Double, Int, Int)](tag, "COFFEES") {
