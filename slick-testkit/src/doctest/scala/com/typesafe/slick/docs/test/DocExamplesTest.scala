@@ -30,9 +30,7 @@ class DocExamplesTest
 object DocExamplesTest {
 
   /** Examples that cannot run here, each with the reason. They are reported as ignored. */
-  val skipped: Map[String, String] = Map(
-    "ConnectingZio" -> "Its \"mydb\" config points at a Postgres or MySQL server"
-  )
+  val skipped: Map[String, String] = Map.empty
 
   private val examplesDir = Paths.get("doc/code")
   private val resourcesDir = Paths.get("slick-testkit/src/doctest/resources")

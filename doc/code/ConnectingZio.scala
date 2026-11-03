@@ -1,17 +1,17 @@
 package com.typesafe.slick.docs
 
-import slick.jdbc.DatabaseConfig
-import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api.*
 import slick.zio.Database
 
+import zio.Runtime
 import zio.Scope
 import zio.Task
+import zio.Unsafe
 import zio.ZIO
-import zio.ZIOAppDefault
 
-object ConnectingZio extends ZIOAppDefault {
-  private val dc = DatabaseConfig.forProfileConfig(H2Profile, "mydb")
+object ConnectingZio {
+  private val url = ExampleDatabases.h2Url("connectingzio")
+  private val dc = ExampleDatabases.pooledH2(url)
 
   private val coffees = TableQuery[Coffees]
 
@@ -40,15 +40,26 @@ object ConnectingZio extends ZIOAppDefault {
     }
   //#zioStream
 
-  override def run: Task[Unit] =
-    ZIO.scoped {
-      managedResult.unit *>
-      runResult.unit *>
-      streamResult.unit
-    } *>
+  private val expected = Seq("Colombian", "Espresso")
+
+  private def check(example: String)(names: Seq[String]): Task[Unit] =
+    ZIO.attempt(assert(names.sorted == expected, s"$example: expected $expected, got $names"))
+
+  // Fills COFFEES, then checks that each example gets the rows back
+  private val program: Task[Unit] =
+    ZIO.scoped(
+      Database.scoped(dc).flatMap(_.run(coffees.schema.create >> (coffees ++= expected.map(name => (name, 101, 7.99, 0, 0)))))
+    ) *>
+      ZIO.scoped(managedResult.flatMap(check("zioManaged"))) *>
+      ZIO.scoped(runResult.flatMap(check("zioRun"))) *>
+      ZIO.scoped(streamResult.flatMap(names => check("zioStream")(names.toSeq))) *>
       opened.flatMap { db =>
-        db.run(coffees.map(_.name).result).unit.ensuring(ZIO.attemptBlocking(db.close()).ignore)
+        db.run(coffees.map(_.name).result).flatMap(check("zioUnmanaged")).ensuring(ZIO.attemptBlocking(db.close()).ignore)
       }
+
+  def main(args: Array[String]): Unit =
+    try Unsafe.unsafe { implicit unsafe => Runtime.default.unsafe.run(program).getOrThrowFiberFailure() }
+    finally ExampleDatabases.shutdown(url)
 
   final class Coffees(tag: Tag) extends Table[(String, Int, Double, Int, Int)](tag, "COFFEES") {
     def name = column[String]("COF_NAME", O.PrimaryKey)
