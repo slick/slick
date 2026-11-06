@@ -6,7 +6,7 @@ import scala.collection.mutable
 import scala.language.implicitConversions
 import slick.ast.*
 import slick.ast.TypeUtil.:@
-import slick.compiler.{InsertCompiler, Phase, QueryCompiler}
+import slick.compiler.{InsertCompiler, Phase, QueryCompiler, RewriteMappedBooleans}
 import slick.lifted.*
 import slick.relational.{CompiledMapping, RelationalProfile}
 import slick.sql.SqlProfile
@@ -28,6 +28,10 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   override lazy val MappedColumnType: MappedJdbcType.type = MappedJdbcType
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcCapabilities.all
+
+  override protected def computeQueryCompiler: QueryCompiler =
+    super.computeQueryCompiler + new RewriteMappedBooleans(t =>
+      Phase.rewriteBooleans.isBooleanLike(t) && !jdbcTypeFor(t).isInstanceOf[JdbcTypes#BooleanJdbcType])
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect())
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate())
