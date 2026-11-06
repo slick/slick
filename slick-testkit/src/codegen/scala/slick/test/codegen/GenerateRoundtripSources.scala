@@ -47,8 +47,8 @@ object GenerateRoundtripSources {
     gen.writeToFile( "slick.jdbc.H2Profile", args(0), pkg )
     gen2.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"2" )
     gen3.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"3" )
-    gen.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles" )
-    gen2.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles2" )
+    gen.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles", scalaVersion = Option(util.Properties.versionNumberString) )
+    gen2.writeToMultipleFiles( "slick.jdbc.H2Profile", args(0), pkg+"multiplefiles2", scalaVersion = Option(util.Properties.versionNumberString)  )
   }
 }
 
