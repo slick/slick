@@ -341,22 +341,15 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
   lazy val now = generateTestLocalDateTime()
   /**
    * Generates a [[LocalDateTime]] used for the [[java.time]] type tests.
-   * The generated test [[LocalDateTime]] will adapt to the database system being used.
-   * Older version of MySQL have no millisecond resolution, so set all the ms component
-   * of the LocalDateTime to 000.
+   * The generated test [[LocalDateTime]] has millisecond resolution.
    */
   private def generateTestLocalDateTime(): LocalDateTime = {
     val now = Instant.now
-    val dbCompatibleInstant =
-      if (tdb.confName.contains("mysql")) {
-        // mysql has no subsecond resolution
-        now.`with`(ChronoField.NANO_OF_SECOND, 0)
-      } else {
-        // after JDK8, Instant.now uses a Clock that has greater than millis resolution. Most
-        // database timestamp implementations only have millis resolutions, so only
-        // roundtrip values which have no micro and nano parts
-        now.`with`(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND))
-      }
+    // after JDK8, Instant.now uses a Clock that has greater than millis resolution. Most
+    // database timestamp implementations only have millis resolutions, so only
+    // roundtrip values which have no micro and nano parts
+    val dbCompatibleInstant = now.`with`(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND))
+
     LocalDateTime.ofInstant(dbCompatibleInstant, ZoneOffset.UTC)
   }
   val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
@@ -396,6 +389,28 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
         Timestamp.valueOf("2016-10-30 01:12:16.0")),
       dataCreateFn = () => Timestamp.from(randomLocalDateTime().toInstant(ZoneOffset.UTC)),
       dataCompareFn = timestampCompare
+    )
+  }
+
+  def testTimestampFractionalSeconds = {
+    class T(tag: Tag) extends Table[(Int, Timestamp)](tag, "test_timestamp_fractions") {
+      def id = column[Int]("id")
+      def data = column[Timestamp]("data")
+      def * = (id, data)
+    }
+    val ts = TableQuery[T]
+    // The SQLite driver stores a Timestamp as milliseconds since the epoch
+    val value = tdb.profile match {
+      case _: SQLiteProfile => Timestamp.valueOf("2012-12-24 17:53:48.123")
+      case _                => Timestamp.valueOf("2012-12-24 17:53:48.123456")
+    }
+
+    seq(
+      ts.schema.create,
+      ts += (1, value),
+      ts.map(_.data).result.head.map(_ shouldBe value),
+      ts.filter(_.data === value).map(_.id).result.map(_ shouldBe Seq(1)),
+      ts.filter(_.data === LiteralColumn(value)).map(_.id).result.map(_ shouldBe Seq(1))
     )
   }
 
