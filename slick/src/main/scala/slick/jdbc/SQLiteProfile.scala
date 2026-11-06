@@ -4,12 +4,10 @@ import java.sql.{Date, Time, Timestamp}
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 import slick.SlickException
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.CompilerState
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MPrimaryKey, MTable}
@@ -24,10 +22,10 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.relational.RelationalCapabilities.functionDatabase]],
   *     [[slick.relational.RelationalCapabilities.functionUser]]:
   *     <code>Functions.user</code> and <code>Functions.database</code> are
-  *     not available in SQLite. Slick will return empty strings for both.</li>
+  *     not available in SQLite. Slick will return empty strings for both if they are re-enabled.</li>
   *   <li>[[slick.relational.RelationalCapabilities.joinFull]],
   *     [[slick.relational.RelationalCapabilities.joinRight]]:
-  *     Right and full outer joins are emulated because there is not native
+  *     Right and full outer joins are emulated because there is no native
   *     support for them.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.mutable]]:
   *     SQLite does not allow mutation of result sets. All cursors are
@@ -51,14 +49,6 @@ import slick.util.QueryInterpolator.queryInterpolator
   *     data to insert contains an `AutoInc` field. Otherwise the operation
   *     is performed natively on the server side with
   *     `INSERT ... ON CONFLICT (primary key) DO UPDATE`.</li>
-  *   <li>[[slick.jdbc.JdbcCapabilities.defaultValueMetaData]]:
-  *     The stable xerial sqlite-jdbc driver 3.7.2 does not return default values
-  *     for columns in the DatabaseMetaData. Consequently they also do not appear
-  *     in Slick's model. This has been fixed in sqlite-jdbc, but the only released
-  *     version that contains the fix is milestone 3.7.15-M1. You can use it instead
-  *     of the stable 3.7.2 in order to get default values with SQLite.
-  *     Also see https://code.google.com/p/sqlite-jdbc/issues/detail?id=27
-  *     </li>
   *   <li>[[slick.jdbc.JdbcCapabilities.booleanMetaData]]:
   *     SQLite doesn't have booleans, so Slick maps to INTEGER instead.
   *     Other jdbc drivers like MySQL map TINYINT(1) back to a Scala
@@ -89,27 +79,28 @@ import slick.util.QueryInterpolator.queryInterpolator
   * and read, but not Slick's literals, so with them date/time values in queries must be bound parameters
   * (<code>.bind</code> or compiled queries). See the "SQLite" section of the "Database" chapter of the manual.
   */
-trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      RelationalCapabilities.functionDatabase -
-      RelationalCapabilities.functionUser -
-      RelationalCapabilities.joinFull -
-      RelationalCapabilities.joinRight -
-      JdbcCapabilities.mutable -
-      SqlCapabilities.sequence -
-      JdbcCapabilities.returnInsertOther -
-      RelationalCapabilities.typeBigDecimal -
-      RelationalCapabilities.typeBlob -
-      RelationalCapabilities.zip -
-      JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.defaultValueMetaData -
-      JdbcCapabilities.booleanMetaData -
-      JdbcCapabilities.supportsByte -
-      JdbcCapabilities.distinguishesIntTypes -
-      JdbcCapabilities.forUpdate -
-      JdbcCapabilities.forShare -
-      JdbcCapabilities.returnMultipleInsertKey
+trait SQLiteProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport { self =>
+
+  trait ProfileAPI extends JdbcAPI {
+    override val functionDatabaseCap = deregister(RelationalCapabilities.functionDatabase)
+    override val functionUserCap = deregister(RelationalCapabilities.functionUser)
+    override val joinFullCap = deregister(RelationalCapabilities.joinFull)
+    override val joinRightCap = deregister(RelationalCapabilities.joinRight)
+    override val mutableCap = deregister(JdbcCapabilities.mutable)
+    override val sequenceCap = deregister(SqlCapabilities.sequence)
+    override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
+    override val typeBigDecimalCap = deregister(RelationalCapabilities.typeBigDecimal)
+    override val typeBlobCap = deregister(RelationalCapabilities.typeBlob)
+    override val zipCap = deregister(RelationalCapabilities.zip)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
+    override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
+    override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes)
+    override val forUpdateCap = deregister(JdbcCapabilities.forUpdate)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
+    override val returnMultipleInsertKeyCap = deregister(JdbcCapabilities.returnMultipleInsertKey)
+  }
+  override val api: ProfileAPI = new ProfileAPI {}
 
   class SQLiteModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

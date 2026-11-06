@@ -2,7 +2,9 @@ package slick.lifted
 
 import slick.ast.*
 import slick.ast.Util.nodeToNodeOps
+import slick.basic.{BasicProfile, Capability}
 import slick.model.ForeignKeyAction
+import slick.relational.RelationalCapabilities
 
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
@@ -18,7 +20,7 @@ trait BaseTag extends Tag
 
 /** The profile-independent superclass of all table row objects.
   * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
-abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String)
+abstract class AbstractTableBase[T, PROFILE <: BasicProfile](val tableTag: Tag, val schemaName: Option[String], val tableName: String)
   extends Rep[T] {
 
   /** The client-side type of the table as defined by its * projection */
@@ -65,12 +67,15 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
    * @param onUpdate         A `ForeignKeyAction`, default being `NoAction`.
    * @param onDelete         A `ForeignKeyAction`, default being `NoAction`.
    */
-  def foreignKey[P, PU, TT <: AbstractTable[?], U](name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
+  def foreignKey[P, PU, TT <: AbstractTable[?], U, OUA <: ForeignKeyAction, ODA <: ForeignKeyAction]
+                                                  (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
                                                   (targetColumns: TT => P,
-                                                   onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-                                                   onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)
+                                                   onUpdate: OUA = ForeignKeyAction.NoAction,
+                                                   onDelete: ODA = ForeignKeyAction.NoAction)
                                                   (implicit unpack: Shape[? <: FlatShapeLevel, TT, U, ?],
-                                                   unpackP: Shape[? <: FlatShapeLevel, P, PU, ?]
+                                                   unpackP: Shape[? <: FlatShapeLevel, P, PU, ?],
+                                                   ouc: Capability.ForProfile[PROFILE, RelationalCapabilities.OnUpdateAction[OUA]],
+                                                   odc: Capability.ForProfile[PROFILE, RelationalCapabilities.OnDeleteAction[ODA]]
                                                   ): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]

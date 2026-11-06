@@ -1,12 +1,13 @@
 package slick.lifted
 
 import scala.language.implicitConversions
-
 import slick.ast.*
 import slick.ast.ScalaBaseType.*
 import slick.lifted.FunctionSymbolExtensionMethods.*
 import slick.util.ConstArray
 import slick.SlickException
+import slick.basic.{BasicProfile, Capability}
+import slick.relational.RelationalCapabilities
 
 trait ExtensionMethods[B1, P1] extends Any {
   protected[this] def c: Rep[P1]
@@ -109,7 +110,7 @@ final class BooleanColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal wit
 }
 
 /** Extension methods for `Rep[String]` and `Rep[Option[String]]` */
-final class StringColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with ExtensionMethods[String, P1] {
+final class StringColumnExtensionMethods[P1, P <: BasicProfile](val c: Rep[P1]) extends AnyVal with ExtensionMethods[String, P1] {
   protected[this] def b1Type = implicitly[TypedType[String]]
 
   def length[R](implicit om: o#to[Int, R]) =
@@ -128,7 +129,8 @@ final class StringColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with
   def ltrim = Library.LTrim.column[P1](n)
   def rtrim = Library.RTrim.column[P1](n)
   def trim = Library.Trim.column[P1](n)
-  def reverseString = Library.Reverse.column[P1](n)
+  def reverseString(implicit cap: Capability.ForProfile[P, RelationalCapabilities.reverse.type]) =
+    Library.Reverse.column[P1](n)
   def substring[P2, P3, R](start: Rep[P2], end: Rep[P3])(implicit om: o#arg[Int, P2]#arg[Int, P3]#to[String, R]) =
     om.column(Library.Substring, n, start.toNode, end.toNode)
   def substring[P2, R](start: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
@@ -137,11 +139,11 @@ final class StringColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with
     substring[Int, P2, R](LiteralColumn(0), num)
   def drop[P2, R](num: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
     substring[P2, R](num)
-  def replace[P2, P3, R](target: Rep[P2], replacement: Rep[P3])(implicit om: o#arg[String, P2]#arg[String, P3]#to[String, R]) =
+  def replace[P2, P3, R](target: Rep[P2], replacement: Rep[P3])(implicit om: o#arg[String, P2]#arg[String, P3]#to[String, R], cap: Capability.ForProfile[P, RelationalCapabilities.replace.type]) =
     om.column(Library.Replace, n, target.toNode, replacement.toNode)
   def indexOf[P2, R](str: Rep[P2])(implicit om: o#arg[String, P2]#to[Int, R]) =
     om.column(Library.IndexOf, n, str.toNode)
-  def *[P2, R](i: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
+  def *[P2, R](i: Rep[P2])(implicit om: o#arg[Int, P2]#to[String, R], cap: Capability.ForProfile[P, RelationalCapabilities.repeat.type]) =
     om.column(Library.Repeat, n, i.toNode)
 }
 
@@ -237,13 +239,13 @@ final class AnyOptionExtensionMethods[O <: Rep[?], P](val r: O) extends AnyVal {
   def nonEmpty = isDefined
 }
 
-trait ExtensionMethodConversions {
+trait ExtensionMethodConversions[P <: BasicProfile] {
   implicit def columnExtensionMethods[B1 : BaseTypedType](c: Rep[B1]): BaseColumnExtensionMethods[B1] = new BaseColumnExtensionMethods[B1](c)
   implicit def optionColumnExtensionMethods[B1 : BaseTypedType](c: Rep[Option[B1]]): OptionColumnExtensionMethods[B1] = new OptionColumnExtensionMethods[B1](c)
   implicit def numericColumnExtensionMethods[B1](c: Rep[B1])(implicit tm: BaseTypedType[B1] & NumericTypedType): BaseNumericColumnExtensionMethods[B1] = new BaseNumericColumnExtensionMethods[B1](c)
   implicit def numericOptionColumnExtensionMethods[B1](c: Rep[Option[B1]])(implicit tm: BaseTypedType[B1] & NumericTypedType): OptionNumericColumnExtensionMethods[B1] = new OptionNumericColumnExtensionMethods[B1](c)
-  implicit def stringColumnExtensionMethods(c: Rep[String]): StringColumnExtensionMethods[String] = new StringColumnExtensionMethods[String](c)
-  implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String]] = new StringColumnExtensionMethods[Option[String]](c)
+  implicit def stringColumnExtensionMethods(c: Rep[String]): StringColumnExtensionMethods[String,P] = new StringColumnExtensionMethods(c)
+  implicit def stringOptionColumnExtensionMethods(c: Rep[Option[String]]): StringColumnExtensionMethods[Option[String],P] = new StringColumnExtensionMethods(c)
   implicit def booleanColumnExtensionMethods(c: Rep[Boolean]): BooleanColumnExtensionMethods[Boolean] = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Rep[Option[Boolean]]): BooleanColumnExtensionMethods[Option[Boolean]] = new BooleanColumnExtensionMethods[Option[Boolean]](c)
 

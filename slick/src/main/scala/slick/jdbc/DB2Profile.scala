@@ -5,7 +5,6 @@ import java.time.Instant
 import java.util.UUID
 
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio.*
 import slick.jdbc.meta.MTable
@@ -37,14 +36,15 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait DB2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      RelationalCapabilities.reverse -
-      JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.supportsByte -
-      JdbcCapabilities.booleanMetaData -
-      JdbcCapabilities.forShare
-
+  trait ProfileAPI extends JdbcAPI {
+    override val reverseCap = deregister(RelationalCapabilities.reverse)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
+    override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
+  }
+  override val api: ProfileAPI = new ProfileAPI {}
+  
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
