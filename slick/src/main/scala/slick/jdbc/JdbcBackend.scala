@@ -96,29 +96,36 @@ trait JdbcBackend extends RelationalBackend {
     // Transaction helpers — called by the interpreter
     // ------------------------------------------------------------------
 
-    override protected def setupTransaction(session: Session, isolationLevel: Option[Int]): Option[Int] = {
-      val prev = isolationLevel.map(_ => session.conn.getTransactionIsolation)
-      isolationLevel.foreach(session.conn.setTransactionIsolation)
-      session.conn.setAutoCommit(false)
-      prev
-    }
+    // In an external transaction, the outermost `transactionally` scope nests inside it, so these
+    // leave the connection alone.
 
-    override protected def commitTransaction(session: Session, previousIsolationLevel: Option[Int]): Unit =
-      try session.conn.commit()
-      finally {
-        previousIsolationLevel.foreach(session.conn.setTransactionIsolation)
-        session.conn.setAutoCommit(true)
+    override protected def setupTransaction(session: Session, isolationLevel: Option[Int]): Option[Int] =
+      if (session.inExternalTransaction) None
+      else {
+        val prev = isolationLevel.map(_ => session.conn.getTransactionIsolation)
+        isolationLevel.foreach(session.conn.setTransactionIsolation)
+        session.conn.setAutoCommit(false)
+        prev
       }
 
-    override protected def rollbackTransaction(session: Session, previousIsolationLevel: Option[Int]): Unit =
-      try session.conn.rollback()
-      catch { case NonFatal(_) => () }
-      finally
-        try {
+    override protected def commitTransaction(session: Session, previousIsolationLevel: Option[Int]): Unit =
+      if (!session.inExternalTransaction)
+        try session.conn.commit()
+        finally {
           previousIsolationLevel.foreach(session.conn.setTransactionIsolation)
           session.conn.setAutoCommit(true)
         }
+
+    override protected def rollbackTransaction(session: Session, previousIsolationLevel: Option[Int]): Unit =
+      if (!session.inExternalTransaction)
+        try session.conn.rollback()
         catch { case NonFatal(_) => () }
+        finally
+          try {
+            previousIsolationLevel.foreach(session.conn.setTransactionIsolation)
+            session.conn.setAutoCommit(true)
+          }
+          catch { case NonFatal(_) => () }
 
     // ------------------------------------------------------------------
     // Session → Context bridge
@@ -126,7 +133,8 @@ trait JdbcBackend extends RelationalBackend {
 
     override protected def sessionAsContext(session: Session, state: ExecState): Context = {
       val outerSession = session
-      val depth = state.transactionDepth
+      // An external transaction is the outermost transaction level.
+      val depth = state.transactionDepth + (if (session.inExternalTransaction) 1 else 0)
       val pinned = state.pinned
       new JdbcActionContext {
         override def rawSession: JdbcSessionDef = outerSession
@@ -147,6 +155,10 @@ trait JdbcBackend extends RelationalBackend {
     def conn: Connection
     def metaData: DatabaseMetaData
     def capabilities: DatabaseCapabilities
+
+    /** Whether `conn` was already inside a transaction owned outside Slick when this session got it.
+      * See [[JdbcDataSource.openTransactionsOwnedExternally]]. */
+    def inExternalTransaction: Boolean = false
 
     def resultSetType: ResultSetType = ResultSetType.Auto
     def resultSetConcurrency: ResultSetConcurrency = ResultSetConcurrency.Auto
@@ -279,6 +291,7 @@ trait JdbcBackend extends RelationalBackend {
       def conn       = self.conn
       def metaData   = self.metaData
       def capabilities = self.capabilities
+      override def inExternalTransaction = self.inExternalTransaction
       def close()    = self.close()
     }
 
@@ -299,6 +312,9 @@ trait JdbcBackend extends RelationalBackend {
     val conn = database.source.createConnection()
 
     lazy val metaData = conn.getMetaData()
+
+    override val inExternalTransaction: Boolean =
+      database.source.openTransactionsOwnedExternally && !conn.getAutoCommit
 
     def capabilities = {
       val dc = database.capabilities

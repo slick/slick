@@ -196,6 +196,19 @@ a limit in the number of connections it can provide, pass the size via `.withCon
 
 @@snip [Connection.scala](../code/Connection.scala) { #forName }
 
+### Using a Connection Someone Else Owns
+
+Some tools open a JDBC connection themselves and hand it to your code. For example, Flyway passes one to each
+Java-based migration. To run Slick actions on such a connection, pass it to
+@scaladoc[forConnection](slick.jdbc.DatabaseConfig$#forConnection[P%3C:slick.jdbc.JdbcProfile](profile:P,conn:java.sql.Connection):slick.jdbc.JdbcDatabaseConfig[P]).
+Slick runs actions on that connection one at a time and never closes it.
+
+If the connection has auto-commit disabled, its open transaction belongs to the code that handed you the connection.
+Slick runs everything inside that transaction and never commits it, rolls it back or changes its settings, so your
+actions succeed or fail together with that code's own work. `transactionally` scopes nest inside it.
+
+@@snip [Connection.scala](../code/Connection.scala) { #forConnection }
+
 Opening a Database
 ------------------
 
