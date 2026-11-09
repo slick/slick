@@ -211,4 +211,66 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
       effective.to[Set].result.map(_ shouldBe Set(Some(Index(0)), Some(Index(1)), Some(Index(2))))
     )
   }
+
+  def testAutoMapped = {
+
+    class T(tag: Tag) extends Table[(MyMappedID, Int)](tag, "t_automapped") {
+      def id = column[MyMappedID]("id", O.PrimaryKey)
+      def v = column[Int]("v")
+      def * = (id, v)
+    }
+    val ts = TableQuery[T]
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq((MyMappedID(1), 2), (MyMappedID(3), 4)),
+      ts.to[Set]
+        .result
+        .map(_ shouldBe Set((MyMappedID(1), 2), (MyMappedID(3), 4))),
+      ts.filter(_.id === MyMappedID(1))
+        .to[Set]
+        .result
+        .map(_ shouldBe Set((MyMappedID(1), 2)))
+    )
+  }
+
+  def mappedToMacroCompilerBug = {
+    case class MyId(val value: Int) extends MappedTo[Int]
+
+    class MyTable(tag: Tag) extends Table[MyId](tag, "table") {
+      def * : slick.lifted.ProvenShape[MyId] = ???
+    }
+
+    implicitly[Shape[_ <: FlatShapeLevel, MyTable, _, _]]
+    TableQuery(new MyTable(_)).map(identity)
+  }
+
+  def testMappedProjectionShape = {
+    def toLower(s: Option[String]) = s.map(_.toLowerCase)
+    def toUpper(s: Option[String]): Option[Option[String]] = Some(
+      s.map(_.toUpperCase)
+    )
+
+    case class Row(id: String, escaped: Option[String])
+
+    class T(tag: Tag) extends Table[Row](tag, "t".withUniquePostFix) {
+      val id = column[String]("id", O.PrimaryKey)
+      val name = column[Option[String]]("name")
+      val upperName = name.shaped.<>(toLower, toUpper)
+      def * = (id, upperName).<>(
+        (a: (String, Option[String])) => Row(a._1, a._2),
+        Row.unapply
+      )
+    }
+    val ts = TableQuery[T]
+
+    seq(
+      ts.schema.create,
+      ts += Row("a", Some("foo")),
+      ts.map(_.name).result.map(_ shouldBe Seq(Some("FOO"))),
+      ts.result.map(_ shouldBe Seq(Row("a", Some("foo"))))
+    )
+  }
 }
+
+case class MyMappedID(value: Int) extends AnyVal with slick.lifted.MappedTo[Int]
