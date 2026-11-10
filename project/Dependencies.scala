@@ -32,7 +32,7 @@ object Dependencies {
   val zioVersion = "2.1.27"
   val zio = "dev.zio" %% "zio" % zioVersion
   val zioStreams = "dev.zio" %% "zio-streams" % zioVersion
-  val zioInteropCats = "dev.zio" %% "zio-interop-cats" % "23.1.0.14"
+  val zioInteropCats = "dev.zio" %% "zio-interop-cats" % "23.1.0.15"
   val zioTest = "dev.zio" %% "zio-test" % zioVersion
   val zioTestSbt = "dev.zio" %% "zio-test-sbt" % zioVersion
 
