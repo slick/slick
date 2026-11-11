@@ -4,9 +4,11 @@ import java.sql.{PreparedStatement, ResultSet}
 import java.time.*
 import java.util.UUID
 
+import slick.SlickException
 import slick.ast.*
 import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
+import slick.dbio.{Effect, NoStream}
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
@@ -33,7 +35,8 @@ import slick.util.QueryInterpolator.queryInterpolator
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if the
   *     data to insert contains an `AutoInc` fields. Otherwise the operation
-  *     is performed natively on the server side.</li>
+  *     is performed natively on the server side. `insertOrUpdateAll` is
+  *     supported only for data without `AutoInc` fields.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.forShare]]:
   *     H2 does not support SELECT ... FOR SHARE.</li>
   * </ul>
@@ -179,6 +182,19 @@ trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStat
     override protected lazy val useServerSideUpsert =
       compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
+
+    // The capability is missing only because of the client-side emulation for AutoInc columns; without them, the
+    // upsert is a MERGE statement that can be batched or given multiple rows like an INSERT.
+    override def insertOrUpdateAll(values: Iterable[U], rowsPerStatement: RowsPerStatement): ProfileAction[
+      MultiInsertResult,
+      NoStream,
+      Effect.Write
+    ] =
+      if (!useServerSideUpsert)
+        throw new SlickException(
+          s"H2Profile does not support insertOrUpdateAll for table ${compiled.upsert.table.tableName}, which has " +
+            "AutoInc columns: its insertOrUpdate is emulated on the client. Use insertOrUpdate for each row instead.")
+      else new InsertOrUpdateAllAction(values, rowsPerStatement)
   }
 }
 

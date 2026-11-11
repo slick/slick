@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.util.{Failure, Success}
-import slick.jdbc.{JdbcCapabilities, MySQLProfile}
+import slick.jdbc.{H2Profile, JdbcCapabilities, MySQLProfile}
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 class InsertTest extends AsyncTest[JdbcTestDB] {
@@ -254,10 +254,13 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
     def prepare = DBIO.seq(ts.schema.create, ts ++= Seq((1, "a"), (2, "b")))
-    if (tdb.capabilities.contains(JdbcCapabilities.insertOrUpdate)) {
+    // H2 lacks the capability only for tables with AutoInc columns
+    if (tdb.capabilities.contains(JdbcCapabilities.insertOrUpdate) || tdb.profile.isInstanceOf[H2Profile]) {
+      // MySQL counts an updated row twice
+      val expectedCount = if (tdb.profile.isInstanceOf[MySQLProfile]) 3 else 2
       for {
         _ <- prepare
-        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe 3))
+        _ <- ts.insertOrUpdateAll(Seq((3, "c"), (1, "d"))).map(_.foreach(_ shouldBe expectedCount))
         _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "d"), (2, "b"), (3, "c")))
       } yield ()
     } else {
