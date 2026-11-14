@@ -252,7 +252,8 @@ sbt "show versionPolicyIgnoredInternalDependencyVersions"
 - `slick-testkit/src/main/scala/com/typesafe/slick/testkit/util/TestDB.scala`: Test database management
 - `slick-testkit/src/main/scala/com/typesafe/slick/testkit/util/StandardTestDBs.scala`: Standard test configurations
 - `test-dbs/testkit.github-actions.conf`: CI-specific database configurations
-- `docker-compose.yml`: Local database setup for testing
+- `mise.toml`: The service databases for testing, one set of containers per checkout
+- `docker-compose.yml`: The same databases for those who don't use mise
 
 ### Build and Version Management
 

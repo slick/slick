@@ -1,0 +1,68 @@
+# The service databases for the testkit, as mise daemons (https://mise.jdx.dev/daemons.html). docker-compose.yml
+# defines the same containers for those who don't use mise; keep the two in sync.
+#
+# Each checkout runs its own containers. The main checkout publishes each database on its usual port (the `base`);
+# every linked git worktree gets the base plus a slot derived from its path. mise exports the port as <DAEMON>_PORT
+# (POSTGRES_PORT, ...) to `mise x`, `mise run` and shells with mise activated, and test-dbs/testkit-databases.conf reads
+# those variables, so run sbt through mise (`mise x -- sbt ...`).
+#
+# The databases aren't HTTP services, so they have `proxy = false` and get no mise proxy hostname.
+#
+# The containers run with --rm: `mise daemons stop` removes them and their data. mise doesn't pull images; `docker pull`
+# them first.
+
+# The first release that runs `image` daemons; older ones reject this file.
+min_version = "2026.10.24"
+
+[settings]
+# Daemons are an experimental mise feature
+experimental = true
+
+[env]
+# sbt-git reads the repository with JGit by default, which fails to load the build in a linked git worktree
+# ("Bare Repository has neither a working tree, nor an index"); this makes it use the git command instead.
+SBT_GIT_USE_CONSOLE_FOR_RO_GIT = "1"
+
+[daemons.postgres]
+image = "postgres"
+env = { POSTGRES_PASSWORD = "postgres" }
+port = { auto = true, base = 5432 }
+proxy = false
+# Over TCP, because the temporary server the image runs while initializing listens only on its socket
+ready_cmd = "{{ runtime }} exec {{ container }} pg_isready -h 127.0.0.1 -d postgres -U postgres"
+
+[daemons.mysql]
+image = "mysql"
+command = "--disable-log-bin"
+env = { MYSQL_ALLOW_EMPTY_PASSWORD = "yes" }
+port = { auto = true, base = 3306 }
+proxy = false
+# Over TCP, because the temporary server the image runs while initializing listens only on its socket
+ready_cmd = "{{ runtime }} exec {{ container }} mysqladmin ping -h 127.0.0.1 --silent"
+
+[daemons.oracle]
+image = "gvenzl/oracle-free:23-slim-faststart"
+env = { ORACLE_PASSWORD = "oracle" }
+port = { auto = true, base = 49161 }
+proxy = false
+container_port = 1521
+ready_cmd = "{{ runtime }} exec {{ container }} healthcheck.sh"
+
+[daemons.sqlserver]
+image = "mcr.microsoft.com/mssql/server:2025-latest"
+env = { ACCEPT_EULA = "Y", MSSQL_SA_PASSWORD = "Freeslick18" }
+port = { auto = true, base = 1401 }
+proxy = false
+container_port = 1433
+runtime_args = ["--cpus=8"]
+ready_cmd = "{{ runtime }} exec {{ container }} /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Freeslick18 -Q 'select 1'"
+
+[daemons.db2]
+image = "ibmcom/db2:11.5.8.0"
+env = { DB2INST1_PASSWORD = "db2inst1-pwd", DB2INSTANCE = "db2inst1", DBNAME = "SLICKTST", LICENSE = "accept" }
+port = { auto = true, base = 50000 }
+proxy = false
+runtime_args = ["--privileged"]
+# The image touches this marker after ACTIVATE DATABASE. Each start is a fresh container, so the marker can't be left
+# over from an earlier start. A `db2 connect` probe would leak CLP connections and break the testkit schema cleanup.
+ready_cmd = "{{ runtime }} exec {{ container }} test -f /database/config/.shared-data/setup_complete"

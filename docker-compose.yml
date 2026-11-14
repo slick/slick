@@ -1,3 +1,5 @@
+# The service databases for the testkit, for those who do not use mise. mise.toml defines the same containers, one set
+# per checkout; keep the two in sync.
 services:
   postgres:
     image: postgres
