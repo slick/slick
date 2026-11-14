@@ -3,11 +3,10 @@ package slick.jdbc
 import java.sql.{PreparedStatement, ResultSet}
 import java.time.*
 import java.util.UUID
-
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
 import slick.jdbc.meta.{MColumn, MTable}
+import slick.relational.RelationalSequenceComponent.SequenceParameter
 import slick.relational.{RelationalCapabilities, RelationalProfile}
 import slick.sql.SqlCapabilities
 import slick.util.QueryInterpolator.queryInterpolator
@@ -20,15 +19,11 @@ import slick.util.QueryInterpolator.queryInterpolator
   * <ul>
   *   <li>[[slick.relational.RelationalCapabilities.reverse]]:
   *     This String function is not available in H2.</li>
-  *   <li>[[slick.sql.SqlCapabilities.sequenceMin]],
-  *     [[slick.sql.SqlCapabilities.sequenceMax]],
-  *     [[slick.sql.SqlCapabilities.sequenceCycle]]:
-  *     H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.returnInsertOther]]:
   *     When returning columns from an INSERT operation, only a single column
   *     may be specified which must be the table's AutoInc column.</li>
   *   <li>[[slick.relational.RelationalCapabilities.joinFull]]:
-  *     Full outer joins are emulated because there is not native support
+  *     Full outer joins are emulated because there is no native support
   *     for them.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if the
@@ -40,16 +35,14 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait H2Profile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      SqlCapabilities.sequenceMin -
-      SqlCapabilities.sequenceMax -
-      SqlCapabilities.sequenceCycle -
-      JdbcCapabilities.returnInsertOther -
-      RelationalCapabilities.joinFull -
-      JdbcCapabilities.insertOrUpdate -
-      RelationalCapabilities.reverse -
-      JdbcCapabilities.forShare
+  trait ProfileAPI extends JdbcAPI {
+    override val returnInsertOtherCap = deregister(JdbcCapabilities.returnInsertOther)
+    override val joinFullCap = deregister(RelationalCapabilities.joinFull)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val reverseCap = deregister(RelationalCapabilities.reverse)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
+  }
+  override val api: ProfileAPI = new ProfileAPI {}
 
   class H2ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

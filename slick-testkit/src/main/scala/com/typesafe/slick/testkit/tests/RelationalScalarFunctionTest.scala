@@ -9,7 +9,6 @@ class RelationalScalarFunctionTest extends AsyncTest[RelationalTestDB] {
     def check[T : BaseColumnType](q: Rep[T], exp: T) = q.result.map(_ shouldBe exp)
     def checkLit[T : BaseColumnType](v: T) = check(LiteralColumn(v), v)
     val s = "abcdefghijklmnopqrstuvwxyz"
-
     seq(
       // Literals
       checkLit(false),
@@ -61,10 +60,8 @@ class RelationalScalarFunctionTest extends AsyncTest[RelationalTestDB] {
       check(LiteralColumn(s).drop(3), s.drop(3)),
       ifCap(rcap.replace)(check(LiteralColumn(s).replace("cd", "XXX"), s.replace("cd", "XXX"))),
       ifCap(rcap.reverse)(check(LiteralColumn(s).reverseString, s.reverse)),
-      ifCap(rcap.indexOf)(seq(
-        check(LiteralColumn(s).indexOf("o"), s.indexOf("o")),
-        check(LiteralColumn(s).indexOf("7"), s.indexOf("7"))
-      )),
+      check(LiteralColumn(s).indexOf("o"), s.indexOf("o")),
+      check(LiteralColumn(s).indexOf("7"), s.indexOf("7")),
       ifCap(rcap.repeat)(check(LiteralColumn(s) * 2, s * 2))
     )
   }

@@ -27,15 +27,15 @@ class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, TableQu
 
 object TableQuery {
   /** Create a TableQuery for a table row class using an arbitrary constructor function. */
-  def apply[E <: AbstractTable[_]](cons: Tag => E): TableQuery[E] =
+  def apply[E <: AbstractTableBase[_, _]](cons: Tag => E): TableQuery[E] =
     new TableQuery[E](cons)
 
   type Extract[E] = E match {
-    case AbstractTable[t] => t
+    case AbstractTableBase[t, _] => t
   }
 
   /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
-  inline def apply[E <: AbstractTable[_]]: TableQuery[E] = ${ applyExpr[E] }
+  inline def apply[E <: AbstractTableBase[_, _]]: TableQuery[E] = ${ applyExpr[E] }
 
   private def applyExpr[E <: AbstractTable[_]](using quotes: Quotes, e: Type[E]): Expr[TableQuery[E]] = {
     import quotes.reflect.*

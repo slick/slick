@@ -1,7 +1,6 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-
 import scala.collection.mutable
 import scala.language.implicitConversions
 import slick.ast.*
@@ -26,8 +25,6 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   type BaseColumnType[T] = JdbcType[T] & BaseTypedType[T]
   val columnTypes = new JdbcTypes
   override lazy val MappedColumnType: MappedJdbcType.type = MappedJdbcType
-
-  override protected def computeCapabilities = super.computeCapabilities ++ JdbcCapabilities.all
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect())
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate())
@@ -78,7 +75,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
       createUpdateActionExtensionMethods(updateCompiler.run(q.toNode).tree, ())
   }
 
-  trait JdbcAPI extends JdbcLowPriorityAPI with RelationalAPI with JdbcImplicitColumnTypes {
+  trait JdbcAPI extends JdbcLowPriorityAPI with SqlAPI with JdbcImplicitColumnTypes with JdbcCapabilities.All {
     type SimpleDBIO[+R] = SimpleJdbcAction[R]
     val SimpleDBIO = SimpleJdbcAction
 

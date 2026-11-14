@@ -79,8 +79,10 @@ trait TestCodeGenerator {
       Some(s"$packageName.$objectName")
     } else None
 
-    def generator: DBIO[SourceCodeGenerator] =
+    def generator: DBIO[SourceCodeGenerator] = {
+      import tdb.profile.api.*
       tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+    }
 
     def testCode: String = defaultTestCode(this)
 

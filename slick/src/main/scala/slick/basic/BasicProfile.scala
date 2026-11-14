@@ -20,9 +20,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
 
   /** The capabilities supported by this profile. This can be used to query at
     * runtime whether a specific feature is supported. */
-  final val capabilities: Set[Capability] = computeCapabilities
-  /** Compute the capabilities. This should be overridden in subclasses as needed. */
-  protected def computeCapabilities: Set[Capability] = Set.empty
+  final lazy val capabilities: Set[Capability] = api.capabilities
 
   /** The type of a schema description (DDL) */
   type SchemaDescription <: SchemaDescriptionDef
@@ -35,7 +33,7 @@ trait BasicProfile extends BasicActionComponent { self: BasicProfile =>
     def ++(other: SchemaDescription): SchemaDescription
   }
 
-  trait BasicAPI extends Aliases with ExtensionMethodConversions {
+  trait BasicAPI extends Aliases with ExtensionMethodConversions[self.type] with Capabilities {
     type Session = backend.Session
     type SlickException = slick.SlickException
 
