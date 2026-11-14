@@ -74,16 +74,27 @@ trait OutputHelpers{
    * @param profile Slick profile that is imported in the generated package (e.g. scala.slick.driver.H2Driver)
    * @param pkg Scala package the generated code is placed in (a subfolder structure will be created within srcFolder)
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
+   * @param scalaVersion for scala 3.10+
    */
-  def writeToMultipleFiles(profile: String, folder: String, pkg: String, container: String = "Tables"): Unit = {
+  def writeToMultipleFiles(profile: String, folder: String, pkg: String, container: String = "Tables", scalaVersion: Option[String] = None): Unit = {
     // Write the container file (the file that contains the stand-alone object).
     writeStringToFile(rootTraitCode(profile, pkg, container), folder, pkg, container + "Root.scala")
     writeStringToFile(packageContainerCode(profile, pkg, container), folder, pkg, container + ".scala")
     // Write one file for each table.
     codePerTable.foreach {
-      case (tableName, tableCode) => writeStringToFile(packageTableCode(tableName, tableCode, pkg, container), folder, pkg, handleQuotedNamed(tableName)+".scala")
+      case (tableName, tableCode) =>
+        val withKeyword = scalaVersionToWithKeyword(scalaVersion)
+        writeStringToFile(packageTableCode(tableName, tableCode, pkg, container, withKeyword), folder, pkg, handleQuotedNamed(tableName)+".scala")
     }
   }
+
+  private def scalaVersionToWithKeyword(scalaVersion: Option[String]) =
+    scalaVersion.flatMap(_.split("\\.").headOption) match {
+      case Some(major) if major.toIntOption.exists(_ >= 3) =>
+        "&"
+      case _ =>
+        "with"
+    }
 
   private def handleQuotedNamed(tableName: String) = {
     if (tableName.endsWith("`")) s"${tableName.init}Table`" else s"${tableName}Table"
@@ -163,8 +174,9 @@ trait ${container} ${mixinCode} {
    * @param tableCode : the generated code for the table.
    * @param pkg Scala package the generated code is placed in
    * @param container The name of the container
+   * @param withKeyword & for scala 3.10+
    */
-  def packageTableCode(tableName: String, tableCode: String, pkg: String, container: String): String = {
+  def packageTableCode(tableName: String, tableCode: String, pkg: String, container: String,  withKeyword: String): String = {
 
     val foreignKeys = foreignKeysPerTable.getOrElse(tableName, Nil).map(handleQuotedNamed)
     val selfTraits = s"${container}Root" :: foreignKeys
@@ -174,7 +186,7 @@ package ${pkg}
 // AUTO-GENERATED Slick data model for table ${tableName}
 trait ${handleQuotedNamed(tableName) } {
 
-  self:${selfTraits.mkString(" with ")}  =>
+  self:${selfTraits.mkString(s" $withKeyword ")}  =>
 
   import profile.api._
   ${indent(tableCode)}
