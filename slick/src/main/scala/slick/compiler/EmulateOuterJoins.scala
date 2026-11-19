@@ -12,7 +12,7 @@ import slick.util.ConstArray
   * joins (or an emulated version thereof). Left joins can be emulated with
   * inner joins and unions.
   */
-class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) extends Phase {
+class EmulateOuterJoins(val useRightJoin: Boolean) extends Phase {
   val name = "emulateOuterJoins"
 
   def apply(state: CompilerState) = state.map(tree => ClientSideOp.mapServerSide(tree, true){ n =>
@@ -21,20 +21,6 @@ class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) ext
   })
 
   def convert(n: Node): Node = n match {
-    case Join(leftGen, rightGen, left, right, JoinType.Left, on) if !useLeftJoin =>
-      // as leftJoin bs on e => (as join bs on e) unionAll as.filter(a => !exists(bs.filter(b => e(a, b)))).map(a => (a, nulls))
-      val lgen2, rgen2, bgen = new AnonSymbol
-      val on2 = on.replace({ case r @ Ref(sym) =>
-        if(sym == leftGen) Ref(lgen2) else if(sym == rightGen) Ref(rgen2) else r
-      }, true)
-      convert(Union(
-        Join(leftGen, rightGen, left, right, JoinType.Inner, on),
-        Bind(bgen,
-          Filter(lgen2, assignFreshSymbols(left),
-            Library.Not.typed(on.nodeType, Library.Exists.typed(on.nodeType, Filter(rgen2, assignFreshSymbols(right), on2)))
-          ),
-          Pure(ProductNode(ConstArray(Ref(bgen), nullStructFor(right.nodeType.structural.asCollectionType.elementType))))
-        ), true).infer())
     case Join(leftGen, rightGen, left, right, JoinType.Right, on) if !useRightJoin =>
       // as rightJoin bs on e => bs leftJoin as on { (b, a) => e(a, b) } map { case (b, a) => (a, b) }
       val bgen = new AnonSymbol

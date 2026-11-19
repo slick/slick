@@ -135,14 +135,12 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
           (("Colombian_Decaf","Meadows:"),("Colombian_Decaf",101,849,4,0),(150,"The High Ground","100 Coffee Lane"),3396)
         )
       },
-      ifCap(rcap.pagingNested) {
-        mark("q1b", q1b.result).named("q1b: Explicit join with condition").map { r1b =>
-          r1b.toSet shouldBe Set(
-            ("French_Roast","Mendocino","Colombian"),
-            ("French_Roast","Mendocino","French_Roast"),
-            ("French_Roast","Mendocino","Colombian_Decaf")
-          )
-        }
+      mark("q1b", q1b.result).named("q1b: Explicit join with condition").map { r1b =>
+        r1b.toSet shouldBe Set(
+          ("French_Roast","Mendocino","Colombian"),
+          ("French_Roast","Mendocino","French_Roast"),
+          ("French_Roast","Mendocino","Colombian_Decaf")
+        )
       }
     )
 
@@ -202,9 +200,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
           ("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396,42)
         )
       }
-      _ <- ifCap(rcap.pagingNested) {
-        mark("q4", q4.result).named("q4: Map to tuple, then filter").map(_.toSet shouldBe Set(("Colombian",42)))
-      }
+      _ <- mark("q4", q4.result).named("q4: Map to tuple, then filter").map(_.toSet shouldBe Set(("Colombian",42)))
       _ <- mark("q4b", q4b.result).map(_.toSet shouldBe Set(
         (("Colombian",799,42),("Colombian",799,42)),
         (("Colombian",799,42),("French_Roast",799,42)),

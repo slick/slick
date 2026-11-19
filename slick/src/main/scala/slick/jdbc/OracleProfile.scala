@@ -7,7 +7,6 @@ import java.util.UUID
 
 import slick.SlickException
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase, RewriteBooleans}
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MTable}
@@ -24,14 +23,17 @@ import slick.util.QueryInterpolator.queryInterpolator
   * ''without'' the following capabilities:
   *
   * <ul>
-  *   <li>[[slick.relational.RelationalCapabilities.foreignKeyActions]]:
+  *   <li>
+  *     [[slick.relational.RelationalCapabilities.OnUpdateAction]]
+  *     [[slick.relational.RelationalCapabilities.OnDeleteAction]]:
   *     Foreign key actions ''Cascade'', ''SetNull'' and ''NoAction'' are
   *     directly supported for ''onDelete''. ''Restrict'' and ''SetDefault''
-  *     are ignored (i.e. equals to ''NoAction''). No ''onUpdate'' actions are
+  *     are ignored (i.e. equals to ''NoAction'') if capability is re-enabled.
+  *     No ''onUpdate'' actions are
   *     supported but specifying ''Cascade'' adds the option INITIALLY DEFERRED
   *     to the foreign key constraint, thus allowing you to perform the
   *     cascading update manually before committing the current transaction.
-  *     Other ''onUpdate'' actions are ignored.</li>
+  *     Other ''onUpdate'' actions are ignored if re-enabled.</li>
   *   <li>[[slick.jdbc.JdbcCapabilities.insertOrUpdate]]:
   *     InsertOrUpdate operations are emulated on the client side if generated
   *     keys should be returned. Otherwise the operation is performed
@@ -62,16 +64,24 @@ import slick.util.QueryInterpolator.queryInterpolator
   * Updating Blob values in updatable result sets is not supported.
   */
 trait OracleProfile extends JdbcProfile {
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      RelationalCapabilities.foreignKeyActions -
-      JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.booleanMetaData -
-      JdbcCapabilities.distinguishesIntTypes -
-      JdbcCapabilities.supportsByte -
-      JdbcCapabilities.returnMultipleInsertKey -
-      JdbcCapabilities.insertMultipleRowsWithSingleStatement -
-      JdbcCapabilities.forShare
+
+  trait ProfileAPI extends JdbcAPI {
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val booleanMetaDataCap = deregister(JdbcCapabilities.booleanMetaData)
+    override val distinguishesIntTypesCap = deregister(JdbcCapabilities.distinguishesIntTypes)
+    override val supportsByteCap = deregister(JdbcCapabilities.supportsByte)
+    override val returnMultipleInsertKeyCap = deregister(JdbcCapabilities.returnMultipleInsertKey)
+    override val insertMultipleRowsWithSingleStatementCap = deregister(JdbcCapabilities.insertMultipleRowsWithSingleStatement)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
+
+    override val onUpdateActionSetNullCap = deregister(new RelationalCapabilities.OnUpdateAction(ForeignKeyAction.SetNull))
+    override val onUpdateActionRestrictCap = deregister(new RelationalCapabilities.OnUpdateAction(ForeignKeyAction.Restrict))
+    override val onUpdateActionSetDefaultCap = deregister(new RelationalCapabilities.OnUpdateAction(ForeignKeyAction.SetDefault))
+
+    override val onDeleteActionRestrictCap = deregister(new RelationalCapabilities.OnDeleteAction(ForeignKeyAction.Restrict))
+    override val onDeleteActionSetDefaultCap = deregister(new RelationalCapabilities.OnDeleteAction(ForeignKeyAction.SetDefault))
+  }
+  override val api: ProfileAPI = new ProfileAPI {}
 
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false

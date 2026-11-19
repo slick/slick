@@ -48,7 +48,7 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
       q2 = for { t1 <- t1s if t1.a.like("foo%") } yield t1.a
       _ <- q2.to[Set].result.map(_ shouldBe Set("foo", "foobar", "foo%"))
 
-      _ <- ifCap(rcap.likeEscape) {
+      _ <- {
         val q3 = for { t1 <- t1s if t1.a.like("foo^%", '^') } yield t1.a
         q3.result.map(_ shouldBe List("foo%"))
       }
