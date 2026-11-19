@@ -195,6 +195,28 @@ class InsertOrUpdateStatementTest {
     ))
   }
 
+  /** Without AutoInc columns, H2's upsert is a MERGE statement, which `insertOrUpdateAll` can give multiple rows. */
+  @Test def testH2InsertOrUpdateAll(): Unit = {
+    import H2Profile.api.*
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+    }
+    val ts = TableQuery[T]
+    val rows = Seq((1, "a"), (2, "b"))
+    assertEquals(
+      Seq("""merge into "t" ("id","name")  values (?,?),(?,?)"""),
+      ts.insertOrUpdateAll(rows).statements.toSeq
+    )
+    assertEquals(
+      Seq("""merge into "t" ("id","name")  values (?,?)"""),
+      ts.insertOrUpdateAll(rows, slick.jdbc.RowsPerStatement.One).statements.toSeq
+    )
+    val e = assertThrows(classOf[SlickException], () => new OnlyAutoInc(H2Profile).insertOrUpdateAll())
+    assertTrue(e.getMessage, e.getMessage.contains("H2Profile") && e.getMessage.contains("table t,"))
+  }
+
   @Test def testMergeProfiles(): Unit =
     for (profile <- Seq[JdbcProfile](OracleProfile, DB2Profile, HsqldbProfile)) {
       val withSoft = statements(profile, allColumnsPK = false, returning = false).mkString
