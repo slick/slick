@@ -90,6 +90,46 @@ class MySQLDDLTest(testSchema: Option[String]) {
       createStatements.contains("`c` LONGTEXT")
     )
   }
+
+  @Test def testTemporalColumnsKeepFractionalSeconds: Unit = {
+    class T1412(tag: Tag)
+      extends Table[(java.sql.Timestamp, Option[java.sql.Timestamp], java.sql.Time, Option[java.sql.Timestamp], String)](
+        tag, testSchema, "mytable1412") {
+      def ts = column[java.sql.Timestamp]("ts")
+      def tsOpt = column[Option[java.sql.Timestamp]]("ts_opt")
+      def t = column[java.sql.Time]("t")
+      def tsMillis = column[Option[java.sql.Timestamp]]("ts_millis", O.SqlType("TIMESTAMP(3)"))
+      def s = column[String]("s")
+
+      def * = (ts, tsOpt, t, tsMillis, s)
+    }
+    val ts = TableQuery[T1412]
+
+    val createStatements = ts.schema.createStatements.mkString("\n")
+    assertTrue("Timestamp column must keep microseconds: " + createStatements,
+      createStatements.contains("`ts` TIMESTAMP(6) NOT NULL"))
+    // Without NULL, MySQL makes a TIMESTAMP column NOT NULL unless explicit_defaults_for_timestamp is on
+    assertTrue("Nullable Timestamp column must keep microseconds and be declared NULL: " + createStatements,
+      createStatements.contains("`ts_opt` TIMESTAMP(6) NULL"))
+    assertTrue("Time column must keep microseconds: " + createStatements,
+      createStatements.contains("`t` TIME(6) NOT NULL"))
+    assertTrue("O.SqlType must override the precision, and a nullable TIMESTAMP(n) must be declared NULL: " +
+      createStatements, createStatements.contains("`ts_millis` TIMESTAMP(3) NULL"))
+
+    // The JDBC convert escape takes no precision
+    val castStatement = ts.map(_.s.asColumnOf[java.sql.Timestamp]).result.statements.mkString
+    assertTrue("Cast to Timestamp must use the plain type name: " + castStatement,
+      castStatement.contains("`s`,TIMESTAMP)}"))
+  }
+
+  @Test def testFractionalSecondsPrecisionZeroKeepsPlainTypes: Unit = {
+    object WholeSecondsProfile extends slick.jdbc.MySQLProfile {
+      override protected lazy val defaultFractionalSecondsPrecision = 0
+    }
+
+    assertEquals("TIMESTAMP", WholeSecondsProfile.columnTypes.timestampJdbcType.sqlTypeName(None))
+    assertEquals("TIME", WholeSecondsProfile.columnTypes.timeJdbcType.sqlTypeName(None))
+  }
 }
 
 object MySQLDDLTest {

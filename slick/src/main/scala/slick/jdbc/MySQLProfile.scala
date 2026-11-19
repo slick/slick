@@ -60,6 +60,11 @@ import com.typesafe.config.Config
   * changed by overriding <code>slick.jdbc.MySQLProfile.defaultStringType</code>
   * in application.conf.
   *
+  * `java.sql.Timestamp` and `java.sql.Time` columns are created as "TIMESTAMP(6)" and "TIME(6)", so that
+  * MySQL keeps their fractional seconds (down to microseconds). The precision can be changed with
+  * <code>slick.jdbc.MySQLProfile.defaultFractionalSecondsPrecision</code> in application.conf (0 to 6;
+  * 0 creates plain "TIMESTAMP" and "TIME" columns, which store whole seconds), or per column with `O.SqlType`.
+  *
   * Note: Slick 3.2 also checks the old config path "slick.driver.MySQL" that was used
   * by Slick 3.0 and 3.1, and logs a warning if anything is found there. Values from the
   * old path are *not* used anymore. This deprecation warning will be removed in a
@@ -218,10 +223,23 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
       }
     /* MySQL has no CLOB type. LONGTEXT holds up to 4GB, TEXT only 64KB. */
     case java.sql.Types.CLOB => "LONGTEXT"
+    case java.sql.Types.TIMESTAMP | java.sql.Types.TIME =>
+      withFractionalSeconds(super.defaultSqlTypeName(tmd, sym))
     case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
   protected lazy val defaultStringType = profileConfig.getStringOpt("defaultStringType")
+
+  /** The number of fractional-second digits (0 to 6) of the TIMESTAMP and TIME columns that Slick creates.
+    * MySQL rounds a value to the precision of its column, and a column without a precision stores whole
+    * seconds. */
+  protected lazy val defaultFractionalSecondsPrecision: Int =
+    profileConfig.getIntOpt("defaultFractionalSecondsPrecision").getOrElse(6)
+
+  /** Appends [[defaultFractionalSecondsPrecision]] to a TIMESTAMP or TIME type name, unless it is 0. */
+  private def withFractionalSeconds(typeName: String): String =
+    if (defaultFractionalSecondsPrecision == 0) typeName
+    else s"$typeName($defaultFractionalSecondsPrecision)"
 
   class MySQLResolveZipJoins extends ResolveZipJoins {
     // MySQL does not support ROW_NUMBER() but you can manually increment a variable in the SELECT
@@ -261,6 +279,9 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
             "VARCHAR"
           else if (ti == columnTypes.bigDecimalJdbcType)
             "DECIMAL"
+          // The JDBC convert escape only takes plain type names, without a fractional-seconds precision
+          else if (ti.sqlType == java.sql.Types.TIMESTAMP || ti.sqlType == java.sql.Types.TIME)
+            JdbcTypesComponent.typeNames(ti.sqlType)
           else
             ti.sqlTypeName(None)
         b"\({fn convert(!$ch,$tn)}\)"
@@ -356,10 +377,18 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
   }
 
   class MySQLColumnDDLBuilder(column: FieldSymbol) extends ColumnDDLBuilder(column) {
+    /** Whether the column type is TIMESTAMP, with or without a fractional-seconds precision. Unless MySQL's
+      * explicit_defaults_for_timestamp is on, such a column is NOT NULL unless it is declared NULL. */
+    private def isTimestamp: Boolean = {
+      val upper = sqlType.toUpperCase
+
+      upper == "TIMESTAMP" || upper.startsWith("TIMESTAMP(")
+    }
+
     override protected def appendOptions(sb: StringBuilder): Unit = {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
-      else if(sqlType.toUpperCase == "TIMESTAMP") sb append " NULL"
+      else if (isTimestamp) sb append " NULL"
       if(autoIncrement) sb append " AUTO_INCREMENT"
       if(primaryKey) sb append " PRIMARY KEY"
       if( unique ) sb append " UNIQUE"
