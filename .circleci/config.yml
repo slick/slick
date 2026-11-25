@@ -1,0 +1,42 @@
+# Scala CircleCI 2.0 configuration file
+# See: https://circleci.com/docs/2.0/sample-config/
+version: 2
+
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+jobs:
+  build:
+    machine:
+      image: ubuntu-2004:current
+
+    working_directory: ~/repo
+
+    environment:
+      # Customize the JVM maximum heap limit
+      JVM_OPTS: -Xmx3200m
+      TERM: dumb
+      SLICK_TESTKIT_CONFIG: test-dbs/testkit.github-actions.conf
+      TZ: Asia/Kamchatka
+
+    # Add steps to the job
+    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+    steps:
+      - checkout
+
+      - run: docker-compose up -d
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "project/Dependencies.scala" }}
+            - v1-dependencies-
+
+      - run: sbt Test/compile
+
+      - save_cache:
+          paths:
+            - ~/.cache/coursier
+          key: v1-dependencies-{{ checksum "project/Dependencies.scala" }}
+
+      # run tests!
+      - run: sbt test
