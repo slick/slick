@@ -2,6 +2,7 @@ package com.typesafe.slick.docs
 
 //#imports
 import slick.jdbc.H2Profile
+import slick.jdbc.H2Profile.api.*
 //#imports
 
 import slick.cats.Database

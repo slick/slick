@@ -12,7 +12,10 @@ trait SqlProfile extends RelationalProfile with SqlTableComponent with SqlAction
   /* internal: */ with SqlUtilsComponent {
 
   override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.sqlPhases
-  override protected def computeCapabilities = super.computeCapabilities ++ SqlCapabilities.all
+
+  trait SqlAPI extends RelationalAPI with SqlCapabilities.All
+
+  val api: SqlAPI
 
   type SchemaDescription = DDL
 

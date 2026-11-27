@@ -1,5 +1,6 @@
 package slick.jdbc
 
+import slick.basic.Capability
 import slick.dbio.DBIO
 import slick.jdbc.meta.MTable
 import slick.model.Model
@@ -11,7 +12,7 @@ trait JdbcModelComponent { self: JdbcProfile =>
   /** Gets the Slick data model describing this data source
     * @param tables used to build the model, uses defaultTables if None given
     * @param ignoreInvalidDefaults logs unrecognized default values instead of throwing an exception */
-  def createModel(tables: Option[DBIO[Seq[MTable]]] = None, ignoreInvalidDefaults: Boolean = true): DBIO[Model] = {
+  def createModel(tables: Option[DBIO[Seq[MTable]]] = None, ignoreInvalidDefaults: Boolean = true)(implicit cap: Capability.ForProfile[self.type, JdbcCapabilities.createModel.type]): DBIO[Model] = {
     val tablesA = tables.getOrElse(defaultTables)
     tablesA.flatMap(t => createModelBuilder(t, ignoreInvalidDefaults).buildModel)
   }

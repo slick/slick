@@ -8,7 +8,6 @@ import java.util.UUID
 
 import slick.SlickException
 import slick.ast.*
-import slick.basic.Capability
 import slick.compiler.{CompilerState, Phase}
 import slick.dbio.*
 import slick.jdbc.meta.{MColumn, MTable}
@@ -39,11 +38,12 @@ import slick.util.QueryInterpolator.queryInterpolator
   */
 trait HsqldbProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerStatementSupport {
 
-  override protected def computeCapabilities: Set[Capability] =
-    super.computeCapabilities -
-      SqlCapabilities.sequenceCurr -
-      JdbcCapabilities.insertOrUpdate -
-      JdbcCapabilities.forShare
+  trait ProfileAPI extends JdbcAPI {
+    override val sequenceCurrCap = deregister(SqlCapabilities.sequenceCurr)
+    override val insertOrUpdateCap = deregister(JdbcCapabilities.insertOrUpdate)
+    override val forShareCap = deregister(JdbcCapabilities.forShare)
+  }
+  override val api: ProfileAPI = new ProfileAPI {}
 
   class HsqldbModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)
     extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {

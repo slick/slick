@@ -56,8 +56,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
     seq(
       ts.schema.create,
       ts += (1, Some(Array[Byte](6,7))),
-      ifCap(rcap.setByteArrayNull)(ts += (2, None)),
-      ifNotCap(rcap.setByteArrayNull)(ts.map(_.id) += 2),
+      ts += (2, None),
       ts.result.map(_.map { case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet).map(_ shouldBe Set((1,"67"), (2,"")))
     )
   }
