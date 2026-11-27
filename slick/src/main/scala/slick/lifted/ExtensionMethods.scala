@@ -105,7 +105,11 @@ final class BooleanColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal wit
     om.column(Library.And, n, b.toNode)
   def ||[P2, R](b: Rep[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
     om.column(Library.Or, n, b.toNode)
-  def unary_! = Library.Not.column[P1](n)
+  /** The result is a plain Boolean even when the operand's column type maps Boolean to something else */
+  def unary_! = Library.Not.column[P1](n)((p1Type match {
+    case _: OptionType => b1Type.optionType
+    case _ => b1Type
+  }).asInstanceOf[TypedType[P1]])
 }
 
 /** Extension methods for `Rep[String]` and `Rep[Option[String]]` */

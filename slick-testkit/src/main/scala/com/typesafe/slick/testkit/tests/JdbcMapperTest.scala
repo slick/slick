@@ -616,4 +616,26 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       q.result.map(_ shouldBe Seq((1, (Some(Index(4)), true)), (2, (None, true)), (3, (None, false))))
     )
   }
+
+  /** A Boolean column stored as 'Y'/'N' works as a condition and as an operand of boolean operators */
+  def testBooleanMappedToStringInBooleanExpressions = {
+    class Tasks(tag: Tag) extends Table[(Int, Boolean)](tag, "tasks_yes_no") {
+      implicit val yesNo: BaseColumnType[Boolean] =
+        MappedColumnType.base[Boolean, String](b => if (b) "Y" else "N", _ == "Y")
+      def id = column[Int]("id")
+      def done = column[Boolean]("done")
+      def * = (id, done)
+    }
+    val tasks = TableQuery[Tasks]
+
+    seq(
+      tasks.schema.create,
+      tasks ++= Seq((1, true), (2, false), (3, true)),
+      tasks.filter(_.done).sortBy(_.id).map(_.id).result.map(_ shouldBe Seq(1, 3)),
+      tasks.filterNot(_.done).map(_.id).result.map(_ shouldBe Seq(2)),
+      tasks.filter(t => t.done && t.id > 1).map(_.id).result.map(_ shouldBe Seq(3)),
+      tasks.sortBy(_.id).map(t => Case.If(t.done).Then("done").Else("open")).result.map(_ shouldBe Seq("done", "open", "done")),
+      tasks.sortBy(_.id).map(t => !t.done).result.map(_ shouldBe Seq(false, true, false))
+    )
+  }
 }
