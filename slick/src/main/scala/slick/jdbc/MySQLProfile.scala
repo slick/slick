@@ -120,6 +120,23 @@ trait MySQLProfile extends JdbcProfile with JdbcActionComponent.MultipleRowsPerS
     }
 
     class MySQLColumnBuilder(tableBuilder: TableBuilder, meta: MColumn) extends ColumnBuilder(tableBuilder, meta) {
+      override def dbType: Option[String] = {
+        // Connector/J leaves DECIMAL_DIGITS null for temporal columns. COLUMN_SIZE
+        // includes the base display width and, for fractional seconds, a dot and n digits.
+        val baseWidth = (meta.sqlType, meta.typeName.toUpperCase(java.util.Locale.ROOT)) match {
+          case (java.sql.Types.TIME, "TIME") => Some(8)
+          case (java.sql.Types.TIMESTAMP, "TIMESTAMP" | "DATETIME") => Some(19)
+          case _ => None
+        }
+        val precision = for {
+          base <- baseWidth
+          size <- meta.size
+          digits = if(size == base) 0 else size - base - 1
+          if size == base || (digits >= 1 && digits <= 6)
+        } yield digits
+        precision.map(n => s"${meta.typeName}($n)").orElse(super.dbType)
+      }
+
       override def default = meta.columnDef.map((_,tpe)).collect{
         case (v,"String")    => Some(Some(v))
         case ("1"|"b'1'", "Boolean") => Some(Some(true))
