@@ -18,3 +18,6 @@ run SQL or Java against a database.
 
 [sbt integration](https://github.com/sbt/flyway-sbt) is available. Other tools that run SQL migrations, such as
 [Liquibase](https://www.liquibase.com/), work with Slick as well.
+
+Flyway's Java-based migrations receive a connection that Flyway owns, often with a Flyway transaction open on it.
+To write such a migration with Slick, see @ref:[Using a Connection Someone Else Owns](database.md#using-a-connection-someone-else-owns).
