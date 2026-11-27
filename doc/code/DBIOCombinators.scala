@@ -1,17 +1,36 @@
 package com.typesafe.slick.docs
 
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 
+import slick.cats.Database
+import slick.jdbc.DatabaseConfig
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
 
 object DBIOCombinators {
   def main(args: Array[String]): Unit = {
+    // A database of its own, so that a failed check cannot leave tables behind for the other doctests
+    val dc = DatabaseConfig.forURL(H2Profile, "jdbc:h2:mem:dbiocombinators", driver = "org.h2.Driver", keepAliveConnection = true)
+    val (db, closeDb) = Database.resource(dc).allocated.unsafeRunSync()
+    try runExamples(db)
+    finally closeDb.unsafeRunSync()
+  }
+
+  private def runExamples(db: Database): Unit = {
     class Coffees(tag: Tag) extends Table[(String, Double)](tag, "COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
       def price = column[Double]("PRICE")
       def * = (name, price)
     }
     val coffees = TableQuery[Coffees]
+
+    // The checks after each example run its actions and check what the manual says about them
+    def run[R](a: DBIOAction[R, NoStream, Nothing]): R = db.run(a).unsafeRunSync()
+    def names(): Set[String] = run(coffees.map(_.name).result).toSet
+    def reset(): Unit = run(coffees.delete): Unit
+
+    run(coffees.schema.create)
     ;{
       //#combinators1
       val ins1: DBIO[Int] = coffees += ("Colombian", 7.99)
@@ -34,7 +53,23 @@ object DBIOCombinators {
         }
       //#flatMap
 
-      ()
+      // DBIO.seq discards the results, andThen keeps the second one, zip both, DBIO.sequence all of them
+      assert(run(a1) == ())
+      assert(names() == Set("Colombian", "French_Roast"))
+      reset()
+      assert(run(a2) == 1)
+      assert(names() == Set("Colombian", "French_Roast"))
+      reset()
+      assert(run(a3) == ((1, 1)))
+      reset()
+      assert(run(a4) == Vector(1, 1))
+      reset()
+
+      // The insert runs only if the row is missing
+      assert(run(insertIfMissing))
+      assert(!run(insertIfMissing))
+      assert(run(coffees.filter(_.name === "Colombian").length.result) == 1)
+      reset()
     }
     ;{
       //#defer
@@ -46,7 +81,20 @@ object DBIOCombinators {
       }
       //#defer
 
-      ()
+      // The block runs each time the action runs, not when it is built
+      assert(attempts == 0)
+      run(countedInsert)
+      run(countedInsert)
+      assert(attempts == 2)
+      assert(names() == Set("Attempt 1", "Attempt 2"))
+      reset()
+
+      // An exception thrown by the block fails the action instead of the code that builds it
+      val failing: DBIO[Int] = DBIO.defer[Int, NoStream, Effect](throw new IllegalStateException("boom"))
+      db.run(failing).attempt.unsafeRunSync() match {
+        case Left(e: IllegalStateException) => assert(e.getMessage == "boom")
+        case other                          => throw new AssertionError(s"Expected the action to fail with boom, got $other")
+      }
     }
     ;{
       //#cats
@@ -70,7 +118,9 @@ object DBIOCombinators {
       } yield (n.sum, c)
       //#cats
 
-      ()
+      // Two rows from inserts, two from rows (whose |+| adds their row counts); 4 rows, 2 of them over 8.0
+      assert(run(program) == ((2, (4, 2))))
+      assert(names() == Set("Colombian", "French_Roast", "Java", "Espresso"))
     }
   }
 }
